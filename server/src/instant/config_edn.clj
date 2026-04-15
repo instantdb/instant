@@ -48,6 +48,7 @@
 (s/def ::google-oauth-client ::oauth-client)
 (s/def ::instant-config-app-id uuid?)
 (s/def ::kms-key-url string?)
+(s/def ::rate-limit-hmac-key ::config-value)
 
 (s/def ::encrypted? boolean?)
 (s/def ::json string?)
@@ -59,6 +60,7 @@
 (s/def ::hybrid-keyset (s/keys :req-un [::kms-key-url
                                         ::json
                                         ::public-key-json]))
+
 
 (s/def ::config (s/keys :opt-un [::instant-config-app-id
                                  ::cloudfront-signing-key
@@ -75,7 +77,8 @@
                                  ::honeycomb-api-key
                                  ::posthog-api-key
                                  ::google-oauth-client
-                                 ::hybrid-keyset]
+                                 ::hybrid-keyset
+                                 ::rate-limit-hmac-key]
                         :req-un [::aead-keyset]))
 
 ;; Prod config is more restrictive because we don't want to accidentally
@@ -93,7 +96,8 @@
                                       ::stripe-webhook-secret
                                       ::honeycomb-api-key
                                       ::google-oauth-client
-                                      ::hybrid-keyset]
+                                      ::hybrid-keyset
+                                      ::rate-limit-hmac-key]
                              :opt-un [::instant-config-app-id
                                       ::next-database-cluster-id]))
 

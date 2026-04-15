@@ -1,5 +1,5 @@
 create table rate_limit_keys (
-  key bytea primary key,
+  key uuid primary key,
   value bytea not null,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()

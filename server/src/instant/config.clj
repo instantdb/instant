@@ -9,7 +9,8 @@
             [lambdaisland.uri.normalize :as normalize])
   (:import
    (java.net InetAddress)
-   (java.time ZoneId ZonedDateTime)))
+   (java.time ZoneId ZonedDateTime)
+   (javax.crypto.spec SecretKeySpec)))
 
 (defonce hostname
   (delay
@@ -72,6 +73,14 @@
                                         crypt-util/hybrid-decrypt
                                         (aws-env?)
                                         (config-edn/read-config (get-env))))))
+
+(def rate-limit-hmac-secret
+  (delay (SecretKeySpec. (or (some-> @config-map
+                                     :rate-limit-hmac-key
+                                     crypt-util/secret-value
+                                     crypt-util/hex-string->bytes)
+                             (crypt-util/random-bytes 32))
+                         "HmacSHA256")))
 
 (defn instant-config-app-id []
   (-> @config-map :instant-config-app-id))

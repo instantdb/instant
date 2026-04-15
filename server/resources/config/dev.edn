@@ -34,6 +34,8 @@
  :google-oauth-client {:client-id "785415128641-ccl4op4i0h9hfgietklpaqe2jqc4v90r.apps.googleusercontent.com"
                        :client-secret {:enc "01761259c7ce11373e60e945f959c3071c0e56efd173ec83dfac673d658f08f54ff4e2097e57deef55953e8dc200b895a5e64609be8c1ce67fec4968eeb283708ce43dc3ea72976583858dcaa64fb93f675ace50c77dc9b5"}}
 
+ :rate-limit-hmac-key {:enc "01761259c7425892fa512a1f194ef5e8164573813d6811065607efd8a920ef192c18b77c3a071d3bded54f3cdf5a7be54b6263532aeaf0daa3f28d1e5092d3176069a3d7423762461878ef11ca27dcf2851af51fd0e64ae48575ceea47b7d339becfcc430a2135e021eb6994737c9f7f725f4df594"}
+
  :database-url "jdbc:postgresql://localhost:5432/instant"
 
  :instant-config-app-id #uuid "24a4d71b-7bb2-4630-9aee-01146af26239"}

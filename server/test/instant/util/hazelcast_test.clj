@@ -52,21 +52,3 @@
            (update (->> (.write serializer start)
                         (.read serializer))
                    :sse-token-hash crypt-util/bytes->hex-string)))))
-
-(deftest cache-keys-roundtrip
-  (testing "create-magic-code"
-    (let [start (rate-limit/->CreateMagicCodeKey (rate-limit/magic-code-key-hash
-                                                  "create"
-                                                  (random-uuid)
-                                                  "hello@example.com"))
-          serializer h/create-magic-code-key-serializer]
-      (is (= start (->> (.write serializer start)
-                        (.read serializer))))))
-  (testing "consume-magic-code"
-    (let [start (rate-limit/->ConsumeMagicCodeKey (rate-limit/magic-code-key-hash
-                                                   "consume"
-                                                   (random-uuid)
-                                                   "hello@example.com"))
-          serializer h/consume-magic-code-key-serializer]
-      (is (= start (->> (.write serializer start)
-                        (.read serializer)))))))

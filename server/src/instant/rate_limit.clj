@@ -1,10 +1,10 @@
 (ns instant.rate-limit
   (:require
    [chime.core :as chime]
+   [instant.config :as config]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.util.defrecord :refer [defrecord-once]]
    [instant.util.exception :as ex]
    [instant.util.hsql :as uhsql]
    [instant.util.tracer :as tracer]
@@ -17,16 +17,12 @@
    (io.github.bucket4j Bandwidth Bucket BucketConfiguration)
    (io.github.bucket4j.grid.hazelcast Bucket4jHazelcast)
    (java.lang AutoCloseable)
-   (java.security MessageDigest)
    (java.time Duration Instant)
+   (java.util HashMap UUID)
+   (javax.crypto Mac)
    (org.postgresql.util PGInterval)))
 
 ;; Bucket4j docs: https://bucket4j.com/8.17.0/toc.html
-
-;; TODO(dww); Remove once backend is fully deployed
-(defrecord-once CreateMagicCodeKey [^bytes key-bytes])
-
-(defrecord-once ConsumeMagicCodeKey [^bytes key-bytes])
 
 (defn create-rate-limit-config [capacity]
   (.. (BucketConfiguration/builder)
@@ -43,49 +39,81 @@
 ;; but keeps the most recent values cached in hazelcast.
 ;; We could also delegate to an s3 directory bucket if this puts too much pressure
 ;; on the database.
+(defn load-all-keys
+  "Returns the last 1000 keys from the database.
+   Hazelcast will call this to preload the map."
+  []
+  (->>
+   (sql/select-arrays ::load-all-keys
+                      (aurora/conn-pool :read)
+                      ["select key from rate_limit_keys order by updated_at desc limit 1000"])
+   (rest) ;; remove header
+   (map first)))
+
+(defn load-all
+  "Takes a collection of keys and returns a hash-map with those keys.
+   Hazelcast will call this if it does a batched load."
+  [ks]
+  (let [m (HashMap.)
+        rows (sql/select-arrays ::load-all
+                                (aurora/conn-pool :read)
+                                ["select key, value from rate_limit_keys where key = ANY(?::uuid[])"
+                                 (with-meta (vec ks) {:pgtype "uuid[]"})])]
+    ;; First row is the header
+    (doseq [[k v] (rest rows)]
+      (.put m k v))
+    m))
+
+(defn load-key
+  "Returns the value single key, returning null if it does not exist"
+  [^UUID k]
+  (-> (sql/select-arrays ::load
+                         (aurora/conn-pool :read)
+                         ["select value from rate_limit_keys where key = ?" k])
+      second ;; remove header row
+      first))
+
+(defn delete-key [^UUID k]
+  (sql/do-execute! ::delete
+                   (aurora/conn-pool :write)
+                   ["delete from rate_limit_keys where key = ?" k]))
+
+(defn delete-all [ks]
+  (sql/do-execute! ::delete-all
+                   (aurora/conn-pool :write)
+                   ["delete from rate_limit_keys where key = ANY(?)"
+                    (with-meta (vec ks) {:pgtype "uuid[]"})]))
+
+(defn store-key [^UUID k ^bytes v]
+  (sql/do-execute! ::store
+                   (aurora/conn-pool :write)
+                   ["insert into rate_limit_keys (key, value) values (?, ?) on conflict (key) do update set value = excluded.value"
+                    k v]))
+
+(defn store-all [m]
+  (sql/do-execute! ::store
+                   (aurora/conn-pool :write)
+                   ["insert into rate_limit_keys (key, value) values (unnest(?::uuid[]), unnest(?::bytea[]))
+                       on conflict (key) do update set value = excluded.value"
+                    (with-meta (keys m) {:pgtype "uuid[]"})
+                    (with-meta (vals m) {:pgtype "bytea[]"})]))
+
 (defn map-store []
   (reify MapStore
     (loadAllKeys [_]
-      (->>
-       (sql/select-arrays ::loadAllKeys
-                          (aurora/conn-pool :read)
-                          ["select key from rate_limit_keys order by updated_at desc limit 1000"])
-       (rest) ;; remove header
-       (map first)))
+      (load-all-keys))
     (loadAll [_ ks]
-      (->>
-       (sql/select-arrays ::loadAll
-                          (aurora/conn-pool :read)
-                          ["select key, value from rate_limit_keys where key = ANY(?::bytea[])"
-                           (with-meta (vec ks) {:pgtype "bytea[]"})])
-       (rest) ;; remove header
-       (into {})))
+      (load-all ks))
     (load [_ k]
-      (-> (sql/select-arrays ::load
-                             (aurora/conn-pool :read)
-                             ["select value from rate_limit_keys where key = ?" k])
-          second ;; remove header row
-          first))
+      (load-key k))
     (delete [_ k]
-      (sql/do-execute! ::delete
-                       (aurora/conn-pool :write)
-                       ["delete from rate_limit_keys where key = ?" k]))
+      (delete-key k))
     (deleteAll [_ ks]
-      (sql/do-execute! ::deleteAll
-                       (aurora/conn-pool :write)
-                       ["delete from rate_limit_keys where key = ANY(?)"
-                        (with-meta (vec ks) {:pgtype "bytea[]"})]))
+      (delete-all ks))
     (store [_ k v]
-      (sql/do-execute! ::store
-                       (aurora/conn-pool :write)
-                       ["insert into rate_limit_keys (key, value) values (?, ?) on conflict (key) do update set value = excluded.value"
-                        k v]))
+      (store-key k v))
     (storeAll [_ m]
-      (sql/do-execute! ::store
-                       (aurora/conn-pool :write)
-                       ["insert into rate_limit_keys (key, value) values (unnest(?::bytea[]), unnest(?::bytea[])) on conflict (key) do update set value = excluded.value"
-                        (with-meta (keys m) {:pgtype "bytea[]"})
-                        (with-meta (vals m) {:pgtype "bytea[]"})]))))
+      (store-all m))))
 
 (defn initialize
   "Sets up bucket4j to use hazelcast.
@@ -93,7 +121,7 @@
    get-bucket will return a bucket4j bucket that can be used to rate-limit
    by calling .tryConsume on it."
   [^HazelcastInstance hz]
-  (let [map-name "bucket4j"
+  (let [map-name "bucket4j-2"
         eviction-config (.. (EvictionConfig.)
                             (setEvictionPolicy EvictionPolicy/LRU)
                             (setMaxSizePolicy MaxSizePolicy/PER_NODE)
@@ -115,7 +143,7 @@
             (.setEvictionConfig eviction-config)
             (.setMaxIdleSeconds (* 60 60)) ;; one hour
             (.setMapStoreConfig map-store-config))
-        bucket-map (.getMap hz "bucket4j")
+        bucket-map (.getMap hz map-name)
         manager (.. (Bucket4jHazelcast/entryProcessorBasedBuilder bucket-map)
                     (build))
         capacity (flags/magic-code-rate-limit-per-hour)
@@ -142,12 +170,19 @@
      :get-bucket-with-config (fn [key config-fn]
                                (.getProxy manager key config-fn))}))
 
-(defn magic-code-key-hash ^bytes [^String type app-id ^String email]
-  (let [digest (MessageDigest/getInstance "SHA-256")]
+(defn magic-code-key-hash
+  "Generates a 128-bit hash of the inputs in the form of a UUID.
+   Takes the first 128 bits of the hmac-sha256 of the inputs to construct the UUID."
+  ^UUID [^String type app-id ^String email]
+  (let [digest (Mac/getInstance "HmacSHA256")]
+    (.init digest @config/rate-limit-hmac-secret)
     (.update digest (.getBytes type "UTF-8"))
     (.update digest (uuid-util/->bytes app-id))
     (.update digest (.getBytes email "UTF-8"))
-    (.digest digest)))
+    ;; Put the capacity in the key so that the new rate limit will take effect
+    ;; for keys already in the bucket.
+    (.update digest (nippy/fast-freeze (flags/magic-code-rate-limit-per-hour)))
+    (uuid-util/<-bytes (.doFinal digest))))
 
 (defn try-consume-create-magic-code
   "Takes (hz/rate-limit) and app-id + email, will return false if the rate-limit is exceeded.
@@ -233,8 +268,11 @@
     (rules-rate-limit-config->bucket-config config)))
 
 (defn user-key-hash
-  ^bytes [app-id ^String bucket-name config bucket-key]
-  (let [digest (MessageDigest/getInstance "SHA-256")]
+  "Generates a 128-bit hash of the inputs in the form of a UUID.
+   Takes the first 128 bits of the hmac-sha256 of the inputs to construct the UUID."
+  ^UUID [app-id ^String bucket-name config bucket-key]
+  (let [digest (Mac/getInstance "HmacSHA256")]
+    (.init digest @config/rate-limit-hmac-secret)
     (.update digest (.getBytes "user" "UTF-8"))
     (.update digest (uuid-util/->bytes app-id))
     (.update digest (.getBytes bucket-name "UTF-8"))
@@ -243,7 +281,7 @@
     ;; the config for every bucket, but it's not cheap or easy
     (.update digest (nippy/fast-freeze config))
     (.update digest (nippy/fast-freeze bucket-key))
-    (.digest digest)))
+    (uuid-util/<-bytes (.doFinal digest))))
 
 (defn try-consume-user-rate-limit
   [{:keys [get-bucket-with-config]}
