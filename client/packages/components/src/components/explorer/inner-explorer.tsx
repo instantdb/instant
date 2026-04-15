@@ -68,7 +68,11 @@ import {
   IconButton,
   Select,
 } from '@lib/components/ui';
-import { SearchFilter, useNamespacesQuery } from '@lib/hooks/explorer';
+import {
+  SearchFilter,
+  resolveFilters,
+  useNamespacesQuery,
+} from '@lib/hooks/explorer';
 import { useColumnVisibility } from '@lib/hooks/useColumnVisibility';
 import { useLocalStorage } from '@lib/hooks/useLocalStorage';
 import { SchemaAttr, SchemaNamespace } from '@lib/types';
@@ -298,7 +302,7 @@ export const InnerExplorer: React.FC<{
     db,
     selectedNamespace,
     currentNav?.where,
-    currentNav?.filters || searchFilters,
+    resolveFilters(currentNav?.where, currentNav?.filters, searchFilters),
     limit,
     offset,
     sortAttr,
@@ -1008,7 +1012,16 @@ export const InnerExplorer: React.FC<{
               </Button>
               <SearchInput
                 key={selectedNamespaceId}
-                onSearchChange={(filters) => setSearchFilters(filters)}
+                onSearchChange={(filters) => {
+                  setSearchFilters(filters);
+                  history.push(
+                    (prev) => ({
+                      ...prev!,
+                      filters: filters.length ? filters : undefined,
+                    }),
+                    true,
+                  );
+                }}
                 attrs={selectedNamespace?.attrs}
                 initialFilters={currentNav?.filters || []}
               />
