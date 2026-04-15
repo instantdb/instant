@@ -1454,8 +1454,8 @@
                                               :java-args [RateLimitBucket Object Long]
                                               :impl (fn [[^RateLimitBucket b ^Object k ^Long tokens]]
                                                       (swap! *where-rate-limits*
-                                                             update-in {:bucket b
-                                                                        :bucket-key k} (fnil + 0) tokens))}])])
+                                                             update {:bucket b
+                                                                     :bucket-key k} (fnil + 0) tokens))}])])
 (def where-custom-fns (-> [where-ref-fn
                            or-overloads
                            and-overloads
