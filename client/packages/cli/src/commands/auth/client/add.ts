@@ -228,7 +228,9 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
 
   if (appType === 'web') {
     yield* Effect.log(
-      `Add this redirect URI in Google Console: ${redirectUri}`,
+      chalk.bold(
+        `\nAdd this redirect URI in Google Console:\n${redirectUri}\n`,
+      ),
     );
 
     if (customRedirectUri) {

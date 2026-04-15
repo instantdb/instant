@@ -142,7 +142,7 @@ export const authClientListDef = authClient
             coerceAuth: false,
             appId: opts.app,
             allowAdminToken: true,
-          }),
+          }).pipe(Layer.annotateLogs('silent', true)),
         ),
       ),
     );

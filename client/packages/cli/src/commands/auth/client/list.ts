@@ -37,14 +37,5 @@ export const authClientListCmd = Effect.fn(function* (
     yield* Effect.log(`  ID: ${client.id}`);
     yield* Effect.log(`  Client id: ${formatValue(client.client_id)}`);
     yield* Effect.log(`  Redirect URL: ${formatValue(client.redirect_to)}`);
-    yield* Effect.log(
-      `  Discovery endpoint: ${formatValue(client.discovery_endpoint)}`,
-    );
-    yield* Effect.log(
-      `  Authorization endpoint: ${formatValue(client.authorization_endpoint)}`,
-    );
-    yield* Effect.log(
-      `  Token endpoint: ${formatValue(client.token_endpoint)}`,
-    );
   }
 });
