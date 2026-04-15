@@ -294,9 +294,7 @@
 
 (definterface IRateLimitBucket
   ^boolean (limit [bucket-key])
-  ^boolean (limit [bucket-key tokens])
-  ^boolean (tryLimit [bucket-key])
-  ^boolean (tryLimit [bucket-key tokens]))
+  ^boolean (limit [bucket-key tokens]))
 
 (deftype RateLimitBucket [app-id bucket-name config]
   IRateLimitBucket
@@ -313,22 +311,7 @@
                                          :bucket-name bucket-name
                                          :config config
                                          :bucket-key bucket-key
-                                         :tokens tokens}))
-
-  (tryLimit [_ bucket-key]
-    (rate-limit/try-consume-user-rate-limit (eph/get-rate-limit)
-                                            {:app-id app-id
-                                             :bucket-name bucket-name
-                                             :config config
-                                             :bucket-key bucket-key
-                                             :tokens 1}))
-  (tryLimit [_ bucket-key tokens]
-    (rate-limit/try-consume-user-rate-limit (eph/get-rate-limit)
-                                            {:app-id app-id
-                                             :bucket-name bucket-name
-                                             :config config
-                                             :bucket-key bucket-key
-                                             :tokens tokens})))
+                                         :tokens tokens})))
 
 (json/add-encoder RateLimitBucket (fn [^RateLimitBucket bucket jg]
                                     (json/encode-java-map {"bucket" (.bucket_name bucket)
@@ -404,21 +387,7 @@
                                         :cel-return-type SimpleType/BOOL
                                         :java-args [RateLimitBucket Object Long]
                                         :impl (fn [[^RateLimitBucket b ^Object k ^Long tokens]]
-                                                (.limit b k tokens))}])
-                     (member-overload "tryLimit"
-                                      [{:overload-id "_rateLimit_try_limit"
-                                        :cel-args [rate-limit-bucket-cel-type SimpleType/DYN]
-                                        :cel-return-type SimpleType/BOOL
-                                        :java-args [RateLimitBucket Object]
-                                        :impl (fn [[^RateLimitBucket b ^Object k]]
-                                                (.tryLimit b k))}])
-                     (member-overload "tryLimit"
-                                      [{:overload-id "_rateLimit_try_limit_tokens"
-                                        :cel-args [rate-limit-bucket-cel-type SimpleType/DYN SimpleType/INT]
-                                        :cel-return-type SimpleType/BOOL
-                                        :java-args [RateLimitBucket Object Long]
-                                        :impl (fn [[^RateLimitBucket b ^Object k ^Long tokens]]
-                                                (.tryLimit b k tokens))}])])
+                                                (.limit b k tokens))}])])
 
 (def get-time-decl {:overload-id "_getTime"
                     :cel-args [SimpleType/TIMESTAMP]
