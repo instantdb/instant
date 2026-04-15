@@ -101,10 +101,9 @@ export const authClientAddDef = authClient
     `
 Provider Specific Options:
   Google:
-   --appType       web|ios|android|button-for-web
-   --client-id                          (web only)
+   --app-type       web|ios|android|button-for-web
+   --client-id
    --client-secret                      (web only)
-   --skip-nonce-checks       (iOS and Android only)
    --custom-redirect-uri       (optional, web only)
 `,
   )

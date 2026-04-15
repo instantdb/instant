@@ -68,6 +68,7 @@ export const optOrPrompt = (
   params: {
     required: boolean;
     skipMessage?: string;
+    customMissingMessage?: string;
     simpleName: string;
     skipIf: boolean;
     prompt: UI.TextInputProps;
@@ -92,7 +93,9 @@ export const optOrPrompt = (
       if (params.required) {
         if (!value) {
           return yield* BadArgsError.make({
-            message: `Missing required value for ${params.simpleName}`,
+            message:
+              params.customMissingMessage ??
+              `Missing required value for ${params.simpleName}`,
           });
         }
         if (typeof value !== 'string') {

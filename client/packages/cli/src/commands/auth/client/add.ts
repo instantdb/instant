@@ -4,7 +4,6 @@ import { BadArgsError } from '../../../errors.ts';
 import { GlobalOpts } from '../../../context/globalOpts.ts';
 import {
   optOrPrompt,
-  optOrPromptBoolean,
   runUIEffect,
   stripFirstBlankLine,
   validateRequired,
@@ -39,10 +38,6 @@ const GoogleAppTypeSchema = Schema.Literal(
   'button-for-web',
 );
 
-const isNativeAppType = (
-  appType: typeof GoogleAppTypeSchema.Type,
-): appType is 'ios' | 'android' => appType === 'ios' || appType === 'android';
-
 const selectGoogleAppType = (value: unknown) =>
   Effect.gen(function* () {
     const { yes } = yield* GlobalOpts;
@@ -51,7 +46,7 @@ const selectGoogleAppType = (value: unknown) =>
       Effect.catchTag('NoSuchElementException', () => {
         if (yes) {
           return BadArgsError.make({
-            message: `Missing required value for: App type. Expected one of: ${GoogleAppTypeSchema.literals.join(', ')}`,
+            message: `Missing required value for --app-type. Expected one of: ${GoogleAppTypeSchema.literals.join(', ')}`,
           });
         }
 
@@ -84,12 +79,13 @@ const selectGoogleAppType = (value: unknown) =>
       Effect.catchTag('ParseError', () =>
         BadArgsError.make({
           message:
-            'Invalid app type, must be one of: web, ios, android, button-for-web',
+            'Invalid app-type, must be one of: web, ios, android, button-for-web',
         }),
       ),
     );
   });
 
+// If user has clients google-web-1 and google-web-2, it will provide google-web-3
 const findName = (prefix: string, used: Set<string>) => {
   if (!used.has(prefix)) {
     return prefix;
@@ -120,7 +116,7 @@ const getOrCreateProvider = Effect.fn(function* (
 });
 
 const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
-  const appType = yield* selectGoogleAppType(opts.appType);
+  const appType = yield* selectGoogleAppType(opts['app-type']);
   const { auth, provider } = yield* getOrCreateProvider('google');
   const usedClientNames = new Set(
     (auth.oauth_clients ?? []).map((client) => client.client_name),
@@ -136,6 +132,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
       defaultValue: suggestedClientName,
       placeholder: suggestedClientName,
       validate: validateRequired,
+      modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
     },
   });
 
@@ -146,22 +143,31 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
   }
 
   const clientId = yield* optOrPrompt(opts['client-id'], {
-    simpleName: '--clientId',
+    simpleName: '--client-id',
     required: true,
     skipIf: false,
     prompt: {
       prompt: 'Client ID:',
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
       validate: validateRequired,
     },
   });
 
   const clientSecret = yield* optOrPrompt(opts['client-secret'], {
-    required: false,
+    required: appType === 'web',
     skipIf: appType !== 'web',
     simpleName: '--client-secret',
     prompt: {
       prompt: 'Client Secret:',
       validate: validateRequired,
+      sensitive: true,
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
     },
   });
 
@@ -190,16 +196,6 @@ ${chalk.dim('Your URL must forward to https://api.instantdb.com/runtime/oauth/ca
     skipMessage: 'Provided custom redirect URI when not using web app type.',
   });
 
-  const skipNonceChecks = yield* optOrPromptBoolean(opts['skip-nonce-checks'], {
-    required: false,
-    skipIf: isNativeAppType(appType),
-    prompt: {
-      promptText: 'Skip nonce checks?',
-      defaultValue: true,
-    },
-    simpleName: '--skip-nonce-checks',
-  });
-
   if (!clientName) {
     return yield* BadArgsError.make({ message: 'Client name is required.' }); // Should never reach this
   }
@@ -216,7 +212,7 @@ ${chalk.dim('Your URL must forward to https://api.instantdb.com/runtime/oauth/ca
     redirectTo: redirectUri,
     meta: {
       appType,
-      skipNonceChecks,
+      skipNonceChecks: true,
     },
   });
 
@@ -229,59 +225,76 @@ ${chalk.dim('Your URL must forward to https://api.instantdb.com/runtime/oauth/ca
   yield* Effect.log(
     `Google client id: ${response.client.client_id ?? clientId}`,
   );
-  yield* Effect.log(`Add this redirect URI in Google Console: ${redirectUri}`);
 
-  if (customRedirectUri) {
+  if (appType === 'web') {
     yield* Effect.log(
-      `Your custom redirect must forward to ${GOOGLE_DEFAULT_CALLBACK_URL} with all query parameters preserved.`,
+      `Add this redirect URI in Google Console: ${redirectUri}`,
     );
+
+    if (customRedirectUri) {
+      yield* Effect.log(
+        `Your custom redirect must forward to ${GOOGLE_DEFAULT_CALLBACK_URL} with all query parameters preserved.`,
+      );
+    }
   }
 });
 
-export const authClientAddCmd = Effect.fn(function* (
-  opts: OptsFromCommand<typeof authClientAddDef> & Record<string, unknown>,
-) {
-  const { yes } = yield* GlobalOpts;
-  if (!opts.type && yes) {
-    return yield* BadArgsError.make({
-      message: `Missing required value for --type. Expected one of: ${ClientTypeSchema.literals.join(', ')}`,
-    });
-  }
-  const clientType = yield* Option.fromNullable(opts.type).pipe(
-    Effect.catchTag('NoSuchElementException', () =>
-      runUIEffect(
-        new UI.Select({
-          options: [
-            { label: 'Google', value: 'google' },
-            // TODO: implement
-            // { label: 'Apple', value: 'apple' },
-            // { label: 'GitHub', value: 'github' },
-            // { label: 'LinkedIn', value: 'linkedin' },
-            // { label: 'Clerk', value: 'clerk' },
-            // { label: 'Firebase', value: 'firebase' },
-          ],
-          promptText: 'Select a client type:',
-          modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
+export const authClientAddCmd = Effect.fn(
+  function* (
+    opts: OptsFromCommand<typeof authClientAddDef> & Record<string, unknown>,
+  ) {
+    const { yes } = yield* GlobalOpts;
+    if (!opts.type && yes) {
+      return yield* BadArgsError.make({
+        message: `Missing required value for --type. Expected one of: ${ClientTypeSchema.literals.join(', ')}`,
+      });
+    }
+    const clientType = yield* Option.fromNullable(opts.type).pipe(
+      Effect.catchTag('NoSuchElementException', () =>
+        runUIEffect(
+          new UI.Select({
+            options: [
+              { label: 'Google', value: 'google' },
+              // TODO: implement
+              // { label: 'Apple', value: 'apple' },
+              // { label: 'GitHub', value: 'github' },
+              // { label: 'LinkedIn', value: 'linkedin' },
+              // { label: 'Clerk', value: 'clerk' },
+              // { label: 'Firebase', value: 'firebase' },
+            ],
+            promptText: 'Select a client type:',
+            modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
+          }),
+        ),
+      ),
+      Effect.andThen((s) => Schema.decodeUnknown(ClientTypeSchema)(s)),
+      Effect.catchTag('ParseError', () =>
+        BadArgsError.make({
+          message:
+            'Invalid client type, must be one of: google, apple, github, linkedin, clerk, firebase',
         }),
       ),
-    ),
-    Effect.andThen((s) => Schema.decodeUnknown(ClientTypeSchema)(s)),
-    Effect.catchTag('ParseError', () =>
-      BadArgsError.make({
-        message:
-          'Invalid client type, must be one of: google, apple, github, linkedin, clerk, firebase',
-      }),
-    ),
-  );
+    );
 
-  yield* Match.value(clientType).pipe(
-    Match.withReturnType<Effect.Effect<void, any, any>>(),
-    Match.when('google', () => handleGoogleClient(opts)),
-    // Match.when('apple', () => Effect.logError('Not Implemented')),
-    // Match.when('clerk', () => Effect.logError('Not Implemented')),
-    // Match.when('github', () => Effect.logError('Not Implemented')),
-    // Match.when('firebase', () => Effect.logError('Not Implemented')),
-    // Match.when('linkedin', () => Effect.logError('Not Implemented')),
-    Match.exhaustive,
-  );
-});
+    yield* Match.value(clientType).pipe(
+      Match.withReturnType<Effect.Effect<void, any, any>>(),
+      Match.when('google', () => handleGoogleClient(opts)),
+      // Match.when('apple', () => Effect.logError('Not Implemented')),
+      // Match.when('clerk', () => Effect.logError('Not Implemented')),
+      // Match.when('github', () => Effect.logError('Not Implemented')),
+      // Match.when('firebase', () => Effect.logError('Not Implemented')),
+      // Match.when('linkedin', () => Effect.logError('Not Implemented')),
+      Match.exhaustive,
+    );
+  },
+  Effect.catchTag('BadArgsError', (e) =>
+    Effect.gen(function* () {
+      yield* Effect.logError(e.message);
+      yield* Effect.log(
+        chalk.dim(
+          'hint: run `instant-cli auth client add --help` for the list of available arguments',
+        ),
+      );
+    }),
+  ),
+);
