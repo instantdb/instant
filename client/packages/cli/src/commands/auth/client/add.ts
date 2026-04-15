@@ -2,12 +2,17 @@ import { Effect, Match, Option, Schema } from 'effect';
 import type { authClientAddDef, OptsFromCommand } from '../../../index.ts';
 import { BadArgsError } from '../../../errors.ts';
 import { GlobalOpts } from '../../../context/globalOpts.ts';
-import { promptOk, runUIEffect } from '../../../lib/ui.ts';
+import {
+  optOrPrompt,
+  optOrPromptBoolean,
+  runUIEffect,
+  stripFirstBlankLine,
+  validateRequired,
+} from '../../../lib/ui.ts';
 import {
   addOAuthClient,
   addOAuthProvider,
   getAppsAuth,
-  promptForRedirectURI,
 } from '../../../lib/oauth.ts';
 import {
   GOOGLE_AUTHORIZATION_ENDPOINT,
@@ -15,12 +20,6 @@ import {
   GOOGLE_DISCOVERY_ENDPOINT,
   GOOGLE_TOKEN_ENDPOINT,
 } from '@instantdb/platform';
-import {
-  getBooleanFlag,
-  getOptionalStringFlag,
-  invalidFlagError,
-  optOrPrompt,
-} from '../../../lib/ui.ts';
 import { UI } from '../../../ui/index.ts';
 import chalk from 'chalk';
 
@@ -91,28 +90,6 @@ const selectGoogleAppType = (value: unknown) =>
     );
   });
 
-const promptSkipNonceChecks = (value: unknown) =>
-  Effect.gen(function* () {
-    const parsed = yield* getBooleanFlag(value, 'skipNonceChecks');
-    if (parsed !== undefined) return parsed;
-
-    const { yes } = yield* GlobalOpts;
-    if (yes) return true;
-
-    return yield* promptOk(
-      {
-        promptText: 'Skip nonce checks?',
-        yesText: 'Skip',
-        noText: 'Keep',
-        modifyOutput: UI.modifiers.piped([
-          UI.modifiers.topPadding,
-          UI.modifiers.dimOnComplete,
-        ]),
-      },
-      true,
-    );
-  });
-
 const findName = (prefix: string, used: Set<string>) => {
   if (!used.has(prefix)) {
     return prefix;
@@ -126,109 +103,122 @@ const findName = (prefix: string, used: Set<string>) => {
   }
 };
 
-const getOrCreateGoogleProvider = Effect.fn(function* () {
+const getOrCreateProvider = Effect.fn(function* (
+  type: typeof ClientTypeSchema.Type,
+) {
   const auth = yield* getAppsAuth();
   const provider = auth.oauth_service_providers?.find(
-    (entry) => entry.provider_name === 'google',
+    (entry) => entry.provider_name === type,
   );
 
   if (provider) {
     return { auth, provider };
   }
 
-  const created = yield* addOAuthProvider({ providerName: 'google' });
+  const created = yield* addOAuthProvider({ providerName: type });
   return { auth, provider: created.provider };
 });
 
 const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
   const appType = yield* selectGoogleAppType(opts.appType);
-  const { auth, provider } = yield* getOrCreateGoogleProvider();
+  const { auth, provider } = yield* getOrCreateProvider('google');
   const usedClientNames = new Set(
     (auth.oauth_clients ?? []).map((client) => client.client_name),
   );
   const suggestedClientName = findName(`google-${appType}`, usedClientNames);
 
   const clientName = yield* optOrPrompt(opts.name, {
-    prompt: 'Client Name: ',
-    placeholder: suggestedClientName,
-    defaultValue: suggestedClientName,
+    simpleName: '--name',
+    required: true,
+    skipIf: false,
+    prompt: {
+      prompt: 'Client Name:',
+      defaultValue: suggestedClientName,
+      placeholder: suggestedClientName,
+      validate: validateRequired,
+    },
   });
 
-  if (usedClientNames.has(clientName)) {
+  if (usedClientNames.has(clientName || '')) {
     return yield* BadArgsError.make({
       message: `The unique name '${clientName}' is already in use.`,
     });
   }
 
-  const clientId = yield* optOrPrompt(opts.clientId, {
-    prompt: 'Client ID: ',
+  const clientId = yield* optOrPrompt(opts['client-id'], {
+    simpleName: '--clientId',
+    required: true,
+    skipIf: false,
+    prompt: {
+      prompt: 'Client ID:',
+      validate: validateRequired,
+    },
   });
 
-  const clientSecret = yield* getOptionalStringFlag(
-    opts.clientSecret,
-    'clientSecret',
-  );
-  const customRedirectUri = yield* getOptionalStringFlag(
-    opts.customRedirectUri,
-    'customRedirectUri',
-  );
-  const skipNonceChecksFlag = yield* getBooleanFlag(
-    opts.skipNonceChecks,
-    'skipNonceChecks',
-  );
+  const clientSecret = yield* optOrPrompt(opts['client-secret'], {
+    required: false,
+    skipIf: appType !== 'web',
+    simpleName: '--client-secret',
+    prompt: {
+      prompt: 'Client Secret:',
+      validate: validateRequired,
+    },
+  });
 
-  if (appType !== 'web' && clientSecret !== undefined) {
-    return yield* invalidFlagError(
-      'clientSecret',
-      'only supported for app type web',
-    );
+  const customRedirectUri = yield* optOrPrompt(opts['custom-redirect-uri'], {
+    required: false,
+    prompt: {
+      prompt: '',
+      placeholder: 'https://yoursite.com/oauth/callback',
+      modifyOutput: UI.modifiers.piped([
+        (output, status) => {
+          if (status === 'idle') {
+            return (
+              `\nCustom redirect URL (optional):
+${chalk.dim('With a custom redirect URL, users will instead see "Redirecting to yoursite.com..." for a more branded experience.')}
+${chalk.dim('Your URL must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.')}\n\n` +
+              stripFirstBlankLine(output)
+            );
+          }
+          return `\nCustom redirect URL (optional):\n${stripFirstBlankLine(output)}`;
+        },
+        UI.modifiers.dimOnComplete,
+      ]),
+    },
+    simpleName: '--custom-redirect-uri',
+    skipIf: appType !== 'web',
+    skipMessage: 'Provided custom redirect URI when not using web app type.',
+  });
+
+  const skipNonceChecks = yield* optOrPromptBoolean(opts['skip-nonce-checks'], {
+    required: false,
+    skipIf: isNativeAppType(appType),
+    prompt: {
+      promptText: 'Skip nonce checks?',
+      defaultValue: true,
+    },
+    simpleName: '--skip-nonce-checks',
+  });
+
+  if (!clientName) {
+    return yield* BadArgsError.make({ message: 'Client name is required.' }); // Should never reach this
   }
-
-  if (appType !== 'web' && customRedirectUri !== undefined) {
-    return yield* invalidFlagError(
-      'customRedirectUri',
-      'only supported for app type web',
-    );
-  }
-
-  if (!isNativeAppType(appType) && skipNonceChecksFlag !== undefined) {
-    return yield* invalidFlagError(
-      'skipNonceChecks',
-      'only supported for app types ios and android',
-    );
-  }
-
-  const resolvedClientSecret =
-    appType === 'web'
-      ? yield* optOrPrompt(clientSecret, {
-          prompt: 'Client Secret: ',
-          sensitive: true,
-        })
-      : undefined;
-  const redirectTo =
-    appType === 'web'
-      ? yield* promptForRedirectURI(customRedirectUri)
-      : undefined;
-  const skipNonceChecks = isNativeAppType(appType)
-    ? yield* promptSkipNonceChecks(skipNonceChecksFlag)
-    : false;
+  const redirectUri = customRedirectUri ?? GOOGLE_DEFAULT_CALLBACK_URL;
 
   const response = yield* addOAuthClient({
     providerId: provider.id,
     clientName,
     clientId,
-    clientSecret: resolvedClientSecret,
+    clientSecret: clientSecret,
     authorizationEndpoint: GOOGLE_AUTHORIZATION_ENDPOINT,
     tokenEndpoint: GOOGLE_TOKEN_ENDPOINT,
     discoveryEndpoint: GOOGLE_DISCOVERY_ENDPOINT,
-    redirectTo,
+    redirectTo: redirectUri,
     meta: {
       appType,
       skipNonceChecks,
     },
   });
-
-  const redirectUri = redirectTo ?? GOOGLE_DEFAULT_CALLBACK_URL;
 
   yield* Effect.log();
   yield* Effect.log(
@@ -241,7 +231,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
   );
   yield* Effect.log(`Add this redirect URI in Google Console: ${redirectUri}`);
 
-  if (redirectTo) {
+  if (customRedirectUri) {
     yield* Effect.log(
       `Your custom redirect must forward to ${GOOGLE_DEFAULT_CALLBACK_URL} with all query parameters preserved.`,
     );
@@ -254,7 +244,7 @@ export const authClientAddCmd = Effect.fn(function* (
   const { yes } = yield* GlobalOpts;
   if (!opts.type && yes) {
     return yield* BadArgsError.make({
-      message: `Missing required value for: App type. Expected one of: ${ClientTypeSchema.literals.join(', ')}`,
+      message: `Missing required value for --type. Expected one of: ${ClientTypeSchema.literals.join(', ')}`,
     });
   }
   const clientType = yield* Option.fromNullable(opts.type).pipe(

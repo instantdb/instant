@@ -5,7 +5,6 @@ import { InstantHttpAuthed, withCommand } from './http.ts';
 import chalk from 'chalk';
 import {
   getOptionalStringFlag,
-  optionalOptOrPrompt,
   runUIEffect,
   stripFirstBlankLine,
 } from './ui.ts';
