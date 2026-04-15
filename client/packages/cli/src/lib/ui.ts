@@ -82,12 +82,7 @@ export const getBooleanFlag = Effect.fn(function* (
   return yield* invalidFlagError(flag, 'expected true or false');
 });
 
-export const optOrPrompt = (
-  value: unknown,
-  prompt: string,
-  placeholder?: string,
-  defaultValue?: string,
-) =>
+export const optOrPrompt = (value: unknown, props: UI.TextInputProps) =>
   Effect.gen(function* () {
     const { yes } = yield* GlobalOpts;
 
@@ -101,15 +96,13 @@ export const optOrPrompt = (
 
         return runUIEffect(
           new UI.TextInput({
-            prompt,
-            ...(placeholder ? { placeholder } : {}),
-            ...(defaultValue ? { defaultValue } : {}),
             validate: (input) =>
               input.trim().length > 0 ? undefined : 'Value is required',
             modifyOutput: UI.modifiers.piped([
               UI.modifiers.topPadding,
               UI.modifiers.dimOnComplete,
             ]),
+            ...props,
           }),
         ).pipe(
           Effect.catchTag('UIError', (e) =>
@@ -119,7 +112,7 @@ export const optOrPrompt = (
           ),
         );
       }),
-      Effect.andThen((raw) => getOptionalStringFlag(raw, prompt)),
+      Effect.andThen((raw) => getOptionalStringFlag(raw, props.prompt)),
       Effect.flatMap((decoded) =>
         decoded
           ? Effect.succeed(decoded)

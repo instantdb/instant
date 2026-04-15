@@ -148,12 +148,11 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
   );
   const suggestedClientName = findName(`google-${appType}`, usedClientNames);
 
-  const clientName = yield* optOrPrompt(
-    opts.name,
-    'Client Name:',
-    suggestedClientName,
-    suggestedClientName,
-  );
+  const clientName = yield* optOrPrompt(opts.name, {
+    prompt: 'Client Name: ',
+    placeholder: suggestedClientName,
+    defaultValue: suggestedClientName,
+  });
 
   if (usedClientNames.has(clientName)) {
     return yield* BadArgsError.make({
@@ -161,7 +160,9 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     });
   }
 
-  const clientId = yield* optOrPrompt(opts.clientId, 'Client ID:');
+  const clientId = yield* optOrPrompt(opts.clientId, {
+    prompt: 'Client ID: ',
+  });
 
   const clientSecret = yield* getOptionalStringFlag(
     opts.clientSecret,
@@ -199,7 +200,10 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
 
   const resolvedClientSecret =
     appType === 'web'
-      ? yield* optOrPrompt(clientSecret, 'Client Secret:')
+      ? yield* optOrPrompt(clientSecret, {
+          prompt: 'Client Secret: ',
+          sensitive: true,
+        })
       : undefined;
   const redirectTo =
     appType === 'web'
