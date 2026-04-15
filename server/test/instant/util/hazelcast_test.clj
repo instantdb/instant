@@ -1,7 +1,6 @@
 (ns instant.util.hazelcast-test
   (:require
    [clojure.test :refer [deftest is testing]]
-   [instant.rate-limit :as rate-limit]
    [instant.util.crypt :as crypt-util]
    [instant.util.hazelcast :as h]))
 
