@@ -28,6 +28,8 @@
    [instant.util.test :as test-util :refer [suid stuid validation-err? perm-err? perm-pass? timeout-err?]]
    [instant.util.date :as date-util]
    [instant.system-catalog :as system-catalog :refer [system-catalog-app-id]]
+   [instant.reactive.ephemeral :as eph]
+   [instant.reactive.store :as rs]
    [next.jdbc]))
 
 (defn- fetch-triples
@@ -5879,6 +5881,87 @@
                                  [[:add-triple post-id posts-id-attr post-id]
                                   [:add-triple post-id posts-title-attr "Featured Post"]
                                   [:add-triple post-id posts-featured-attr true]]))))))))))
+
+(defn rate-limit-err? [e]
+  (= ::ex/rate-limited (::ex/type (ex-data (ex/find-instant-exception e)))))
+
+(deftest user-rate-limit-e2e
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [hz (delay (eph/init-hz :test
+                                   (rs/init)
+                                   (let [id (+ 100000 (rand-int 900000))]
+                                     {:instance-name (str "test-instance-" id)
+                                      :cluster-name  (str "test-cluster-" id)})))]
+        (try
+          (with-redefs [eph/hz hz]
+            (let [eid-attr-id (random-uuid)
+                  handle-attr-id (random-uuid)
+                  user-id (str (random-uuid))
+                  make-ctx (fn []
+                             {:db {:conn-pool (aurora/conn-pool :write)}
+                              :app-id app-id
+                              :attrs (attr-model/get-by-app-id app-id)
+                              :datalog-query-fn d/query
+                              :rules (rule-model/get-by-app-id
+                                      (aurora/conn-pool :read)
+                                      {:app-id app-id})
+                              :current-user {:id user-id}})]
+
+              ;; Set up attrs
+              (tx/transact! (aurora/conn-pool :write)
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-attr {:id eid-attr-id
+                                         :forward-identity [(random-uuid) "things" "id"]
+                                         :unique? true
+                                         :index? false
+                                         :value-type :blob
+                                         :cardinality :one}]
+                             [:add-attr {:id handle-attr-id
+                                         :forward-identity [(random-uuid) "things" "name"]
+                                         :unique? false
+                                         :index? false
+                                         :value-type :blob
+                                         :cardinality :one}]])
+
+              ;; Set up rules with rate limit: capacity 2
+              (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id
+                :code {"things"
+                       {"allow" {"create" "rateLimit.createThings.limit(auth.id)"}}
+                       "$rateLimits"
+                       {"createThings" {"limits" [{"capacity" 2}]}}}})
+
+              (testing "first create succeeds"
+                (let [eid (random-uuid)]
+                  (is (not (perm-err?
+                            (permissioned-tx/transact!
+                             (make-ctx)
+                             [[:add-triple eid eid-attr-id eid]
+                              [:add-triple eid handle-attr-id "thing-1"]]))))))
+
+              (testing "second create succeeds"
+                (let [eid (random-uuid)]
+                  (is (not (perm-err?
+                            (permissioned-tx/transact!
+                             (make-ctx)
+                             [[:add-triple eid eid-attr-id eid]
+                              [:add-triple eid handle-attr-id "thing-2"]]))))))
+
+              (testing "third create is rate limited"
+                (let [eid (random-uuid)]
+                  (is (try
+                        (permissioned-tx/transact!
+                         (make-ctx)
+                         [[:add-triple eid eid-attr-id eid]
+                          [:add-triple eid handle-attr-id "thing-3"]])
+                        false
+                        (catch Exception e
+                          (rate-limit-err? e))))))))
+          (finally
+            (eph/shutdown-hz hz)))))))
 
 (comment
   (test/run-tests *ns*))

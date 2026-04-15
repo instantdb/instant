@@ -27,6 +27,8 @@
    [instant.util.exception :as ex]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.test :refer [instant-ex-data pretty-perm-q with-sketches stuid]]
+   [instant.reactive.ephemeral :as eph]
+   [instant.reactive.store :as rs]
    [next.jdbc :as next-jdbc]
    [rewrite-clj.zip :as z]
    [zprint.core :as zprint])
@@ -5118,6 +5120,59 @@
         (is (= 4 (count res)))
         (is (= #{"joe@instantdb.com"} all-emails))
         (is (= #{"alex"} all-handles))))))
+
+(defn rate-limit-err? [e]
+  (= ::ex/rate-limited (::ex/type (ex-data (ex/find-instant-exception e)))))
+
+(defn run-query-rate-limit-test [use-rule-wheres?]
+  (with-zeneca-app
+    (fn [{app-id :id} _r]
+      (let [hz      (delay (eph/init-hz :test
+                                        (rs/init)
+                                        (let [id (+ 100000 (rand-int 900000))]
+                                          {:instance-name (str "test-instance-" id)
+                                           :cluster-name  (str "test-cluster-" id)})))
+            user-id (str (random-uuid))]
+        (try
+          (with-redefs [eph/hz              hz
+                        iq/use-rule-wheres? (constantly use-rule-wheres?)]
+            (rule-model/put!
+             (aurora/conn-pool :write)
+             {:app-id app-id
+              :code   {"users"
+                       {"allow" {"view" "rateLimit.readUsers.limit(auth.id)"}}
+                       "$rateLimits"
+                       {"readUsers" {"limits" [{"capacity" 4}]}}}})
+
+            (testing "first query succeeds"
+              (is (seq (:users (pretty-perm-q
+                                {:app-id app-id
+                                 :current-user {:id user-id}}
+                                {:users {:$ {:limit 2}}})))))
+
+            (testing "second query succeeds"
+              (is (seq (:users (pretty-perm-q
+                                {:app-id app-id
+                                 :current-user {:id user-id}}
+                                {:users {:$ {:limit 2}}})))))
+
+            (testing "third query is rate limited"
+              (is (try
+                    (pretty-perm-q
+                     {:app-id app-id
+                      :current-user {:id user-id}}
+                     {:users {:$ {:limit 1}}})
+                    false
+                    (catch Exception e
+                      (rate-limit-err? e))))))
+          (finally
+            (eph/shutdown-hz hz)))))))
+
+(deftest query-rate-limit-e2e
+  (testing "without rule-wheres"
+    (run-query-rate-limit-test false))
+  (testing "with rule-wheres"
+    (run-query-rate-limit-test true)))
 
 (comment
   (test/run-tests *ns*))
