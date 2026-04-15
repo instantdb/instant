@@ -143,7 +143,7 @@ export const promptForRedirectURI = Effect.fn(function* (
           if (status === 'idle') {
             return (
               `\nCustom redirect URL (optional):
-${chalk.dim('With a custom redirect URL, users will instead see "Redirecting to yoursite.com..." for a more branded experience.')}
+${chalk.dim('With a custom redirect URL, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
 ${chalk.dim('Your URL must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.')}\n\n` +
               stripFirstBlankLine(output)
             );
