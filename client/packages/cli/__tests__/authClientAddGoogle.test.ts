@@ -202,7 +202,7 @@ describe('web: interactive prompts for each missing flag', () => {
 // -- web: success cases --
 
 describe('web: success', () => {
-  test('all required flags → creates client', async () => {
+  test('all required flags → creates client and prints redirect URI', async () => {
     await run(webFlags, { yes: true });
     expect(addedClients).toHaveLength(1);
     expect(addedClients[0]).toMatchObject({
@@ -210,14 +210,24 @@ describe('web: success', () => {
       clientId: '123456.apps.googleusercontent.com',
       clientSecret: 'GOCSPX-abc123',
     });
+    expect(logs.join('\n')).toContain(
+      'Add this redirect URI in Google Console: https://api.instantdb.com/runtime/oauth/callback',
+    );
   });
 
-  test('with custom-redirect-uri → uses it', async () => {
+  test('with custom-redirect-uri → uses it and prints forwarding instructions', async () => {
     await run(
       withEntry(webFlags, 'custom-redirect-uri', 'https://myapp.com/cb'),
-      true,
+      { yes: true },
     );
     expect(addedClients[0].redirectTo).toBe('https://myapp.com/cb');
+    const output = logs.join('\n');
+    expect(output).toContain(
+      'Add this redirect URI in Google Console: https://myapp.com/cb',
+    );
+    expect(output).toContain(
+      'Your custom redirect must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.',
+    );
   });
 });
 
@@ -235,13 +245,13 @@ describe('ios', () => {
   test('--custom-redirect-uri → error (not supported)', async () => {
     await run(
       withEntry(iosFlags, 'custom-redirect-uri', 'https://example.com'),
-      true,
+      { yes: true },
     );
     expect(logs.join('\n')).toContain('not using web app type');
     expect(addedClients).toHaveLength(0);
   });
 
-  test('valid flags → creates client without secret', async () => {
+  test('valid flags → creates client without secret or redirect instructions', async () => {
     await run(iosFlags, { yes: true });
     expect(addedClients).toHaveLength(1);
     expect(addedClients[0]).toMatchObject({
@@ -249,5 +259,6 @@ describe('ios', () => {
       clientId: '123456.apps.googleusercontent.com',
     });
     expect(addedClients[0].clientSecret).toBeUndefined();
+    expect(logs.join('\n')).not.toContain('Add this redirect URI');
   });
 });
