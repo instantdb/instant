@@ -412,7 +412,7 @@
   (throw+ {::type ::rate-limited
            ::message "Too many verification codes requested for this email. Please try again later."}))
 
-(defn throw-permission-rate-limited! [retry-at]
+(defn throw-permission-rate-limited! [retry-at remaining-tokens]
   (throw+ {::type ::rate-limited
            ::message "Your request exceeded the rate limit."
            ::hint {:retry-at retry-at
@@ -420,8 +420,9 @@
                                     (.toMillis)
                                     (/ 1000)
                                     (Math/ceil)
-                                    (int)
-                                    (max 0))}}))
+                                    (long)
+                                    (max 0))
+                   :remaining-tokens remaining-tokens}}))
 
 ;; -------
 ;; Sockets

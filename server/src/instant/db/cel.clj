@@ -1434,21 +1434,44 @@
                                                 :java-args [(type->java :datakey)]
                                                 :impl (fn [[^DataKey x]]
                                                         x)})))
-(def where-custom-fns (into [where-ref-fn
-                             or-overloads
-                             and-overloads
-                             eq-overloads
-                             neq-overloads
-                             in-overloads
-                             not-overloads
-                             starts-with-overload
-                             ends-with-overload
-                             contains-overload
-                             type-overload
-                             size-overload
-                             get-time-fn
-                             where-timestamp-fn]
-                            comparison-overloads))
+
+(def ^:dynamic *where-rate-limits* nil)
+
+(def where-rate-limit-fns [(member-overload "limit"
+                                            [{:overload-id "_rateLimit_limit"
+                                              :cel-args [rate-limit-bucket-cel-type SimpleType/DYN]
+                                              :cel-return-type SimpleType/BOOL
+                                              :java-args [RateLimitBucket Object]
+                                              :impl (fn [[^RateLimitBucket b ^Object k]]
+                                                      (swap! *where-rate-limits*
+                                                             update {:bucket b
+                                                                     :bucket-key k} (fnil + 0) 1)
+                                                      true)}])
+                           (member-overload "limit"
+                                            [{:overload-id "_rateLimit_limit_tokens"
+                                              :cel-args [rate-limit-bucket-cel-type SimpleType/DYN SimpleType/INT]
+                                              :cel-return-type SimpleType/BOOL
+                                              :java-args [RateLimitBucket Object Long]
+                                              :impl (fn [[^RateLimitBucket b ^Object k ^Long tokens]]
+                                                      (swap! *where-rate-limits*
+                                                             update-in {:bucket b
+                                                                        :bucket-key k} (fnil + 0) tokens))}])])
+(def where-custom-fns (-> [where-ref-fn
+                           or-overloads
+                           and-overloads
+                           eq-overloads
+                           neq-overloads
+                           in-overloads
+                           not-overloads
+                           starts-with-overload
+                           ends-with-overload
+                           contains-overload
+                           type-overload
+                           size-overload
+                           get-time-fn
+                           where-timestamp-fn]
+                          (into comparison-overloads)
+                          (into where-rate-limit-fns)))
 
 (def where-custom-fn-decls (mapv :decl where-custom-fns))
 (def where-custom-fn-bindings (mapcat :runtimes where-custom-fns))
@@ -1473,6 +1496,7 @@
       (.addVar "ruleParams" type-obj)
       (.addVar "auth" type-obj)
       (.addVar "request" ^StructTypeReference request-cel-type)
+      (.addVar "rateLimit" type-rate-limits)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl where-custom-fn-decls))
       (.setOptions where-cel-options)
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
@@ -1538,37 +1562,42 @@
             (try
               (when (instance? Exception where-clauses-program)
                 (throw where-clauses-program))
-              (let [result
+              (let [rate-limits (atom {})
+                    result
                     (io/warn-io :cel/advance-program!
-                      (advance-program!
-                       ctx
-                       {:cel-program where-clauses-program
-                        :etype etype
-                        :action "view"}
-                       {:resolver (reify CelVariableResolver
-                                    (find [_this var-name]
-                                      (case var-name
-                                        "auth"
-                                        (Optional/of
-                                         (AuthCelMap. ctx (CelMap. (:current-user ctx))))
-                                        "data"
-                                        (Optional/of
-                                         (CheckedDataMap. (:attrs ctx) etype))
-                                        "ruleParams"
-                                        (Optional/of (CelMap. rule-params))
-                                        "request"
-                                        (Optional/of (proto/create-request-proto (merge {:time (or (:timestamp ctx)
-                                                                                                   (Instant/now))}
-                                                                                        *request-info*)))
+                      (binding [*where-rate-limits* rate-limits]
+                        (advance-program!
+                         ctx
+                         {:cel-program where-clauses-program
+                          :etype etype
+                          :action "view"}
+                         {:resolver (reify CelVariableResolver
+                                      (find [_this var-name]
+                                        (case var-name
+                                          "auth"
+                                          (Optional/of
+                                           (AuthCelMap. ctx (CelMap. (:current-user ctx))))
+                                          "data"
+                                          (Optional/of
+                                           (CheckedDataMap. (:attrs ctx) etype))
+                                          "ruleParams"
+                                          (Optional/of (CelMap. rule-params))
+                                          "request"
+                                          (Optional/of (proto/create-request-proto (merge {:time (or (:timestamp ctx)
+                                                                                                     (Instant/now))}
+                                                                                          *request-info*)))
+                                          "rateLimit"
+                                          (Optional/of (create-rate-limit-obj ctx))
 
-                                        (Optional/empty))))}))]
+                                          (Optional/empty))))})))]
                 (if (is-missing-ref-data? result)
                   (-> acc
                       (update :missing-refs into (missing-ref-datas result))
                       (update :rerun-programs conj program))
                   (-> acc
                       (assoc-in [:results etype]
-                                (format-evaluation-result result)))))
+                                (assoc (format-evaluation-result result)
+                                       :rate-limits @rate-limits)))))
 
               (catch Throwable t
                 (assoc-in acc [:results etype] {:thrown t}))))

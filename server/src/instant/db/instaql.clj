@@ -29,6 +29,7 @@
    [instant.storage.s3 :as instant-s3]
    [instant.comment :as c])
   (:import
+   (instant.db.cel RateLimitBucket)
    (java.util UUID)))
 
 ;; ----
@@ -1857,6 +1858,22 @@
            acc
            instaql-res)))
 
+(defn check-rate-limits-for-rule-wheres
+  "Applies rate limits for entities that used rule-wheres. We don't execute
+   the rule for each entity, so we gather them up when we generate the wheres
+   and apply them here.
+   Throws a rate-limit error if we're over the limit."
+  [ctx helpers]
+  (doseq [[etype {:keys [rate-limits]}] (:rule-wheres ctx)
+          [{:keys [^RateLimitBucket bucket key]} tokens-per-entity] rate-limits
+          :let [entity-count (-> helpers
+                                 :etype->eids+program
+                                 (get etype)
+                                 :checked-eids
+                                 count)]
+          :when (and entity-count (pos? entity-count))]
+    (.limit bucket key (* tokens-per-entity entity-count))))
+
 (defn extract-permission-helpers
   "Takes the result of `query` and generates a query cache of
    datalog-query -> datalog-result, and maps for etype->program and eid->type."
@@ -1868,7 +1885,9 @@
 
   ([acc ctx instaql-res]
    (tracer/with-span! {:name "extract-permission-helpers"}
-     (extract-permission-helpers* acc ctx instaql-res))))
+     (let [helpers (extract-permission-helpers* acc ctx instaql-res)]
+       (check-rate-limits-for-rule-wheres ctx helpers)
+       helpers))))
 
 (defn viewable-triple? [attrs etype+eid->check [e a]]
   (let [[etype label] (-> (attr-model/seek-by-id a attrs)
@@ -2104,7 +2123,8 @@
                                              etype
                                              (:where-clauses result)))
                  (assoc acc etype {:short-circuit? (:short-circuit? result)
-                                   :where-clauses (:where-clauses result)})
+                                   :where-clauses (:where-clauses result)
+                                   :rate-limits (:rate-limits result)})
                  (catch Exception e
                    (tracer/with-span!
                      {:name "instaql/rule-where-exception"
@@ -2215,7 +2235,7 @@
             o (dissoc o :$$ruleParams)
             rules (rule-model/get-by-app-id (:conn-pool (:db ctx)) {:app-id app-id})
 
-            rule-wheres (get-rule-wheres ctx rule-params rules o)
+            rule-wheres (get-rule-wheres (assoc ctx :rules rules) rule-params rules o)
             ctx (assoc ctx
                        :rule-wheres rule-wheres
                        :rules rules)
@@ -2241,7 +2261,7 @@
         rules (or (when rules-override {:app_id app-id :code rules-override})
                   (rule-model/get-by-app-id (:conn-pool (:db ctx)) {:app-id app-id}))
 
-        rule-wheres (get-rule-wheres ctx rule-params rules o)
+        rule-wheres (get-rule-wheres (assoc ctx :rules rules) rule-params rules o)
         ctx (assoc ctx
                    :rule-wheres rule-wheres
                    :rules rules)

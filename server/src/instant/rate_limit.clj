@@ -22,16 +22,6 @@
    (javax.crypto Mac)
    (org.postgresql.util PGInterval)))
 
-;; Bucket4j docs: https://bucket4j.com/8.17.0/toc.html
-
-(defn create-rate-limit-config [capacity]
-  (.. (BucketConfiguration/builder)
-      (addLimit (.. (Bandwidth/builder)
-                    (capacity capacity)
-                    (refillIntervally capacity (Duration/ofHours 1))
-                    (build)))
-      (build)))
-
 ;; https://docs.hazelcast.com/hazelcast/5.6/mapstore/implement-a-mapstore
 ;; Backs the hazelcast map with postgres. If the hazelcast map is missing a key,
 ;; it will check postgres for the key. It will also push the values to postgres
@@ -115,6 +105,15 @@
     (storeAll [_ m]
       (store-all m))))
 
+;; Bucket4j docs: https://bucket4j.com/8.17.0/toc.html
+
+(defn create-rate-limit-config [capacity]
+  (.. (BucketConfiguration/builder)
+      (addLimit (.. (Bandwidth/builder)
+                    (capacity capacity)
+                    (refillIntervally capacity (Duration/ofHours 1))
+                    (build)))
+      (build)))
 (defn initialize
   "Sets up bucket4j to use hazelcast.
    Returns a map with a `get-bucket` function. For each unique key,
@@ -303,7 +302,8 @@
     (if (.isConsumed remaining)
       true
       (throw (ex/throw-permission-rate-limited! (.plusNanos (Instant/now)
-                                                            (.getNanosToWaitForRefill remaining)))))))
+                                                            (.getNanosToWaitForRefill remaining))
+                                                (.getRemainingTokens remaining))))))
 
 (defonce schedule (atom nil))
 
