@@ -209,7 +209,10 @@
         (.plusMinutes (.getMinutes i))
         (.plusSeconds (long (.getSeconds i))))))
 
-(defn rules-rate-limit-config->bucket-config [config]
+(defn rules-rate-limit-config->limit-config
+  "Creates a bucket limit config (bucket4j calls it Bandwidth) from the
+   limit config."
+  ^Bandwidth [config]
   (let [^long capacity (ex/get-param! config ["capacity"] (fn [c]
                                                             (when (pos-int? c)
                                                               c)))
@@ -243,24 +246,43 @@
 
         _ (when-not (pos? (/ (.toMillis refill-period)
                              1000))
-            (ex/throw-validation-err! :refill config [{:message "The refill period must be longer than a second."}]))
+            (ex/throw-validation-err! :rules config [{:message "The refill period must be longer than a second."}]))
 
         _ (when (> (.toHours refill-period)
                    24)
-            (ex/throw-validation-err! :refill config [{:message "The refill period can't be longer than a day."}]))
+            (ex/throw-validation-err! :rules config [{:message "The refill period can't be longer than a day."}]))
 
         capacity-builder (.. (Bandwidth/builder)
-                             (capacity capacity))
-        limit (case refill-type
-                "greedy" (.. capacity-builder
-                             (refillGreedy refill-amount refill-period)
-                             (build))
-                "interval" (.. capacity-builder
-                               (refillIntervally refill-amount refill-period)
-                               (build)))]
-    (.. (BucketConfiguration/builder)
-        (addLimit limit)
-        (build))))
+                             (capacity capacity))]
+    (case refill-type
+      "greedy" (.. capacity-builder
+                   (refillGreedy refill-amount refill-period)
+                   (build))
+      "interval" (.. capacity-builder
+                     (refillIntervally refill-amount refill-period)
+                     (build)))))
+
+(defn rules-rate-limit-config->bucket-config
+  "Creates a rate-limit config from the bucket. Configs look like:
+  {'limits': [
+    {'capacity': 10,
+     'refill': {
+      'period': '1 hour',
+      'amount': 10,
+      'type': 'interval' // or 'greedy'
+  }}]}
+  "
+  [config]
+  (let [limit-configs (ex/get-param! config ["limits"] identity)
+        _ (when-not (and (vector? limit-configs)
+                         (pos? (count limit-configs)))
+            (ex/throw-validation-err! :rules config [{:message "The rate limit config must have at least one limit in the `limits` array."}]))]
+    (loop [builder (BucketConfiguration/builder)
+           limit-configs limit-configs]
+      (if (seq limit-configs)
+        (recur (.addLimit builder (rules-rate-limit-config->limit-config (first limit-configs)))
+               (rest limit-configs))
+        (.build builder)))))
 
 (defn make-bucket-config-fn [config]
   (fn []
