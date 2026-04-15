@@ -63,6 +63,44 @@ export const stripFirstBlankLine = (str: string): string => {
   return lines.join('\n');
 };
 
+const coerceValue = (value: unknown, simpleName: string) =>
+  Effect.gen(function* () {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value === 'string' || typeof value === 'number') {
+      return String(value).trim();
+    }
+    return yield* BadArgsError.make({
+      message: `Invalid value for ${simpleName}`,
+    });
+  });
+
+const resolveOrPrompt = (prompt: UI.TextInputProps, yes: boolean) =>
+  Effect.gen(function* () {
+    if (yes) return undefined;
+    const result = yield* runUIEffect(new UI.TextInput(prompt));
+    return result.trim() || undefined;
+  });
+
+const requireOrReturn = (
+  resolved: string | undefined,
+  params: {
+    required: boolean;
+    simpleName: string;
+    customMissingMessage?: string;
+  },
+) =>
+  Effect.gen(function* () {
+    if (resolved) return resolved;
+    if (params.required) {
+      return yield* BadArgsError.make({
+        message:
+          params.customMissingMessage ??
+          `Missing required value for ${params.simpleName}`,
+      });
+    }
+    return undefined;
+  });
+
 export const optOrPrompt = (
   value: unknown,
   params: {
@@ -75,63 +113,21 @@ export const optOrPrompt = (
   },
 ) =>
   Effect.gen(function* () {
-    if (params.skipIf && value) {
-      return yield* BadArgsError.make({
-        message:
-          params.skipMessage ??
-          `${params.simpleName} is not compatible with other options`,
-      });
-    }
     if (params.skipIf) {
+      if (value) {
+        return yield* BadArgsError.make({
+          message:
+            params.skipMessage ??
+            `${params.simpleName} is not compatible with other options`,
+        });
+      }
       return undefined;
     }
 
     const { yes } = yield* GlobalOpts;
-
-    if (yes) {
-      // Required string
-      if (params.required) {
-        if (!value) {
-          return yield* BadArgsError.make({
-            message:
-              params.customMissingMessage ??
-              `Missing required value for ${params.simpleName}`,
-          });
-        }
-        if (typeof value !== 'string' && typeof value !== 'number') {
-          return yield* BadArgsError.make({
-            message: `Invalid value for ${params.simpleName}`,
-          });
-        }
-        return String(value).trim();
-        // Optional string
-      } else {
-        if (!value) {
-          return undefined;
-        }
-        if (typeof value !== 'string' && typeof value !== 'number') {
-          return yield* BadArgsError.make({
-            message: `Invalid value for ${params.simpleName}`,
-          });
-        }
-        return String(value).trim();
-      }
-    } else {
-      if (value !== undefined && value !== null) {
-        return String(value).trim();
-      }
-
-      const result = yield* runUIEffect(new UI.TextInput(params.prompt));
-      if (result === '') {
-        if (params.required) {
-          return yield* BadArgsError.make({
-            message: `Missing required value for ${params.simpleName}`,
-          });
-        }
-        return undefined;
-      }
-      return result.trim();
-    }
+    const coerced = yield* coerceValue(value, params.simpleName);
+    const resolved = coerced ?? (yield* resolveOrPrompt(params.prompt, yes));
+    return yield* requireOrReturn(resolved, params);
   });
 
 export const validateRequired = (input: string) =>
