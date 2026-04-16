@@ -256,7 +256,7 @@ export const runCli = async (): Promise<Project> => {
               promptText: 'What framework would you like to use?',
               options: [
                 { value: 'next-js-app-dir', label: 'Web: Next.js' },
-                { value: 'vite-react', label: 'Web: Vite' },
+                { value: 'vite-react', label: 'Web: Vite React' },
                 { value: 'expo', label: 'Mobile: Expo' },
               ],
               defaultValue: 'next-js-app-dir',
