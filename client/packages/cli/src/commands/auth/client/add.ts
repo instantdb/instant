@@ -22,6 +22,7 @@ import {
 import { UI } from '../../../ui/index.ts';
 import chalk from 'chalk';
 import boxen from 'boxen';
+import { redirect } from '@effect/platform/HttpServerResponse';
 
 const ClientTypeSchema = Schema.Literal(
   'google',
@@ -217,6 +218,23 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
     },
   });
 
+  const redirectMessages: string[] = [];
+  if (appType === 'web') {
+    redirectMessages.push(
+      chalk.bold(
+        `\nAdd this redirect URI in Google Console:\n${redirectUri}\n`,
+      ),
+    );
+    if (customRedirectUri) {
+      redirectMessages.push(
+        `Your custom redirect must forward to ${chalk.bold(GOOGLE_DEFAULT_CALLBACK_URL)} with all query parameters preserved.`,
+      );
+      redirectMessages.push(
+        `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,
+      );
+    }
+  }
+
   yield* Effect.log(
     boxen(
       [
@@ -224,23 +242,11 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
         `App type: ${appType}`,
         `Client database id: ${response.client.id}`,
         `Google client id: ${response.client.client_id ?? clientId}`,
+        ...redirectMessages,
       ].join('\n'),
       { dimBorder: true, padding: { right: 1, left: 1 } },
     ),
   );
-
-  if (appType === 'web') {
-    yield* Effect.log(
-      chalk.bold(
-        `\nAdd this redirect URI in Google Console:\n${redirectUri}\n`,
-      ),
-    );
-    if (customRedirectUri) {
-      yield* Effect.log(
-        `Your custom redirect must forward to ${GOOGLE_DEFAULT_CALLBACK_URL} with all query parameters preserved.`,
-      );
-    }
-  }
 });
 
 export const authClientAddCmd = Effect.fn(
