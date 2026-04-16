@@ -21,17 +21,20 @@ export async function GET(request: Request) {
     new URL(request.url).searchParams.get('title')?.trim() || DEFAULT_APP_TITLE;
   const baseRules = await baseRulesPromise;
 
-  const api = new PlatformApi({
-    auth: {
-      token:
-        'per_1f528fd07d54d08217837d1ba2eedcd87c0fbd6345f1d03f08cfecc306a21687',
-    },
-  });
+  const token = process.env.INSTANT_LLM_RULES_CREATE_APP_PERSONAL_ACCESS_TOKEN;
+  const orgId = process.env.INSTANT_LLM_RULES_CREATE_APP_ORG_ID;
+  if (!token) {
+    throw new Error(
+      'INSTANT_LLM_RULES_CREATE_APP_PERSONAL_ACCESS_TOKEN is not set',
+    );
+  }
+  if (!orgId) {
+    throw new Error('INSTANT_LLM_RULES_CREATE_APP_ORG_ID is not set');
+  }
 
-  const { app } = await api.createApp({
-    title,
-    orgId: 'a1759320-b957-4a6a-b717-9c87cdca8775',
-  });
+  const api = new PlatformApi({ auth: { token } });
+
+  const { app } = await api.createApp({ title, orgId });
 
   const markdown = `
 You've just gotten a new Instant app provisioned for you! 
