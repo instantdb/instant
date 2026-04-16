@@ -288,6 +288,14 @@ ${inputDisplay}`;
           }
         }
         if (keyInfo.name === 'tab') {
+          if (
+            this.value === '' &&
+            this.props.defaultValue &&
+            this.props.placeholder === this.props.defaultValue
+          ) {
+            this.value = this.props.defaultValue;
+            this.requestLayout();
+          }
           return;
         }
         if (keyInfo.name === 'return') {
