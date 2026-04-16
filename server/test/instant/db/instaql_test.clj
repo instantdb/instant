@@ -5132,7 +5132,7 @@
                                         (let [id (+ 100000 (rand-int 900000))]
                                           {:instance-name (str "test-instance-" id)
                                            :cluster-name  (str "test-cluster-" id)})))
-            user-id (str (random-uuid))]
+            user-id (random-uuid)]
         (try
           (with-redefs [eph/hz hz
                         iq/use-rule-wheres? (constantly use-rule-wheres?)]
@@ -5168,7 +5168,13 @@
                 (is (rate-limit-err? ex))
                 (let [hint (::ex/hint (ex-data (ex/find-instant-exception ex)))]
                   (is (int? (:retry-after hint)))
-                  (is (>= (:retry-after hint) 0))))))
+                  (is (>= (:retry-after hint) 0)))))
+
+            (testing "query from a different user is not rate limited"
+              (is (= 2 (count (:users (pretty-perm-q
+                                       {:app-id app-id
+                                        :current-user {:id (random-uuid)}}
+                                       {:users {:$ {:limit 2}}})))))))
           (finally
             (eph/shutdown-hz hz)))))))
 
