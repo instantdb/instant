@@ -274,7 +274,11 @@ export const runCli = async (): Promise<Project> => {
                 label: 'Web: Next.js',
               },
               { value: 'expo', label: 'Mobile: Expo' },
-              { value: 'vite-react', label: 'Vite: React' },
+              {
+                value: 'vite-react',
+                label: 'Vite: React',
+                secondary: true,
+              },
               {
                 value: 'vite-vanilla',
                 label: 'Vite: Vanilla TS',
