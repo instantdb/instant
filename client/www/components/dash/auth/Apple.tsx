@@ -6,7 +6,6 @@ import {
   Content,
   Copyable,
   Dialog,
-  SectionHeading,
   SubsectionHeading,
   TextInput,
   TextArea,
