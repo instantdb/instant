@@ -1,0 +1,27 @@
+{
+  "name": "vite-react-template",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@instantdb/react": "latest",
+    "@instantdb/admin": "latest",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.6",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^5.0.4",
+    "tailwindcss": "^4.0.6",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.2"
+  },
+  "packageManager": "pnpm@10.2.0"
+}
