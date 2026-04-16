@@ -162,7 +162,7 @@ function PermsEditor({ appId }: { appId: string }) {
 function formatError(label: string, e: any): string {
   const retryAfter = e?.hint?.['retry-after'];
   if (retryAfter != null) {
-    return `${label}: Try again in ${retryAfter} seconds`;
+    return `${label}: ${e.message} Try again in ${retryAfter} seconds.`;
   }
   return `${label}: ${e.message}`;
 }

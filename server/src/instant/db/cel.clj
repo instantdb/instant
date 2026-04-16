@@ -298,13 +298,8 @@
 
 (deftype RateLimitBucket [app-id bucket-name config]
   IRateLimitBucket
-  (limit [_ bucket-key]
-    (rate-limit/consume-user-rate-limit (eph/get-rate-limit)
-                                        {:app-id app-id
-                                         :bucket-name bucket-name
-                                         :config config
-                                         :bucket-key bucket-key
-                                         :tokens 1}))
+  (limit [this bucket-key]
+    (.limit this bucket-key 1))
   (limit [_ bucket-key tokens]
     (rate-limit/consume-user-rate-limit (eph/get-rate-limit)
                                         {:app-id app-id
