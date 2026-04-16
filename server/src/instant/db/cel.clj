@@ -1450,7 +1450,8 @@
                                               :impl (fn [[^RateLimitBucket b ^Object k ^Long tokens]]
                                                       (swap! *where-rate-limits*
                                                              update {:bucket b
-                                                                     :bucket-key k} (fnil + 0) tokens))}])])
+                                                                     :bucket-key k} (fnil + 0) tokens)
+                                                      true)}])])
 (def where-custom-fns (-> [where-ref-fn
                            or-overloads
                            and-overloads
