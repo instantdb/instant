@@ -41,9 +41,15 @@ export const printRedErrors = Effect.catchAllCause((cause) =>
       }
       if (Array.isArray(theError?.hint?.errors)) {
         for (const err of theError.hint.errors) {
-          yield* Effect.logError(
-            `${err.in ? err.in.join('->') + ': ' : ''}${err.message}`,
-          );
+          if (err) {
+            if (typeof err === 'string') {
+              yield* Effect.logError(err);
+            } else {
+              yield* Effect.logError(
+                `${err.in ? err.in.join('->') + ': ' : ''}${err.message}`,
+              );
+            }
+          }
         }
       }
       return process.exit(1);
