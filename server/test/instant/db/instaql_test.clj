@@ -5134,7 +5134,7 @@
                                            :cluster-name  (str "test-cluster-" id)})))
             user-id (str (random-uuid))]
         (try
-          (with-redefs [eph/hz              hz
+          (with-redefs [eph/hz hz
                         iq/use-rule-wheres? (constantly use-rule-wheres?)]
             (rule-model/put!
              (aurora/conn-pool :write)
@@ -5145,26 +5145,30 @@
                        {"readUsers" {"limits" [{"capacity" 4}]}}}})
 
             (testing "first query succeeds"
-              (is (seq (:users (pretty-perm-q
-                                {:app-id app-id
-                                 :current-user {:id user-id}}
-                                {:users {:$ {:limit 2}}})))))
+              (is (= 2 (count (:users (pretty-perm-q
+                                       {:app-id app-id
+                                        :current-user {:id user-id}}
+                                       {:users {:$ {:limit 2}}}))))))
 
             (testing "second query succeeds"
-              (is (seq (:users (pretty-perm-q
-                                {:app-id app-id
-                                 :current-user {:id user-id}}
-                                {:users {:$ {:limit 2}}})))))
+              (is (= 2 (count (:users (pretty-perm-q
+                                       {:app-id app-id
+                                        :current-user {:id user-id}}
+                                       {:users {:$ {:limit 2}}}))))))
 
             (testing "third query is rate limited"
-              (is (try
-                    (pretty-perm-q
-                     {:app-id app-id
-                      :current-user {:id user-id}}
-                     {:users {:$ {:limit 1}}})
-                    false
-                    (catch Exception e
-                      (rate-limit-err? e))))))
+              (let [ex (try
+                         (pretty-perm-q
+                          {:app-id app-id
+                           :current-user {:id user-id}}
+                          {:users {:$ {:limit 1}}})
+                         nil
+                         (catch Exception e e))]
+                (is (some? ex) "Expected a rate limit exception")
+                (is (rate-limit-err? ex))
+                (let [hint (::ex/hint (ex-data (ex/find-instant-exception ex)))]
+                  (is (int? (:retry-after hint)))
+                  (is (>= (:retry-after hint) 0))))))
           (finally
             (eph/shutdown-hz hz)))))))
 

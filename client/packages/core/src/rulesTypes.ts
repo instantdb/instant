@@ -77,7 +77,6 @@ export type InstantRules<
             allow: InstantRulesAllowBlock;
             fields?: Record<string, string>;
           }
-        | InstantRulesRateLimits
         | undefined;
     }
   : {

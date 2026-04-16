@@ -1865,14 +1865,14 @@
    Throws a rate-limit error if we're over the limit."
   [ctx helpers]
   (doseq [[etype {:keys [rate-limits]}] (:rule-wheres ctx)
-          [{:keys [^RateLimitBucket bucket key]} tokens-per-entity] rate-limits
+          [{:keys [^RateLimitBucket bucket bucket-key]} tokens-per-entity] rate-limits
           :let [entity-count (-> helpers
                                  :etype->eids+program
                                  (get etype)
                                  :checked-eids
                                  count)]
           :when (and entity-count (pos? entity-count))]
-    (.limit bucket key (* tokens-per-entity entity-count))))
+    (.limit bucket bucket-key (* tokens-per-entity entity-count))))
 
 (defn extract-permission-helpers
   "Takes the result of `query` and generates a query cache of
