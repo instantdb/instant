@@ -5127,11 +5127,11 @@
 (defn run-query-rate-limit-test [use-rule-wheres?]
   (with-zeneca-app
     (fn [{app-id :id} _r]
-      (let [hz      (delay (eph/init-hz :test
-                                        (rs/init)
-                                        (let [id (+ 100000 (rand-int 900000))]
-                                          {:instance-name (str "test-instance-" id)
-                                           :cluster-name  (str "test-cluster-" id)})))
+      (let [hz (delay (eph/init-hz :test
+                                   (rs/init)
+                                   (let [id (+ 100000 (rand-int 900000))]
+                                     {:instance-name (str "test-instance-" id)
+                                      :cluster-name  (str "test-cluster-" id)})))
             user-id (random-uuid)]
         (try
           (with-redefs [eph/hz hz
@@ -5139,10 +5139,10 @@
             (rule-model/put!
              (aurora/conn-pool :write)
              {:app-id app-id
-              :code   {"users"
-                       {"allow" {"view" "rateLimit.readUsers.limit(auth.id)"}}
-                       "$rateLimits"
-                       {"readUsers" {"limits" [{"capacity" 4}]}}}})
+              :code {"users"
+                     {"allow" {"view" "rateLimit.readUsers.limit(auth.id)"}}
+                     "$rateLimits"
+                     {"readUsers" {"limits" [{"capacity" 4}]}}}})
 
             (testing "first query succeeds"
               (is (= 2 (count (:users (pretty-perm-q

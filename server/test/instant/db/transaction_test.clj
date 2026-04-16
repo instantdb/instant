@@ -5897,7 +5897,7 @@
           (with-redefs [eph/hz hz]
             (let [eid-attr-id (random-uuid)
                   handle-attr-id (random-uuid)
-                  user-id (str (random-uuid))
+                  user-id (random-uuid)
                   make-ctx (fn []
                              {:db {:conn-pool (aurora/conn-pool :write)}
                               :app-id app-id
@@ -5959,7 +5959,16 @@
                           [:add-triple eid handle-attr-id "thing-3"]])
                         false
                         (catch Exception e
-                          (rate-limit-err? e))))))))
+                          (rate-limit-err? e))))))
+
+              (testing "new user doesn't get rate-limited"
+                (let [eid (random-uuid)]
+                  (is (not (perm-err?
+                            (permissioned-tx/transact!
+                             (assoc (make-ctx)
+                                    :current-user {:id (random-uuid)})
+                             [[:add-triple eid eid-attr-id eid]
+                              [:add-triple eid handle-attr-id "thing-2"]]))))))))
           (finally
             (eph/shutdown-hz hz)))))))
 

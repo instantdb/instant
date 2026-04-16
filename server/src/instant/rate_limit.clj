@@ -89,6 +89,7 @@
                     (with-meta (vals m) {:pgtype "bytea[]"})]))
 
 (defn map-store []
+  ;; https://docs.hazelcast.com/hazelcast/5.6/mapstore/implement-a-mapstore
   (reify MapStore
     (loadAllKeys [_]
       (load-all-keys))

@@ -48,8 +48,8 @@ type InstantRulesEntityBlock<
 
 // The rules type is a bit complicated because we need to handle two cases
 // 1. If you don't pass a Schema, `keyof Schema['entities']` is just string
-//    so we have to leave it out of `K`. `K` just becomes `string`, so `attrs`,
-//    `$default`, and `$rateLimits` will just get ignored as separate keys.
+//    so we have to leave it out of `K`. `K` would collapse to `string`, so `attrs`,
+//    `$default`, and `$rateLimits` would get ignored as separate keys.
 // 2. If you do pass a schema, then we can handle each special key separately
 //    without it collapsing into string.
 

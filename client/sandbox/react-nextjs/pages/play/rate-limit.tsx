@@ -1,4 +1,9 @@
-import { i, id, InstantReactAbstractDatabase } from '@instantdb/react';
+import {
+  i,
+  id,
+  InstantReactAbstractDatabase,
+  InstantRules,
+} from '@instantdb/react';
 import EphemeralAppPage from '../../components/EphemeralAppPage';
 import config from '../../config';
 import { useEffect, useRef, useState } from 'react';
@@ -17,7 +22,7 @@ type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
 
-const defaultPerms = {
+const defaultPerms: InstantRules<AppSchema> = {
   todos: {
     allow: {
       view: 'rateLimit.viewTodos.limit(auth.id)',
@@ -28,20 +33,36 @@ const defaultPerms = {
   },
   $rateLimits: {
     viewTodos: {
-      capacity: 20,
-      refill: { type: 'greedy', amount: 20, period: '1 minute' },
+      limits: [
+        {
+          capacity: 20,
+          refill: { type: 'greedy', amount: 20, period: '1 minute' },
+        },
+      ],
     },
     createTodos: {
-      capacity: 5,
-      refill: { type: 'interval', amount: 5, period: '10 seconds' },
+      limits: [
+        {
+          capacity: 5,
+          refill: { type: 'interval', amount: 5, period: '10 seconds' },
+        },
+      ],
     },
     updateTodos: {
-      capacity: 10,
-      refill: { type: 'greedy', amount: 10, period: '1 minute' },
+      limits: [
+        {
+          capacity: 10,
+          refill: { type: 'greedy', amount: 10, period: '1 minute' },
+        },
+      ],
     },
     deleteTodos: {
-      capacity: 3,
-      refill: { type: 'interval', amount: 3, period: '30 seconds' },
+      limits: [
+        {
+          capacity: 3,
+          refill: { type: 'interval', amount: 3, period: '30 seconds' },
+        },
+      ],
     },
   },
 };

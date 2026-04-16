@@ -99,11 +99,11 @@
                                       "allow" {"view" "parent"}}}))))
 
 (deftest check-rate-limit-config-exists
-  (is (= () (rule/validation-errors {"myetype"
-                                     {"allow" {"view" "rateLimit.myLimit.limit('a') && rateLimit['myLimit'].limit('b')"}}
+  (is (= () (rule/validation-errors
+             {"$rateLimits" {"myLimit" {"limits" [{"capacity" 2}]}}
 
-                                     "$rateLimits"
-                                     {"myLimit" {"limits" [{"capacity" 2}]}}})))
+              "myetype"
+              {"allow" {"view" "rateLimit.myLimit.limit('a') && rateLimit['myLimit'].limit('b')"}}})))
 
   (is (= [{:message
            "`myLimit` is not a valid rate limit config. It should be defined in the `$rateLimits` key.",
@@ -111,11 +111,11 @@
           {:message
            "`myLimit2` is not a valid rate limit config. It should be defined in the `$rateLimits` key.",
            :in ["myetype" "allow" "view"]}]
-         (rule/validation-errors {"myetype"
-                                  {"allow" {"view" "rateLimit.myLimit.limit('a') && rateLimit['myLimit2'].limit('b')"}}
+         (rule/validation-errors
+          {"$rateLimits" {"someOtherLimit" {"limits" [{"capacity" 2}]}}
 
-                                  "$rateLimits"
-                                  {"someOtherLimit" {"limits" [{"capacity" 2}]}}}))))
+           "myetype"
+           {"allow" {"view" "rateLimit.myLimit.limit('a') && rateLimit['myLimit2'].limit('b')"}}}))))
 
 (deftest can-set-create-view-update-rules-for-users
   (is (empty? (rule/validation-errors {"$users" {"allow" {"create" "true"}}})))

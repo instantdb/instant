@@ -370,7 +370,6 @@
             ast (cel/->ast compiler code)
             ;; create the program to see if it throws
             _program (cel/->program ast)
-            ;; XXX: Here is where we need to validate the rules are available
             errors (cel/validation-errors rules compiler ast)]
         (when (seq errors)
           (format-cel-errors path errors))))
