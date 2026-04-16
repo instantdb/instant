@@ -18,6 +18,12 @@ To get started with Next.JS run:
 npx create-instant-app --next
 ```
 
+To get started with Vite run:
+
+```bash {% showCopy=true %}
+npx create-instant-app --vite-react
+```
+
 ## Manual Setup
 
 To create a new Next project, fire up your terminal and run the following:
