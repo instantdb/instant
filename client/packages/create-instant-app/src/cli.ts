@@ -255,9 +255,9 @@ export const runCli = async (): Promise<Project> => {
             new UI.Select({
               promptText: 'What framework would you like to use?',
               options: [
-                { value: 'next-js-app-dir', label: 'Next.js' },
-                { value: 'vite-react', label: 'Vite: React' },
-                { value: 'expo', label: 'Expo: React Native' },
+                { value: 'next-js-app-dir', label: 'Web: Next.js' },
+                { value: 'vite-react', label: 'Web: Vite' },
+                { value: 'expo', label: 'Mobile: Expo' },
               ],
               defaultValue: 'next-js-app-dir',
               modifyOutput: UI.modifiers.piped([UI.ciaModifier()]),
