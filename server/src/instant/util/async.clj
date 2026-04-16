@@ -294,7 +294,7 @@
    (when xform (assert buf-or-n "buffer must be supplied when transducer is"))
    (let [buf-or-n (or buf-or-n 1)
          buf (if (number? buf-or-n) (a/buffer buf-or-n) buf-or-n)
-         chan (a/chan xform ex-handler)]
+         chan (a/chan buf xform ex-handler)]
      (gauges/add-gauge-metrics-fn
       (fn [{:keys [cleanup]}]
         (if (a-impl/closed? chan)
