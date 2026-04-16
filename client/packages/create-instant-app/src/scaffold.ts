@@ -136,7 +136,7 @@ const scaffoldWithTiged = async ({
   baseTemplateName: string;
 }) => {
   const repoPath = `instantdb/instant/examples/${baseTemplateName}`;
-  const tigedInstance = tiged(repoPath, { mode: 'tar', cache: false });
+  const tigedInstance = tiged(repoPath, { mode: 'tar' });
   await tigedInstance.clone(projectDir);
 };
 
