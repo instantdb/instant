@@ -21,6 +21,7 @@ import {
 } from '@instantdb/platform';
 import { UI } from '../../../ui/index.ts';
 import chalk from 'chalk';
+import boxen from 'boxen';
 
 const ClientTypeSchema = Schema.Literal(
   'google',
@@ -216,14 +217,16 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
     },
   });
 
-  yield* Effect.log();
   yield* Effect.log(
-    `Google OAuth client created: ${response.client.client_name}`,
-  );
-  yield* Effect.log(`App type: ${appType}`);
-  yield* Effect.log(`Client database id: ${response.client.id}`);
-  yield* Effect.log(
-    `Google client id: ${response.client.client_id ?? clientId}`,
+    boxen(
+      [
+        `Google OAuth client created: ${response.client.client_name}`,
+        `App type: ${appType}`,
+        `Client database id: ${response.client.id}`,
+        `Google client id: ${response.client.client_id ?? clientId}`,
+      ].join('\n'),
+      { dimBorder: true, padding: { right: 1, left: 1 } },
+    ),
   );
 
   if (appType === 'web') {
@@ -232,7 +235,6 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
         `\nAdd this redirect URI in Google Console:\n${redirectUri}\n`,
       ),
     );
-
     if (customRedirectUri) {
       yield* Effect.log(
         `Your custom redirect must forward to ${GOOGLE_DEFAULT_CALLBACK_URL} with all query parameters preserved.`,
