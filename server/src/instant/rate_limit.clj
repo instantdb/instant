@@ -324,9 +324,9 @@
         remaining (.tryConsumeAndReturnRemaining bucket tokens)]
     (if (.isConsumed remaining)
       true
-      (throw (ex/throw-permission-rate-limited! (.plusNanos (Instant/now)
-                                                            (.getNanosToWaitForRefill remaining))
-                                                (.getRemainingTokens remaining))))))
+      (ex/throw-permission-rate-limited! (.plusNanos (Instant/now)
+                                                     (.getNanosToWaitForRefill remaining))
+                                         (.getRemainingTokens remaining)))))
 
 (defonce schedule (atom nil))
 
