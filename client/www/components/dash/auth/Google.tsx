@@ -136,9 +136,7 @@ export function AddClientForm({
         meta: {
           skipNonceChecks: skipNonceChecks,
           appType,
-          ...(useSharedCredentials
-            ? { useSharedCredentials: true, providerName: 'google' }
-            : {}),
+          ...(useSharedCredentials ? { useSharedCredentials: true } : {}),
         },
       });
       onAddClient(resp.client);
@@ -200,8 +198,8 @@ export function AddClientForm({
       {useSharedCredentials ? (
         <div className="rounded-sm bg-gray-50 p-3 text-sm text-gray-600 dark:bg-neutral-800 dark:text-neutral-400">
           <p>
-            Instant provides dev credentials so you can test Google sign-in on{' '}
-            <span className="font-medium">localhost</span> without any setup.
+            Instant provides dev credentials so you can test Google sign-in in
+            development (localhost and Expo) without any setup.
           </p>
           <button
             type="button"
@@ -391,7 +389,6 @@ export function Client({
   const token = useContext(TokenContext);
   const [open, setOpen] = useState(defaultOpen);
   const [isLoading, setIsLoading] = useState(false);
-  const [showUpgrade, setShowUpgrade] = useState(false);
   const [upgradeClientId, setUpgradeClientId] = useState('');
   const [upgradeClientSecret, setUpgradeClientSecret] = useState('');
 
@@ -557,46 +554,33 @@ function Login() {
             {client.meta?.useSharedCredentials ? (
               <div className="rounded-sm bg-gray-50 p-3 text-sm text-gray-600 dark:bg-neutral-800 dark:text-neutral-400">
                 <p>
-                  Using Instant's dev credentials. Works on{' '}
-                  <span className="font-medium">localhost</span> out of the box.
+                  Using Instant's dev credentials. Works in development
+                  (localhost and Expo) out of the box.
                 </p>
-                {!showUpgrade ? (
-                  <button
-                    type="button"
-                    className="mt-2 text-blue-600 hover:underline dark:text-blue-400"
-                    onClick={() => setShowUpgrade(true)}
-                  >
-                    Ready for production? Add your own credentials
-                  </button>
-                ) : (
-                  <div className="mt-3 flex flex-col gap-2">
-                    <TextInput
-                      value={upgradeClientId}
-                      onChange={setUpgradeClientId}
-                      label="Client ID from Google console"
-                    />
-                    <TextInput
-                      type="sensitive"
-                      value={upgradeClientSecret}
-                      onChange={setUpgradeClientSecret}
-                      label="Client secret from Google console"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        loading={isLoading}
-                        onClick={handleUpgradeCredentials}
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={() => setShowUpgrade(false)}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
+                <p className="mt-2">
+                  Ready for production? Add your own credentials below.
+                </p>
+                <div className="mt-3 flex flex-col gap-2">
+                  <TextInput
+                    value={upgradeClientId}
+                    onChange={setUpgradeClientId}
+                    label="Client ID from Google console"
+                  />
+                  <TextInput
+                    type="sensitive"
+                    value={upgradeClientSecret}
+                    onChange={setUpgradeClientSecret}
+                    label="Client secret from Google console"
+                  />
+                  <div>
+                    <Button
+                      loading={isLoading}
+                      onClick={handleUpgradeCredentials}
+                    >
+                      Save
+                    </Button>
                   </div>
-                )}
+                </div>
               </div>
             ) : (
               <Copyable label="Google client ID" value={client.client_id || ''} />

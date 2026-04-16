@@ -190,7 +190,7 @@
     (when-not (app-authorized-redirect-origin-model/authorized-origin?
                authorized-origins
                redirect-uri
-               (app-oauth-client-model/use-shared-credentials? client))
+               (app-oauth-client-model/use-shared-credentials? (:meta client)))
       (ex/throw-validation-err!
        :redirect-uri
        redirect-uri
@@ -202,7 +202,7 @@
     (when-not (app-authorized-redirect-origin-model/authorized-origin?
                authorized-origins
                origin
-               (app-oauth-client-model/use-shared-credentials? client))
+               (app-oauth-client-model/use-shared-credentials? (:meta client)))
       (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
 (defn oauth-start [{{:keys [state code_challenge code_challenge_method]} :params :as req}]
@@ -229,9 +229,6 @@
                                 [param value]))
 
         _ (assert-authorized-redirect-uri! client redirect-uri)
-
-        _ (when (app-oauth-client-model/use-shared-credentials? client)
-            (app-oauth-client-model/assert-shared-credentials-allowed! {:app-id app-id}))
 
         app-redirect-url
         (if state
@@ -271,7 +268,8 @@
                               ;; matches everything under the subdirectory
                               :path "/runtime/oauth"}))))
 
-(defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id extra-fields]}]
+(defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id extra-fields
+                                  use-shared-credentials?]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
                {:email email
                 :app-id app-id
@@ -299,7 +297,9 @@
                                        :sub (:app_user_oauth_links/sub oauth-link)})})))]
 
     (if-not user
-      (let [_        (app-user-model/assert-signup!
+      (let [_        (when use-shared-credentials?
+                       (app-oauth-client-model/assert-shared-credentials-allowed! app-id))
+            _        (app-user-model/assert-signup!
                       {:app-id app-id
                        :email email
                        :id (or guest-user-id (random-uuid))
@@ -631,7 +631,10 @@
                                                 :app-id app-id
                                                 :provider-id (:provider_id client)
                                                 :guest-user-id (:id guest-user)
-                                                :extra-fields extra-fields})
+                                                :extra-fields extra-fields
+                                                :use-shared-credentials?
+                                                (app-oauth-client-model/use-shared-credentials?
+                                                 (:meta client))})
 
         refresh-token-id (random-uuid)
 
@@ -691,7 +694,10 @@
                                           :app-id (:app_id client)
                                           :provider-id (:provider_id client)
                                           :guest-user-id (:id guest-user)
-                                          :extra-fields extra-fields})
+                                          :extra-fields extra-fields
+                                          :use-shared-credentials?
+                                          (app-oauth-client-model/use-shared-credentials?
+                                           (:meta client))})
 
         {refresh-token-id :id} (if (and current-refresh-token
                                         (= (:user_id social-login)

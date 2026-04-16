@@ -68,12 +68,13 @@
   (and (not (contains? reserved-uri-schemes uri-scheme))
        (= scheme uri-scheme)))
 
-;; When users choose shared credentials, we automatically allow
-;; localhost (http/https) and expo dev (exp://) as redirect targets,
-;; without them having to set those explicitly in their allowed
-;; origins. For custom domains or schemes, they can still add them to
-;; allowed origins.
-(defn shared-credentials-default-match [url]
+(defn shared-credentials-default-match
+  "When users choose shared credentials, we automatically allow
+   localhost (http/https) and expo dev (exp://) as redirect targets,
+   without them having to set those explicitly in their allowed
+   origins. For custom domains or schemes, they can still add them to
+   allowed origins."
+  [url]
   (let [parsed-url (uri/uri url)
         host (:host parsed-url)
         scheme (:scheme parsed-url)]

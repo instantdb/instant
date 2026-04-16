@@ -628,8 +628,11 @@
         discovery-endpoint (when-not (= "github" provider-name)
                              (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str))
 
-        _ (when (get meta "useSharedCredentials")
-            (app-oauth-client-model/assert-shared-credentials-allowed! {:app-id app-id}))
+        _ (when (app-oauth-client-model/use-shared-credentials? meta)
+            (let [resolved-provider-name (app-oauth-client-model/get-provider-name-by-id!
+                                          {:app-id app-id :provider-id provider-id})]
+              (app-oauth-client-model/assert-shared-credentials-configured! resolved-provider-name)
+              (app-oauth-client-model/assert-shared-credentials-allowed! app-id)))
 
         client (app-oauth-client-model/create! {:app-id app-id
                                                 :provider-id provider-id
@@ -655,8 +658,13 @@
              redirect-to
              (url-util/redirect-url-validation-errors
               redirect-to :allow-localhost? true)))
-        _ (when (get meta "useSharedCredentials")
-            (app-oauth-client-model/assert-shared-credentials-allowed! {:app-id app-id}))
+        _ (when (app-oauth-client-model/use-shared-credentials? meta)
+            (let [existing (app-oauth-client-model/get-by-id {:app-id app-id :id id})
+                  _ (ex/assert-record! existing :app-oauth-client {:app-id app-id :id id})
+                  provider-name (app-oauth-client-model/get-provider-name-by-id!
+                                 {:app-id app-id :provider-id (:provider_id existing)})]
+              (app-oauth-client-model/assert-shared-credentials-configured! provider-name)
+              (app-oauth-client-model/assert-shared-credentials-allowed! app-id)))
         encrypted-client-secret (when client-secret
                                   (crypt-util/bytes->hex-string
                                    (app-oauth-client-model/encrypt-client-secret id client-secret)))

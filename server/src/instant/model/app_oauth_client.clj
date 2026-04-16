@@ -3,6 +3,7 @@
    [instant.auth.oauth :as oauth]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
+   [instant.model.app-oauth-service-provider :as app-oauth-service-provider-model]
    [instant.model.app-user :as app-user-model]
    [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.crypt :as crypt-util]
@@ -16,14 +17,30 @@
 
 (def shared-credentials-user-limit 100)
 
-(defn use-shared-credentials? [oauth-client]
-  (boolean (get (:meta oauth-client) "useSharedCredentials")))
+(defn use-shared-credentials? [meta]
+  (boolean (get meta "useSharedCredentials")))
 
 (defn encrypt-client-secret [id client-secret]
   (crypt-util/aead-encrypt {:plaintext (String/.getBytes client-secret)
                             :associated-data (uuid-util/->bytes id)}))
 
-(defn assert-shared-credentials-allowed! [{:keys [app-id]}]
+(defn get-shared-credential [provider-name]
+  (first (get (flags/shared-oauth-clients) provider-name)))
+
+(defn get-shared-credential! [provider-name]
+  (ex/assert-record! (get-shared-credential provider-name)
+                     :shared-oauth-client
+                     {:provider-name provider-name}))
+
+(defn get-provider-name-by-id! [{:keys [app-id provider-id]}]
+  (let [provider (app-oauth-service-provider-model/get-by-id
+                  {:app-id app-id :id provider-id})]
+    (ex/assert-record! provider
+                       :oauth-service-provider
+                       {:provider-id provider-id})
+    (:name provider)))
+
+(defn assert-shared-credentials-allowed! [app-id]
   (when (app-user-model/users-at-least? {:app-id app-id
                                          :n shared-credentials-user-limit})
     (ex/throw-validation-err!
@@ -32,6 +49,15 @@
      [{:message (str "Shared dev credentials are limited to "
                      shared-credentials-user-limit
                      " users. Please add your own client_id and client_secret in the dashboard.")}])))
+
+(defn assert-shared-credentials-configured! [provider-name]
+  (when-not (get-shared-credential provider-name)
+    (ex/throw-validation-err!
+     :shared-credentials
+     provider-name
+     [{:message (str "Shared dev credentials are not available for provider `"
+                     provider-name
+                     "`.")}])))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
@@ -144,19 +170,13 @@
       (String. "UTF-8")
       (Secret.)))
 
-(defn get-shared-credential! [provider-name]
-  (let [cred (-> (flags/shared-oauth-clients)
-                 (get provider-name)
-                 first)]
-    (ex/assert-record! cred
-                       :shared-oauth-client
-                       {:provider-name provider-name})))
-
 (defn ->OAuthClient [oauth-client]
-  (let [provider-name (get (:meta oauth-client) "providerName")
-        oauth-client (if-not (use-shared-credentials? oauth-client)
+  (let [oauth-client (if-not (use-shared-credentials? (:meta oauth-client))
                        oauth-client
-                       (let [shared-cred (get-shared-credential! provider-name)]
+                       (let [provider-name (get-provider-name-by-id!
+                                            {:app-id (:app_id oauth-client)
+                                             :provider-id (:provider_id oauth-client)})
+                             shared-cred (get-shared-credential! provider-name)]
                          (assoc oauth-client
                                 :id (:id shared-cred)
                                 :client_id (:clientId shared-cred)
