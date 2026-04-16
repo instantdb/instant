@@ -105,7 +105,6 @@ Provider Specific Options:
    --client-id
    --client-secret                      (web only)
    --custom-redirect-uri       (optional, web only)
-
   GitHub:
    --client-id
    --client-secret
