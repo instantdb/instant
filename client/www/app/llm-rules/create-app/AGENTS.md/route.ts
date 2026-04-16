@@ -6,34 +6,49 @@ import path from 'path';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const RULES_PATH = path.join(process.cwd(), 'lib', 'intern', 'instant-rules.md');
+const RULES_PATH = path.join(
+  process.cwd(),
+  'lib',
+  'intern',
+  'instant-rules.md',
+);
 const DEFAULT_APP_TITLE = 'instant-agent-app';
+
+const baseRulesPromise = fs.readFile(RULES_PATH, 'utf8');
 
 export async function GET(request: Request) {
   const title =
-    new URL(request.url).searchParams.get('title')?.trim() ||
-    DEFAULT_APP_TITLE;
-  const baseRules = await fs.readFile(RULES_PATH, 'utf8');
-  const { apiURI } = await getServerConfig();
-  const api = new PlatformApi({ apiURI });
-  const { app, expiresMs } = await api.createTemporaryApp({ title });
+    new URL(request.url).searchParams.get('title')?.trim() || DEFAULT_APP_TITLE;
+  const baseRules = await baseRulesPromise;
 
-  const markdown = `# Instant App
+  const api = new PlatformApi({
+    auth: {
+      token:
+        'per_1f528fd07d54d08217837d1ba2eedcd87c0fbd6345f1d03f08cfecc306a21687',
+    },
+  });
 
-Use this Instant app for the current session.
+  const { app } = await api.createApp({
+    title,
+    orgId: 'a1759320-b957-4a6a-b717-9c87cdca8775',
+  });
 
-- App ID: \`${app.id}\`
-- Admin Token: \`${app.adminToken}\`
-- Expires At: \`${new Date(expiresMs).toISOString()}\`
+  const markdown = `
+You've just gotten a new Instant app provisioned for you! 
 
-## Environment
+Here's the info:
 
-\`\`\`env
-NEXT_PUBLIC_INSTANT_APP_ID=${app.id}
-INSTANT_APP_ADMIN_TOKEN=${app.adminToken}
+\`\`\`
+INSTANT_APP_ID=${app.id}
+INSTANT_ADMIN_TOKEN=${app.adminToken}
 \`\`\`
 
-This app is ephemeral. If it expires, create a new one from this URL.
+Now you can use this to build a full-stack app. 
+
+What follows are instructions for using Instant. Follow them, and you are golden!
+
+Note: You don't have access to npx. Instead of npx instant-cli, use INSTANT_APP_ID=... INSTANT_ADMIN_TOKEN=... pnpm dlx ...
+---
 
 ${baseRules}`;
 
