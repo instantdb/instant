@@ -158,7 +158,7 @@ const permsJsonSchema = (
     type: 'object',
     properties,
     patternProperties: {
-      '^[$a-zA-Z0-9_\\-]+$': genericNamespaceRuleBlock,
+      '^(?!\\$rateLimits$)[$a-zA-Z0-9_\\-]+$': genericNamespaceRuleBlock,
     },
     additionalProperties: false,
   };

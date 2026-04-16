@@ -117,6 +117,16 @@
            "myetype"
            {"allow" {"view" "rateLimit.myLimit.limit('a') && rateLimit['myLimit2'].limit('b')"}}}))))
 
+(deftest rate-limit-validation-rejects-non-object
+  (is (= [{:message "$rateLimits must be an object"
+           :in ["$rateLimits"]}]
+         (rule/validation-errors {"$rateLimits" "bad"})))
+  (is (= [{:message "$rateLimits must be an object"
+           :in ["$rateLimits"]}]
+         (rule/validation-errors {"$rateLimits" 123})))
+  (is (= () (rule/validation-errors {"$rateLimits" nil})))
+  (is (= () (rule/validation-errors {}))))
+
 (deftest can-set-create-view-update-rules-for-users
   (is (empty? (rule/validation-errors {"$users" {"allow" {"create" "true"}}})))
   (is (empty? (rule/validation-errors {"$users" {"allow" {"view" "true"}}})))

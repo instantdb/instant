@@ -414,19 +414,24 @@
        (keep identity)))
 
 (defn rate-limit-validation-errors [rules]
-  (reduce-kv (fn [errs rate-limit-name config]
-               (try
-                 (rate-limit/rules-rate-limit-config->bucket-config config)
-                 errs
-                 (catch Exception e
-                   (conj errs {:message (or
-                                         (-> e
-                                             (ex-data)
-                                             ::ex/message)
-                                         "Unexpected error parsing $rateLimits config")
-                               :in ["$rateLimits" rate-limit-name]}))))
-             []
-             (get rules "$rateLimits")))
+  (let [rl (get rules "$rateLimits")]
+    (cond
+      (nil? rl) []
+      (not (map? rl)) [{:message "$rateLimits must be an object"
+                        :in ["$rateLimits"]}]
+      :else (reduce-kv (fn [errs rate-limit-name config]
+                         (try
+                           (rate-limit/rules-rate-limit-config->bucket-config config)
+                           errs
+                           (catch Exception e
+                             (conj errs {:message (or
+                                                   (-> e
+                                                       (ex-data)
+                                                       ::ex/message)
+                                                   "Unexpected error parsing $rateLimits config")
+                                         :in ["$rateLimits" rate-limit-name]}))))
+                       []
+                       rl))))
 
 (defn validation-errors [rules]
   (concat (bind-validation-errors rules)
