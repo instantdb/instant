@@ -22,12 +22,11 @@ import {
 import { UI } from '../../../ui/index.ts';
 import chalk from 'chalk';
 import boxen from 'boxen';
-import { redirect } from '@effect/platform/HttpServerResponse';
 
 const ClientTypeSchema = Schema.Literal(
   'google',
+  'github',
   // 'apple',
-  // 'github',
   // 'linkedin',
   // 'clerk',
   // 'firebase',
@@ -240,8 +239,134 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
       [
         `Google OAuth client created: ${response.client.client_name}`,
         `App type: ${appType}`,
-        `Client database id: ${response.client.id}`,
-        `Google client id: ${response.client.client_id ?? clientId}`,
+        `ID: ${response.client.id}`,
+        `Google Client ID: ${response.client.client_id ?? clientId}`,
+        ...redirectMessages,
+      ].join('\n'),
+      { dimBorder: true, padding: { right: 1, left: 1 } },
+    ),
+  );
+});
+
+const GITHUB_DEFAULT_CALLBACK_URL =
+  'https://api.instantdb.com/runtime/oauth/callback';
+
+const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
+  const { auth, provider } = yield* getOrCreateProvider('github');
+  const usedClientNames = new Set(
+    (auth.oauth_clients ?? []).map((client) => client.client_name),
+  );
+  const suggestedClientName = findName('github-web', usedClientNames);
+
+  const clientName = yield* optOrPrompt(opts.name, {
+    simpleName: '--name',
+    required: true,
+    skipIf: false,
+    prompt: {
+      prompt: 'Client Name:',
+      defaultValue: suggestedClientName,
+      placeholder: suggestedClientName,
+      validate: validateRequired,
+      modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
+    },
+  });
+
+  if (usedClientNames.has(clientName || '')) {
+    return yield* BadArgsError.make({
+      message: `The unique name '${clientName}' is already in use.`,
+    });
+  }
+
+  const clientId = yield* optOrPrompt(opts['client-id'], {
+    simpleName: '--client-id',
+    required: true,
+    skipIf: false,
+    prompt: {
+      prompt: `Client ID ${chalk.dim('(from https://github.com/settings/developers)')}`,
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+      validate: validateRequired,
+    },
+  });
+
+  const clientSecret = yield* optOrPrompt(opts['client-secret'], {
+    required: true,
+    skipIf: false,
+    simpleName: '--client-secret',
+    prompt: {
+      prompt: `Client Secret: ${chalk.dim('(from https://github.com/settings/developers)')}`,
+      validate: validateRequired,
+      sensitive: true,
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+    },
+  });
+
+  const customRedirectUri = yield* optOrPrompt(opts['custom-redirect-uri'], {
+    required: false,
+    simpleName: '--custom-redirect-uri',
+    skipIf: false,
+    prompt: {
+      prompt: '',
+      placeholder: 'https://yoursite.com/oauth/callback',
+      modifyOutput: UI.modifiers.piped([
+        (output, status) => {
+          if (status === 'idle') {
+            return (
+              `\nCustom redirect URI (optional):
+${chalk.dim('With a custom redirect URI, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
+${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.')}\n\n` +
+              stripFirstBlankLine(output)
+            );
+          }
+          return `\nCustom redirect URI (optional):\n${stripFirstBlankLine(output)}`;
+        },
+        UI.modifiers.dimOnComplete,
+      ]),
+    },
+  });
+
+  if (!clientName) {
+    return yield* BadArgsError.make({ message: 'Client name is required.' });
+  }
+
+  const redirectUri = customRedirectUri || GITHUB_DEFAULT_CALLBACK_URL;
+
+  // The backend infers GitHub's authorization/token endpoints from
+  // meta.providerName === 'github', so we don't pass them here.
+  const response = yield* addOAuthClient({
+    providerId: provider.id,
+    clientName,
+    clientId,
+    clientSecret,
+    redirectTo: redirectUri,
+    meta: { providerName: 'github' },
+  });
+
+  const redirectMessages: string[] = [
+    chalk.bold(
+      `\nAdd this callback URL in your GitHub OAuth App settings:\n${redirectUri}\n`,
+    ),
+  ];
+  if (customRedirectUri) {
+    redirectMessages.push(
+      `Your custom redirect must forward to ${chalk.bold(GITHUB_DEFAULT_CALLBACK_URL)} with all query parameters preserved.`,
+    );
+    redirectMessages.push(
+      `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,
+    );
+  }
+
+  yield* Effect.log(
+    boxen(
+      [
+        `GitHub OAuth client created: ${response.client.client_name}`,
+        `ID: ${response.client.id}`,
+        `GitHub Client ID: ${response.client.client_id ?? clientId}`,
         ...redirectMessages,
       ].join('\n'),
       { dimBorder: true, padding: { right: 1, left: 1 } },
@@ -265,9 +390,9 @@ export const authClientAddCmd = Effect.fn(
           new UI.Select({
             options: [
               { label: 'Google', value: 'google' },
+              { label: 'GitHub', value: 'github' },
               // TODO: implement
               // { label: 'Apple', value: 'apple' },
-              // { label: 'GitHub', value: 'github' },
               // { label: 'LinkedIn', value: 'linkedin' },
               // { label: 'Clerk', value: 'clerk' },
               // { label: 'Firebase', value: 'firebase' },
@@ -289,9 +414,9 @@ export const authClientAddCmd = Effect.fn(
     yield* Match.value(clientType).pipe(
       Match.withReturnType<Effect.Effect<void, any, any>>(),
       Match.when('google', () => handleGoogleClient(opts)),
+      Match.when('github', () => handleGithubClient(opts)),
       // Match.when('apple', () => Effect.logError('Not Implemented')),
       // Match.when('clerk', () => Effect.logError('Not Implemented')),
-      // Match.when('github', () => Effect.logError('Not Implemented')),
       // Match.when('firebase', () => Effect.logError('Not Implemented')),
       // Match.when('linkedin', () => Effect.logError('Not Implemented')),
       Match.exhaustive,

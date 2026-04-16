@@ -29,12 +29,12 @@ let addedClients: any[] = [];
 vi.mock('../src/lib/oauth.ts', () => ({
   getAppsAuth: () =>
     Effect.succeed({
-      oauth_service_providers: [{ id: 'prov-1', provider_name: 'google' }],
+      oauth_service_providers: [{ id: 'prov-1', provider_name: 'github' }],
       oauth_clients: [],
     }),
   addOAuthProvider: () =>
     Effect.succeed({
-      provider: { id: 'prov-1', provider_name: 'google' },
+      provider: { id: 'prov-1', provider_name: 'github' },
     }),
   addOAuthClient: (params: any) => {
     addedClients.push(params);
@@ -93,32 +93,18 @@ beforeEach(() => {
 // -- flag sets --
 
 const webFlags = new Map([
-  ['type', 'google'],
-  ['app-type', 'web'],
-  ['name', 'google-web'],
-  ['client-id', '123456.apps.googleusercontent.com'],
-  ['client-secret', 'GOCSPX-abc123'],
+  ['type', 'github'],
+  ['name', 'github-web'],
+  ['client-id', 'Iv1.abc123'],
+  ['client-secret', 'ghs_abc123'],
 ]);
 
-const iosFlags = new Map([
-  ['type', 'google'],
-  ['app-type', 'ios'],
-  ['name', 'google-ios'],
-  ['client-id', '123456.apps.googleusercontent.com'],
-]);
+// -- --yes: build-up errors on each missing required flag --
 
-// -- web: build-up with --yes --
-
-describe('web: --yes errors on each missing required flag', () => {
+describe('--yes errors on each missing required flag', () => {
   test('missing --type', async () => {
     await run(without(webFlags, 'type'), { yes: true });
     expect(logs.join('\n')).toContain('Missing required value for --type');
-    expect(addedClients).toHaveLength(0);
-  });
-
-  test('missing --app-type', async () => {
-    await run(without(webFlags, 'app-type'), { yes: true });
-    expect(logs.join('\n')).toContain('Missing required value for --app-type');
     expect(addedClients).toHaveLength(0);
   });
 
@@ -143,37 +129,32 @@ describe('web: --yes errors on each missing required flag', () => {
   });
 });
 
-// -- web: interactive prompts for each missing flag --
+// -- interactive prompts for each missing flag --
 
-describe('web: interactive prompts for each missing flag', () => {
+describe('interactive prompts for each missing flag', () => {
   test('missing --type → prompts type selector', async () => {
-    mockPromptReturn = 'google';
+    mockPromptReturn = 'github';
     await run(without(webFlags, 'type'), { yes: false });
     expect((prompts[0] as any).params.promptText).toBe('Select a client type:');
   });
 
-  test('missing --app-type → prompts app type selector', async () => {
-    mockPromptReturn = 'web';
-    await run(without(webFlags, 'app-type'), { yes: false });
-    expect((prompts[0] as any).params.promptText).toBe(
-      'Select a Google app type:',
-    );
-  });
-
   test('missing --name → prompts for name', async () => {
-    mockPromptReturn = 'google-web';
+    mockPromptReturn = 'github-web';
     await run(without(webFlags, 'name'), { yes: false });
     expect((prompts[0] as any).props.prompt).toBe('Client Name:');
   });
 
   test('missing --client-id → prompts for client id', async () => {
-    mockPromptReturn = '123456.apps.googleusercontent.com';
+    mockPromptReturn = 'Iv1.abc123';
     await run(without(webFlags, 'client-id'), { yes: false });
     expect((prompts[0] as any).props.prompt).toContain('Client ID');
+    expect((prompts[0] as any).props.prompt).toContain(
+      'github.com/settings/developers',
+    );
   });
 
   test('missing --client-secret → prompts for client secret', async () => {
-    mockPromptReturn = 'GOCSPX-abc123';
+    mockPromptReturn = 'ghs_abc123';
     await run(without(webFlags, 'client-secret'), { yes: false });
     expect((prompts[0] as any).props.prompt).toContain('Client Secret:');
     expect((prompts[0] as any).props.sensitive).toBe(true);
@@ -195,28 +176,32 @@ describe('web: interactive prompts for each missing flag', () => {
   });
 });
 
-// -- web: success cases --
+// -- success cases --
 
-describe('web: success', () => {
-  test('all required flags → creates client and prints redirect URI', async () => {
+describe('success', () => {
+  test('all required flags → creates client and prints callback URL', async () => {
     await run(webFlags, { yes: true });
     expect(addedClients).toHaveLength(1);
     expect(addedClients[0]).toMatchObject({
-      clientName: 'google-web',
-      clientId: '123456.apps.googleusercontent.com',
-      clientSecret: 'GOCSPX-abc123',
+      clientName: 'github-web',
+      clientId: 'Iv1.abc123',
+      clientSecret: 'ghs_abc123',
+      redirectTo: 'https://api.instantdb.com/runtime/oauth/callback',
+      meta: { providerName: 'github' },
     });
+    expect(addedClients[0].authorizationEndpoint).toBeUndefined();
+    expect(addedClients[0].tokenEndpoint).toBeUndefined();
+    expect(addedClients[0].discoveryEndpoint).toBeUndefined();
     const output = logs.join('\n');
-    expect(output).toContain('Add this redirect URI in Google Console:');
+    expect(output).toContain(
+      'Add this callback URL in your GitHub OAuth App settings:',
+    );
     expect(output).toContain(
       'https://api.instantdb.com/runtime/oauth/callback',
     );
-    expect(output).toContain('Google OAuth client created: google-web');
-    expect(output).toContain('App type: web');
+    expect(output).toContain('GitHub OAuth client created: github-web');
     expect(output).toContain('ID: client-1');
-    expect(output).toContain(
-      'Google Client ID: 123456.apps.googleusercontent.com',
-    );
+    expect(output).toContain('GitHub Client ID: Iv1.abc123');
   });
 
   test('with custom-redirect-uri → uses it and prints forwarding instructions', async () => {
@@ -226,49 +211,13 @@ describe('web: success', () => {
     );
     expect(addedClients[0].redirectTo).toBe('https://myapp.com/cb');
     const output = logs.join('\n');
-    expect(output).toContain('Add this redirect URI in Google Console:');
+    expect(output).toContain(
+      'Add this callback URL in your GitHub OAuth App settings:',
+    );
     expect(output).toContain('https://myapp.com/cb');
     expect(output).toContain(
       'https://api.instantdb.com/runtime/oauth/callback with all query parameters',
     );
-  });
-});
-
-// -- ios: forbidden flags and success --
-
-describe('ios', () => {
-  test('--client-secret → error (not supported)', async () => {
-    await run(withEntry(iosFlags, 'client-secret', 'secret'), { yes: true });
-    expect(logs.join('\n')).toContain(
-      '--client-secret is not compatible with other options',
-    );
-    expect(addedClients).toHaveLength(0);
-  });
-
-  test('--custom-redirect-uri → error (not supported)', async () => {
-    await run(
-      withEntry(iosFlags, 'custom-redirect-uri', 'https://example.com'),
-      { yes: true },
-    );
-    expect(logs.join('\n')).toContain('not using web app type');
-    expect(addedClients).toHaveLength(0);
-  });
-
-  test('valid flags → creates client without secret or redirect instructions', async () => {
-    await run(iosFlags, { yes: true });
-    expect(addedClients).toHaveLength(1);
-    expect(addedClients[0]).toMatchObject({
-      clientName: 'google-ios',
-      clientId: '123456.apps.googleusercontent.com',
-    });
-    expect(addedClients[0].clientSecret).toBeUndefined();
-    const output = logs.join('\n');
-    expect(output).not.toContain('Add this redirect URI');
-    expect(output).toContain('Google OAuth client created: google-ios');
-    expect(output).toContain('App type: ios');
-    expect(output).toContain('ID: client-1');
-    expect(output).toContain(
-      'Google Client ID: 123456.apps.googleusercontent.com',
-    );
+    expect(output).toContain('https://myapp.com/cb?test-redirect=true');
   });
 });
