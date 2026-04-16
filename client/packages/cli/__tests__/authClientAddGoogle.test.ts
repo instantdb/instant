@@ -211,6 +211,12 @@ describe('web: success', () => {
     expect(output).toContain(
       'https://api.instantdb.com/runtime/oauth/callback',
     );
+    expect(output).toContain('Google OAuth client created: google-web');
+    expect(output).toContain('App type: web');
+    expect(output).toContain('ID: client-1');
+    expect(output).toContain(
+      'Google Client ID: 123456.apps.googleusercontent.com',
+    );
   });
 
   test('with custom-redirect-uri → uses it and prints forwarding instructions', async () => {
@@ -256,6 +262,13 @@ describe('ios', () => {
       clientId: '123456.apps.googleusercontent.com',
     });
     expect(addedClients[0].clientSecret).toBeUndefined();
-    expect(logs.join('\n')).not.toContain('Add this redirect URI');
+    const output = logs.join('\n');
+    expect(output).not.toContain('Add this redirect URI');
+    expect(output).toContain('Google OAuth client created: google-ios');
+    expect(output).toContain('App type: ios');
+    expect(output).toContain('ID: client-1');
+    expect(output).toContain(
+      'Google Client ID: 123456.apps.googleusercontent.com',
+    );
   });
 });

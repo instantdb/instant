@@ -199,6 +199,9 @@ describe('success', () => {
     expect(output).toContain(
       'https://api.instantdb.com/runtime/oauth/callback',
     );
+    expect(output).toContain('GitHub OAuth client created: github-web');
+    expect(output).toContain('ID: client-1');
+    expect(output).toContain('GitHub Client ID: Iv1.abc123');
   });
 
   test('with custom-redirect-uri → uses it and prints forwarding instructions', async () => {
