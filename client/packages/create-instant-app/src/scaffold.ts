@@ -1,4 +1,5 @@
 import path from 'path';
+// @ts-ignore
 import tiged from 'tiged';
 import fs from 'fs-extra';
 import { PKG_ROOT } from './consts.js';
@@ -136,7 +137,7 @@ const scaffoldWithTiged = async ({
   baseTemplateName: string;
 }) => {
   const repoPath = `instantdb/instant/examples/${baseTemplateName}`;
-  const tigedInstance = tiged(repoPath, { mode: 'tar' });
+  const tigedInstance = tiged(repoPath, { mode: 'tar', disableCache: true });
   await tigedInstance.clone(projectDir);
 };
 
