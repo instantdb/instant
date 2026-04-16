@@ -1,5 +1,6 @@
 import path from 'path';
-import degit from 'degit';
+// @ts-ignore
+import tiged from 'tiged';
 import fs from 'fs-extra';
 import { PKG_ROOT } from './consts.js';
 import { Project } from './cli.js';
@@ -11,8 +12,8 @@ import ignore from 'ignore';
 
 // dev: Set INSTANT_REPO_FOLDER and copy from the examples dir directly (local dev)
 // bundled-template: use files bundled with the package from npm
-// degit: use degit to get a subfolder of the repo from github
-type ScaffoldMethod = 'dev' | 'bundled-template' | 'degit';
+// tiged: use tiged (maintained degit fork) to get a subfolder of the repo from github
+type ScaffoldMethod = 'dev' | 'bundled-template' | 'tiged';
 
 export const scaffoldBase = async (cliResults: Project, appDir: string) => {
   const projectDir = path.resolve(process.cwd(), appDir);
@@ -128,7 +129,7 @@ const replaceTextInFile = (
   fs.writeFileSync(filePath, updatedContent);
 };
 
-const scaffoldWithDegit = async ({
+const scaffoldWithTiged = async ({
   projectDir,
   baseTemplateName,
 }: {
@@ -136,8 +137,8 @@ const scaffoldWithDegit = async ({
   baseTemplateName: string;
 }) => {
   const repoPath = `instantdb/instant/examples/${baseTemplateName}`;
-  const degitInstance = degit(repoPath, { mode: 'tar', cache: false });
-  await degitInstance.clone(projectDir);
+  const tigedInstance = tiged(repoPath, { mode: 'tar', disableCache: true });
+  await tigedInstance.clone(projectDir);
 };
 
 /**
@@ -184,7 +185,7 @@ const scaffoldBaseCode = async ({
     ? 'dev'
     : bundledTemplateExists
       ? 'bundled-template'
-      : 'degit';
+      : 'tiged';
 
   if (method === 'bundled-template') {
     fs.copySync(srcDir, projectDir);
@@ -221,5 +222,5 @@ const scaffoldBaseCode = async ({
     );
   }
 
-  await scaffoldWithDegit({ projectDir, baseTemplateName });
+  await scaffoldWithTiged({ projectDir, baseTemplateName });
 };
