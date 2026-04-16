@@ -142,7 +142,8 @@ export const authClientListDef = authClient
             coerceAuth: false,
             appId: opts.app,
             allowAdminToken: true,
-          }).pipe(Layer.annotateLogs('silent', true)),
+            // Silence "searching for instant sdk.. logs for json output"
+          }).pipe(Layer.annotateLogs('silent', !!opts.json)),
         ),
       ),
     );

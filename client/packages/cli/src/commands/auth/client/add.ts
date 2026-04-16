@@ -148,7 +148,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     required: true,
     skipIf: false,
     prompt: {
-      prompt: 'Client ID:',
+      prompt: `Client ID ${chalk.dim('(from https://console.developers.google.com/apis/credentials)')}`,
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
@@ -162,7 +162,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     skipIf: appType !== 'web',
     simpleName: '--client-secret',
     prompt: {
-      prompt: 'Client Secret:',
+      prompt: `Client Secret: ${chalk.dim('(from https://console.developers.google.com/apis/credentials)')}`,
       validate: validateRequired,
       sensitive: true,
       modifyOutput: UI.modifiers.piped([
