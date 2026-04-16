@@ -1,5 +1,5 @@
 import { FormEventHandler, useState, useContext } from 'react';
-import { errorToast } from '@/lib/toast';
+import { errorToast, successToast } from '@/lib/toast';
 import { TokenContext } from '@/lib/contexts';
 import {
   InstantApp,
@@ -43,16 +43,6 @@ import {
 } from '@heroicons/react/24/solid';
 import { useDarkMode } from '../DarkModeToggle';
 
-function NonceCheckNotice() {
-  return (
-    <p className="dark:test-neutral-400 text-sm text-gray-500">
-      This option skips nonce checks for ID tokens. This is useful in iOS
-      environments, because libraries like `react-native-google-signin` do not
-      let you pass a nonce over to google.
-    </p>
-  );
-}
-
 type AppType = 'web' | 'ios' | 'android' | 'button-for-web';
 function isNative(appType: AppType) {
   return appType === 'ios' || appType === 'android';
@@ -84,14 +74,12 @@ export function AddClientForm({
   const [clientSecret, setClientSecret] = useState<string>('');
   const [redirectTo, setRedirectTo] = useState<string>('');
   const [updatedRedirectURL, setUpdatedRedirectURL] = useState(false);
-  const [skipNonceChecks, setSkipNonceChecks] = useState(isNative(appType));
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const onChangeAppType = (item: { id: string; label: string }) => {
     const newAppType = item.id as 'web' | 'ios' | 'android' | 'button-for-web';
     setAppType(newAppType);
     setClientName(findName(`google-${newAppType}`, usedClientNames));
-    setSkipNonceChecks(isNative(newAppType));
   };
 
   const validationError = () => {
@@ -126,15 +114,18 @@ export function AddClientForm({
         providerId: provider.id,
         clientName,
         clientId: useSharedCredentials ? undefined : clientId,
-        clientSecret:
-          !useSharedCredentials && clientSecret ? clientSecret : undefined,
+        clientSecret: useSharedCredentials
+          ? undefined
+          : clientSecret
+            ? clientSecret
+            : undefined,
         authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
         tokenEndpoint: 'https://oauth2.googleapis.com/token',
         discoveryEndpoint:
           'https://accounts.google.com/.well-known/openid-configuration',
         redirectTo: useSharedCredentials ? undefined : redirectTo,
         meta: {
-          skipNonceChecks: skipNonceChecks,
+          skipNonceChecks: isNative(appType),
           appType,
           ...(useSharedCredentials ? { useSharedCredentials: true } : {}),
         },
@@ -156,6 +147,9 @@ export function AddClientForm({
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
+      data-1p-ignore="true"
+      data-bwignore="true"
+      data-form-type="other"
     >
       <SubsectionHeading>Add a new Google client</SubsectionHeading>
       <div className="mb-4">
@@ -199,7 +193,7 @@ export function AddClientForm({
         <div className="rounded-sm bg-gray-50 p-3 text-sm text-gray-600 dark:bg-neutral-800 dark:text-neutral-400">
           <p>
             Instant provides dev credentials so you can test Google sign-in in
-            development (localhost and Expo) without any setup.
+            development without any setup.
           </p>
           <button
             type="button"
@@ -298,17 +292,6 @@ export function AddClientForm({
           )}
         </>
       )}
-      {isNative(appType) && (
-        <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
-          {' '}
-          <Checkbox
-            checked={skipNonceChecks}
-            onChange={setSkipNonceChecks}
-            label="Skip nonce checks"
-          />
-          <NonceCheckNotice />
-        </div>
-      )}
       <Button loading={isLoading} type="submit">
         Add client
       </Button>
@@ -389,6 +372,7 @@ export function Client({
   const token = useContext(TokenContext);
   const [open, setOpen] = useState(defaultOpen);
   const [isLoading, setIsLoading] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [upgradeClientId, setUpgradeClientId] = useState('');
   const [upgradeClientSecret, setUpgradeClientSecret] = useState('');
 
@@ -401,8 +385,6 @@ export function Client({
   const deleteDialog = useDialog();
 
   const { darkMode } = useDarkMode();
-
-  const didSkipNonceChecks = client.meta?.skipNonceChecks;
 
   const handleDelete = async () => {
     try {
@@ -424,12 +406,14 @@ export function Client({
     }
   };
 
+  const needsClientSecret = appType === 'web';
+
   const handleUpgradeCredentials = async () => {
     if (!upgradeClientId) {
       errorToast('Missing client id', { autoClose: 5000 });
       return;
     }
-    if (!upgradeClientSecret) {
+    if (needsClientSecret && !upgradeClientSecret) {
       errorToast('Missing client secret', { autoClose: 5000 });
       return;
     }
@@ -440,14 +424,18 @@ export function Client({
         appId: app.id,
         clientDatabaseId: client.id,
         clientId: upgradeClientId,
-        clientSecret: upgradeClientSecret,
+        clientSecret: needsClientSecret ? upgradeClientSecret : undefined,
       });
       onUpdateClient(resp.client);
+      setShowUpgrade(false);
+      setUpgradeClientId('');
+      setUpgradeClientSecret('');
+      successToast('Credentials updated');
     } catch (e) {
       console.error(e);
       const msg =
         messageFromInstantError(e as InstantIssue) ||
-        'Error upgrading credentials.';
+        'Error updating credentials.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -551,40 +539,100 @@ function Login() {
             <div className="">App Type: {appTypeLabel(appType)}</div>
 
             <Copyable label="Client name" value={client.client_name} />
-            {client.meta?.useSharedCredentials ? (
-              <div className="rounded-sm bg-gray-50 p-3 text-sm text-gray-600 dark:bg-neutral-800 dark:text-neutral-400">
-                <p>
-                  Using Instant's dev credentials. Works in development
-                  (localhost and Expo) out of the box.
-                </p>
-                <p className="mt-2">
-                  Ready for production? Add your own credentials below.
-                </p>
+            {(() => {
+              const cancelUpgrade = () => {
+                setShowUpgrade(false);
+                setUpgradeClientId('');
+                setUpgradeClientSecret('');
+              };
+              const googleConsoleLink = (
+                <a
+                  className="underline"
+                  target="_blank"
+                  rel="noopener noreferer"
+                  href="https://console.developers.google.com/apis/credentials"
+                >
+                  Google console
+                </a>
+              );
+              const editForm = (
                 <div className="mt-3 flex flex-col gap-2">
+                  <p className="text-sm text-gray-500 dark:text-neutral-400">
+                    Find your credentials in the {googleConsoleLink} under
+                    "OAuth 2.0 Client IDs".
+                  </p>
                   <TextInput
                     value={upgradeClientId}
                     onChange={setUpgradeClientId}
-                    label="Client ID from Google console"
+                    label={<>Client ID from {googleConsoleLink}</>}
                   />
-                  <TextInput
-                    type="sensitive"
-                    value={upgradeClientSecret}
-                    onChange={setUpgradeClientSecret}
-                    label="Client secret from Google console"
-                  />
-                  <div>
+                  {needsClientSecret ? (
+                    <TextInput
+                      type="sensitive"
+                      value={upgradeClientSecret}
+                      onChange={setUpgradeClientSecret}
+                      label={<>Client secret from {googleConsoleLink}</>}
+                    />
+                  ) : null}
+                  <div className="flex gap-2">
                     <Button
                       loading={isLoading}
                       onClick={handleUpgradeCredentials}
                     >
                       Save
                     </Button>
+                    <Button variant="secondary" onClick={cancelUpgrade}>
+                      Cancel
+                    </Button>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <Copyable label="Google client ID" value={client.client_id || ''} />
-            )}
+              );
+              if (client.meta?.useSharedCredentials) {
+                return (
+                  <div className="rounded-sm bg-gray-50 p-3 text-sm text-gray-600 dark:bg-neutral-800 dark:text-neutral-400">
+                    <p>
+                      Using Instant's dev credentials. Works in development out
+                      of the box.
+                    </p>
+                    {!showUpgrade ? (
+                      <div className="mt-2 flex items-center gap-2">
+                        <span>Ready to go to production?</span>
+                        <Button
+                          variant="secondary"
+                          size="mini"
+                          onClick={() => setShowUpgrade(true)}
+                        >
+                          Set custom credentials
+                        </Button>
+                      </div>
+                    ) : (
+                      editForm
+                    )}
+                  </div>
+                );
+              }
+              return (
+                <>
+                  <Copyable
+                    label="Google client ID"
+                    value={client.client_id || ''}
+                  />
+                  {!showUpgrade ? (
+                    <div className="flex justify-end">
+                      <Button
+                        variant="secondary"
+                        size="mini"
+                        onClick={() => setShowUpgrade(true)}
+                      >
+                        Update credentials
+                      </Button>
+                    </div>
+                  ) : (
+                    editForm
+                  )}
+                </>
+              );
+            })()}
             {appType === 'web' && !client.meta?.useSharedCredentials && (
               <EditableRedirectUrl
                 app={app}
@@ -594,16 +642,6 @@ function Login() {
               />
             )}
 
-            {didSkipNonceChecks ? (
-              <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
-                <Checkbox
-                  checked={client.meta?.skipNonceChecks || false}
-                  onChange={() => {}}
-                  label="Skip nonce checks"
-                />
-                <NonceCheckNotice />
-              </div>
-            ) : null}
             {appType === 'web' && (
               <>
                 <SubsectionHeading>

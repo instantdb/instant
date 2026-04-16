@@ -231,14 +231,18 @@ export function TextInput({
       <input
         disabled={disabled}
         title={title}
-        type={type === 'sensitive' ? 'password' : (type ?? 'text')}
-        // Try to prevent password managers from trying to save
-        // sensitive input, LastPass, 1password, BitWarden
-        autoComplete={type === 'sensitive' ? 'off' : undefined}
-        data-lpignore={type === 'sensitive' ? 'true' : undefined}
-        data-1p-ignore={type === 'sensitive' ? 'true' : undefined}
-        data-bwignore={type === 'sensitive' ? 'true' : undefined}
-        data-form-type={type === 'sensitive' ? 'other' : undefined}
+        // For `sensitive`, use `type="text"` + CSS masking instead of
+        // `type="password"` so password managers (LastPass, 1password,
+        // BitWarden) don't recognise this as a login form field.
+        type={type === 'sensitive' ? 'text' : (type ?? 'text')}
+        autoComplete={type === 'sensitive' ? 'new-password' : undefined}
+        data-lpignore="true"
+        data-1p-ignore="true"
+        data-bwignore="true"
+        data-form-type="other"
+        style={
+          type === 'sensitive' ? { WebkitTextSecurity: 'disc' } : undefined
+        }
         ref={inputRef}
         inputMode={inputMode}
         placeholder={placeholder}
@@ -1092,7 +1096,7 @@ export function Copytext({ value }: { value: string }) {
   const [showCopied, setShowCopied] = useState(false);
 
   return (
-    <span className="inline-flex items-center rounded-sm bg-gray-500 px-2 text-sm text-white">
+    <span className="inline-flex items-center rounded-sm bg-gray-100 px-2 text-sm text-gray-800 dark:bg-neutral-700 dark:text-neutral-200">
       <code
         className="truncate"
         onClick={(e) => {

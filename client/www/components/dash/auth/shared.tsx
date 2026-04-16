@@ -179,7 +179,7 @@ export function updateClientCredentials({
   appId: string;
   clientDatabaseId: string;
   clientId: string;
-  clientSecret: string;
+  clientSecret?: string;
 }): Promise<{ client: OAuthClient }> {
   return jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/oauth_clients/${clientDatabaseId}`,
@@ -191,7 +191,7 @@ export function updateClientCredentials({
       },
       body: JSON.stringify({
         client_id: clientId,
-        client_secret: clientSecret,
+        ...(clientSecret ? { client_secret: clientSecret } : {}),
         meta: { useSharedCredentials: false },
       }),
     },
@@ -347,7 +347,7 @@ export function EditableRedirectUrl({
 
   if (!hasValue && !isEditing) {
     return (
-      <div>
+      <div className="flex justify-end">
         <Button
           variant="secondary"
           size="mini"
