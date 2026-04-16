@@ -1,9 +1,11 @@
 import { Effect, Match, Option, Schema } from 'effect';
+import { FileSystem } from '@effect/platform';
 import type { authClientAddDef, OptsFromCommand } from '../../../index.ts';
 import { BadArgsError } from '../../../errors.ts';
 import { GlobalOpts } from '../../../context/globalOpts.ts';
 import {
   optOrPrompt,
+  optOrPromptBoolean,
   runUIEffect,
   stripFirstBlankLine,
   validateRequired,
@@ -18,6 +20,10 @@ import {
   GOOGLE_DEFAULT_CALLBACK_URL,
   GOOGLE_DISCOVERY_ENDPOINT,
   GOOGLE_TOKEN_ENDPOINT,
+  APPLE_AUTHORIZATION_ENDPOINT,
+  APPLE_DEFAULT_CALLBACK_URL,
+  APPLE_DISCOVERY_ENDPOINT,
+  APPLE_TOKEN_ENDPOINT,
 } from '@instantdb/platform';
 import { UI } from '../../../ui/index.ts';
 import chalk from 'chalk';
@@ -26,7 +32,7 @@ import boxen from 'boxen';
 const ClientTypeSchema = Schema.Literal(
   'google',
   'github',
-  // 'apple',
+  'apple',
   // 'linkedin',
   // 'clerk',
   // 'firebase',
@@ -374,6 +380,229 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
   );
 });
 
+const readPrivateKeyFile = Effect.fn('readPrivateKeyFile')(function* (
+  path: string,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const contents = yield* fs.readFileString(path, 'utf8').pipe(
+    Effect.mapError(
+      (e) =>
+        new BadArgsError({
+          message: `Could not read private key file at ${path}: ${e.message}`,
+        }),
+    ),
+  );
+
+  const trimmed = contents.trim();
+  if (!trimmed) {
+    return yield* BadArgsError.make({
+      message: `Private key file at ${path} is empty.`,
+    });
+  }
+  return trimmed;
+});
+
+const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
+  const { yes } = yield* GlobalOpts;
+  const { auth, provider } = yield* getOrCreateProvider('apple');
+  const usedClientNames = new Set(
+    (auth.oauth_clients ?? []).map((client) => client.client_name),
+  );
+  const suggestedClientName = findName('apple', usedClientNames);
+
+  const clientName = yield* optOrPrompt(opts.name, {
+    simpleName: '--name',
+    required: true,
+    skipIf: false,
+    prompt: {
+      prompt: 'Client Name:',
+      defaultValue: suggestedClientName,
+      placeholder: suggestedClientName,
+      validate: validateRequired,
+      modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
+    },
+  });
+
+  if (usedClientNames.has(clientName || '')) {
+    return yield* BadArgsError.make({
+      message: `The unique name '${clientName}' is already in use.`,
+    });
+  }
+
+  const servicesId = yield* optOrPrompt(opts['services-id'], {
+    simpleName: '--services-id',
+    required: true,
+    skipIf: false,
+    prompt: {
+      prompt: `Services ID ${chalk.dim('(from https://developer.apple.com/account/resources/identifiers/list/serviceId)')}`,
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+      validate: validateRequired,
+    },
+  });
+
+  // If any web-flow flag is provided, enable web flow; otherwise ask
+  // (non-interactively with --yes we default to native-only).
+  const anyWebFlagProvided = Boolean(
+    opts['team-id'] || opts['key-id'] || opts['private-key-file'],
+  );
+
+  const configureWeb = anyWebFlagProvided
+    ? true
+    : yes
+      ? false
+      : yield* optOrPromptBoolean(undefined, {
+          simpleName: '--configure-web',
+          required: false,
+          skipIf: false,
+          prompt: {
+            promptText:
+              'Configure web redirect flow? ' +
+              chalk.dim(
+                '(requires Team ID, Key ID, and a .p8 private key from Apple)',
+              ),
+            defaultValue: false,
+          },
+        });
+
+  const skipWeb = !configureWeb;
+  const webSkipMessage =
+    'requires configuring the web redirect flow (also provide --team-id, --key-id, and --private-key-file).';
+
+  const teamId = yield* optOrPrompt(opts['team-id'], {
+    simpleName: '--team-id',
+    required: true,
+    skipIf: skipWeb,
+    skipMessage: `--team-id ${webSkipMessage}`,
+    prompt: {
+      prompt: `Team ID ${chalk.dim('(from https://developer.apple.com/account#MembershipDetailsCard)')}`,
+      validate: validateRequired,
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+    },
+  });
+
+  const keyId = yield* optOrPrompt(opts['key-id'], {
+    simpleName: '--key-id',
+    required: true,
+    skipIf: skipWeb,
+    skipMessage: `--key-id ${webSkipMessage}`,
+    prompt: {
+      prompt: `Key ID ${chalk.dim('(from https://developer.apple.com/account/resources/authkeys/list)')}`,
+      validate: validateRequired,
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+    },
+  });
+
+  const privateKeyPath = yield* optOrPrompt(opts['private-key-file'], {
+    simpleName: '--private-key-file',
+    required: true,
+    skipIf: skipWeb,
+    skipMessage: `--private-key-file ${webSkipMessage}`,
+    prompt: {
+      prompt: `Path to .p8 private key file ${chalk.dim('(downloaded from Apple)')}`,
+      validate: validateRequired,
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+    },
+  });
+
+  const privateKey = privateKeyPath
+    ? yield* readPrivateKeyFile(privateKeyPath)
+    : undefined;
+
+  const customRedirectUri = yield* optOrPrompt(opts['custom-redirect-uri'], {
+    required: false,
+    simpleName: '--custom-redirect-uri',
+    skipIf: skipWeb,
+    skipMessage: `--custom-redirect-uri ${webSkipMessage}`,
+    prompt: {
+      prompt: '',
+      placeholder: 'https://yoursite.com/oauth/callback',
+      modifyOutput: UI.modifiers.piped([
+        (output, status) => {
+          if (status === 'idle') {
+            return (
+              `\nCustom redirect URI (optional):
+${chalk.dim('With a custom redirect URI, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
+${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.')}\n\n` +
+              stripFirstBlankLine(output)
+            );
+          }
+          return `\nCustom redirect URI (optional):\n${stripFirstBlankLine(output)}`;
+        },
+        UI.modifiers.dimOnComplete,
+      ]),
+    },
+  });
+
+  if (!clientName) {
+    return yield* BadArgsError.make({ message: 'Client name is required.' });
+  }
+
+  const redirectUri = privateKey
+    ? customRedirectUri || APPLE_DEFAULT_CALLBACK_URL
+    : undefined;
+
+  const response = yield* addOAuthClient({
+    providerId: provider.id,
+    clientName,
+    clientId: servicesId,
+    clientSecret: privateKey,
+    authorizationEndpoint: APPLE_AUTHORIZATION_ENDPOINT,
+    tokenEndpoint: APPLE_TOKEN_ENDPOINT,
+    discoveryEndpoint: APPLE_DISCOVERY_ENDPOINT,
+    redirectTo: redirectUri,
+    meta: { teamId, keyId },
+  });
+
+  const summaryLines: string[] = [
+    `Apple OAuth client created: ${response.client.client_name}`,
+    `ID: ${response.client.id}`,
+    `Services ID: ${response.client.client_id ?? servicesId}`,
+  ];
+
+  if (privateKey) {
+    summaryLines.push(`Team ID: ${teamId}`);
+    summaryLines.push(`Key ID: ${keyId}`);
+    summaryLines.push(
+      chalk.bold(
+        `\nAdd this return URL under your Services ID on developer.apple.com:\n${redirectUri}\n`,
+      ),
+    );
+    if (customRedirectUri) {
+      summaryLines.push(
+        `Your custom redirect must forward to ${chalk.bold(APPLE_DEFAULT_CALLBACK_URL)} with all query parameters preserved.`,
+      );
+      summaryLines.push(
+        `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,
+      );
+    }
+  } else {
+    summaryLines.push(
+      chalk.dim(
+        '\nNative-only flow configured. To enable web sign-in, re-run with --team-id, --key-id, and --private-key-file.',
+      ),
+    );
+  }
+
+  yield* Effect.log(
+    boxen(summaryLines.join('\n'), {
+      dimBorder: true,
+      padding: { right: 1, left: 1 },
+    }),
+  );
+});
+
 export const authClientAddCmd = Effect.fn(
   function* (
     opts: OptsFromCommand<typeof authClientAddDef> & Record<string, unknown>,
@@ -391,8 +620,8 @@ export const authClientAddCmd = Effect.fn(
             options: [
               { label: 'Google', value: 'google' },
               { label: 'GitHub', value: 'github' },
+              { label: 'Apple', value: 'apple' },
               // TODO: implement
-              // { label: 'Apple', value: 'apple' },
               // { label: 'LinkedIn', value: 'linkedin' },
               // { label: 'Clerk', value: 'clerk' },
               // { label: 'Firebase', value: 'firebase' },
@@ -415,7 +644,7 @@ export const authClientAddCmd = Effect.fn(
       Match.withReturnType<Effect.Effect<void, any, any>>(),
       Match.when('google', () => handleGoogleClient(opts)),
       Match.when('github', () => handleGithubClient(opts)),
-      // Match.when('apple', () => Effect.logError('Not Implemented')),
+      Match.when('apple', () => handleAppleClient(opts)),
       // Match.when('clerk', () => Effect.logError('Not Implemented')),
       // Match.when('firebase', () => Effect.logError('Not Implemented')),
       // Match.when('linkedin', () => Effect.logError('Not Implemented')),

@@ -87,7 +87,7 @@ export const authClientAddDef = authClient
   .command('add')
   .allowExcessArguments(true)
   .allowUnknownOption(true)
-  .option('--type <google|github>', 'Type of oauth client to add')
+  .option('--type <google|github|apple>', 'Type of oauth client to add')
   .option(
     '--name <client name>',
     'Custom name to identify the OAuth client (ex: google-web)',
@@ -109,6 +109,12 @@ Provider Specific Options:
    --client-id
    --client-secret
    --custom-redirect-uri                  (optional)
+  Apple:
+   --services-id                          (Services ID from developer.apple.com)
+   --team-id                              (optional, required for web redirect flow)
+   --key-id                               (optional, required for web redirect flow)
+   --private-key-file                     (optional, path to .p8 PEM; required for web redirect flow)
+   --custom-redirect-uri                  (optional, web redirect flow only)
 `,
   )
   .action((opts) => {

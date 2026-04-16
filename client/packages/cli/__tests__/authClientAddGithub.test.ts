@@ -1,5 +1,6 @@
 import { test, expect, describe, vi, beforeEach } from 'vitest';
 import { Effect, Layer, Logger } from 'effect';
+import { NodeContext } from '@effect/platform-node';
 import { GlobalOpts } from '../src/context/globalOpts.ts';
 import { CurrentApp } from '../src/context/currentApp.ts';
 import { InstantHttpAuthed } from '../src/lib/http.ts';
@@ -63,6 +64,8 @@ const run = (flags: Map<string, string>, { yes }: { yes: boolean }) =>
           Layer.succeed(GlobalOpts, { yes }),
           Layer.succeed(CurrentApp, { appId: 'test-app', source: 'env' }),
           Layer.succeed(InstantHttpAuthed, {} as any),
+          // Provides FileSystem (required by the Apple handler).
+          NodeContext.layer,
           Logger.replace(
             Logger.defaultLogger,
             Logger.make(({ message }) => {

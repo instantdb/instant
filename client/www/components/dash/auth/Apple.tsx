@@ -29,6 +29,11 @@ import {
   OAuthClient,
   OAuthServiceProvider,
 } from '@/lib/types';
+import {
+  APPLE_AUTHORIZATION_ENDPOINT,
+  APPLE_DISCOVERY_ENDPOINT,
+  APPLE_TOKEN_ENDPOINT,
+} from '@instantdb/platform';
 
 export function AppleClient({
   app,
@@ -218,10 +223,9 @@ export function AddClientExpanded({
         clientName,
         clientId: servicesId,
         clientSecret: privateKey || undefined,
-        authorizationEndpoint: 'https://appleid.apple.com/auth/authorize',
-        tokenEndpoint: 'https://appleid.apple.com/auth/token',
-        discoveryEndpoint:
-          'https://account.apple.com/.well-known/openid-configuration',
+        authorizationEndpoint: APPLE_AUTHORIZATION_ENDPOINT,
+        tokenEndpoint: APPLE_TOKEN_ENDPOINT,
+        discoveryEndpoint: APPLE_DISCOVERY_ENDPOINT,
         meta: {
           teamId,
           keyId,
