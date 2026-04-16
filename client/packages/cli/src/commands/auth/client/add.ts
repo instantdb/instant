@@ -239,8 +239,8 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
       [
         `Google OAuth client created: ${response.client.client_name}`,
         `App type: ${appType}`,
-        `Client database id: ${response.client.id}`,
-        `Google client id: ${response.client.client_id ?? clientId}`,
+        `ID: ${response.client.id}`,
+        `Google Client ID: ${response.client.client_id ?? clientId}`,
         ...redirectMessages,
       ].join('\n'),
       { dimBorder: true, padding: { right: 1, left: 1 } },
@@ -365,8 +365,8 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
     boxen(
       [
         `GitHub OAuth client created: ${response.client.client_name}`,
-        `Client database id: ${response.client.id}`,
-        `GitHub client id: ${response.client.client_id ?? clientId}`,
+        `ID: ${response.client.id}`,
+        `GitHub Client ID: ${response.client.client_id ?? clientId}`,
         ...redirectMessages,
       ].join('\n'),
       { dimBorder: true, padding: { right: 1, left: 1 } },
