@@ -628,6 +628,9 @@
         discovery-endpoint (when-not (= "github" provider-name)
                              (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str))
 
+        _ (when (get meta "useSharedCredentials")
+            (app-oauth-client-model/assert-shared-credentials-allowed! {:app-id app-id}))
+
         client (app-oauth-client-model/create! {:app-id app-id
                                                 :provider-id provider-id
                                                 :client-name client-name
@@ -644,17 +647,26 @@
         id (ex/get-param! req [:params :id] uuid-util/coerce)
         meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
         redirect-to (-> req :body :redirect_to string-util/coerce-non-blank-str)
+        client-id (ex/get-optional-param! req [:body :client_id] string-util/coerce-non-blank-str)
+        client-secret (ex/get-optional-param! req [:body :client_secret] string-util/coerce-non-blank-str)
         _ (when redirect-to
             (ex/assert-valid!
              :redirect_to
              redirect-to
              (url-util/redirect-url-validation-errors
               redirect-to :allow-localhost? true)))
+        _ (when (get meta "useSharedCredentials")
+            (app-oauth-client-model/assert-shared-credentials-allowed! {:app-id app-id}))
+        encrypted-client-secret (when client-secret
+                                  (crypt-util/bytes->hex-string
+                                   (app-oauth-client-model/encrypt-client-secret id client-secret)))
         params (cond-> {:app-id app-id
                         :id id}
                  ;; Distinguish between null and undefined
                  (contains? (:body req) :meta) (assoc :meta meta)
-                 (contains? (:body req) :redirect_to) (assoc :redirect-to redirect-to))
+                 (contains? (:body req) :redirect_to) (assoc :redirect-to redirect-to)
+                 client-id (assoc :client-id client-id)
+                 encrypted-client-secret (assoc :encrypted-client-secret encrypted-client-secret))
         client (app-oauth-client-model/update! params)]
     (response/ok {:client (select-keys client [:id :provider_id :client_name
                                                :client_id :created_at :meta :discovery_endpoint])})))

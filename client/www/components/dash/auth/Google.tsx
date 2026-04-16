@@ -15,6 +15,7 @@ import {
   RedirectUrlInput,
   EditableRedirectUrl,
   TestRedirectButton,
+  updateClientCredentials,
 } from './shared';
 import { messageFromInstantError } from '@/lib/errors';
 import {
@@ -376,17 +377,13 @@ function appTypeLabel(appType: AppType): string {
 
 export function Client({
   app,
-  provider,
   client,
-  onAddClient,
   onDeleteClient,
   onUpdateClient,
   defaultOpen = false,
 }: {
   app: InstantApp;
-  provider: OAuthServiceProvider;
   client: OAuthClient;
-  onAddClient: (client: OAuthClient) => void;
   onDeleteClient: (client: OAuthClient) => void;
   onUpdateClient: (client: OAuthClient) => void;
   defaultOpen?: boolean;
@@ -441,29 +438,14 @@ export function Client({
     }
     try {
       setIsLoading(true);
-      await deleteClient({
+      const resp = await updateClientCredentials({
         token,
         appId: app.id,
         clientDatabaseId: client.id,
-      });
-      const resp = await addClient({
-        token,
-        appId: app.id,
-        providerId: provider.id,
-        clientName: client.client_name,
         clientId: upgradeClientId,
         clientSecret: upgradeClientSecret,
-        authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-        tokenEndpoint: 'https://oauth2.googleapis.com/token',
-        discoveryEndpoint:
-          'https://accounts.google.com/.well-known/openid-configuration',
-        meta: {
-          skipNonceChecks: client.meta?.skipNonceChecks,
-          appType: client.meta?.appType,
-        },
       });
-      onDeleteClient(client);
-      onAddClient(resp.client);
+      onUpdateClient(resp.client);
     } catch (e) {
       console.error(e);
       const msg =
@@ -828,9 +810,7 @@ export function GoogleClients({
             // lastCreatedClientId is set--this causes it to re-evaluate defaultOpen
             key={c.id === lastCreatedClientId ? `${c.id}-last` : c.id}
             app={app}
-            provider={provider}
             client={c}
-            onAddClient={onAddClient}
             onDeleteClient={onDeleteClient}
             onUpdateClient={onUpdateClient}
             defaultOpen={c.id === lastCreatedClientId}

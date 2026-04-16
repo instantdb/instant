@@ -3,6 +3,7 @@
    [instant.auth.oauth :as oauth]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
+   [instant.model.app-user :as app-user-model]
    [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
@@ -13,9 +14,24 @@
 
 (def etype "$oauthClients")
 
+(def shared-credentials-user-limit 100)
+
+(defn use-shared-credentials? [oauth-client]
+  (boolean (get (:meta oauth-client) "useSharedCredentials")))
+
 (defn encrypt-client-secret [id client-secret]
   (crypt-util/aead-encrypt {:plaintext (String/.getBytes client-secret)
                             :associated-data (uuid-util/->bytes id)}))
+
+(defn assert-shared-credentials-allowed! [{:keys [app-id]}]
+  (when (app-user-model/users-at-least? {:app-id app-id
+                                         :n shared-credentials-user-limit})
+    (ex/throw-validation-err!
+     :shared-credentials
+     app-id
+     [{:message (str "Shared dev credentials are limited to "
+                     shared-credentials-user-limit
+                     " users. Please add your own client_id and client_secret in the dashboard.")}])))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
@@ -79,7 +95,12 @@
                          (when (contains? params :meta)
                            [[:deep-merge-triple id (resolve-id :meta) (:meta params)]])
                          (when (contains? params :redirect-to)
-                           [[:add-triple id (resolve-id :redirectTo) (:redirect-to params)]])))
+                           [[:add-triple id (resolve-id :redirectTo) (:redirect-to params)]])
+                         (when (contains? params :client-id)
+                           [[:add-triple id (resolve-id :clientId) (:client-id params)]])
+                         (when (contains? params :encrypted-client-secret)
+                           [[:add-triple id (resolve-id :encryptedClientSecret)
+                             (:encrypted-client-secret params)]])))
       (get-entity id)))))
 
 (defn get-by-id
@@ -133,14 +154,13 @@
 
 (defn ->OAuthClient [oauth-client]
   (let [provider-name (get (:meta oauth-client) "providerName")
-        use-shared-credential? (get (:meta oauth-client) "useSharedCredentials")
-        oauth-client (if use-shared-credential?
+        oauth-client (if-not (use-shared-credentials? oauth-client)
+                       oauth-client
                        (let [shared-cred (get-shared-credential! provider-name)]
                          (assoc oauth-client
                                 :id (:id shared-cred)
                                 :client_id (:clientId shared-cred)
-                                :client_secret (:encryptedClientSecret shared-cred)))
-                       oauth-client)]
+                                :client_secret (:encryptedClientSecret shared-cred))))]
     (cond
       (:discovery_endpoint oauth-client)
       (oauth/generic-oauth-client-from-discovery-url

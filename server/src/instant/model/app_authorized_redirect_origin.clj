@@ -68,12 +68,18 @@
   (and (not (contains? reserved-uri-schemes uri-scheme))
        (= scheme uri-scheme)))
 
-(defn shared-credential-match [url]
+;; When users choose shared credentials, we automatically allow
+;; localhost (http/https) and expo dev (exp://) as redirect targets,
+;; without them having to set those explicitly in their allowed
+;; origins. For custom domains or schemes, they can still add them to
+;; allowed origins.
+(defn shared-credentials-default-match [url]
   (let [parsed-url (uri/uri url)
         host (:host parsed-url)
         scheme (:scheme parsed-url)]
     (cond
-      (= host "localhost")
+      (and (= host "localhost")
+           (contains? #{"http" "https"} scheme))
       {:service "localhost"}
 
       (= scheme "exp")
@@ -96,6 +102,11 @@
                        (tracer/with-span! {:name "origins/unknown-service"
                                            :attributes {:service service}})))
                    site-origins))))
+
+(defn authorized-origin? [authorized-origins url use-shared-credentials?]
+  (boolean (or (find-match authorized-origins url)
+               (when use-shared-credentials?
+                 (shared-credentials-default-match url)))))
 
 (defn validation-error [service params]
   (case service

@@ -4,10 +4,12 @@
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.app-user-refresh-token :refer [hash-token]]
    [instant.model.rule :as rule-model]
+   [instant.system-catalog :as system-catalog]
    [instant.system-catalog-ops :refer [update-op query-op]]
    [instant.util.exception :as ex])
   (:import
@@ -110,6 +112,20 @@
               :etype etype}
              (fn [{:keys [get-entity]}]
                (get-entity id)))))
+
+;; Bounded existence check: returns true when the app has at least
+;; `n` users. Uses the deterministic `$users.id` attr_id, and LIMIT
+;; (inc n) so we don't pay for a full COUNT on large apps.
+(defn users-at-least?
+  ([params] (users-at-least? (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id n]}]
+   (let [attr-id (system-catalog/get-attr-id "$users" "id")
+         rows (sql/select conn
+                          ["SELECT 1 FROM triples
+                             WHERE app_id = ?::uuid AND attr_id = ?::uuid
+                             LIMIT ?"
+                           app-id attr-id (inc n)])]
+     (> (count rows) n))))
 
 (defn get-by-ids
   ([params] (get-by-ids (aurora/conn-pool :read) params))

@@ -168,6 +168,36 @@ export function updateClientRedirectTo({
   );
 }
 
+export function updateClientCredentials({
+  token,
+  appId,
+  clientDatabaseId,
+  clientId,
+  clientSecret,
+}: {
+  token: string;
+  appId: string;
+  clientDatabaseId: string;
+  clientId: string;
+  clientSecret: string;
+}): Promise<{ client: OAuthClient }> {
+  return jsonFetch(
+    `${config.apiURI}/dash/apps/${appId}/oauth_clients/${clientDatabaseId}`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        meta: { useSharedCredentials: false },
+      }),
+    },
+  );
+}
+
 function RedirectUrlLabel() {
   return (
     <span className="flex items-center gap-1">
