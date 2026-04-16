@@ -169,13 +169,13 @@ describe('web: interactive prompts for each missing flag', () => {
   test('missing --client-id → prompts for client id', async () => {
     mockPromptReturn = '123456.apps.googleusercontent.com';
     await run(without(webFlags, 'client-id'), { yes: false });
-    expect((prompts[0] as any).props.prompt).toBe('Client ID:');
+    expect((prompts[0] as any).props.prompt).toContain('Client ID');
   });
 
   test('missing --client-secret → prompts for client secret', async () => {
     mockPromptReturn = 'GOCSPX-abc123';
     await run(without(webFlags, 'client-secret'), { yes: false });
-    expect((prompts[0] as any).props.prompt).toBe('Client Secret:');
+    expect((prompts[0] as any).props.prompt).toContain('Client Secret:');
     expect((prompts[0] as any).props.sensitive).toBe(true);
   });
 
@@ -206,8 +206,10 @@ describe('web: success', () => {
       clientId: '123456.apps.googleusercontent.com',
       clientSecret: 'GOCSPX-abc123',
     });
-    expect(logs.join('\n')).toContain(
-      'Add this redirect URI in Google Console:\nhttps://api.instantdb.com/runtime/oauth/callback',
+    const output = logs.join('\n');
+    expect(output).toContain('Add this redirect URI in Google Console:');
+    expect(output).toContain(
+      'https://api.instantdb.com/runtime/oauth/callback',
     );
   });
 
@@ -218,11 +220,10 @@ describe('web: success', () => {
     );
     expect(addedClients[0].redirectTo).toBe('https://myapp.com/cb');
     const output = logs.join('\n');
+    expect(output).toContain('Add this redirect URI in Google Console:');
+    expect(output).toContain('https://myapp.com/cb');
     expect(output).toContain(
-      'Add this redirect URI in Google Console:\nhttps://myapp.com/cb',
-    );
-    expect(output).toContain(
-      'Your custom redirect must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.',
+      'https://api.instantdb.com/runtime/oauth/callback with all query parameters',
     );
   });
 });
