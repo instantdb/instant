@@ -87,7 +87,7 @@ export const authClientAddDef = authClient
   .command('add')
   .allowExcessArguments(true)
   .allowUnknownOption(true)
-  .option('--type <google>', 'Type of oauth client to add')
+  .option('--type <google|github>', 'Type of oauth client to add')
   .option(
     '--name <client name>',
     'Custom name to identify the OAuth client (ex: google-web)',
@@ -105,6 +105,11 @@ Provider Specific Options:
    --client-id
    --client-secret                      (web only)
    --custom-redirect-uri       (optional, web only)
+
+  GitHub:
+   --client-id
+   --client-secret
+   --custom-redirect-uri                  (optional)
 `,
   )
   .action((opts) => {
