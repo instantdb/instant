@@ -1,7 +1,7 @@
 'use client';
 
 import { CheckIcon } from '@heroicons/react/24/outline';
-import { slugifyWithCounter } from '@sindresorhus/slugify';
+import slugify from '@sindresorhus/slugify';
 import { cn } from '@instantdb/components';
 import { useState } from 'react';
 
@@ -31,8 +31,7 @@ export function Heading({ level = 1, id, children, ...props }) {
 
   // Use the id from collectHeadings if provided, otherwise generate one
   const slugId =
-    id ||
-    (typeof children === 'string' ? slugifyWithCounter(children) : undefined);
+    id || (typeof children === 'string' ? slugify(children) : undefined);
 
   return (
     <Tag
