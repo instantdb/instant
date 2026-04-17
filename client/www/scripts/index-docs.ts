@@ -127,8 +127,17 @@ function toAlgoliaObjects(pages: PageInfo[]): AlgoliaObject[] {
 function getPageInfos(): PageInfo[] {
   return navigation.flatMap(({ title: groupTitle, links }) => {
     return links.map(({ title: pageTitle, href }) => {
-      const mdPath = href === '/docs' ? '/docs/index' : href;
-      const page = path.join(__dirname, '../pages', mdPath + '.md');
+      const basePath = path.join(__dirname, '..', 'app', href);
+      const candidates = [
+        path.join(basePath, 'page.md'),
+        path.join(basePath, '[[...tab]]', 'page.md'),
+      ];
+      const page = candidates.find((p) => fs.existsSync(p));
+      if (!page) {
+        throw new Error(
+          `Could not find markdown for ${href}. Looked in: ${candidates.join(', ')}`,
+        );
+      }
       const fileContents = fs.readFileSync(page, 'utf8');
       const ast = Markdoc.parse(fileContents);
 
