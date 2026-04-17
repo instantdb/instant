@@ -42,7 +42,7 @@ You've just gotten a new Instant app provisioned for you!
 Here's the info:
 
 \`\`\`
-INSTANT_APP_ID=${app.id}
+VITE_INSTANT_APP_ID=${app.id}
 INSTANT_ADMIN_TOKEN=${app.adminToken}
 \`\`\`
 
@@ -50,7 +50,6 @@ Now you can use this to build a full-stack app.
 
 What follows are instructions for using Instant. Follow them, and you are golden!
 
-Note: You don't have access to npx. Instead of npx instant-cli, use INSTANT_APP_ID=... INSTANT_ADMIN_TOKEN=... pnpm dlx ...
 ---
 
 ${baseRules}`;
