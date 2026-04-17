@@ -402,7 +402,10 @@ const handleLinkedInClient = Effect.fn(function* (
       defaultValue: suggestedClientName,
       placeholder: suggestedClientName,
       validate: validateRequired,
-      modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
     },
   });
 
