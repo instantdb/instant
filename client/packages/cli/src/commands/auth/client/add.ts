@@ -634,8 +634,7 @@ export const authClientAddCmd = Effect.fn(
       Effect.andThen((s) => Schema.decodeUnknown(ClientTypeSchema)(s)),
       Effect.catchTag('ParseError', () =>
         BadArgsError.make({
-          message:
-            'Invalid client type, must be one of: google, apple, github, linkedin, clerk, firebase',
+          message: `Invalid client type, must be one of: ${ClientTypeSchema.literals.join(', ')}`,
         }),
       ),
     );
