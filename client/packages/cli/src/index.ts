@@ -107,21 +107,21 @@ Provider Specific Options:
    --app-type       web|ios|android|button-for-web
    --client-id
    --client-secret                      (web only)
-   --custom-redirect-uri       (optional, web only)
+   --custom-redirect-uri      (optional, web only)
   GitHub:
    --client-id
    --client-secret
-   --custom-redirect-uri                  (optional)
+   --custom-redirect-uri      (optional)
   Apple:
-   --services-id                          (Services ID from developer.apple.com)
-   --team-id                              (optional, required for web redirect flow)
-   --key-id                               (optional, required for web redirect flow)
-   --private-key-file                     (optional, path to .p8 PEM; required for web redirect flow)
-   --custom-redirect-uri                  (optional, web redirect flow only)
+   --services-id              (Services ID from developer.apple.com)
+   --team-id                  (optional, required for web redirect flow)
+   --key-id                   (optional, required for web redirect flow)
+   --private-key-file         (optional, path to .p8 PEM; required for web redirect flow)
+   --custom-redirect-uri      (optional, web redirect flow only)
   LinkedIn:
    --client-id
    --client-secret
-   --custom-redirect-uri                  (optional)
+   --custom-redirect-uri      (optional)
 `,
   )
   .action((opts) => {
