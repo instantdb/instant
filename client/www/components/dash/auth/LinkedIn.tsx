@@ -106,7 +106,7 @@ export function AddLinkedInProviderForm({
   );
 }
 
-export function AddClientForm({
+export function AddLinkedInClientForm({
   app,
   provider,
   onAddClient,
@@ -273,7 +273,7 @@ export function AddClientForm({
   );
 }
 
-export function Client({
+export function LinkedInClient({
   app,
   client,
   onDeleteClient,
@@ -320,7 +320,7 @@ export function Client({
         onOpenChange={setOpen}
         className="flex flex-col rounded-sm border dark:border-neutral-700"
       >
-        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
+        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800 dark:hover:bg-neutral-700">
           <div className="flex flex-1 items-center justify-between">
             <div className="flex items-center gap-2">
               <Image alt="linkedin logo" src={linkedinIconSvg} />
@@ -426,66 +426,6 @@ export function Client({
           </Button>
         </div>
       </Dialog>
-    </div>
-  );
-}
-
-export function LinkedInClients({
-  app,
-  provider,
-  clients,
-  onAddClient,
-  onDeleteClient,
-  onUpdateClient,
-  usedClientNames,
-  lastCreatedClientId,
-  defaultOpen,
-}: {
-  app: InstantApp;
-  provider: OAuthServiceProvider;
-  clients: OAuthClient[];
-  onAddClient: (client: OAuthClient) => void;
-  onDeleteClient: (client: OAuthClient) => void;
-  onUpdateClient: (client: OAuthClient) => void;
-  usedClientNames: Set<string>;
-  lastCreatedClientId: string | null;
-  defaultOpen: boolean;
-}) {
-  const [showAddClientForm, setShowAddClientForm] =
-    useState<boolean>(defaultOpen);
-
-  const handleAddClient = (client: OAuthClient) => {
-    setShowAddClientForm(false);
-    onAddClient(client);
-  };
-
-  return (
-    <div className="flex flex-col gap-2 bg-white dark:bg-neutral-800">
-      {clients.map((c) => (
-        <Client
-          key={c.id === lastCreatedClientId ? `${c.id}-last` : c.id}
-          app={app}
-          client={c}
-          onDeleteClient={onDeleteClient}
-          onUpdateClient={onUpdateClient}
-          defaultOpen={c.id === lastCreatedClientId}
-        />
-      ))}
-
-      {showAddClientForm ? (
-        <AddClientForm
-          app={app}
-          provider={provider}
-          onAddClient={handleAddClient}
-          onCancel={() => setShowAddClientForm(false)}
-          usedClientNames={usedClientNames}
-        />
-      ) : (
-        <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}
-          LinkedIn client
-        </Button>
-      )}
     </div>
   );
 }

@@ -365,15 +365,8 @@ function attrDefForType(
   }
 }
 
-type APISchemaConversionOpts = {
-  disableTypeInference: boolean;
-};
-
-function apiSchemaAttrToDataAttrDef(
-  attr: InstantDBAttr,
-  opts?: APISchemaConversionOpts,
-) {
-  const derivedType = deriveClientType(attr, opts?.disableTypeInference);
+function apiSchemaAttrToDataAttrDef(attr: InstantDBAttr) {
+  const derivedType = deriveClientType(attr);
   let i: DataAttrDef<string, boolean, boolean> = attrDefForType(
     derivedType.type,
   );
@@ -392,14 +385,13 @@ function apiSchemaAttrToDataAttrDef(
 
 function apiSchemaBlobToEntityDef(
   attrs: InstantAPIPlatformSchema['blobs'][string],
-  opts?: APISchemaConversionOpts,
 ) {
   const defs: Record<string, DataAttrDef<string, boolean, boolean>> = {};
   for (const [label, attr] of sortedEntries(attrs)) {
     if (label === 'id') {
       continue;
     }
-    defs[label] = apiSchemaAttrToDataAttrDef(attr, opts);
+    defs[label] = apiSchemaAttrToDataAttrDef(attr);
   }
   return i.entity(defs);
 }
@@ -451,11 +443,10 @@ export function apiSchemaToAttrs(
 
 export function apiSchemaToInstantSchemaDef(
   apiSchema: InstantAPIPlatformSchema,
-  opts?: { disableTypeInference: boolean },
 ): InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef> {
   const entities: EntitiesDef = {};
   for (const [etype, attrs] of sortedEntries(apiSchema.blobs)) {
-    entities[etype] = apiSchemaBlobToEntityDef(attrs, opts);
+    entities[etype] = apiSchemaBlobToEntityDef(attrs);
   }
   const links: LinksDef<EntitiesDef> = {};
   for (const [_name, attr] of sortedEntries(apiSchema.refs)) {
@@ -967,9 +958,7 @@ async function planSchemaPushOverwriteInternal(
 ) {
   const apiSchema = await getAppAPISchema(apiURI, token, appId);
 
-  const currentSchema = apiSchemaToInstantSchemaDef(apiSchema, {
-    disableTypeInference: true,
-  });
+  const currentSchema = apiSchemaToInstantSchemaDef(apiSchema);
   const currentAttrs = apiSchemaToAttrs(apiSchema);
 
   const systemCatalogIdentNames = collectSystemCatalogIdentNames(currentAttrs);

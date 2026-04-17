@@ -19,18 +19,9 @@ import {
 import { ClerkClient, AddClerkClientForm } from './auth/Clerk';
 import { Email } from './auth/Email';
 import { TestUsers } from './auth/TestUsers';
-import {
-  Client as GitHubClient,
-  AddClientForm as AddGitHubClientForm,
-} from './auth/GitHub';
-import {
-  Client as GoogleClient,
-  AddClientForm as AddGoogleClientForm,
-} from './auth/Google';
-import {
-  Client as LinkedInClient,
-  AddClientForm as AddLinkedInClientForm,
-} from './auth/LinkedIn';
+import { GitHubClient, AddGitHubClientForm } from './auth/GitHub';
+import { GoogleClient, AddGoogleClientForm } from './auth/Google';
+import { LinkedInClient, AddLinkedInClientForm } from './auth/LinkedIn';
 import { AuthorizedOrigins } from './auth/Origins';
 import { FirebaseClient, AddFirebaseClientForm } from './auth/Firebase';
 import { addProvider } from './auth/shared';

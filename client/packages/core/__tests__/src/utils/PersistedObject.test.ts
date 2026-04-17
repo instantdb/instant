@@ -391,3 +391,35 @@ test('PersistedObject garbage collects when we exceed max age', async () => {
 
   expect(snapshot3).toStrictEqual({});
 });
+
+test('IndexedDBStorage recovers when the database connection closes', async () => {
+  const idb = new IndexedDBStorage(randomUUID(), 'kv');
+
+  await idb.setItem('key1', 'value1');
+  expect(await idb.getItem('key1')).toBe('value1');
+
+  // Simulate the browser closing the connection unexpectedly.
+  // Remove the onclose handler so recovery relies entirely on _withRetry
+  // catching the InvalidStateError (the same codepath as the original bug).
+  const db = await idb._dbPromise;
+  db.onclose = null;
+  db.close();
+
+  // All operations should recover transparently
+  await idb.setItem('key2', 'value2');
+  expect(await idb.getItem('key1')).toBe('value1');
+  expect(await idb.getItem('key2')).toBe('value2');
+
+  await idb.multiSet([
+    ['key3', 'value3'],
+    ['key4', 'value4'],
+  ]);
+  expect(await idb.getItem('key3')).toBe('value3');
+  expect(await idb.getItem('key4')).toBe('value4');
+
+  const keys = await idb.getAllKeys();
+  expect(keys.sort()).toStrictEqual(['key1', 'key2', 'key3', 'key4']);
+
+  await idb.removeItem('key4');
+  expect(await idb.getItem('key4')).toBe(null);
+});

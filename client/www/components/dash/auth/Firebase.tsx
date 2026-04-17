@@ -171,7 +171,7 @@ export function FirebaseClient({
         onOpenChange={setOpen}
         className="flex flex-col rounded-sm border dark:border-neutral-700"
       >
-        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
+        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800 dark:hover:bg-neutral-700">
           <div className="flex flex-1 items-center justify-between">
             <div className="flex items-center gap-2">
               <Image alt="firebase logo" src={firebaseLogoSvg} />

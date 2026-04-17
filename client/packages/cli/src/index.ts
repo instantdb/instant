@@ -1,6 +1,7 @@
 import { loadEnv } from './util/loadEnv.ts';
 loadEnv();
 
+import minimist from 'minimist';
 import { Command, Option } from '@commander-js/extra-typings';
 import chalk from 'chalk';
 import { Effect, Layer } from 'effect';
@@ -24,6 +25,9 @@ import { explorerCmd } from './commands/explorer.ts';
 import { queryCmd } from './commands/query.ts';
 import { program } from './program.ts';
 import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.ts';
+import { authClientAddCmd } from './commands/auth/client/add.ts';
+import { authClientListCmd } from './commands/auth/client/list.ts';
+import { authClientDeleteCmd } from './commands/auth/client/delete.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -71,6 +75,100 @@ export const initDef = program
             packageName: options.package as any,
             applyEnv: true,
             temp: options.temp,
+          }),
+        ),
+      ),
+    );
+  });
+
+const auth = program.command('auth');
+const authClient = auth.command('client');
+export const authClientAddDef = authClient
+  .command('add')
+  .allowExcessArguments(true)
+  .allowUnknownOption(true)
+  .option('--type <google|github>', 'Type of oauth client to add')
+  .option(
+    '--name <client name>',
+    'Custom name to identify the OAuth client (ex: google-web)',
+  )
+  .option(
+    '-a --app <app-id>',
+    'App ID to modify. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .addHelpText(
+    'after',
+    `
+Provider Specific Options:
+  Google:
+   --app-type       web|ios|android|button-for-web
+   --client-id
+   --client-secret                      (web only)
+   --custom-redirect-uri       (optional, web only)
+  GitHub:
+   --client-id
+   --client-secret
+   --custom-redirect-uri                  (optional)
+`,
+  )
+  .action((opts) => {
+    opts = {
+      ...opts,
+      ...minimist(process.argv),
+    };
+    return runCommandEffect(
+      authClientAddCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    );
+  });
+export const authClientListDef = authClient
+  .command('list')
+  .option(
+    '-a --app <app-id>',
+    'App ID to list clients for. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option('--json', 'Enable JSON output')
+  .allowUnknownOption(true)
+  .action((opts) => {
+    return runCommandEffect(
+      authClientListCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+            // Silence "searching for instant sdk.. logs for json output"
+          }).pipe(Layer.annotateLogs('silent', !!opts.json)),
+        ),
+      ),
+    );
+  });
+
+export const authClientDeleteDef = authClient
+  .command('delete')
+  .option('--id <client-id>', 'Client ID to delete')
+  .option('--name <client-name>', 'Client name to delete')
+  .option(
+    '-a --app <app-id>',
+    'App ID to delete a client from. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      authClientDeleteCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            appId: opts.app,
+            allowAdminToken: true,
           }),
         ),
       ),

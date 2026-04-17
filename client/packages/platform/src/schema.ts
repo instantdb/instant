@@ -326,10 +326,6 @@ export function attrRevName(attr: InstantDBAttr) {
   }
 }
 
-function easyPlural(strn: string, n: number) {
-  return n === 1 ? strn : strn + 's';
-}
-
 function roomDefToCodeStr(room: RoomsDef[string]) {
   let ret = '{';
 
@@ -376,33 +372,15 @@ export function generateSchemaTypescriptFile(
     ',',
   );
 
-  const inferredAttrs: DataAttrDef<string, boolean, boolean>[] = [];
-
-  for (const entity of Object.values(newSchema.entities)) {
-    for (const attr of Object.values(entity.attrs)) {
-      if ((attr.metadata.derivedType as any)?.origin === 'inferred') {
-        inferredAttrs.push(attr);
-      }
-    }
-  }
-
   const entitiesObjCode = `{\n${indentLines(entitiesEntriesCode, 2)}\n}`;
-
-  const entitiesComment =
-    inferredAttrs.length > 0
-      ? `// We inferred ${inferredAttrs.length} ${easyPlural('attribute', inferredAttrs.length)}!
-// Take a look at this schema, and if everything looks good,
-// run \`push schema\` again to enforce the types.`
-      : '';
 
   const linksEntriesCode = JSON.stringify(newSchema.links, null, 2).trim();
 
   // rooms
   const rooms = prevSchema?.rooms || {};
   const roomsCode = roomsCodeStr(rooms);
-  const kv = (k: string, v: string, comment?: string) => {
-    const res = comment ? `${comment}\n${k}: ${v}` : `${k}: ${v}`;
-    return indentLines(res, 2);
+  const kv = (k: string, v: string) => {
+    return indentLines(`${k}: ${v}`, 2);
   };
 
   const code = `// Docs: https://www.instantdb.com/docs/modeling-data
@@ -410,7 +388,7 @@ export function generateSchemaTypescriptFile(
 import { i } from "${instantModuleName ?? '@instantdb/core'}";
 
 const _schema = i.schema({
-${kv('entities', entitiesObjCode, entitiesComment)},
+${kv('entities', entitiesObjCode)},
 ${kv('links', linksEntriesCode)},
 ${kv('rooms', roomsCode)}
 });

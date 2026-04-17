@@ -26,7 +26,6 @@ import {
   Dialog,
   Divider,
   Fence,
-  SectionHeading,
   SubsectionHeading,
   TextInput,
   useDialog,
@@ -57,7 +56,7 @@ function isNative(appType: AppType) {
   return appType === 'ios' || appType === 'android';
 }
 
-export function AddClientForm({
+export function AddGoogleClientForm({
   app,
   provider,
   onAddClient,
@@ -335,7 +334,7 @@ function appTypeLabel(appType: AppType): string {
   }
 }
 
-export function Client({
+export function GoogleClient({
   app,
   client,
   onDeleteClient,
@@ -458,7 +457,7 @@ function Login() {
         onOpenChange={setOpen}
         className="flex flex-col rounded-sm border dark:border-neutral-700"
       >
-        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
+        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800 dark:hover:bg-neutral-700">
           <div className="flex flex-1 items-center justify-between">
             <div className="flex items-center gap-2">
               <Image alt="google logo" src={googleIconSvg} />
@@ -641,74 +640,6 @@ function Login() {
           </Button>
         </div>
       </Dialog>
-    </div>
-  );
-}
-
-// We should eventually have a generic component for any provider,
-// but we'll start with just Google for now to keep things simple
-export function GoogleClients({
-  app,
-  provider,
-  clients,
-  onAddClient,
-  onDeleteClient,
-  onUpdateClient,
-  usedClientNames,
-  lastCreatedClientId,
-  defaultOpen,
-}: {
-  app: InstantApp;
-  provider: OAuthServiceProvider;
-  clients: OAuthClient[];
-  onAddClient: (client: OAuthClient) => void;
-  onDeleteClient: (client: OAuthClient) => void;
-  onUpdateClient: (client: OAuthClient) => void;
-  usedClientNames: Set<string>;
-  lastCreatedClientId: string | null;
-  defaultOpen: boolean;
-}) {
-  const [showAddClientForm, setShowAddClientForm] =
-    useState<boolean>(defaultOpen);
-
-  const handleAddClient = (client: OAuthClient) => {
-    setShowAddClientForm(false);
-    onAddClient(client);
-  };
-
-  return (
-    <div className="flex flex-col gap-2 bg-white dark:bg-neutral-800">
-      {clients.map((c) => {
-        return (
-          <Client
-            // Update the key because the mutate somehow takes effect before
-            // lastCreatedClientId is set--this causes it to re-evaluate defaultOpen
-            key={c.id === lastCreatedClientId ? `${c.id}-last` : c.id}
-            app={app}
-            client={c}
-            onDeleteClient={onDeleteClient}
-            onUpdateClient={onUpdateClient}
-            defaultOpen={c.id === lastCreatedClientId}
-          />
-        );
-      })}
-
-      {showAddClientForm ? (
-        <>
-          <AddClientForm
-            app={app}
-            provider={provider}
-            onAddClient={handleAddClient}
-            onCancel={() => setShowAddClientForm(false)}
-            usedClientNames={usedClientNames}
-          />
-        </>
-      ) : (
-        <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}
-          Google client
-        </Button>
-      )}
     </div>
   );
 }

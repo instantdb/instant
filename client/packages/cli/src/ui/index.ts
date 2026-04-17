@@ -225,13 +225,14 @@ ${mainOptionsList}${secondaryOptionsList.length ? chalk.gray('\n─────�
     }
   }
 
-  type TextInputProps = {
+  export type TextInputProps = {
     placeholder?: string;
     prompt: string;
     modifyOutput?: ModifyOutputFn;
     defaultValue?: string;
     validate?: (value: string) => string | undefined;
     headless?: boolean;
+    sensitive?: boolean;
   };
 
   export class TextInput extends Prompt<string> {
@@ -239,18 +240,23 @@ ${mainOptionsList}${secondaryOptionsList.length ? chalk.gray('\n─────�
       return this.value;
     }
     override render(status: 'idle' | 'submitted' | 'aborted'): string {
+      const value = this.props.sensitive
+        ? '*'.repeat(this.value.length)
+        : this.value;
       if (status === 'submitted') {
         return `${this.props.prompt}
-${this.value}`;
+${value}`;
       }
       if (status === 'aborted') {
-        return `${this.props.prompt} ${this.value} (CANCELLED)\n`;
+        return `${this.props.prompt} ${value} (CANCELLED)\n`;
       }
       let inputDisplay = '';
-      if (this.value === '') {
-        inputDisplay = `${chalk.inverse(this.props.placeholder?.substring(0, 1))}${chalk.dim(this.props.placeholder?.substring(1))}`;
+      if (value === '') {
+        inputDisplay = this.props.placeholder
+          ? `${chalk.inverse(this.props.placeholder.substring(0, 1))}${chalk.dim(this.props.placeholder.substring(1))}`
+          : chalk.inverse(' ');
       } else {
-        inputDisplay = `${this.value}${chalk.inverse(' ')}`;
+        inputDisplay = `${value}${chalk.inverse(' ')}`;
       }
       const errorText = this.errorText
         ? `      ${chalk.red(this.errorText)}`
@@ -282,6 +288,14 @@ ${inputDisplay}`;
           }
         }
         if (keyInfo.name === 'tab') {
+          if (
+            this.value === '' &&
+            this.props.defaultValue &&
+            this.props.placeholder === this.props.defaultValue
+          ) {
+            this.value = this.props.defaultValue;
+            this.requestLayout();
+          }
           return;
         }
         if (keyInfo.name === 'return') {
