@@ -59,6 +59,11 @@ type InstantIssueBody =
   | {
       type: 'rate-limited';
       message: string;
+      hint: {
+        'retry-at'?: string;
+        'retry-after'?: number;
+        'remaining-tokens'?: number;
+      };
     }
   | {
       type: 'session-missing';

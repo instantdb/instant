@@ -103,6 +103,7 @@ module.exports = [
         optionalLLM: true,
       },
       { title: 'Permissions', href: '/docs/permissions' },
+      { title: 'Rate Limits', href: '/docs/rate-limits' },
     ],
   },
   {

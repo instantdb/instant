@@ -9,6 +9,8 @@
    [instant.db.model.triple :as triple-model]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
+   [instant.rate-limit :as rate-limit]
+   [instant.reactive.ephemeral :as eph]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
@@ -175,6 +177,9 @@
 ;; ----
 ;; Cel
 
+(defn create-cel-type [^String name]
+  (OpaqueType/create name (ImmutableList/of (TypeParamType/create name))))
+
 (declare stringify get-cel-value)
 
 (deftype CelList [xs]
@@ -287,6 +292,31 @@
                                        "")]
       (ref-impl ctx m "$users" path))))
 
+(definterface IRateLimitBucket
+  ^boolean (limit [bucket-key])
+  ^boolean (limit [bucket-key tokens]))
+
+(deftype RateLimitBucket [app-id bucket-name config]
+  IRateLimitBucket
+  (limit [this bucket-key]
+    (.limit this bucket-key 1))
+  (limit [_ bucket-key tokens]
+    (rate-limit/consume-user-rate-limit (eph/get-rate-limit)
+                                        {:app-id app-id
+                                         :bucket-name bucket-name
+                                         :config config
+                                         :bucket-key bucket-key
+                                         :tokens tokens})))
+
+(json/add-encoder RateLimitBucket (fn [^RateLimitBucket bucket jg]
+                                    (json/encode-java-map {"bucket" (.bucket_name bucket)
+                                                           "config" (.config bucket)}
+                                                          jg)))
+
+(def rate-limit-bucket-cel-type (create-cel-type "RateLimitBucket"))
+
+(def ^MapType type-rate-limits (MapType/create SimpleType/STRING rate-limit-bucket-cel-type))
+
 (json/add-encoder AuthCelMap json/encode-java-map)
 
 (def ^MapType type-obj (MapType/create SimpleType/STRING SimpleType/DYN))
@@ -339,6 +369,21 @@
 ;; Normal evaluation pipeline
 ;; --------------------------
 
+(def rate-limit-fns [(member-overload "limit"
+                                      [{:overload-id "_rateLimit_limit"
+                                        :cel-args [rate-limit-bucket-cel-type SimpleType/DYN]
+                                        :cel-return-type SimpleType/BOOL
+                                        :java-args [RateLimitBucket Object]
+                                        :impl (fn [[^RateLimitBucket b ^Object k]]
+                                                (.limit b k))}])
+                     (member-overload "limit"
+                                      [{:overload-id "_rateLimit_limit_tokens"
+                                        :cel-args [rate-limit-bucket-cel-type SimpleType/DYN SimpleType/INT]
+                                        :cel-return-type SimpleType/BOOL
+                                        :java-args [RateLimitBucket Object Long]
+                                        :impl (fn [[^RateLimitBucket b ^Object k ^Long tokens]]
+                                                (.limit b k tokens))}])])
+
 (def get-time-decl {:overload-id "_getTime"
                     :cel-args [SimpleType/TIMESTAMP]
                     :cel-return-type SimpleType/INT
@@ -378,7 +423,8 @@
 (def ref-fn (member-overload "ref"
                              [ref-decl]))
 
-(def custom-fns [ref-fn get-time-fn timestamp-fn])
+(def custom-fns (into [ref-fn get-time-fn timestamp-fn]
+                      rate-limit-fns))
 (def custom-fn-decls (mapv :decl custom-fns))
 (def custom-fn-bindings (mapcat :runtimes custom-fns))
 
@@ -399,6 +445,7 @@
       (.addVar "auth" type-obj)
       (.addVar "ruleParams" type-obj)
       (.addVar "request" ^StructTypeReference request-cel-type)
+      (.addVar "rateLimit" type-rate-limits)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setOptions cel-options)
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
@@ -498,6 +545,14 @@
       :else
       result)))
 
+(defn create-rate-limit-obj [ctx]
+  (reduce-kv (fn [acc bucket-name config]
+               (assoc acc bucket-name (RateLimitBucket. (:app-id ctx)
+                                                        bucket-name
+                                                        config)))
+             {}
+             (get-in ctx [:rules :code "$rateLimits"])))
+
 (defn eval-program!
   [ctx
    {:keys [cel-program etype action]}
@@ -511,6 +566,7 @@
                                                                          :time (or (:timestamp ctx)
                                                                                    (Instant/now))}
                                                                         *request-info*)))
+          _ (.put bindings "rateLimit" (create-rate-limit-obj ctx))
           _ (when new-data
               (.put bindings "newData" (CelMap. new-data)))
           _ (when linked-data
@@ -568,6 +624,8 @@
                                               (Optional/of
                                                (CelMap. actions))
                                               (Optional/empty))
+                               "rateLimit" (Optional/of
+                                            (create-rate-limit-obj ctx))
 
                                (Optional/empty)))))
             unknown-ctx (UnknownContext/create resolver (ImmutableList/of))
@@ -740,9 +798,6 @@
     (str where-clause)))
 
 ;; custom cel types
-
-(defn create-cel-type [^String name]
-  (OpaqueType/create name (ImmutableList/of (TypeParamType/create name))))
 
 (def datakey-cel-type (create-cel-type "DataKey"))
 (def whereclause-cel-type (create-cel-type "WhereClause"))
@@ -1374,21 +1429,45 @@
                                                 :java-args [(type->java :datakey)]
                                                 :impl (fn [[^DataKey x]]
                                                         x)})))
-(def where-custom-fns (into [where-ref-fn
-                             or-overloads
-                             and-overloads
-                             eq-overloads
-                             neq-overloads
-                             in-overloads
-                             not-overloads
-                             starts-with-overload
-                             ends-with-overload
-                             contains-overload
-                             type-overload
-                             size-overload
-                             get-time-fn
-                             where-timestamp-fn]
-                            comparison-overloads))
+
+(def ^:dynamic *where-rate-limits* nil)
+
+(def where-rate-limit-fns [(member-overload "limit"
+                                            [{:overload-id "_rateLimit_limit"
+                                              :cel-args [rate-limit-bucket-cel-type SimpleType/DYN]
+                                              :cel-return-type SimpleType/BOOL
+                                              :java-args [RateLimitBucket Object]
+                                              :impl (fn [[^RateLimitBucket b ^Object k]]
+                                                      (swap! *where-rate-limits*
+                                                             update {:bucket b
+                                                                     :bucket-key k} (fnil + 0) 1)
+                                                      true)}])
+                           (member-overload "limit"
+                                            [{:overload-id "_rateLimit_limit_tokens"
+                                              :cel-args [rate-limit-bucket-cel-type SimpleType/DYN SimpleType/INT]
+                                              :cel-return-type SimpleType/BOOL
+                                              :java-args [RateLimitBucket Object Long]
+                                              :impl (fn [[^RateLimitBucket b ^Object k ^Long tokens]]
+                                                      (swap! *where-rate-limits*
+                                                             update {:bucket b
+                                                                     :bucket-key k} (fnil + 0) tokens)
+                                                      true)}])])
+(def where-custom-fns (-> [where-ref-fn
+                           or-overloads
+                           and-overloads
+                           eq-overloads
+                           neq-overloads
+                           in-overloads
+                           not-overloads
+                           starts-with-overload
+                           ends-with-overload
+                           contains-overload
+                           type-overload
+                           size-overload
+                           get-time-fn
+                           where-timestamp-fn]
+                          (into comparison-overloads)
+                          (into where-rate-limit-fns)))
 
 (def where-custom-fn-decls (mapv :decl where-custom-fns))
 (def where-custom-fn-bindings (mapcat :runtimes where-custom-fns))
@@ -1413,6 +1492,7 @@
       (.addVar "ruleParams" type-obj)
       (.addVar "auth" type-obj)
       (.addVar "request" ^StructTypeReference request-cel-type)
+      (.addVar "rateLimit" type-rate-limits)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl where-custom-fn-decls))
       (.setOptions where-cel-options)
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
@@ -1478,37 +1558,42 @@
             (try
               (when (instance? Exception where-clauses-program)
                 (throw where-clauses-program))
-              (let [result
+              (let [rate-limits (atom {})
+                    result
                     (io/warn-io :cel/advance-program!
-                      (advance-program!
-                       ctx
-                       {:cel-program where-clauses-program
-                        :etype etype
-                        :action "view"}
-                       {:resolver (reify CelVariableResolver
-                                    (find [_this var-name]
-                                      (case var-name
-                                        "auth"
-                                        (Optional/of
-                                         (AuthCelMap. ctx (CelMap. (:current-user ctx))))
-                                        "data"
-                                        (Optional/of
-                                         (CheckedDataMap. (:attrs ctx) etype))
-                                        "ruleParams"
-                                        (Optional/of (CelMap. rule-params))
-                                        "request"
-                                        (Optional/of (proto/create-request-proto (merge {:time (or (:timestamp ctx)
-                                                                                                   (Instant/now))}
-                                                                                        *request-info*)))
+                      (binding [*where-rate-limits* rate-limits]
+                        (advance-program!
+                         ctx
+                         {:cel-program where-clauses-program
+                          :etype etype
+                          :action "view"}
+                         {:resolver (reify CelVariableResolver
+                                      (find [_this var-name]
+                                        (case var-name
+                                          "auth"
+                                          (Optional/of
+                                           (AuthCelMap. ctx (CelMap. (:current-user ctx))))
+                                          "data"
+                                          (Optional/of
+                                           (CheckedDataMap. (:attrs ctx) etype))
+                                          "ruleParams"
+                                          (Optional/of (CelMap. rule-params))
+                                          "request"
+                                          (Optional/of (proto/create-request-proto (merge {:time (or (:timestamp ctx)
+                                                                                                     (Instant/now))}
+                                                                                          *request-info*)))
+                                          "rateLimit"
+                                          (Optional/of (create-rate-limit-obj ctx))
 
-                                        (Optional/empty))))}))]
+                                          (Optional/empty))))})))]
                 (if (is-missing-ref-data? result)
                   (-> acc
                       (update :missing-refs into (missing-ref-datas result))
                       (update :rerun-programs conj program))
                   (-> acc
                       (assoc-in [:results etype]
-                                (format-evaluation-result result)))))
+                                (assoc (format-evaluation-result result)
+                                       :rate-limits @rate-limits)))))
 
               (catch Throwable t
                 (assoc-in acc [:results etype] {:thrown t}))))
@@ -1548,11 +1633,36 @@
   [^CelExpr$CelCall call]
   (let [f (.function call)]
     (if-let [target ^CelExpr (get-optional-value (.target call))]
-      (if (= CelExpr$ExprKind$Kind/IDENT (.getKind target))
+      (cond
+        ;; data.ref()
+        (= CelExpr$ExprKind$Kind/IDENT (.getKind target))
         [(.name (.ident target)) f]
-        (tracer/with-span! {:name "cel/unknown-function-name"
-                            :attributes {:cel-call call}}
-          [nil f]))
+
+        ;; Handles rateLimit.createPosts()
+        (and (= CelExpr$ExprKind$Kind/SELECT (.getKind target))
+             (= CelExpr$ExprKind$Kind/IDENT (.getKind (.operand (.select target)))))
+        [(-> target
+             (.select)
+             (.operand)
+             (.ident)
+             (.name))
+         (.field (.select target))]
+
+        ;; Handles rateLimit['createPosts']()
+        (and (= CelExpr$ExprKind$Kind/CALL (.getKind target))
+             (= (.getFunction Operator/INDEX) (.function (.call target)))
+             (= 2 (count (.args (.call target))))
+             (= CelExpr$ExprKind$Kind/IDENT (.getKind
+                                             ^CelExpr (first (.args
+                                                              (.call target)))))
+             (= CelExpr$ExprKind$Kind/CONSTANT (.getKind
+                                                ^CelExpr (second (.args (.call target))))))
+        [(.name (.ident ^CelExpr (first (.args (.call target)))))
+         (.stringValue (.constant ^CelExpr (second (.args (.call target)))))]
+
+        :else (tracer/with-span! {:name "cel/unknown-function-name"
+                                  :attributes {:cel-call call}}
+                [nil f]))
       [nil f])))
 
 (defn ref-arg
@@ -1737,10 +1847,34 @@
                                (.id expr))
                              "auth.ref arg must start with `$user.`"))))))))))
 
-(defn validation-errors [^CelCompiler compiler ^CelAbstractSyntaxTree ast]
+(defn rate-limit-validator ^CelAstValidator
+  [rules]
+  (reify CelAstValidator
+    (validate [_this ast _cel issues-factory]
+      (let [rate-limit-keys (-> rules
+                                (get "$rateLimits")
+                                keys
+                                set)]
+        (doseq [^CelNavigableExpr node (-> ast
+                                           (.getRoot)
+                                           (.allNodes)
+                                           (.iterator)
+                                           iterator-seq)]
+          (when (= CelExpr$ExprKind$Kind/CALL (.getKind node))
+            (let [expr (get-expr node)
+                  call (.call expr)
+                  [obj f] (function-name call)]
+              (when (and (= obj "rateLimit")
+                         (not (contains? rate-limit-keys f)))
+                (.addError issues-factory
+                           (.id expr)
+                           (format "`%s` is not a valid rate limit config. It should be defined in the `$rateLimits` key."
+                                   f))))))))))
+
+(defn validation-errors [rules ^CelCompiler compiler ^CelAbstractSyntaxTree ast]
   (-> (CelValidatorFactory/standardCelValidatorBuilder compiler
                                                        cel-runtime)
-      (.addAstValidators (ucoll/array-of CelAstValidator [auth-ref-validator]))
+      (.addAstValidators (ucoll/array-of CelAstValidator [auth-ref-validator (rate-limit-validator rules)]))
       (.build)
       (.validate ast)
       (.getErrors)))

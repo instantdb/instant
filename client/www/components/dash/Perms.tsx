@@ -273,7 +273,7 @@ export function Perms({
           <div className="bg-red-100 p-4 text-sm">
             <div className="max-w-sm">
               <h4 className="font-bold text-red-700">
-                There was an error in {errorRes.in.join('->')}
+                There was an error in {errorRes?.in?.join('->') || 'the rules'}
               </h4>
               <pre className="whitespace-pre-wrap">{errorRes.message}</pre>
             </div>

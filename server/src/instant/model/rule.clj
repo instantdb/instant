@@ -6,6 +6,7 @@
    [instant.db.cel :as cel]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.rate-limit :as rate-limit]
    [instant.system-catalog :as system-catalog]
    [instant.util.cache :as cache]
    [instant.util.exception :as ex]
@@ -323,7 +324,7 @@
 (defn system-attribute-validation-errors
   "Don't allow users to change rules for restricted system namespaces."
   [etype action]
-  (when (and (not (#{"$users" "$files" "$default" "$streams"} etype))
+  (when (and (not (#{"$users" "$files" "$default" "$streams" "$rateLimits"} etype))
              (string/starts-with? etype "$"))
     [{:message (format "The %s namespace is a reserved internal namespace that does not yet support rules."
                        etype)
@@ -369,7 +370,7 @@
             ast (cel/->ast compiler code)
             ;; create the program to see if it throws
             _program (cel/->program ast)
-            errors (cel/validation-errors compiler ast)]
+            errors (cel/validation-errors rules compiler ast)]
         (when (seq errors)
           (format-cel-errors path errors))))
     (catch CelValidationException e
@@ -379,7 +380,8 @@
         :in path}])))
 
 (defn rule-validation-errors [rules]
-  (->> (keys rules)
+  (->> (dissoc rules "$rateLimits")
+       keys
        (mapcat (fn [etype] (map (fn [action] [etype action]) ["view" "create" "update" "delete"])))
        (mapcat (fn [[etype action]]
                  (or (and (= etype "$users")
@@ -411,10 +413,31 @@
 
        (keep identity)))
 
+(defn rate-limit-validation-errors [rules]
+  (let [rl (get rules "$rateLimits")]
+    (cond
+      (nil? rl) []
+      (not (map? rl)) [{:message "$rateLimits must be an object"
+                        :in ["$rateLimits"]}]
+      :else (reduce-kv (fn [errs rate-limit-name config]
+                         (try
+                           (rate-limit/rules-rate-limit-config->bucket-config config)
+                           errs
+                           (catch Exception e
+                             (conj errs {:message (or
+                                                   (-> e
+                                                       (ex-data)
+                                                       ::ex/message)
+                                                   "Unexpected error parsing $rateLimits config")
+                                         :in ["$rateLimits" rate-limit-name]}))))
+                       []
+                       rl))))
+
 (defn validation-errors [rules]
   (concat (bind-validation-errors rules)
           (rule-validation-errors rules)
-          (field-validation-errors rules)))
+          (field-validation-errors rules)
+          (rate-limit-validation-errors rules)))
 
 (comment
   (def code {"docs" {"allow" {"view" "lol"

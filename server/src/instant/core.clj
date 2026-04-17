@@ -33,6 +33,7 @@
    [instant.nippy]
    [instant.nrepl :as nrepl]
    [instant.oauth-apps.routes :as oauth-app-routes]
+   [instant.rate-limit :as rate-limit]
    [instant.reactive.aggregator :as agg]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.invalidator :as inv]
@@ -276,7 +277,10 @@
         (when (posthog/enabled?)
           (tracer/with-span! {:name "stop-posthog"}
             (posthog/flush!)
-            (posthog/shutdown!))))))
+            (posthog/shutdown!))))
+      (future
+        (tracer/with-span! {:name "stop-rate-limit-sweeper"}
+          (rate-limit/stop)))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []
@@ -363,6 +367,8 @@
         (storage-sweeper/start))
       (with-log-init :hard-deletion-sweeper
         (hard-deletion-sweeper/start))
+      (with-log-init :rate-limit-sweeper
+        (rate-limit/start))
       (with-log-init :wal-log-truncator
         (wal-log-model/start))
       (when (= (config/get-env) :prod)

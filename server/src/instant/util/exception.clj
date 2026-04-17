@@ -12,6 +12,7 @@
   (:import
    (dev.cel.runtime CelEvaluationException)
    (java.io IOException)
+   (java.time Duration Instant)
    (org.postgresql.util PSQLException)))
 
 ;; ----
@@ -282,22 +283,28 @@
   pass?)
 
 (defn throw-permission-evaluation-failed! [etype action ^CelEvaluationException e show-cel-errors?]
-  (let [cause-type (.name (.getErrorCode e))
-        err-message (.getMessage e)
-        cause-message (if (and err-message show-cel-errors?)
-                        err-message
-                        "You may have a typo")
-        hint-message (format "Could not evaluate permission rule for `%s.%s`. %s. Debug this in the sandbox and then update your permission rules."
-                             etype
-                             action
-                             cause-message)]
-    (throw+ {::type ::permission-evaluation-failed
-             ::message hint-message
-             ::hint (cond-> {:rule [etype action]}
-                      cause-type (assoc :error {:type (keyword cause-type)
-                                                :message hint-message
-                                                :hint cause-message}))}
-            e)))
+  (if (= ::rate-limited
+         (-> e
+             (.getCause)
+             (ex-data)
+             ::type))
+    (throw (.getCause e))
+    (let [cause-type (.name (.getErrorCode e))
+          err-message (.getMessage e)
+          cause-message (if (and err-message show-cel-errors?)
+                          err-message
+                          "You may have a typo")
+          hint-message (format "Could not evaluate permission rule for `%s.%s`. %s. Debug this in the sandbox and then update your permission rules."
+                               etype
+                               action
+                               cause-message)]
+      (throw+ {::type ::permission-evaluation-failed
+               ::message hint-message
+               ::hint (cond-> {:rule [etype action]}
+                        cause-type (assoc :error {:type (keyword cause-type)
+                                                  :message hint-message
+                                                  :hint cause-message}))}
+              e))))
 
 (defn throw-insufficient-plan! [{:keys [capability]}]
   (throw+ {::type ::permission-denied
@@ -404,6 +411,18 @@
 (defn throw-record-email-rate-limited! []
   (throw+ {::type ::rate-limited
            ::message "Too many verification codes requested for this email. Please try again later."}))
+
+(defn throw-permission-rate-limited! [retry-at remaining-tokens]
+  (throw+ {::type ::rate-limited
+           ::message "Your request exceeded the rate limit."
+           ::hint {:retry-at retry-at
+                   :retry-after (-> (Duration/between (Instant/now) retry-at)
+                                    (.toMillis)
+                                    (/ 1000)
+                                    (Math/ceil)
+                                    (long)
+                                    (max 0))
+                   :remaining-tokens remaining-tokens}}))
 
 ;; -------
 ;; Sockets

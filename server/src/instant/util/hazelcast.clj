@@ -9,7 +9,6 @@
    (com.hazelcast.config GlobalSerializerConfig SerializerConfig)
    (com.hazelcast.map IMap)
    (com.hazelcast.nio.serialization ByteArraySerializer)
-   (instant.rate_limit CreateMagicCodeKey ConsumeMagicCodeKey)
    (java.io DataInputStream ByteArrayInputStream)
    (java.nio ByteBuffer)
    (java.util UUID)
@@ -44,8 +43,6 @@
 (def join-room-v3-type-id 9)
 (def sse-message-type-id 10)
 (def wal-record-type-id 11)
-(def create-magic-code-key-type-id 12)
-(def consume-magic-code-key-type-id 13)
 
 ;; --------
 ;; Room key
@@ -320,37 +317,6 @@
   (make-serializer-config WalRecord
                           wal-record-serializer))
 
-;; ----------
-;; Magic code
-
-(def ^ByteArraySerializer create-magic-code-key-serializer
-  (reify ByteArraySerializer
-    (getTypeId [_]
-      create-magic-code-key-type-id)
-    (write ^bytes [_ {:keys [key-bytes]}]
-      key-bytes)
-    (read [_ ^bytes in]
-      (CreateMagicCodeKey. in))
-    (destroy [_])))
-
-(def create-magic-code-key-record-config
-  (make-serializer-config CreateMagicCodeKey
-                          create-magic-code-key-serializer))
-
-(def ^ByteArraySerializer consume-magic-code-key-serializer
-  (reify ByteArraySerializer
-    (getTypeId [_]
-      consume-magic-code-key-type-id)
-    (write ^bytes [_ {:keys [key-bytes]}]
-      key-bytes)
-    (read [_ ^bytes in]
-      (ConsumeMagicCodeKey. in))
-    (destroy [_])))
-
-(def consume-magic-code-key-record-config
-  (make-serializer-config ConsumeMagicCodeKey
-                          consume-magic-code-key-serializer))
-
 ;; -----------------
 ;; Global serializer
 
@@ -376,6 +342,4 @@
    room-key-config
    task-config
    sse-message-config
-   wal-record-config
-   create-magic-code-key-record-config
-   consume-magic-code-key-record-config])
+   wal-record-config])

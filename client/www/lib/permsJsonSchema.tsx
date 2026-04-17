@@ -3,7 +3,11 @@
 
 import { SchemaNamespace } from '@/lib/types';
 
-type JsonStringSchema = { type: 'string' };
+type JsonStringSchema = { type: 'string'; enum?: string[] };
+
+type JsonNumberSchema = { type: 'number' };
+
+type JsonIntegerSchema = { type: 'integer' };
 
 type JsonArraySchema = {
   type: 'array';
@@ -14,6 +18,7 @@ type JsonArraySchema = {
 type JsonObjectSchema = {
   type: 'object';
   properties?: Record<string, JsonSchema>;
+  required?: string[];
   patternProperties?: Record<string, JsonSchema>;
   additionalProperties?: boolean | JsonSchema;
 };
@@ -24,6 +29,8 @@ type JsonOneOfSchema = {
 
 type JsonSchema =
   | JsonStringSchema
+  | JsonNumberSchema
+  | JsonIntegerSchema
   | JsonArraySchema
   | JsonObjectSchema
   | JsonOneOfSchema;
@@ -93,9 +100,48 @@ const makeRuleBlock = ({
 const permsJsonSchema = (
   namespaces: SchemaNamespace[] | null,
 ): JsonObjectSchema => {
+  const rateLimitRefillSchema: JsonObjectSchema = {
+    type: 'object',
+    properties: {
+      amount: { type: 'integer' },
+      period: { type: 'string' },
+      type: { type: 'string', enum: ['interval', 'greedy'] },
+    },
+    additionalProperties: false,
+  };
+
+  const rateLimitLimitSchema: JsonObjectSchema = {
+    type: 'object',
+    properties: {
+      capacity: { type: 'integer' },
+      refill: rateLimitRefillSchema,
+    },
+    required: ['capacity'],
+    additionalProperties: false,
+  };
+
+  const rateLimitSchema: JsonObjectSchema = {
+    type: 'object',
+    properties: {
+      limits: {
+        type: 'array',
+        items: rateLimitLimitSchema,
+        minItems: 1,
+      },
+    },
+    required: ['limits'],
+    additionalProperties: false,
+  };
+
+  const rateLimitsSchema: JsonObjectSchema = {
+    type: 'object',
+    additionalProperties: rateLimitSchema,
+  };
+
   const properties: Record<string, JsonSchema> = {
     $default: makeRuleBlock({ includeFields: false }),
     attrs: makeRuleBlock({ includeFields: false }),
+    $rateLimits: rateLimitsSchema,
   };
 
   if (namespaces) {
@@ -112,7 +158,7 @@ const permsJsonSchema = (
     type: 'object',
     properties,
     patternProperties: {
-      '^[$a-zA-Z0-9_\\-]+$': genericNamespaceRuleBlock,
+      '^(?!\\$rateLimits$)[$a-zA-Z0-9_\\-]+$': genericNamespaceRuleBlock,
     },
     additionalProperties: false,
   };
