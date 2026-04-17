@@ -16,16 +16,14 @@ import {
   getAppsAuth,
 } from '../../../lib/oauth.ts';
 import {
+  DEFAULT_OAUTH_CALLBACK_URL,
   GOOGLE_AUTHORIZATION_ENDPOINT,
-  GOOGLE_DEFAULT_CALLBACK_URL,
   GOOGLE_DISCOVERY_ENDPOINT,
   GOOGLE_TOKEN_ENDPOINT,
   APPLE_AUTHORIZATION_ENDPOINT,
-  APPLE_DEFAULT_CALLBACK_URL,
   APPLE_DISCOVERY_ENDPOINT,
   APPLE_TOKEN_ENDPOINT,
   LINKEDIN_AUTHORIZATION_ENDPOINT,
-  LINKEDIN_DEFAULT_CALLBACK_URL,
   LINKEDIN_DISCOVERY_ENDPOINT,
   LINKEDIN_TOKEN_ENDPOINT,
 } from '@instantdb/platform';
@@ -158,7 +156,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     required: true,
     skipIf: false,
     prompt: {
-      prompt: `Client ID ${chalk.dim('(from https://console.developers.google.com/apis/credentials)')}`,
+      prompt: `Client ID: ${chalk.dim('(from https://console.developers.google.com/apis/credentials)')}`,
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
@@ -210,7 +208,7 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
   if (!clientName) {
     return yield* BadArgsError.make({ message: 'Client name is required.' }); // Should never reach this
   }
-  const redirectUri = customRedirectUri || GOOGLE_DEFAULT_CALLBACK_URL;
+  const redirectUri = customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
 
   const response = yield* addOAuthClient({
     providerId: provider.id,
@@ -236,7 +234,7 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
     );
     if (customRedirectUri) {
       redirectMessages.push(
-        `Your custom redirect must forward to ${chalk.bold(GOOGLE_DEFAULT_CALLBACK_URL)} with all query parameters preserved.`,
+        `Your custom redirect must forward to ${chalk.bold(DEFAULT_OAUTH_CALLBACK_URL)} with all query parameters preserved.`,
       );
       redirectMessages.push(
         `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,
@@ -257,9 +255,6 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
     ),
   );
 });
-
-const GITHUB_DEFAULT_CALLBACK_URL =
-  'https://api.instantdb.com/runtime/oauth/callback';
 
 const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
   const { auth, provider } = yield* getOrCreateProvider('github');
@@ -344,7 +339,7 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
     return yield* BadArgsError.make({ message: 'Client name is required.' });
   }
 
-  const redirectUri = customRedirectUri || GITHUB_DEFAULT_CALLBACK_URL;
+  const redirectUri = customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
 
   // The backend infers GitHub's authorization/token endpoints from
   // meta.providerName === 'github', so we don't pass them here.
@@ -364,7 +359,7 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
   ];
   if (customRedirectUri) {
     redirectMessages.push(
-      `Your custom redirect must forward to ${chalk.bold(GITHUB_DEFAULT_CALLBACK_URL)} with all query parameters preserved.`,
+      `Your custom redirect must forward to ${chalk.bold(DEFAULT_OAUTH_CALLBACK_URL)} with all query parameters preserved.`,
     );
     redirectMessages.push(
       `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,
@@ -420,7 +415,7 @@ const handleLinkedInClient = Effect.fn(function* (
     required: true,
     skipIf: false,
     prompt: {
-      prompt: `Client ID ${chalk.dim('(from https://www.linkedin.com/developers/apps)')}`,
+      prompt: `Client ID: ${chalk.dim('(from https://www.linkedin.com/developers/apps)')}`,
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
@@ -472,7 +467,7 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
     return yield* BadArgsError.make({ message: 'Client name is required.' });
   }
 
-  const redirectUri = customRedirectUri || LINKEDIN_DEFAULT_CALLBACK_URL;
+  const redirectUri = customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
 
   const response = yield* addOAuthClient({
     providerId: provider.id,
@@ -492,7 +487,7 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
   ];
   if (customRedirectUri) {
     redirectMessages.push(
-      `Your custom redirect must forward to ${chalk.bold(LINKEDIN_DEFAULT_CALLBACK_URL)} with all query parameters preserved.`,
+      `Your custom redirect must forward to ${chalk.bold(DEFAULT_OAUTH_CALLBACK_URL)} with all query parameters preserved.`,
     );
     redirectMessages.push(
       `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,
@@ -686,7 +681,7 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
   }
 
   const redirectUri = privateKey
-    ? customRedirectUri || APPLE_DEFAULT_CALLBACK_URL
+    ? customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL
     : undefined;
 
   const meta: { teamId?: string; keyId?: string } = {};
@@ -721,7 +716,7 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
     );
     if (customRedirectUri) {
       summaryLines.push(
-        `Your custom redirect must forward to ${chalk.bold(APPLE_DEFAULT_CALLBACK_URL)} with all query parameters preserved.`,
+        `Your custom redirect must forward to ${chalk.bold(DEFAULT_OAUTH_CALLBACK_URL)} with all query parameters preserved.`,
       );
       summaryLines.push(
         `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,
