@@ -28,6 +28,12 @@ import {
   OAuthServiceProvider,
 } from '@/lib/types';
 import {
+  LINKEDIN_AUTHORIZATION_ENDPOINT,
+  LINKEDIN_TOKEN_ENDPOINT,
+  LINKEDIN_DISCOVERY_ENDPOINT,
+  LINKEDIN_DEFAULT_CALLBACK_URL,
+} from '@instantdb/platform';
+import {
   addProvider,
   addClient,
   deleteClient,
@@ -160,12 +166,10 @@ export function AddLinkedInClientForm({
         clientName,
         clientId,
         clientSecret,
-        authorizationEndpoint:
-          'https://www.linkedin.com/oauth/v2/authorization',
-        tokenEndpoint: 'https://www.linkedin.com/oauth/v2/accessToken',
-        discoveryEndpoint:
-          'https://www.linkedin.com/oauth/.well-known/openid-configuration',
-        redirectTo,
+        authorizationEndpoint: LINKEDIN_AUTHORIZATION_ENDPOINT,
+        tokenEndpoint: LINKEDIN_TOKEN_ENDPOINT,
+        discoveryEndpoint: LINKEDIN_DISCOVERY_ENDPOINT,
+        redirectTo: redirectTo || LINKEDIN_DEFAULT_CALLBACK_URL,
       });
       onAddClient(resp.client);
     } catch (e) {
@@ -368,17 +372,14 @@ export function LinkedInClient({
             </Content>
             <Copyable
               label="Redirect URI"
-              value={
-                client.redirect_to ||
-                'https://api.instantdb.com/runtime/oauth/callback'
-              }
+              value={client.redirect_to || LINKEDIN_DEFAULT_CALLBACK_URL}
             />
             {client.redirect_to && (
               <>
                 <Content className="text-sm text-gray-500 dark:text-neutral-400">
                   Your redirect URL should forward to{' '}
-                  <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
-                  with all query parameters.
+                  <Copytext value={LINKEDIN_DEFAULT_CALLBACK_URL} /> with all
+                  query parameters.
                 </Content>
                 <TestRedirectButton redirectTo={client.redirect_to} />
               </>
