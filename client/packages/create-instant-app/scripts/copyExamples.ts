@@ -7,6 +7,7 @@ const EXAMPLES_TO_COPY = [
   'expo',
   'next-js-app-dir',
   'sveltekit',
+  'vite-react',
   'vite-vanilla',
   'tanstack-start',
 ] as const;

@@ -126,6 +126,31 @@ describe.concurrent('create-instant-app e2e', { timeout: 120_000 }, () => {
         await t.cleanup();
       }
     });
+
+    it('scaffolds with --vite-react flag', async () => {
+      const t = await createTestDir();
+      try {
+        const result = await runCreateInstantApp(
+          ['vite-react-app', '--vite-react', '--yes'],
+          { cwd: t.dir },
+        );
+
+        expect(result.exitCode).toBe(0);
+
+        const projectDir = join(t.dir, 'vite-react-app');
+        await expect(
+          access(join(projectDir, 'vite.config.ts')),
+        ).resolves.toBeUndefined();
+        await expect(
+          access(join(projectDir, 'src', 'App.tsx')),
+        ).resolves.toBeUndefined();
+
+        const envContents = await readFile(join(projectDir, '.env'), 'utf-8');
+        expect(envContents).toMatch(/VITE_INSTANT_APP_ID=.+/);
+      } finally {
+        await t.cleanup();
+      }
+    });
   });
 
   describe('rule file flags', () => {

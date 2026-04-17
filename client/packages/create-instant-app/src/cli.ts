@@ -8,6 +8,7 @@ import { renderUnwrap, UI } from 'instant-cli/ui';
 export type Project = {
   base:
     | 'next-js-app-dir'
+    | 'vite-react'
     | 'vite-vanilla'
     | 'expo'
     | 'tanstack-start'
@@ -55,6 +56,7 @@ const defaultOptions: Project = {
 
 const baseFromFlags = (flags: Record<string, any>): Project['base'] | null =>
   (flags.base as Project['base']) ||
+  (flags.viteReact && 'vite-react') ||
   (flags.vanilla && 'vite-vanilla') ||
   (flags.next && 'next-js-app-dir') ||
   (flags.expo && 'expo') ||
@@ -87,6 +89,7 @@ export const runCli = async (): Promise<Project> => {
         'The base template to scaffold from',
       ).choices([
         'next-js-app-dir',
+        'vite-react',
         'vite-vanilla',
         'expo',
         'bun-react',
@@ -113,6 +116,12 @@ export const runCli = async (): Promise<Project> => {
       new Option('--vanilla', 'Use the vanilla JS starter template').default(
         false,
       ),
+    )
+    .addOption(
+      new Option(
+        '--vite-react',
+        'Use the Vite + React starter template',
+      ).default(false),
     )
     .addOption(
       new Option('--sv', 'Use the SvelteKit starter template').default(false),
@@ -246,8 +255,9 @@ export const runCli = async (): Promise<Project> => {
             new UI.Select({
               promptText: 'What framework would you like to use?',
               options: [
-                { value: 'next-js-app-dir', label: 'Next.js' },
-                { value: 'expo', label: 'Expo: React Native' },
+                { value: 'next-js-app-dir', label: 'Web: Next.js' },
+                { value: 'vite-react', label: 'Web: Vite React' },
+                { value: 'expo', label: 'Mobile: Expo' },
               ],
               defaultValue: 'next-js-app-dir',
               modifyOutput: UI.modifiers.piped([UI.ciaModifier()]),
@@ -264,6 +274,11 @@ export const runCli = async (): Promise<Project> => {
                 label: 'Web: Next.js',
               },
               { value: 'expo', label: 'Mobile: Expo' },
+              {
+                value: 'vite-react',
+                label: 'Vite: React',
+                secondary: true,
+              },
               {
                 value: 'vite-vanilla',
                 label: 'Vite: Vanilla TS',

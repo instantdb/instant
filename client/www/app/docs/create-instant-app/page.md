@@ -9,7 +9,7 @@ Once you know the basics of Instant, you may find it useful to be able to
 quickly scaffold a new Instant project. We built `create-instant-app` to do just
 that.
 
-We currently offer templates for Next.js, Expo, and Vanilla Typescript. Follow the quick start below to give it a spin!
+We currently offer templates for Next.js, Vite + React, Expo, and Vanilla Typescript. Follow the quick start below to give it a spin!
 
 ## Quick start
 
@@ -52,6 +52,3 @@ Use `create-instant-app` with the `--ai` flag and you'll be prompted to describe
 } defaultTab="npx" storageKey="pkg-manager" /%}
 
 You can think of this as a one-shot app builder in the terminal.
-
-Right now this only works with Next.js and Expo. We're keen to improve this feature so if you have any
-feedback please let us know below or on [Discord](https://discord.com/invite/VU53p7uQcE)!
