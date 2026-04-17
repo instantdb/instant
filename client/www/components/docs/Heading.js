@@ -32,7 +32,7 @@ export function Heading({ level = 1, id, children, ...props }) {
   // Use the id from collectHeadings if provided, otherwise generate one
   const slugId =
     id ||
-    (typeof children === 'string' ? slugifyWithCounter(children) : undefined);
+    (typeof children === 'string' ? slugifyWithCounter()(children) : undefined);
 
   return (
     <Tag

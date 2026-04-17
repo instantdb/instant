@@ -35,6 +35,8 @@ export default rules;
 
 You can manage permissions via configuration files or through the Instant dashboard.
 
+You can also add [rate limits](/docs/rate-limits) to your rules to control how often users can perform actions.
+
 ## Permissions as code
 
 With Instant you can define your permissions in code. If you haven't already, use the [CLI](/docs/cli) to generate an `instant.perms.ts` file:
