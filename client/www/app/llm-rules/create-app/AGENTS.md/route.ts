@@ -42,6 +42,7 @@ Here's the info:
 
 \`\`\`
 VITE_INSTANT_APP_ID=${app.id}
+NEXT_PUBLIC_INSTANT_APP_ID=${app.id}
 INSTANT_ADMIN_TOKEN=${app.adminToken}
 \`\`\`
 
