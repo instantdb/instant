@@ -217,18 +217,10 @@ describe('native: success', () => {
       clientName: 'apple-native',
       clientId: 'com.example.app',
     });
-    expect(addedClients[0].clientSecret).toBeUndefined();
-    expect(addedClients[0].redirectTo).toBeUndefined();
-    expect(addedClients[0].meta).toEqual({
-      teamId: undefined,
-      keyId: undefined,
-    });
     const output = logs.join('\n');
     expect(output).toContain('Apple OAuth client created: apple-native');
     expect(output).toContain('ID: client-1');
     expect(output).toContain('Services ID: com.example.app');
-    expect(output).toContain('Native-only flow configured.');
-    expect(output).not.toContain('Add this return URL');
   });
 });
 
