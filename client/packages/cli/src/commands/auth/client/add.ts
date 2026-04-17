@@ -384,11 +384,13 @@ const readPrivateKeyFile = Effect.fn('readPrivateKeyFile')(function* (
   path: string,
 ) {
   const fs = yield* FileSystem.FileSystem;
-  const contents = yield* fs.readFileString(path, 'utf8').pipe(
+  // Strip shell-escape backslashes so paths like "file\ (2).p8" resolve correctly
+  const normalizedPath = path.replace(/\\(.)/g, '$1');
+  const contents = yield* fs.readFileString(normalizedPath, 'utf8').pipe(
     Effect.mapError(
       (e) =>
         new BadArgsError({
-          message: `Could not read private key file at ${path}: ${e.message}`,
+          message: `Could not read private key file at ${normalizedPath}: ${e.message}`,
         }),
     ),
   );
@@ -396,7 +398,7 @@ const readPrivateKeyFile = Effect.fn('readPrivateKeyFile')(function* (
   const trimmed = contents.trim();
   if (!trimmed) {
     return yield* BadArgsError.make({
-      message: `Private key file at ${path} is empty.`,
+      message: `Private key file at ${normalizedPath} is empty.`,
     });
   }
   return trimmed;
@@ -461,9 +463,8 @@ const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
             promptText:
               'Configure web redirect flow? ' +
               chalk.dim(
-                'requires Team ID, Key ID, and a .p8 private key from Apple)',
-              ) +
-              '\n Only necessary if doing web reirect flow)',
+                '(requires Team ID, Key ID, and a .p8 private key from Apple)',
+              ),
             defaultValue: false,
           },
         });
