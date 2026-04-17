@@ -48,13 +48,7 @@ import { messageFromInstantError } from '@/lib/errors';
 import linkedinIconSvg from '../../../public/img/linkedin.svg';
 import { useDarkMode } from '../DarkModeToggle';
 
-function exampleCode({
-  appId,
-  clientName,
-}: {
-  appId: string;
-  clientName: string;
-}) {
+function exampleCode({ clientName }: { clientName: string }) {
   return /* js */ `// Create the authorization URL:
 const url = db.auth.createAuthorizationURL({
   clientName: "${clientName}",
@@ -387,7 +381,6 @@ export function LinkedInClient({
               <Fence
                 darkMode={darkMode}
                 code={exampleCode({
-                  appId: app.id,
                   clientName: client.client_name,
                 })}
                 language="typescript"

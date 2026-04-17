@@ -191,7 +191,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
             return (
               `\nCustom redirect URI (optional):
 ${chalk.dim('With a custom redirect URI, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
-${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.')}\n\n` +
+${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all query parameters preserved.`)}\n\n` +
               stripFirstBlankLine(output)
             );
           }
@@ -324,7 +324,7 @@ const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
             return (
               `\nCustom redirect URI (optional):
 ${chalk.dim('With a custom redirect URI, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
-${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.')}\n\n` +
+${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all query parameters preserved.`)}\n\n` +
               stripFirstBlankLine(output)
             );
           }
@@ -452,7 +452,7 @@ const handleLinkedInClient = Effect.fn(function* (
             return (
               `\nCustom redirect URI (optional):
 ${chalk.dim('With a custom redirect URI, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
-${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.')}\n\n` +
+${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all query parameters preserved.`)}\n\n` +
               stripFirstBlankLine(output)
             );
           }
@@ -665,7 +665,7 @@ const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
             return (
               `\nCustom redirect URI (optional):
 ${chalk.dim('With a custom redirect URI, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
-${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/callback with all query parameters preserved.')}\n\n` +
+${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all query parameters preserved.`)}\n\n` +
               stripFirstBlankLine(output)
             );
           }
