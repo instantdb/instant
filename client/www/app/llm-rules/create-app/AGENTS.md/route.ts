@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   const { app } = await api.createApp({ title, orgId });
 
   const markdown = `
-You've just gotten a new Instant app provisioned for you! 
+A new Instant app has just been provisioned for you!
 
 Here's the info:
 
