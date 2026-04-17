@@ -461,8 +461,9 @@ const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
             promptText:
               'Configure web redirect flow? ' +
               chalk.dim(
-                '(requires Team ID, Key ID, and a .p8 private key from Apple)',
-              ),
+                'requires Team ID, Key ID, and a .p8 private key from Apple)',
+              ) +
+              '\n Only necessary if doing web reirect flow)',
             defaultValue: false,
           },
         });
@@ -553,6 +554,10 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
     ? customRedirectUri || APPLE_DEFAULT_CALLBACK_URL
     : undefined;
 
+  const meta: { teamId?: string; keyId?: string } = {};
+  if (teamId !== undefined) meta.teamId = teamId;
+  if (keyId !== undefined) meta.keyId = keyId;
+
   const response = yield* addOAuthClient({
     providerId: provider.id,
     clientName,
@@ -562,7 +567,7 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
     tokenEndpoint: APPLE_TOKEN_ENDPOINT,
     discoveryEndpoint: APPLE_DISCOVERY_ENDPOINT,
     redirectTo: redirectUri,
-    meta: { teamId, keyId },
+    ...(Object.keys(meta).length > 0 ? { meta } : {}),
   });
 
   const summaryLines: string[] = [
@@ -587,14 +592,7 @@ ${chalk.dim('Your URI must forward to https://api.instantdb.com/runtime/oauth/ca
         `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,
       );
     }
-  } else {
-    summaryLines.push(
-      chalk.dim(
-        '\nNative-only flow configured. To enable web sign-in, re-run with --team-id, --key-id, and --private-key-file.',
-      ),
-    );
   }
-
   yield* Effect.log(
     boxen(summaryLines.join('\n'), {
       dimBorder: true,

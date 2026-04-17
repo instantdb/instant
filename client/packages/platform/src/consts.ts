@@ -10,6 +10,6 @@ export const APPLE_AUTHORIZATION_ENDPOINT =
   'https://appleid.apple.com/auth/authorize';
 export const APPLE_TOKEN_ENDPOINT = 'https://appleid.apple.com/auth/token';
 export const APPLE_DISCOVERY_ENDPOINT =
-  'https://account.apple.com/.well-known/openid-configuration';
+  'https://appleid.apple.com/.well-known/openid-configuration';
 export const APPLE_DEFAULT_CALLBACK_URL =
   'https://api.instantdb.com/runtime/oauth/callback';
