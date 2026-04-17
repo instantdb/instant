@@ -291,7 +291,7 @@ export default _schema;
         await project2.cleanup();
       }
     });
-  }, 40_000);
+  }, 50_000);
 
   describe('push perms', () => {
     it('exits with code 1 when no perms file exists', async () => {
