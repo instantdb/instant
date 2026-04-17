@@ -1,4 +1,3 @@
-import { getServerConfig } from '@/lib/config';
 import { PlatformApi } from '@instantdb/platform';
 import fs from 'fs/promises';
 import path from 'path';
