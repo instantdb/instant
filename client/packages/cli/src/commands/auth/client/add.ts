@@ -384,8 +384,10 @@ const readPrivateKeyFile = Effect.fn('readPrivateKeyFile')(function* (
   path: string,
 ) {
   const fs = yield* FileSystem.FileSystem;
-  // Strip shell-escape backslashes so paths like "file\ (2).p8" resolve correctly
-  const normalizedPath = path.replace(/\\(.)/g, '$1');
+  // Strip shell-escape backslashes so paths like "file\ (2).p8" resolve correctly.
+  // Only on POSIX — Windows uses backslashes as path separators.
+  const normalizedPath =
+    process.platform === 'win32' ? path : path.replace(/\\(.)/g, '$1');
   const contents = yield* fs.readFileString(normalizedPath, 'utf8').pipe(
     Effect.mapError(
       (e) =>
