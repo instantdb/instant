@@ -229,9 +229,8 @@ export function AddGitHubClientForm({
 
       <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
         <p className="overflow-hidden">
-          Add{' '}
-          <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> as the
-          Authorization callback URL in your GitHub OAuth App settings.
+          Add <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> as
+          the Authorization callback URL in your GitHub OAuth App settings.
         </p>
         {redirectTo && (
           <>

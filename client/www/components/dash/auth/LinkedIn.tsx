@@ -242,8 +242,7 @@ export function AddLinkedInClientForm({
 
       <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
         <p className="overflow-hidden">
-          Add{' '}
-          <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> as a
+          Add <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> as a
           redirect URI for your LinkedIn app.
         </p>
         {redirectTo && (
@@ -374,8 +373,8 @@ export function LinkedInClient({
               <>
                 <Content className="text-sm text-gray-500 dark:text-neutral-400">
                   Your redirect URL should forward to{' '}
-                  <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all
-                  query parameters.
+                  <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
+                  parameters.
                 </Content>
                 <TestRedirectButton redirectTo={client.redirect_to} />
               </>

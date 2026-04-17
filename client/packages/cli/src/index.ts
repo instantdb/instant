@@ -87,7 +87,10 @@ export const authClientAddDef = authClient
   .command('add')
   .allowExcessArguments(true)
   .allowUnknownOption(true)
-  .option('--type <google|github|apple|linkedin>', 'Type of oauth client to add')
+  .option(
+    '--type <google|github|apple|linkedin>',
+    'Type of oauth client to add',
+  )
   .option(
     '--name <client name>',
     'Custom name to identify the OAuth client (ex: google-web)',
