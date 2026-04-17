@@ -13,12 +13,18 @@ const RULES_PATH = path.join(
 );
 const DEFAULT_APP_TITLE = 'instant-agent-app';
 
-const baseRulesPromise = fs.readFile(RULES_PATH, 'utf8');
+let cachedBaseRules: string | null = null;
+async function loadBaseRules(): Promise<string> {
+  if (cachedBaseRules !== null) return cachedBaseRules;
+  const contents = await fs.readFile(RULES_PATH, 'utf8');
+  cachedBaseRules = contents;
+  return contents;
+}
 
 export async function GET(request: Request) {
   const title =
     new URL(request.url).searchParams.get('title')?.trim() || DEFAULT_APP_TITLE;
-  const baseRules = await baseRulesPromise;
+  const baseRules = await loadBaseRules();
 
   const token = process.env.INSTANT_LLM_RULES_CREATE_APP_PERSONAL_ACCESS_TOKEN;
   const orgId = process.env.INSTANT_LLM_RULES_CREATE_APP_ORG_ID;
