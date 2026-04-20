@@ -10,7 +10,6 @@
    (java.io ByteArrayInputStream DataInputStream)
    (java.time Instant)
    (java.util UUID)
-   (java.util.concurrent Executors)
    (org.postgresql.replication LogSequenceNumber)))
 
 ;; These defrecords are used to transfer messages between machines.
