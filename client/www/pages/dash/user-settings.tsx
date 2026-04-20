@@ -9,7 +9,6 @@ import { Button, NavTabBar, TabItem } from '@/components/ui';
 import PersonalAccessTokensTab from '@/components/dash/PersonalAccessTokensScreen';
 import OAuthAppsTab from '@/components/dash/AuthorizedOAuthAppsScreen';
 import { useRouter } from 'next/router';
-import { signOut } from '@/lib/auth';
 import { BackToAppsButton } from '@/components/dash/BackToAppsButton';
 import { Invites } from '@/components/dash/Invites';
 import Head from 'next/head';
@@ -41,12 +40,7 @@ const UserSettingsPage: NextPageWithLayout = () => {
           </div>
           <Button
             onClick={() => {
-              router.push('/');
-              // delay sign out to allow the router to change the page
-              // and avoid a flash of the unauthenticated dashboard
-              setTimeout(() => {
-                signOut();
-              }, 150);
+              router.push('/logout');
             }}
             variant="destructive"
           >
