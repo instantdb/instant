@@ -334,10 +334,10 @@
         (ensure-attrs-on-system-catalog-app))
       (with-log-init :reactive-store
         (rs/start))
-      (with-log-init :ephemeral
-        (eph/start))
       (with-log-init :grpc-server
         (grpc-server/start-global))
+      (with-log-init :ephemeral
+        (eph/start))
       (with-log-init :stripe
         (stripe/init))
       (with-log-init :session

@@ -1,33 +1,52 @@
 (ns instant.grpc
   (:require
    [clojure.set]
+   [instant.isn]
+   [instant.util.defrecord :refer [defrecord-once]]
    [taoensso.nippy :as nippy])
   (:import
+   (instant.isn ISN)
    (io.grpc MethodDescriptor MethodDescriptor$Marshaller MethodDescriptor$MethodType)
    (java.io ByteArrayInputStream DataInputStream)
-   (java.util UUID)))
+   (java.time Instant)
+   (java.util UUID)
+   (java.util.concurrent Executors)
+   (org.postgresql.replication LogSequenceNumber)))
 
 ;; These defrecords are used to transfer messages between machines.
 ;; If you need to change anything or add new ones, you must do a 2-phase deploy.
 ;; Also update the encoders in instant.nippy
 
-(defrecord StreamRequest [^UUID app-id ^UUID stream-id ^long offset])
+(defrecord-once StreamRequest [^UUID app-id ^UUID stream-id ^long offset])
 
-(defrecord StreamFile [^UUID id ^String location-id ^long size])
+(defrecord-once StreamFile [^UUID id ^String location-id ^long size])
 
-(defrecord StreamInit [^long offset files chunks])
+(defrecord-once StreamInit [^long offset files chunks])
 
-(defrecord StreamContent [^long offset chunks])
+(defrecord-once StreamContent [^long offset chunks])
 
-(defrecord StreamComplete [])
-(defrecord StreamAborted [^String abort-reason])
+(defrecord-once StreamComplete [])
+(defrecord-once StreamAborted [^String abort-reason])
 
 ;; Stream errors take a single keyword to indicate the error type
 ;; make sure to add the key to the stream-error-map so that nippy
 ;; can serialize/deserialize it
 
-(defrecord StreamError [error])
+(defrecord-once StreamError [error])
 
+
+(defrecord-once WalRecord [^UUID app-id
+                           ^long tx-id
+                           ^ISN isn
+                           ^ISN previous-isn
+                           ^Instant tx-created-at
+                           ^long tx-bytes
+                           ^LogSequenceNumber nextlsn
+                           attr-changes
+                           ident-changes
+                           triple-changes
+                           messages
+                           wal-logs])
 (def stream-error-map
   {:unknown -1
    :rate-limit 1
@@ -48,7 +67,6 @@
 (def nippy-marshaller
   (reify MethodDescriptor$Marshaller
     (stream [_ value]
-      value
       (ByteArrayInputStream. (nippy/fast-freeze value)))
     (parse [_ stream]
       (nippy/thaw-from-in! (DataInputStream. stream)))))

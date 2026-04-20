@@ -42,7 +42,6 @@
 (def task-type-id 7)
 (def join-room-v3-type-id 9)
 (def sse-message-type-id 10)
-(def wal-record-type-id 11)
 
 ;; --------
 ;; Room key
@@ -297,26 +296,6 @@
   (make-serializer-config Task
                           task-serializer))
 
-;; ----------
-;; Wal record
-
-;; Expects a var that takes no arguments
-(defrecord WalRecord [record])
-
-(def ^ByteArraySerializer wal-record-serializer
-  (reify ByteArraySerializer
-    (getTypeId [_]
-      wal-record-type-id)
-    (write ^bytes [_ {:keys [record]}]
-      (nippy/fast-freeze record))
-    (read [_ ^bytes in]
-      (->WalRecord (nippy/fast-thaw in)))
-    (destroy [_])))
-
-(def wal-record-config
-  (make-serializer-config WalRecord
-                          wal-record-serializer))
-
 ;; -----------------
 ;; Global serializer
 
@@ -341,5 +320,4 @@
    set-presence-config
    room-key-config
    task-config
-   sse-message-config
-   wal-record-config])
+   sse-message-config])

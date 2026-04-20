@@ -7,6 +7,7 @@
    [instant.flags :as flags]
    [instant.gauges :as gauges]
    [instant.grouped-queue :as grouped-queue]
+   [instant.grpc :as grpc]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.reactive.ephemeral :as eph]
@@ -105,7 +106,7 @@
   (when-let [^String created-at (topics/get-column columns "created_at")]
     (.toInstant (Timestamp/valueOf created-at))))
 
-(defn transform-wal-record [{:keys [changes messages tx-bytes nextlsn isn] :as _record}]
+(defn transform-wal-record [{:keys [changes messages tx-bytes nextlsn isn previous-isn] :as _record}]
   ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
   ;;      or else we will never be notified about it.
   (let [{:strs [idents triples attrs transactions
@@ -126,18 +127,19 @@
                                                 :name "transform-wal-record"})
         ;; n.b. make sure to update combine-wal-records below if new
         ;;      items are added to this map
-        {:nextlsn nextlsn
-         :isn isn
-         :attr-changes attrs
-         :ident-changes idents
-         :triple-changes triples
-         :app-id app-id
-         :tx-created-at tx-created-at
-         :tx-id tx-id
-         :tx-bytes tx-bytes
-         :messages messages
-         :wal-logs (concat wal_logs wal_logs_0 wal_logs_1 wal_logs_2 wal_logs_3
-                           wal_logs_4 wal_logs_5 wal_logs_6 wal_logs_7)}))))
+        (grpc/->WalRecord app-id
+                          tx-id
+                          isn
+                          previous-isn
+                          tx-created-at
+                          tx-bytes
+                          nextlsn
+                          attrs
+                          idents
+                          triples
+                          messages
+                          (concat wal_logs wal_logs_0 wal_logs_1 wal_logs_2 wal_logs_3
+                                  wal_logs_4 wal_logs_5 wal_logs_6 wal_logs_7))))))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"

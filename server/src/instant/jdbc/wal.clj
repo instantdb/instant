@@ -35,6 +35,7 @@
    [instant.jdbc.cache-evict :as cache-evict]
    [instant.jdbc.pgerrors :as pgerrors]
    [instant.jdbc.sql :as sql]
+   [instant.jdbc.wal-entry :as wal-entry]
    [instant.util.async :as ua]
    [instant.util.json :refer [<-json-big]]
    [instant.util.lang :as lang]
@@ -199,7 +200,8 @@
 (defn ensure-slot [db-config slot-name]
   (with-open [conn (get-pg-replication-conn db-config)]
     (try
-      (create-slot-with-snapshot! conn slot-name "wal2json")
+      (when-not (get-logical-replication-slot conn slot-name)
+        (create-slot-with-snapshot! conn slot-name "wal2json"))
       (catch PSQLException e
         (when (not= :duplicate-object (:condition (pgerrors/extract-data e)))
           (throw e))))))
@@ -328,18 +330,22 @@
                         :attributes {:action action}}
       action)))
 
+(def use-wal-entry? (not (config/prod?)))
+
 (defn- wal-buffer->record
   "PGReplicationStream returns a ByteBuffer. This
    function converts it to a clojure map."
   [^ByteBuffer buffer]
-  (let [src (.array buffer)
-        offset (.arrayOffset buffer)
-        record-len (- (count src) offset)
-        json-str (String. src offset record-len)
-        record (<-json-big json-str true)]
-    (-> record
-        (update :action kw-action)
-        (assoc :tx-bytes record-len))))
+  (if use-wal-entry?
+    (wal-entry/parse-buffer buffer)
+    (let [src (.array buffer)
+          offset (.arrayOffset buffer)
+          record-len (- (count src) offset)
+          json-str (String. src offset record-len)
+          record (<-json-big json-str true)]
+      (-> record
+          (update :action kw-action)
+          (assoc :tx-bytes record-len)))))
 
 (comment
   (wal-buffer->record (ByteBuffer/wrap (.getBytes "{\"x\": 1}"))))
@@ -366,7 +372,8 @@
    We do some book-keeping for the replication stream, by recording the LSN
    for the last record that was pushed to `to`."
   [^PGReplicationStream stream to close-signal-chan slot-num {:keys [auto-flush?
-                                                                     evict-cache?]}]
+                                                                     evict-cache?
+                                                                     previous-isn]}]
   ;; :next-action is either:
   ;;   :begin, we're waiting for a :begin record
   ;;     :tx, we got :begin and we're waiting to see if the first insert is to the transactions table
@@ -377,10 +384,11 @@
   ;;     :advance, we got :close and we need to reset for the next db transaction
 
   (loop [buffer (.read stream)
-         state produce-start-state]
+         state produce-start-state
+         previous-isn previous-isn]
     (if-not buffer
       (when-not (.isClosed stream)
-        (recur (.read stream) state))
+        (recur (.read stream) state previous-isn))
       (let [record (wal-buffer->record buffer)
             _ (when evict-cache? (cache-evict/evict-cache! record))
             next-state (-> (case (:next-action state)
@@ -418,7 +426,6 @@
                                                             record
                                                             {:next-action :tx
                                                              :records []})
-
 
                                    (unexpected-state state
                                                      record
@@ -467,17 +474,22 @@
                        (when auto-flush?
                          (.setAppliedLSN stream last-receive-lsn)
                          (.setFlushedLSN stream last-receive-lsn))
-                       (recur (.read stream) produce-start-state)))
+                       (recur (.read stream) produce-start-state previous-isn)))
           :deliver (let [last-receive-lsn ^LogSequenceNumber (.getLastReceiveLSN stream)
-                         nextlsn (LogSequenceNumber/valueOf ^String (:nextlsn record))
+                         nextlsn (if (string? (:nextlsn record))
+                                   (LogSequenceNumber/valueOf ^String (:nextlsn record))
+                                   (:nextlsn record))
                          isn (->ISN slot-num nextlsn)
                          _ (when evict-cache?
                              (set-max-seen-isn isn))
                          msg {:changes (:records state)
                               :messages (:messages state)
-                              :lsn (LogSequenceNumber/valueOf ^String (:lsn record))
+                              :lsn (if (string? (:lsn record))
+                                     (LogSequenceNumber/valueOf ^String (:lsn record))
+                                     (:lsn record))
                               :nextlsn nextlsn
                               :isn isn
+                              :previous-isn previous-isn
                               :tx-bytes (:tx-bytes state)}
                          put-result (a/alt!! [[to msg]] :put
                                              ;; The close signal chan keeps us from
@@ -490,8 +502,8 @@
                        (when auto-flush?
                          (.setAppliedLSN stream last-receive-lsn)
                          (.setFlushedLSN stream last-receive-lsn))
-                       (recur (.read stream) produce-start-state)))
-          (recur (.read stream) next-state))))))
+                       (recur (.read stream) produce-start-state isn)))
+          (recur (.read stream) next-state previous-isn))))))
 
 (defn- produce-aggregate
   "Repeatedly read from the stream and puts records on the `to` channel.
@@ -637,7 +649,8 @@
                                   (health/mark-wal-healthy-async)))
       (let [produce-error (try
                             (produce stream to close-signal-chan slot-num {:auto-flush? true
-                                                                           :evict-cache? true})
+                                                                           :evict-cache? true
+                                                                           :previous-isn (->ISN slot-num lsn)})
                             (catch Exception e
                               (tracer/with-span! {:name "wal-worker/produce-error"
                                                   :attributes {:exception e}}
@@ -693,6 +706,8 @@
                                     (close-nicely stream)
                                     (close-nicely replication-conn)))
         (let [stream ^PGReplicationStream stream
+              lsn (with-open [conn (get-pg-replication-conn (get-conn-config))]
+                    (:lsn (get-logical-replication-slot conn slot-name)))
               flush-interrupt (a/chan)
               flush-process (a/go
                               (loop []
@@ -708,7 +723,8 @@
                                     (tracer/record-info! {:name "wal-worker/flush-lsn-exit"})))))
               produce-error (try
                               (produce stream to close-signal-chan slot-num {:auto-flush? false
-                                                                             :evict-cache? true})
+                                                                             :evict-cache? true
+                                                                             :previous-isn (->ISN slot-num lsn)})
                               (catch Exception e
                                 (tracer/with-span! {:name "wal-worker/produce-error"
                                                     :attributes {:exception e}}
