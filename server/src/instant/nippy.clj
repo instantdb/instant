@@ -247,18 +247,3 @@
                               (nippy/thaw-from-in! data-input)
                               (nippy/thaw-from-in! data-input)
                               (nippy/thaw-from-in! data-input))))
-
-;; ;; 11 is our custom identifier for InvalidatorAck, no other type can use it and
-;; ;; it must be the same across all machines.
-;; (nippy/extend-freeze InvalidatorAck 11 [^InvalidatorAck {:keys [isn]} data-output]
-;;   (write-isn isn data-output))
-
-;; (nippy/extend-thaw 11 [data-input]
-;;   (instant.grpc/->InvalidatorAck (read-isn data-input)))
-
-;; ;; 12 is our custom identifier for SlotDisconnect, no other type can use it and
-;; ;; it must be the same across all machines.
-;; (nippy/extend-freeze SlotDisconnect 12 [^SlotDisconnect _ _data-output])
-
-;; (nippy/extend-thaw 12 [_data-input]
-;;   (instant.grpc/->SlotDisconnect))
