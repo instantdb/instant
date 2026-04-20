@@ -122,7 +122,7 @@
      refresh-token])))
 
 (defn get-by-refresh-token! [params]
-  (ex/assert-record! (get-by-refresh-token params) :instant-user {}))
+  (ex/assert-record! (get-by-refresh-token params) :instant-user {:args [(select-keys params [:auth?])]}))
 
 (defn get-by-personal-access-token
   ([params] (get-by-personal-access-token (aurora/conn-pool :read) params))
