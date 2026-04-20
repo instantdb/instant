@@ -16,7 +16,6 @@
    [instant.reactive.topics :as topics]
    [instant.util.async :as ua]
    [instant.util.e2e-tracer :as e2e-tracer]
-   [instant.util.hazelcast :refer [->WalRecord]]
    [instant.util.tracer :as tracer]
    [clojure.set :as set])
   (:import
@@ -24,7 +23,6 @@
    (com.hazelcast.ringbuffer Ringbuffer)
    (com.hazelcast.ringbuffer.impl RingbufferService)
    (com.hazelcast.topic Message ITopic ReliableMessageListener TopicOverloadPolicy)
-   (instant.util.hazelcast WalRecord)
    (java.sql Timestamp)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
