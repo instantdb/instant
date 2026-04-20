@@ -287,7 +287,7 @@
 (defn start-singleton-worker [{:keys [wal-chan
                                       close-signal-chan
                                       flush-lsn-chan
-                                      ^ITopic hz-topic
+                                      ^ITopic _hz-topic
                                       on-error
                                       stop-lsn
                                       check-disabled]}]
