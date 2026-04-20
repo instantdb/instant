@@ -1,11 +1,7 @@
 import { FormEventHandler, useContext, useState } from 'react';
 import Image from 'next/image';
 import * as Collapsible from '@radix-ui/react-collapsible';
-import {
-  PlusIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-} from '@heroicons/react/24/solid';
+import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
 
 import {
   Button,
@@ -15,7 +11,6 @@ import {
   Dialog,
   Divider,
   Fence,
-  SectionHeading,
   SubsectionHeading,
   TextInput,
   useDialog,
