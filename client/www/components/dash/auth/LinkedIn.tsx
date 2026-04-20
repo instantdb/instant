@@ -1,11 +1,7 @@
 import { FormEventHandler, useContext, useState } from 'react';
 import Image from 'next/image';
 import * as Collapsible from '@radix-ui/react-collapsible';
-import {
-  PlusIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-} from '@heroicons/react/24/solid';
+import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
 
 import {
   Button,
@@ -15,7 +11,6 @@ import {
   Dialog,
   Divider,
   Fence,
-  SectionHeading,
   SubsectionHeading,
   TextInput,
   useDialog,
@@ -27,6 +22,12 @@ import {
   OAuthClient,
   OAuthServiceProvider,
 } from '@/lib/types';
+import {
+  DEFAULT_OAUTH_CALLBACK_URL,
+  LINKEDIN_AUTHORIZATION_ENDPOINT,
+  LINKEDIN_TOKEN_ENDPOINT,
+  LINKEDIN_DISCOVERY_ENDPOINT,
+} from '@instantdb/platform';
 import {
   addProvider,
   addClient,
@@ -42,13 +43,7 @@ import { messageFromInstantError } from '@/lib/errors';
 import linkedinIconSvg from '../../../public/img/linkedin.svg';
 import { useDarkMode } from '../DarkModeToggle';
 
-function exampleCode({
-  appId,
-  clientName,
-}: {
-  appId: string;
-  clientName: string;
-}) {
+function exampleCode({ clientName }: { clientName: string }) {
   return /* js */ `// Create the authorization URL:
 const url = db.auth.createAuthorizationURL({
   clientName: "${clientName}",
@@ -160,11 +155,9 @@ export function AddLinkedInClientForm({
         clientName,
         clientId,
         clientSecret,
-        authorizationEndpoint:
-          'https://www.linkedin.com/oauth/v2/authorization',
-        tokenEndpoint: 'https://www.linkedin.com/oauth/v2/accessToken',
-        discoveryEndpoint:
-          'https://www.linkedin.com/oauth/.well-known/openid-configuration',
+        authorizationEndpoint: LINKEDIN_AUTHORIZATION_ENDPOINT,
+        tokenEndpoint: LINKEDIN_TOKEN_ENDPOINT,
+        discoveryEndpoint: LINKEDIN_DISCOVERY_ENDPOINT,
         redirectTo,
       });
       onAddClient(resp.client);
@@ -238,20 +231,15 @@ export function AddLinkedInClientForm({
 
       <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
         <p className="overflow-hidden">
-          Add{' '}
-          <Copytext
-            value={
-              redirectTo || 'https://api.instantdb.com/runtime/oauth/callback'
-            }
-          />{' '}
-          as a redirect URI for your LinkedIn app.
+          Add <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> as a
+          redirect URI for your LinkedIn app.
         </p>
         {redirectTo && (
           <>
             <p className="text-sm text-gray-500 dark:text-neutral-400">
               Your redirect URL should forward to{' '}
-              <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
-              with all query parameters.
+              <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
+              parameters.
             </p>
             <TestRedirectButton redirectTo={redirectTo} />
           </>
@@ -368,17 +356,14 @@ export function LinkedInClient({
             </Content>
             <Copyable
               label="Redirect URI"
-              value={
-                client.redirect_to ||
-                'https://api.instantdb.com/runtime/oauth/callback'
-              }
+              value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
             />
             {client.redirect_to && (
               <>
                 <Content className="text-sm text-gray-500 dark:text-neutral-400">
                   Your redirect URL should forward to{' '}
-                  <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
-                  with all query parameters.
+                  <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
+                  parameters.
                 </Content>
                 <TestRedirectButton redirectTo={client.redirect_to} />
               </>
@@ -391,7 +376,6 @@ export function LinkedInClient({
               <Fence
                 darkMode={darkMode}
                 code={exampleCode({
-                  appId: app.id,
                   clientName: client.client_name,
                 })}
                 language="typescript"
