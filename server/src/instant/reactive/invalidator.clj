@@ -300,7 +300,8 @@
                         (when-not (and stop-lsn
                                        (= -1 (compare stop-lsn (:nextlsn wal-record))))
                           (try
-                            (.publish hz-topic (->WalRecord wal-record))
+                            ;; Remove while we prepare to switch from hazelcast to grpc
+                            ;;(.publish hz-topic (->WalRecord wal-record))
                             (ua/>!-close-safe close-signal-chan flush-lsn-chan (:nextlsn wal-record))
                             (catch Exception e
                               (on-error e)))
@@ -535,7 +536,7 @@
                                                   (hz-gauges topic)))
         on-msg (fn [^Message m]
                  (let [msg (.getMessageObject m)]
-                   (if (instance? WalRecord msg)
+                   (if true ;; remove while we switch to grpc (instance? WalRecord msg)
                      (grouped-queue/put! queue (:record msg))
                      ;; We should try to reconnect, but only if we weren't
                      ;; the ones that sent the message to reconnect (if there
