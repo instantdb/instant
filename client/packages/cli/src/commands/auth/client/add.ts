@@ -769,6 +769,8 @@ const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
     skipIf: false,
     prompt: {
       prompt: `Clerk publishable key ${chalk.dim('(from https://dashboard.clerk.com/last-active?path=api-keys)')}`,
+      placeholder:
+        'pk_********************************************************',
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
@@ -814,6 +816,7 @@ const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
       [
         `Clerk OAuth client created: ${response.client.client_name}`,
         `ID: ${response.client.id}`,
+        `Clerk Publishable Key: ${response.client.meta.clerkPublishableKey}`,
         `Clerk Domain: ${clerkDomain}`,
       ].join('\n'),
       { dimBorder: true, padding: { right: 1, left: 1 } },
