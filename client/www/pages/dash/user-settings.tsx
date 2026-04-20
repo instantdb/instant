@@ -41,12 +41,8 @@ const UserSettingsPage: NextPageWithLayout = () => {
           </div>
           <Button
             onClick={() => {
+              signOut({ navigating: true });
               router.push('/');
-              // delay sign out to allow the router to change the page
-              // and avoid a flash of the unauthenticated dashboard
-              setTimeout(() => {
-                signOut();
-              }, 150);
             }}
             variant="destructive"
           >

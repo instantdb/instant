@@ -199,10 +199,19 @@ export async function verifyMagicCode({
   return res;
 }
 
-export async function signOut() {
-  try {
-    const token = _AUTH_INFO.token;
-    if (token) {
+export async function signOut({ navigating = false } = {}) {
+  const token = _AUTH_INFO.token;
+  if (navigating) {
+    // Skip subscriber notification so the current page doesn't flash the Auth
+    // screen before the browser unloads.
+    _AUTH_INFO.token = undefined;
+    _AUTH_INFO.user = undefined;
+    saveAuthInfo(_AUTH_INFO);
+  } else {
+    clearAuthInfo();
+  }
+  if (token) {
+    try {
       await jsonFetch(`${config.apiURI}/dash/signout`, {
         method: 'POST',
         headers: {
@@ -211,11 +220,10 @@ export async function signOut() {
         },
         body: JSON.stringify({}),
       });
+    } catch (e) {
+      console.error('Error signing out', e);
     }
-  } catch (e) {
-    console.error('Error signing out', e);
   }
-  clearAuthInfo();
 }
 
 // ---------
