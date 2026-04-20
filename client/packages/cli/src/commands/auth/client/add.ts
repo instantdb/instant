@@ -796,6 +796,11 @@ const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
   }
 
   const domain = domainFromClerkKey(publishableKey);
+  if (!domain) {
+    return yield* BadArgsError.make({
+      message: 'Invalid publishable key. Could not extract domain.',
+    });
+  }
 
   // The backend infers GitHub's authorization/token endpoints from
   // meta.providerName === 'github', so we don't pass them here.
@@ -816,7 +821,7 @@ const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
       [
         `Clerk OAuth client created: ${response.client.client_name}`,
         `ID: ${response.client.id}`,
-        `Clerk Publishable Key: ${response.client.meta.clerkPublishableKey}`,
+        `Clerk Publishable Key: ${response.client.meta?.clerkPublishableKey}`,
         `Clerk Domain: ${clerkDomain}`,
       ].join('\n'),
       { dimBorder: true, padding: { right: 1, left: 1 } },
