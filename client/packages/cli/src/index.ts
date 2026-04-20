@@ -122,6 +122,8 @@ Provider Specific Options:
    --client-id
    --client-secret
    --custom-redirect-uri      (optional)
+  Clerk:
+   --publishable-key
 `,
   )
   .action((opts) => {
