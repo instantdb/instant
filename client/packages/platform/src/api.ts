@@ -729,6 +729,7 @@ async function createTemporaryApp(
 
 async function createClaimableApp(
   apiURI: string,
+  token: string,
   fields: InstantAPICreateClaimableAppBody,
 ): Promise<InstantAPICreateClaimableAppResponse> {
   const response = await jsonFetch<{ app: any }>(
@@ -737,6 +738,7 @@ async function createClaimableApp(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(fields),
     },

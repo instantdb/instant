@@ -1,16 +1,19 @@
 (ns instant.dash.claimable-app
   (:require
+   [clojure.string :as string]
+   [clojure.walk :as w]
    [instant.config :as config]
    [instant.model.app :as app-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
    [instant.model.schema :as schema-model]
    [instant.util.exception :as ex]
-   [instant.util.string :as string-util]
+   [instant.util.http :as http-util]
    [instant.util.posthog :as posthog]
+   [instant.util.string :as string-util]
+   [instant.util.token :as token-util]
    [instant.util.uuid :as uuid-util]
-   [ring.util.http-response :as response]
-   [clojure.walk :as w])
+   [ring.util.http-response :as response])
   (:import
    (java.util UUID)))
 
@@ -21,6 +24,29 @@
 (def claimable-creator
   (delay
     (instant-user-model/get-by-email {:email claimable-creator-email})))
+
+(def allowed-creator-email-domain "@instantdb.com")
+
+(defn req->allowed-creator!
+  "Resolves the caller via a personal access token and ensures their email is
+  from an instantdb.com account. This gates who can mint new claimable apps."
+  [req]
+  (let [token (http-util/req->bearer-token! req)
+        pat (cond
+              (token-util/is-personal-access-token? token) token
+              ;; Backwards compat for UUID-style PATs issued before 5/16/2025
+              (uuid? token) (token-util/->PersonalAccessToken (str token))
+              :else (ex/throw-validation-err!
+                     :personal-access-token
+                     token
+                     [{:message "Expected a personal access token."}]))
+        user (instant-user-model/get-by-personal-access-token!
+              {:personal-access-token pat})]
+    (ex/assert-permitted!
+     :claimable-app-creator?
+     (:email user)
+     (string/ends-with? (or (:email user) "") allowed-creator-email-domain))
+    user))
 
 (defn create!
   [{:keys [title]}]
@@ -34,7 +60,8 @@
 ;; HTTP Handler
 
 (defn http-post-handler [req]
-  (let [title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
+  (let [creator (req->allowed-creator! req)
+        title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         schema (get-in req [:body :schema])
         rules-code (ex/get-optional-param! req [:body :rules :code] w/stringify-keys)
         _ (when rules-code
@@ -52,7 +79,8 @@
            (schema-model/apply-plan! (:id app))))
     (posthog/track! req
                     "app:create-claimable"
-                    {:app-id (str (:id app))})
+                    {:app-id (str (:id app))
+                     :created-by (:email creator)})
     (response/ok {:app app})))
 
 (comment
