@@ -16,7 +16,6 @@ import {
   InstantHttpLive,
 } from './lib/http.ts';
 import { SimpleLogLayer } from './logging.ts';
-import { CancelledPromptError } from './ui/lib.ts';
 
 const runtime = ManagedRuntime.make(SimpleLogLayer);
 
@@ -39,11 +38,6 @@ export const printRedErrors = Effect.catchAllCause((cause) =>
       failure.value instanceof UnknownException
         ? failure.value.error
         : failure.value;
-
-    if (theError instanceof CancelledPromptError) {
-      console.log(chalk.dim('Cancelled.'));
-      return process.exit(1);
-    }
 
     // Special error handling for specific error types
     if (theError instanceof InstantHttpError) {
