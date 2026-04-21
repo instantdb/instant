@@ -4,7 +4,10 @@ import { promptOk } from '../src/lib/ui.ts';
 import { GlobalOpts } from '../src/context/globalOpts.ts';
 import { CancelledPromptError } from '../src/ui/lib.ts';
 
-const runFail = (effect: Effect.Effect<boolean, any, GlobalOpts>, yes: boolean) =>
+const runFail = (
+  effect: Effect.Effect<boolean, any, GlobalOpts>,
+  yes: boolean,
+) =>
   Effect.runPromise(
     effect.pipe(
       Effect.flip,
