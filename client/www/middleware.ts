@@ -11,8 +11,7 @@ export function middleware(request: NextRequest) {
   if (!GETADB_HOSTS.has(host)) return NextResponse.next();
 
   const url = request.nextUrl.clone();
-  url.pathname =
-    url.pathname === '/' ? '/getadb' : `/getadb${url.pathname}`;
+  url.pathname = url.pathname === '/' ? '/getadb' : `/getadb${url.pathname}`;
   return NextResponse.rewrite(url);
 }
 
