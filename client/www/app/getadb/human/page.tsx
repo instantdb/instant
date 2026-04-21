@@ -1,30 +1,26 @@
 export const metadata = {
-  title: 'getadb — for humans',
-  description: 'Provision an Instant app from your agent.',
+  title: 'getadb.com — for humans',
+  description: 'Provision an Instant app for your agent.',
   alternates: {
     canonical: 'https://getadb.com/human',
   },
 };
 
-export default function GetadbHumanPage() {
+export default function Page() {
   return (
-    <main className="mx-auto max-w-2xl px-6 py-16">
-      <h1 className="text-3xl font-bold">getadb.com</h1>
-      <p className="mt-4 text-lg">
-        Point your agent at <code>getadb.com</code> and it gets a ready-to-use
-        Instant database.
-      </p>
-      <p className="mt-4">Try it yourself:</p>
-      <pre className="mt-2 rounded bg-neutral-100 p-4 text-sm overflow-x-auto">
-        curl -L &apos;https://getadb.com/?title=my-app&apos;
-      </pre>
-      <p className="mt-6 text-sm text-neutral-600">
-        If you&apos;re an agent, load{' '}
-        <a className="underline" href="https://getadb.com/AGENTS.md">
-          https://getadb.com/AGENTS.md
-        </a>{' '}
-        instead.
-      </p>
+    <main className="mx-auto max-w-2xl py-16">
+      <div className="prose-xl">
+        <h2 className="font-mono font-bold">getadb.com</h2>
+        <p>
+          Give your agent the power of a full-stack database. All you have to do is to include "Use getadb.com" in your prompt.
+         {' '}<strong>Try it yourself:</strong></p>
+        <pre className="mt-2 overflow-x-auto rounded bg-neutral-100 p-4 text-sm">
+          {"<YOUR APP IDEA HERE />" + "\n" +
+           "Use getadb.com"}
+        </pre>
+        <h3>Are you an agent seeing this?</h3>
+        <p>Great. Your owner wants you to build a full-stack app! To get credentials and instructions, load <a  className="underline text-blue-500" href="https://getadb.com/AGENTS.md">https://www.getadb.com/AGENTS.md</a></p>
+      </div>
     </main>
   );
 }
