@@ -316,19 +316,6 @@
                     (.withStatusInterval status-interval TimeUnit/SECONDS))]
     (.start ^ChainedLogicalStreamBuilder builder)))
 
-(defn kw-action [action]
-  (case action
-    "B" :begin
-    "I" :insert
-    "U" :update
-    "D" :delete
-    "T" :truncate
-    "M" :message
-    "C" :close
-    (tracer/with-span! {:name "wal/unknown-action"
-                        :attributes {:action action}}
-      action)))
-
 (defn- wal-buffer->record
   "PGReplicationStream returns a ByteBuffer. This
    function converts it to a WalEntry"
