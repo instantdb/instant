@@ -26,7 +26,7 @@
    {:id (random-uuid)
     :title title
     :creator-id (:id @get-a-db-creator)
-    :admin-token (UUID/randomUUID)}))
+    :admin-token (random-uuid)}))
 
 ;; -----------
 ;; HTTP Handler
