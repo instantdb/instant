@@ -455,7 +455,7 @@
         first-res (f)
         delta (- (System/nanoTime) start)
         deadline (+ start duration)
-        tight-iters (max (quot (quot duration delta) 10) 1)]
+        tight-iters (max (quot (quot duration (max 1 delta)) 10) 1)]
     (loop [i 1]
       (let [now (System/nanoTime)]
         (if (< now deadline)
