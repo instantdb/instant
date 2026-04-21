@@ -677,6 +677,84 @@
                                           [[:= :attr-id name-attr-id]])
                       (map :index)))))))))
 
+(deftest rename-attr-does-not-touch-triples
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [attr-id (random-uuid)
+            fwd-ident (random-uuid)
+            rev-ident (random-uuid)
+            other-attr-id (random-uuid)
+            other-ident (random-uuid)
+            eid-a (random-uuid)
+            eid-b (random-uuid)
+            triple-xmins (fn [a-id]
+                           (->> (sql/select
+                                 (aurora/conn-pool :write)
+                                 ["select entity_id, xmin::text as xmin
+                                     from triples
+                                    where app_id = ?::uuid and attr_id = ?::uuid
+                                    order by entity_id"
+                                  app-id a-id])
+                                (map (juxt :entity_id :xmin))))]
+        (tx/transact!
+         (aurora/conn-pool :write)
+         (attr-model/get-by-app-id app-id)
+         app-id
+         [[:add-attr
+           {:id attr-id
+            :forward-identity [fwd-ident "users" "tags"]
+            :reverse-identity [rev-ident "tags" "taggers"]
+            :value-type :ref
+            :cardinality :many
+            :unique? false
+            :index? false}]
+          [:add-attr
+           {:id other-attr-id
+            :forward-identity [other-ident "users" "name"]
+            :value-type :blob
+            :cardinality :one
+            :unique? false
+            :index? false}]
+          [:add-triple eid-a attr-id eid-b]
+          [:add-triple eid-a other-attr-id "stopa"]])
+
+        (let [xmins-before (triple-xmins attr-id)
+              other-xmins-before (triple-xmins other-attr-id)]
+          (is (seq xmins-before))
+
+          (testing "renaming forward-identity leaves triples untouched"
+            (tx/transact!
+             (aurora/conn-pool :write)
+             (attr-model/get-by-app-id app-id)
+             app-id
+             [[:update-attr
+               {:id attr-id
+                :forward-identity [fwd-ident "users" "tagz"]}]])
+            (is (= xmins-before (triple-xmins attr-id)))
+            (is (= other-xmins-before (triple-xmins other-attr-id))))
+
+          (testing "renaming reverse-identity leaves triples untouched"
+            (tx/transact!
+             (aurora/conn-pool :write)
+             (attr-model/get-by-app-id app-id)
+             app-id
+             [[:update-attr
+               {:id attr-id
+                :reverse-identity [rev-ident "tags" "taggerz"]}]])
+            (is (= xmins-before (triple-xmins attr-id)))
+            (is (= other-xmins-before (triple-xmins other-attr-id))))
+
+          (testing "flipping an index-affecting field still rewrites triples"
+            (tx/transact!
+             (aurora/conn-pool :write)
+             (attr-model/get-by-app-id app-id)
+             app-id
+             [[:update-attr
+               {:id attr-id
+                :cardinality :one}]])
+            (is (not= xmins-before (triple-xmins attr-id)))
+            (is (= other-xmins-before (triple-xmins other-attr-id)))))))))
+
 ;; Test passing map to transact that gets expanded into [:add-triple ...] and resolves attr-ids
 (deftest transact-map-form
   (with-empty-app

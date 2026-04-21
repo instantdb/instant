@@ -615,10 +615,21 @@
                        :eav [:case [:= :a.value-type [:inline "ref"]] true :else false]
                        :av :a.is-unique
                        :ave :a.is-indexed}
-                 :from [[:attr-updates :a]]
+                 :from [[:attr-updates :a] [:attrs :old]]
                  :where [:and
                          [:= :triples.app-id :a.app-id]
-                         [:= :triples.attr-id :a.id]]
+                         [:= :triples.attr-id :a.id]
+                         [:= :old.id :a.id]
+                         [:= :old.app-id :a.app-id]
+                         [:or
+                          [:is-distinct-from
+                           [:= :a.cardinality [:inline "one"]]
+                           [:= :old.cardinality [:inline "one"]]]
+                          [:is-distinct-from
+                           [:= :a.value-type [:inline "ref"]]
+                           [:= :old.value-type [:inline "ref"]]]
+                          [:is-distinct-from :a.is-unique :old.is-unique]
+                          [:is-distinct-from :a.is-indexed :old.is-indexed]]]
                  :returning :triples.entity_id}]]
               (if-some [ident-table-vals (seq (ident-table-values app-id updates))]
                 [[[:ident-values
