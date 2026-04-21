@@ -23,7 +23,7 @@
 (defn create!
   [{:keys [title]}]
   (app-model/create!
-   {:id (UUID/randomUUID)
+   {:id (random-uuid)
     :title title
     :creator-id (:id @get-a-db-creator)
     :admin-token (UUID/randomUUID)}))
