@@ -18,16 +18,14 @@ export const promptOk = Effect.fn('promptOk')(function* (
     return defaultValue;
   }
 
-  const ok = yield* Effect.tryPromise(() =>
+  return yield* Effect.tryPromise(() =>
     renderUnwrap(
       new UI.Confirmation({
         ...props,
         defaultValue,
       }),
     ),
-  ).pipe(Effect.orElseSucceed(() => defaultValue));
-
-  return ok;
+  );
 });
 
 export const runUIEffect = <P>(prompt: Prompt<P>) =>

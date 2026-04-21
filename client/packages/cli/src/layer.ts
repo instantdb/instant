@@ -1,5 +1,7 @@
 import { NodeContext, NodeHttpClient } from '@effect/platform-node';
 import { Cause, Effect, Layer, ManagedRuntime } from 'effect';
+import { UnknownException } from 'effect/Cause';
+import chalk from 'chalk';
 import { AuthTokenLive } from './context/authToken.ts';
 import { CurrentAppLive } from './context/currentApp.ts';
 import { GlobalOptsLive } from './context/globalOpts.ts';
@@ -30,7 +32,12 @@ export const printRedErrors = Effect.catchAllCause((cause) =>
       return;
     }
 
-    const theError = failure.value;
+    // Unwrap Effect.tryPromise's UnknownException so instanceof checks below
+    // match regardless of whether the error was Effect.fail'd or thrown from a Promise.
+    const theError =
+      failure.value instanceof UnknownException
+        ? failure.value.error
+        : failure.value;
 
     // Special error handling for specific error types
     if (theError instanceof InstantHttpError) {
@@ -57,13 +64,13 @@ export const printRedErrors = Effect.catchAllCause((cause) =>
 
     // Print just the message if the error has a message attribute and no cause
     if (
-      typeof failure.value === 'object' &&
-      failure.value !== null &&
-      'message' in failure.value &&
-      typeof failure.value.message === 'string' &&
-      !('cause' in failure.value)
+      typeof theError === 'object' &&
+      theError !== null &&
+      'message' in theError &&
+      typeof theError.message === 'string' &&
+      !('cause' in theError)
     ) {
-      return yield* Effect.logError(failure.value.message).pipe(
+      return yield* Effect.logError(theError.message).pipe(
         Effect.tap(() => {
           process.exit(1);
         }),
