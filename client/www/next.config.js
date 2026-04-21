@@ -124,34 +124,18 @@ const nextConfig = {
       },
     ];
   },
+  // Proxy to PostHog to avoid ad blockers
   async rewrites() {
-    return {
-      // beforeFiles runs before filesystem resolution, so `/` on getadb.com
-      // isn't preempted by the existing instantdb.com home page.
-      beforeFiles: [
-        {
-          source: '/',
-          has: [{ type: 'host', value: 'getadb.com' }],
-          destination: '/getadb',
-        },
-        {
-          source: '/human',
-          has: [{ type: 'host', value: 'getadb.com' }],
-          destination: '/getadb/human',
-        },
-      ],
-      // Proxy to PostHog to avoid ad blockers
-      afterFiles: [
-        {
-          source: '/a/static/:path*',
-          destination: 'https://us-assets.i.posthog.com/static/:path*',
-        },
-        {
-          source: '/a/:path*',
-          destination: 'https://us.i.posthog.com/:path*',
-        },
-      ],
-    };
+    return [
+      {
+        source: '/a/static/:path*',
+        destination: 'https://us-assets.i.posthog.com/static/:path*',
+      },
+      {
+        source: '/a/:path*',
+        destination: 'https://us.i.posthog.com/:path*',
+      },
+    ];
   },
   // This is required to support PostHog trailing slash API requests
   skipTrailingSlashRedirect: true,
