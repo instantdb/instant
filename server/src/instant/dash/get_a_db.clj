@@ -10,9 +10,7 @@
    [instant.util.string :as string-util]
    [instant.util.uuid :as uuid-util]
    [instant.superadmin.routes :refer [req->superadmin-user!]]
-   [ring.util.http-response :as response])
-  (:import
-   (java.util UUID)))
+   [ring.util.http-response :as response]))
 
 (def get-a-db-creator-email "hello+getadbapps@instantdb.com")
 
