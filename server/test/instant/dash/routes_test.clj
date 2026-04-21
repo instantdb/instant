@@ -1080,11 +1080,10 @@
                                        :Content-Type "application/json"}
                              :as :json
                              :body (->json {:title "test-get-a-db"})})
-            _ (def resp resp)
             app-id (UUID/fromString (get-in resp [:body :app :id]))]
         (try
           (is (= 200 (:status resp)))
-          (is (= (:id @get-a-db/get-a-db-creator)
+          (is (= (:id `@get-a-db/get-a-db-creator`)
                  (:creator_id (app-model/get-by-id! {:id app-id}))))
           (finally (app-model/delete-immediately-by-id! {:id app-id})))))))
 
