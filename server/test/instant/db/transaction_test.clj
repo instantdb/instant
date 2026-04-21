@@ -689,7 +689,7 @@
             eid-b (random-uuid)
             triple-xmins (fn [a-id]
                            (->> (sql/select
-                                 (aurora/conn-pool :read)
+                                 (aurora/conn-pool :write)
                                  ["select entity_id, xmin::text as xmin
                                      from triples
                                     where app_id = ?::uuid and attr_id = ?::uuid
