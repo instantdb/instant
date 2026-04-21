@@ -37,7 +37,6 @@
    [instant.jdbc.sql :as sql]
    [instant.jdbc.wal-entry :as wal-entry]
    [instant.util.async :as ua]
-   [instant.util.json :refer [<-json-big]]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
    [honey.sql :as hsql]
