@@ -222,11 +222,11 @@
   (nippy/with-cache
     (write-uuid data-output app-id)
     (nippy/freeze-to-out! data-output tx-id)
-    (write-isn isn data-output)
-    (write-isn previous-isn data-output)
+    (nippy/freeze-to-out! data-output isn)
+    (nippy/freeze-to-out! data-output previous-isn)
     (nippy/freeze-to-out! data-output tx-created-at)
     (nippy/freeze-to-out! data-output tx-bytes)
-    (nippy/freeze-to-out! data-output (.asLong nextlsn))
+    (nippy/freeze-to-out! data-output nextlsn)
     (nippy/freeze-to-out! data-output attr-changes)
     (nippy/freeze-to-out! data-output ident-changes)
     (nippy/freeze-to-out! data-output triple-changes)
@@ -235,15 +235,15 @@
 
 (nippy/extend-thaw 12 [data-input]
   (nippy/with-cache
-    (instant.grpc/->WalRecord (read-uuid data-input)
-                              (nippy/thaw-from-in! data-input)
-                              (read-isn data-input)
-                              (read-isn data-input)
-                              (nippy/thaw-from-in! data-input)
-                              (nippy/thaw-from-in! data-input)
-                              (LogSequenceNumber/valueOf ^long (nippy/thaw-from-in! data-input))
-                              (nippy/thaw-from-in! data-input)
-                              (nippy/thaw-from-in! data-input)
-                              (nippy/thaw-from-in! data-input)
-                              (nippy/thaw-from-in! data-input)
-                              (nippy/thaw-from-in! data-input))))
+    (instant.grpc/->WalRecord (read-uuid data-input) ; app-id
+                              (nippy/thaw-from-in! data-input) ; tx-id
+                              (nippy/thaw-from-in! data-input) ; isn
+                              (nippy/thaw-from-in! data-input) ; previous-isn
+                              (nippy/thaw-from-in! data-input) ; tx-created-at
+                              (nippy/thaw-from-in! data-input) ; tx-bytes
+                              (nippy/thaw-from-in! data-input) ; nextlsn
+                              (nippy/thaw-from-in! data-input) ; attr-changes
+                              (nippy/thaw-from-in! data-input) ; ident-changes
+                              (nippy/thaw-from-in! data-input) ; triple-changes
+                              (nippy/thaw-from-in! data-input) ; messages
+                              (nippy/thaw-from-in! data-input)))) ; wal-logs
