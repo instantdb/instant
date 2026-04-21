@@ -17,9 +17,7 @@
    [instant.stripe :as stripe]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json <-json]]
-   [instant.util.tracer :as tracer])
-  (:import
-   (java.util UUID)))
+   [instant.util.tracer :as tracer]))
 
 (defn silence-routes-exceptions [f]
   (with-redefs [tracer/*silence-exceptions?* (atom true)]
