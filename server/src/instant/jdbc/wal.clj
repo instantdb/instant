@@ -37,7 +37,6 @@
    [instant.jdbc.sql :as sql]
    [instant.jdbc.wal-entry :as wal-entry]
    [instant.util.async :as ua]
-   [instant.util.json :refer [<-json-big]]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
    [honey.sql :as hsql]
@@ -317,52 +316,11 @@
                     (.withStatusInterval status-interval TimeUnit/SECONDS))]
     (.start ^ChainedLogicalStreamBuilder builder)))
 
-(defn kw-action [action]
-  (case action
-    "B" :begin
-    "I" :insert
-    "U" :update
-    "D" :delete
-    "T" :truncate
-    "M" :message
-    "C" :close
-    (tracer/with-span! {:name "wal/unknown-action"
-                        :attributes {:action action}}
-      action)))
-
-(def use-wal-entry? (not (config/prod?)))
-(def try-wal-entry? false)
-
-(defn test-wal-entry-parse
-  "Tests that the wal entries parse. We'll run this on one machine
-   for a bit to make sure there are no errors before trying to flip
-   the use-wal-entry? flag."
-  [^ByteBuffer buffer]
-  (try
-    (wal-entry/parse-buffer buffer)
-    (catch Throwable t
-      (tracer/with-new-trace-root
-        (tracer/record-exception-span! t {:name "wal/new-wal-record-parse-error"}))
-      (def -t t)
-      (def -buffer buffer)
-      nil)))
-
 (defn- wal-buffer->record
   "PGReplicationStream returns a ByteBuffer. This
-   function converts it to a clojure map."
+   function converts it to a WalEntry"
   [^ByteBuffer buffer]
-  (if use-wal-entry?
-    (wal-entry/parse-buffer buffer)
-    (let [src (.array buffer)
-          offset (.arrayOffset buffer)
-          record-len (- (count src) offset)
-          json-str (String. src offset record-len)
-          record (<-json-big json-str true)]
-      (when try-wal-entry?
-        (test-wal-entry-parse buffer))
-      (-> record
-          (update :action kw-action)
-          (assoc :tx-bytes record-len)))))
+  (wal-entry/parse-buffer buffer))
 
 (comment
   (wal-buffer->record (ByteBuffer/wrap (.getBytes "{\"x\": 1}"))))
