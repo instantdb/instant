@@ -1080,7 +1080,7 @@
                                        :Content-Type "application/json"}
                              :as :json
                              :body (->json {:title "test-get-a-db"})})
-            app-id (UUID/fromString (get-in resp [:body :app :id]))]
+            app-id (parse-uuid (get-in resp [:body :app :id]))]
         (try
           (is (= 200 (:status resp)))
           (is (= (:id @get-a-db/get-a-db-creator)
