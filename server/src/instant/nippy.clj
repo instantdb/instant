@@ -4,9 +4,11 @@
    [instant.isn]
    [taoensso.nippy :as nippy])
   (:import
-   (instant.grpc StreamAborted StreamComplete StreamContent StreamError StreamFile StreamInit StreamRequest)
+   (instant.grpc StreamAborted StreamComplete StreamContent StreamError StreamFile StreamInit StreamRequest WalRecord)
    (instant.isn ISN)
+   (instant.jdbc WalColumn WalEntry)
    (java.io DataInput DataOutput)
+   (java.time Instant)
    (java.util UUID)
    (org.postgresql.replication LogSequenceNumber)))
 
@@ -35,15 +37,21 @@
 (nippy/extend-thaw 1 [data-input]
   (LogSequenceNumber/valueOf (.readLong data-input)))
 
-;; 2 is our custom identifier for ISN, no other type can use it and
-;; it must be the same across all machines.
-(nippy/extend-freeze ISN 2 [^ISN isn data-output]
+(defn write-isn [^ISN isn ^DataOutput data-output]
   (.writeInt data-output (.slot_num isn))
   (.writeLong data-output (.asLong ^LogSequenceNumber (.lsn isn))))
 
-(nippy/extend-thaw 2 [data-input]
+(defn read-isn ^ISN [^DataInput data-input]
   (instant.isn/->ISN (.readInt data-input)
                      (LogSequenceNumber/valueOf (.readLong data-input))))
+
+;; 2 is our custom identifier for ISN, no other type can use it and
+;; it must be the same across all machines.
+(nippy/extend-freeze ISN 2 [^ISN isn data-output]
+  (write-isn isn data-output))
+
+(nippy/extend-thaw 2 [data-input]
+  (read-isn data-input))
 
 ;; 3 is our custom identifier for StreamRequest, no other type can use it and
 ;; it must be the same across all machines.
@@ -159,3 +167,83 @@
 
 (nippy/extend-thaw 9 [data-input]
   (instant.grpc/->StreamAborted (nippy/thaw-from-in! data-input)))
+
+;; 10 is our custom identifier for WalColumn, no other type can use it and
+;; it must be the same across all machines.
+
+(nippy/extend-freeze WalColumn 10 [^WalColumn c data-output]
+  (nippy/freeze-to-out! data-output (.name c))
+  (nippy/freeze-to-out! data-output (.value c)))
+
+(nippy/extend-thaw 10 [data-input]
+  (WalColumn. (nippy/thaw-from-in! data-input) ; name
+              (nippy/thaw-from-in! data-input))) ; value
+
+;; 11 is our custom identifier for WalEntry, no other type can use it and
+;; it must be the same across all machines.
+
+(nippy/extend-freeze WalEntry 11 [^WalEntry c data-output]
+  (nippy/freeze-to-out! data-output (.action c))
+  (nippy/freeze-to-out! data-output (.txBytes c))
+  (nippy/freeze-to-out! data-output (.table c))
+  (nippy/freeze-to-out! data-output (.columns c))
+  (nippy/freeze-to-out! data-output (.identity c))
+  (nippy/freeze-to-out! data-output (.prefix c))
+  (nippy/freeze-to-out! data-output (.content c))
+  (nippy/freeze-to-out! data-output (.lsn c))
+  (nippy/freeze-to-out! data-output (.nextlsn c)))
+
+(nippy/extend-thaw 11 [data-input]
+  (WalEntry. (nippy/thaw-from-in! data-input) ; action
+             (nippy/thaw-from-in! data-input) ; txBytes
+             (nippy/thaw-from-in! data-input) ; table
+             (nippy/thaw-from-in! data-input) ; columns
+             (nippy/thaw-from-in! data-input) ; identity
+             (nippy/thaw-from-in! data-input) ; prefix
+             (nippy/thaw-from-in! data-input) ; content
+             (nippy/thaw-from-in! data-input) ; lsn
+             (nippy/thaw-from-in! data-input))) ; nextlsn
+
+;; 12 is our custom identifier for WalRecord, no other type can use it and
+;; it must be the same across all machines.
+(nippy/extend-freeze WalRecord 12 [^WalRecord {:keys [^UUID app-id
+                                                      ^long tx-id
+                                                      ^ISN isn
+                                                      ^ISN previous-isn
+                                                      ^Instant tx-created-at
+                                                      ^long tx-bytes
+                                                      ^LogSequenceNumber nextlsn
+                                                      attr-changes
+                                                      ident-changes
+                                                      triple-changes
+                                                      messages
+                                                      wal-logs]}
+                                   data-output]
+  (nippy/with-cache
+    (write-uuid data-output app-id)
+    (nippy/freeze-to-out! data-output tx-id)
+    (nippy/freeze-to-out! data-output isn)
+    (nippy/freeze-to-out! data-output previous-isn)
+    (nippy/freeze-to-out! data-output tx-created-at)
+    (nippy/freeze-to-out! data-output tx-bytes)
+    (nippy/freeze-to-out! data-output nextlsn)
+    (nippy/freeze-to-out! data-output attr-changes)
+    (nippy/freeze-to-out! data-output ident-changes)
+    (nippy/freeze-to-out! data-output triple-changes)
+    (nippy/freeze-to-out! data-output messages)
+    (nippy/freeze-to-out! data-output wal-logs)))
+
+(nippy/extend-thaw 12 [data-input]
+  (nippy/with-cache
+    (instant.grpc/->WalRecord (read-uuid data-input) ; app-id
+                              (nippy/thaw-from-in! data-input) ; tx-id
+                              (nippy/thaw-from-in! data-input) ; isn
+                              (nippy/thaw-from-in! data-input) ; previous-isn
+                              (nippy/thaw-from-in! data-input) ; tx-created-at
+                              (nippy/thaw-from-in! data-input) ; tx-bytes
+                              (nippy/thaw-from-in! data-input) ; nextlsn
+                              (nippy/thaw-from-in! data-input) ; attr-changes
+                              (nippy/thaw-from-in! data-input) ; ident-changes
+                              (nippy/thaw-from-in! data-input) ; triple-changes
+                              (nippy/thaw-from-in! data-input) ; messages
+                              (nippy/thaw-from-in! data-input)))) ; wal-logs

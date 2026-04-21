@@ -230,7 +230,9 @@
 
    Returns a list of changes and the lsn."
   [start-lsn skip-empty-updates change]
-  (let [lsn (LogSequenceNumber/valueOf ^String (:lsn change))
+  (let [lsn (if (string? (:lsn change))
+              (LogSequenceNumber/valueOf ^String (:lsn change))
+              (:lsn change))
         sketch-changes
         (test-filter
           (when (= "triples" (:table change))

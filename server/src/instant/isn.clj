@@ -23,7 +23,16 @@
    (java.util.concurrent.atomic AtomicReference)
    (org.postgresql.replication LogSequenceNumber)))
 
+(defprotocol ISNProto
+  (lsn [this])
+  (slotNum [this]))
+
 (deftype ISN [^Integer slot-num ^LogSequenceNumber lsn]
+  ISNProto
+  (lsn [_]
+    lsn)
+  (slotNum [_]
+    slot-num)
   Comparable
   (compareTo [_ other]
     (let [other ^ISN other]
@@ -62,11 +71,27 @@
 (defn get-max-seen-isn ^ISN []
   (.get ^AtomicReference -max-seen-isn))
 
-(defn isn-max [^ISN a ^ISN b]
-  (case (compare a b)
-    0 a
-    -1 b
-    1 a))
+(defn isn-max
+  ([^ISN a]
+   a)
+  ([^ISN a ^ISN b]
+   (case (compare a b)
+     0 a
+     -1 b
+     1 a))
+  ([^ISN a ^ISN b & more]
+   (reduce isn-max (isn-max a b) more)))
+
+(defn isn-min
+  ([^ISN a]
+   a)
+  ([^ISN a ^ISN b]
+   (case (compare a b)
+     0 a
+     -1 a
+     1 b))
+  ([^ISN a ^ISN b & more]
+   (reduce isn-min (isn-min a b) more)))
 
 (defn test-isn
   "Generates an isn. (test-isn i) will be less than (test-isn (inc i))"

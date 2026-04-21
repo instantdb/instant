@@ -7,6 +7,7 @@
    [instant.flags :as flags]
    [instant.gauges :as gauges]
    [instant.grouped-queue :as grouped-queue]
+   [instant.grpc :as grpc]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.reactive.ephemeral :as eph]
@@ -15,7 +16,6 @@
    [instant.reactive.topics :as topics]
    [instant.util.async :as ua]
    [instant.util.e2e-tracer :as e2e-tracer]
-   [instant.util.hazelcast :refer [->WalRecord]]
    [instant.util.tracer :as tracer]
    [clojure.set :as set])
   (:import
@@ -23,7 +23,6 @@
    (com.hazelcast.ringbuffer Ringbuffer)
    (com.hazelcast.ringbuffer.impl RingbufferService)
    (com.hazelcast.topic Message ITopic ReliableMessageListener TopicOverloadPolicy)
-   (instant.util.hazelcast WalRecord)
    (java.sql Timestamp)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
@@ -105,7 +104,7 @@
   (when-let [^String created-at (topics/get-column columns "created_at")]
     (.toInstant (Timestamp/valueOf created-at))))
 
-(defn transform-wal-record [{:keys [changes messages tx-bytes nextlsn isn] :as _record}]
+(defn transform-wal-record [{:keys [changes messages tx-bytes nextlsn isn previous-isn] :as _record}]
   ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
   ;;      or else we will never be notified about it.
   (let [{:strs [idents triples attrs transactions
@@ -126,18 +125,19 @@
                                                 :name "transform-wal-record"})
         ;; n.b. make sure to update combine-wal-records below if new
         ;;      items are added to this map
-        {:nextlsn nextlsn
-         :isn isn
-         :attr-changes attrs
-         :ident-changes idents
-         :triple-changes triples
-         :app-id app-id
-         :tx-created-at tx-created-at
-         :tx-id tx-id
-         :tx-bytes tx-bytes
-         :messages messages
-         :wal-logs (concat wal_logs wal_logs_0 wal_logs_1 wal_logs_2 wal_logs_3
-                           wal_logs_4 wal_logs_5 wal_logs_6 wal_logs_7)}))))
+        (grpc/->WalRecord app-id
+                          tx-id
+                          isn
+                          previous-isn
+                          tx-created-at
+                          tx-bytes
+                          nextlsn
+                          attrs
+                          idents
+                          triples
+                          messages
+                          (concat wal_logs wal_logs_0 wal_logs_1 wal_logs_2 wal_logs_3
+                                  wal_logs_4 wal_logs_5 wal_logs_6 wal_logs_7))))))
 
 (defn wal-record-xf
   "Filters wal records for supported changes. Returns [app-id changes]"
@@ -287,7 +287,7 @@
 (defn start-singleton-worker [{:keys [wal-chan
                                       close-signal-chan
                                       flush-lsn-chan
-                                      ^ITopic hz-topic
+                                      ^ITopic _hz-topic
                                       on-error
                                       stop-lsn
                                       check-disabled]}]
@@ -300,7 +300,8 @@
                         (when-not (and stop-lsn
                                        (= -1 (compare stop-lsn (:nextlsn wal-record))))
                           (try
-                            (.publish hz-topic (->WalRecord wal-record))
+                            ;; Remove while we prepare to switch from hazelcast to grpc
+                            ;;(.publish hz-topic (->WalRecord wal-record))
                             (ua/>!-close-safe close-signal-chan flush-lsn-chan (:nextlsn wal-record))
                             (catch Exception e
                               (on-error e)))
@@ -535,7 +536,7 @@
                                                   (hz-gauges topic)))
         on-msg (fn [^Message m]
                  (let [msg (.getMessageObject m)]
-                   (if (instance? WalRecord msg)
+                   (if true ;; remove while we switch to grpc (instance? WalRecord msg)
                      (grouped-queue/put! queue (:record msg))
                      ;; We should try to reconnect, but only if we weren't
                      ;; the ones that sent the message to reconnect (if there
