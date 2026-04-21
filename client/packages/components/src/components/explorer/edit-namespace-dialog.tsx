@@ -1702,9 +1702,9 @@ function EditAttrForm({
   return (
     <div className="flex flex-col gap-4">
       <div className="mr-8 flex gap-4">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <ArrowLeftIcon className="h-4 w-4 cursor-pointer" onClick={onClose} />
-          <h5 className="flex items-center text-lg font-bold">
+          <h5 className="truncate text-lg font-bold">
             Edit {attr.namespace}.{attr.name}
           </h5>
         </div>
