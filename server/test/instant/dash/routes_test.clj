@@ -4,10 +4,13 @@
    [clojure.test :refer [deftest is testing use-fixtures]]
    [instant.config :as config]
    [instant.fixtures :refer [random-email with-empty-app with-org with-pro-app with-startup-org with-free-org with-user]]
+   [instant.dash.ephemeral-app :as ephemeral-app]
+   [instant.dash.get-a-db :as get-a-db]
    [instant.dash.routes :as routes]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
+   [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
    [instant.model.instant-stripe-customer :as stripe-customer-model]
    [instant.model.org-members :as org-members]
    [instant.model.app-members :as app-members]
@@ -650,7 +653,6 @@
                                                     :role :collaborator
                                                     :expected :ok}
 
-
                                                    {:type "outside-user"
                                                     :user outside-user
                                                     :role :owner
@@ -670,8 +672,6 @@
                 :ok (is (= (:id app)
                            (:id (:app (routes/req->app-and-user! role req)))))
                 :error (is (thrown? Exception (routes/req->app-and-user! role req)))))))))))
-
-
 
 (deftest you-are-an-app-member-of-the-org-if-you-are-a-member-of-an-app
   (with-startup-org
@@ -1057,3 +1057,94 @@
               (is (= 400 (:status resp)))
               (is (= "admin-token-mismatch"
                      (-> resp :body <-json (get "hint") (get "reason")))))))))))
+
+;; ---
+;; get-a-db
+
+(defn- with-pat
+  "Mints a PAT on the given user, runs f with the token string, always cleans up."
+  [user f]
+  (let [{:keys [id token]} (instant-personal-access-token-model/create!
+                            {:user-id (:id user) :name "test-pat"})]
+    (try (f token)
+         (finally (instant-personal-access-token-model/delete-by-id!
+                   {:id id :user-id (:id user)})))))
+
+(deftest get-a-db-create-allowed-with-creator-pat
+  (with-pat @get-a-db/get-a-db-creator
+    (fn [token]
+      (let [resp (http/post (str config/server-origin "/dash/apps/get_a_db")
+                            {:headers {:Authorization (str "Bearer " token)
+                                       :Content-Type "application/json"}
+                             :as :json
+                             :body (->json {:title "test-get-a-db"})})
+            app-id (parse-uuid (get-in resp [:body :app :id]))]
+        (try
+          (is (= 200 (:status resp)))
+          (is (= (:id @get-a-db/get-a-db-creator)
+                 (:creator_id (app-model/get-by-id! {:id app-id}))))
+          (finally (app-model/delete-immediately-by-id! {:id app-id})))))))
+
+(deftest get-a-db-create-denied-with-other-pat
+  (with-user
+    (fn [u]
+      (with-pat u
+        (fn [token]
+          (let [resp (http/post (str config/server-origin "/dash/apps/get_a_db")
+                                {:throw-exceptions false
+                                 :headers {:Authorization (str "Bearer " token)
+                                           :Content-Type "application/json"}
+                                 :as :json
+                                 :body (->json {:title "test-get-a-db"})})]
+            (is (= 400 (:status resp)))
+            (is (= "permission-denied"
+                   (-> resp :body <-json (get "type"))))))))))
+
+(deftest claim-get-a-db-app
+  (with-user
+    (fn [u]
+      (let [{app-id :id admin-token :admin-token} (get-a-db/create! {:title "claim-me"})]
+        (try
+          (let [resp (http/post (str config/server-origin "/dash/apps/" app-id "/claim")
+                                {:headers {:Authorization (str "Bearer " (:refresh-token u))
+                                           :Content-Type "application/json"}
+                                 :as :json
+                                 :body (->json {:token (str admin-token)})})]
+            (is (= 200 (:status resp)))
+            (is (= (:id u)
+                   (:creator_id (app-model/get-by-id! {:id app-id})))))
+          (finally (app-model/delete-immediately-by-id! {:id app-id})))))))
+
+(deftest claim-ephemeral-app
+  (with-user
+    (fn [u]
+      (let [{app-id :id admin-token :admin-token} (ephemeral-app/create! {:title "claim-me"})]
+        (try
+          (let [resp (http/post (str config/server-origin "/dash/apps/ephemeral/" app-id "/claim")
+                                {:headers {:Authorization (str "Bearer " (:refresh-token u))
+                                           :Content-Type "application/json"}
+                                 :as :json
+                                 :body (->json {:token (str admin-token)})})]
+            (is (= 200 (:status resp)))
+            (is (= (:id u)
+                   (:creator_id (app-model/get-by-id! {:id app-id})))))
+          (finally (app-model/delete-immediately-by-id! {:id app-id})))))))
+
+(deftest claim-denied-on-normal-app
+  (with-user
+    (fn [owner]
+      (with-empty-app (:id owner)
+        (fn [app]
+          (with-user
+            (fn [claimer]
+              (let [resp (http/post (str config/server-origin "/dash/apps/" (:id app) "/claim")
+                                    {:throw-exceptions false
+                                     :headers {:Authorization (str "Bearer " (:refresh-token claimer))
+                                               :Content-Type "application/json"}
+                                     :as :json
+                                     :body (->json {:token (str (:admin-token app))})})]
+                (is (= 400 (:status resp)))
+                (is (= "permission-denied"
+                       (-> resp :body <-json (get "type"))))
+                (is (= (:id owner)
+                       (:creator_id (app-model/get-by-id! {:id (:id app)}))))))))))))

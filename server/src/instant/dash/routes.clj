@@ -9,6 +9,7 @@
             [instant.config :as config]
             [instant.dash.admin :as dash-admin]
             [instant.dash.ephemeral-app :as ephemeral-app]
+            [instant.dash.get-a-db :as get-a-db]
             [instant.db.indexing-jobs :as indexing-jobs]
             [instant.db.transaction :as tx]
             [instant.db.model.attr :as attr-model]
@@ -666,22 +667,31 @@
     (response/ok {:client (select-keys client [:id :provider_id :client_name
                                                :client_id :created_at])})))
 
-(defn ephemeral-claim-post [req]
+(defn claim-app-post
+  "Users can claim two kinds of apps: 
+  
+  1. Ephemeral Apps 
+  2. Apps made by getadb.com"
+  [req]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
         token (ex/get-param! req [:body :token] uuid-util/coerce)
         {app-creator-id :creator_id} (app-model/get-by-id! {:id app-id})
-        {user-id :id user-email :email} (req->auth-user! req)]
+        {user-id :id user-email :email} (req->auth-user! req)
+
+        ephemeral-app? (= (:id @ephemeral-app/ephemeral-creator) app-creator-id)
+        get-a-db-app? (= (:id @get-a-db/get-a-db-creator) app-creator-id)]
     (ex/assert-permitted!
-     :ephemeral-app?
-     app-id
-     (= (:id @ephemeral-app/ephemeral-creator) app-creator-id))
+     :claimable-app?
+     app-id (or ephemeral-app? get-a-db-app?))
     ;; make sure the request comes with a valid admin token
     (app-admin-token-model/fetch! {:app-id app-id :token token})
     (app-model/change-creator! {:id app-id
                                 :new-creator-id user-id})
     (posthog/capture! user-email
                       "app:claim"
-                      {:app-id  (str app-id)
+                      {:ephemeral-app? ephemeral-app?
+                       :get-a-db-app? get-a-db-app?
+                       :app-id  (str app-id)
                        :user-id (str user-id)
                        :$email  user-email
                        :$ip     (posthog/extract-client-ip req)
@@ -1965,7 +1975,12 @@
 
   (GET "/dash/apps/ephemeral/:app_id" [] ephemeral-app/http-get-handler)
   (POST "/dash/apps/ephemeral" [] ephemeral-app/http-post-handler)
-  (POST "/dash/apps/ephemeral/:app_id/claim" [] ephemeral-claim-post)
+
+  (POST "/dash/apps/ephemeral/:app_id/claim" [] claim-app-post)
+  (POST "/dash/apps/:app_id/claim" [] claim-app-post)
+
+  (GET "/dash/apps/get_a_db/:app_id" [] get-a-db/http-get-handler)
+  (POST "/dash/apps/get_a_db" [] get-a-db/http-post-handler)
 
   (GET "/dash/apps/:app_id/auth" [] dash-apps-auth-get)
   (POST "/dash/apps/:app_id/authorized_redirect_origins" [] authorized-redirect-origins-post)
