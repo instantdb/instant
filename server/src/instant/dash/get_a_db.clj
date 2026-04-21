@@ -69,10 +69,9 @@
 (comment
   ;; Need to generate a personal access token? 
   ;; This is useful for testing cient/www/getadb in development 
-  (tool/with-prod-conn [conn]
-    (instant-personal-access-token-model/create!
-     conn
-     {:user-id (:id @get-a-db-creator) :name "getadb-pat"})))
+  (instant-personal-access-token-model/create!
+    conn
+    {:user-id (:id @get-a-db-creator) :name "getadb-pat"}))
 
 (comment
   (def res (http-post-handler {:body {:title "my-app"}}))
