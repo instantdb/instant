@@ -27,8 +27,15 @@ export async function GET(request: Request) {
     new URL(request.url).searchParams.get('title')?.trim() || DEFAULT_APP_TITLE;
   const baseRules = await loadBaseRules();
 
+  const token = process.env.INSTANT_LLM_RULES_CREATE_APP_PERSONAL_ACCESS_TOKEN;
+  if (!token) {
+    throw new Error(
+      'INSTANT_LLM_RULES_CREATE_APP_PERSONAL_ACCESS_TOKEN is not set',
+    );
+  }
+
   const { apiURI } = await getServerConfig();
-  const api = new PlatformApi({ apiURI });
+  const api = new PlatformApi({ apiURI, auth: { token } });
 
   const { app } = await api.createClaimableApp({ title });
 

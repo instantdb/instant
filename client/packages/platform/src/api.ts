@@ -1751,7 +1751,7 @@ export class PlatformApi {
    *
    * Claimable apps are owned by a system user and can be transferred to a real
    * user via the claim endpoint + admin token. Unlike temporary apps, they do
-   * not expire.
+   * not expire. Requires a personal access token from an authorized account.
    *
    * ```ts
    * const { app } = await api.createClaimableApp({
@@ -1765,7 +1765,11 @@ export class PlatformApi {
    * @param fields.rules -- Optional permission rules for the app
    */
   async createClaimableApp(fields: InstantAPICreateClaimableAppBody) {
-    return createClaimableApp(this.#apiURI, fields);
+    return this.withRetry(createClaimableApp, [
+      this.#apiURI,
+      this.token(),
+      fields,
+    ]);
   }
 
   /**
