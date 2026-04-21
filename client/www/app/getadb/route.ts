@@ -65,7 +65,6 @@ ${baseRules}`;
       'Cache-Control': 'private, no-store, max-age=0',
       'Content-Disposition': 'inline; filename="AGENTS.md"',
       'Content-Type': 'text/markdown; charset=utf-8',
-      'X-Robots-Tag': 'noindex, nofollow',
     },
   });
 }
