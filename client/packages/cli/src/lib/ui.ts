@@ -25,7 +25,7 @@ export const promptOk = Effect.fn('promptOk')(function* (
         defaultValue,
       }),
     ),
-  ).pipe(Effect.orElseSucceed(() => defaultValue));
+  ).pipe(Effect.orElseSucceed(() => false));
 
   return ok;
 });
