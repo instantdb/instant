@@ -1,6 +1,7 @@
 import { PlatformApi } from '@instantdb/platform';
 import fs from 'fs/promises';
 import path from 'path';
+import { getServerConfig } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -26,20 +27,10 @@ export async function GET(request: Request) {
     new URL(request.url).searchParams.get('title')?.trim() || DEFAULT_APP_TITLE;
   const baseRules = await loadBaseRules();
 
-  const token = process.env.INSTANT_LLM_RULES_CREATE_APP_PERSONAL_ACCESS_TOKEN;
-  const orgId = process.env.INSTANT_LLM_RULES_CREATE_APP_ORG_ID;
-  if (!token) {
-    throw new Error(
-      'INSTANT_LLM_RULES_CREATE_APP_PERSONAL_ACCESS_TOKEN is not set',
-    );
-  }
-  if (!orgId) {
-    throw new Error('INSTANT_LLM_RULES_CREATE_APP_ORG_ID is not set');
-  }
+  const { apiURI } = await getServerConfig();
+  const api = new PlatformApi({ apiURI });
 
-  const api = new PlatformApi({ auth: { token } });
-
-  const { app } = await api.createApp({ title, orgId });
+  const { app } = await api.createClaimableApp({ title });
 
   const markdown = `
 A new Instant app has just been provisioned for you!

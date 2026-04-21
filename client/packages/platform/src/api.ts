@@ -148,6 +148,25 @@ export type InstantAPICreateTemporaryAppResponse = {
   expiresMs: number;
 };
 
+export type InstantAPICreateClaimableAppBody = {
+  title: string;
+  schema?:
+    | InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>
+    | null
+    | undefined;
+  rules?: {
+    code: InstantRules;
+  } | null;
+};
+
+export type InstantAPICreateClaimableAppResponse = {
+  app: Simplify<
+    InstantAPIAppDetails<{ includePerms: false; includeSchema: false }> & {
+      adminToken: string;
+    }
+  >;
+};
+
 export type InstantAPICreateAppResponse = Simplify<{
   app: InstantAPIAppDetails<{ includePerms: true; includeSchema: true }> & {
     adminToken: string;
@@ -705,6 +724,29 @@ async function createTemporaryApp(
   return {
     app: withAdminToken,
     expiresMs: response.expires_ms,
+  };
+}
+
+async function createClaimableApp(
+  apiURI: string,
+  fields: InstantAPICreateClaimableAppBody,
+): Promise<InstantAPICreateClaimableAppResponse> {
+  const response = await jsonFetch<{ app: any }>(
+    `${apiURI}/dash/apps/claimable`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(fields),
+    },
+  );
+  const withAdminToken = {
+    ...coerceApp<{ includePerms: true; includeSchema: true }>(response.app),
+    adminToken: response.app['admin-token'],
+  };
+  return {
+    app: withAdminToken,
   };
 }
 
@@ -1700,6 +1742,28 @@ export class PlatformApi {
    */
   async createTemporaryApp(fields: InstantAPICreateTemporaryAppBody) {
     return createTemporaryApp(this.#apiURI, fields);
+  }
+
+  /**
+   * Create a new claimable app.
+   *
+   * Claimable apps are owned by a system user and can be transferred to a real
+   * user via the claim endpoint + admin token. Unlike temporary apps, they do
+   * not expire.
+   *
+   * ```ts
+   * const { app } = await api.createClaimableApp({
+   *   title: 'My new app',
+   * });
+   * ```
+   *
+   * @param fields
+   * @param fields.title -- Title for app
+   * @param fields.schema -- Optional schema for the app
+   * @param fields.rules -- Optional permission rules for the app
+   */
+  async createClaimableApp(fields: InstantAPICreateClaimableAppBody) {
+    return createClaimableApp(this.#apiURI, fields);
   }
 
   /**

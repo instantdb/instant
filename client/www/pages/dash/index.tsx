@@ -316,7 +316,7 @@ function Dashboard() {
     if (!agentEssayDemo.appId || !agentEssayDemo.adminToken) return;
 
     jsonMutate(
-      `${config.apiURI}/dash/apps/ephemeral/${agentEssayDemo.appId}/claim`,
+      `${config.apiURI}/dash/apps/claimable/${agentEssayDemo.appId}/claim`,
       {
         token,
         method: 'POST',

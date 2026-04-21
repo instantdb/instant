@@ -8,6 +8,7 @@
             [instant.cloudwatch :as cloudwatch]
             [instant.config :as config]
             [instant.dash.admin :as dash-admin]
+            [instant.dash.claimable-app :as claimable-app]
             [instant.dash.ephemeral-app :as ephemeral-app]
             [instant.db.indexing-jobs :as indexing-jobs]
             [instant.db.transaction :as tx]
@@ -681,6 +682,28 @@
                                 :new-creator-id user-id})
     (posthog/capture! user-email
                       "app:claim"
+                      {:app-id  (str app-id)
+                       :user-id (str user-id)
+                       :$email  user-email
+                       :$ip     (posthog/extract-client-ip req)
+                       :source  (posthog/extract-source req)})
+    (response/ok {})))
+
+(defn claimable-claim-post [req]
+  (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
+        token (ex/get-param! req [:body :token] uuid-util/coerce)
+        {app-creator-id :creator_id} (app-model/get-by-id! {:id app-id})
+        {user-id :id user-email :email} (req->auth-user! req)]
+    (ex/assert-permitted!
+     :claimable-app?
+     app-id
+     (= (:id @claimable-app/claimable-creator) app-creator-id))
+    ;; make sure the request comes with a valid admin token
+    (app-admin-token-model/fetch! {:app-id app-id :token token})
+    (app-model/change-creator! {:id app-id
+                                :new-creator-id user-id})
+    (posthog/capture! user-email
+                      "app:claim-claimable"
                       {:app-id  (str app-id)
                        :user-id (str user-id)
                        :$email  user-email
@@ -1966,6 +1989,10 @@
   (GET "/dash/apps/ephemeral/:app_id" [] ephemeral-app/http-get-handler)
   (POST "/dash/apps/ephemeral" [] ephemeral-app/http-post-handler)
   (POST "/dash/apps/ephemeral/:app_id/claim" [] ephemeral-claim-post)
+
+  (GET "/dash/apps/claimable/:app_id" [] claimable-app/http-get-handler)
+  (POST "/dash/apps/claimable" [] claimable-app/http-post-handler)
+  (POST "/dash/apps/claimable/:app_id/claim" [] claimable-claim-post)
 
   (GET "/dash/apps/:app_id/auth" [] dash-apps-auth-get)
   (POST "/dash/apps/:app_id/authorized_redirect_origins" [] authorized-redirect-origins-post)

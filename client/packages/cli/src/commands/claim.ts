@@ -16,16 +16,23 @@ export const claimCommand = Effect.gen(function* () {
     return yield* BadArgsError.make({ message: 'Missing app admin token' });
   }
 
-  yield* http
-    .pipe(
+  const postTo = (url: string) =>
+    http.pipe(
       HttpClient.mapRequestInputEffect(
         HttpClientRequest.bodyJson({
           app_id: appId,
           token: adminToken,
         }),
       ),
-    )
-    .post(`/dash/apps/ephemeral/${appId}/claim`);
+    ).post(url);
+
+  // Try claimable first (agent-created apps), then fall back to ephemeral
+  // for legacy apps created via the old ephemeral endpoint.
+  yield* postTo(`/dash/apps/claimable/${appId}/claim`).pipe(
+    Effect.catchTag('InstantHttpError', () =>
+      postTo(`/dash/apps/ephemeral/${appId}/claim`),
+    ),
+  );
 
   yield* Effect.log(chalk.green('App claimed!'));
 });
