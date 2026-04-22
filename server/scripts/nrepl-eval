@@ -1,7 +1,8 @@
 #!/usr/bin/env bb
 ;; Inspired by
 ;; https://github.com/babashka/nrepl-client/blob/main/src/impl/babashka/nrepl_client.clj
-(require '[bencode.core :as bc]
+(require '[babashka.cli :as cli]
+         '[bencode.core :as bc]
          '[clojure.java.io :as io]
          '[clojure.string :as str])
 
@@ -48,17 +49,12 @@
       (let [f (io/file dir ".nrepl-port")]
         (if (.exists f) f (recur (.getParentFile dir)))))))
 
-(defn- extract-port [args]
-  (loop [args args, port nil, acc []]
-    (cond
-      (empty? args)            [port acc]
-      (#{"--port" "-p"} (first args)) (recur (drop 2 args) (Integer/parseInt (second args)) acc)
-      :else                    (recur (next args) port (conj acc (first args))))))
-
-(let [[port-arg rest-args] (extract-port *command-line-args*)
-      [arg] rest-args
+(let [{:keys [opts args]} (cli/parse-args *command-line-args*
+                                          {:coerce {:port :long}
+                                           :alias  {:p :port}})
+      [arg] args
       code  (if (or (nil? arg) (= "-" arg)) (slurp *in*) arg)
-      port  (or port-arg
+      port  (or (:port opts)
                 (let [pf (or (find-port-file (.getParentFile (io/file *file*)))
                              (binding [*out* *err*]
                                (println "Could not find .nrepl-port. Is `make dev` running? Or pass --port N.")

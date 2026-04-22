@@ -166,8 +166,7 @@ When you need to debug Clojure code, the running nREPL is often the fastest way 
 `.nrepl-port` (or `--port N`) and accepts code via argv, stdin, or `-`.
 Fully-qualified symbols resolve from `user`; prepend `(in-ns 'foo)` if you
 need to be inside a namespace. If you edited code on disk and want the
-server to pick it up, reload the namespace first:
-`(require 'instant.runtime.routes :reload)`.
+server to pick it up, reload the namespace first: `(require 'foo :reload)`.
 
 ```bash
 scripts/nrepl-eval "(var instant.runtime.routes/client)"   # one-liner
