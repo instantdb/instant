@@ -1107,7 +1107,7 @@ export function Copytext({ value }: { value: string }) {
   const [showCopied, setShowCopied] = useState(false);
 
   return (
-    <span className="inline-flex items-center rounded-sm bg-gray-500 px-2 text-sm text-white">
+    <span className="inline-flex items-center rounded-sm bg-gray-100 px-2 text-sm text-gray-800 dark:bg-neutral-700 dark:text-neutral-200">
       <code
         className="truncate"
         onClick={(e) => {
