@@ -2,6 +2,7 @@
   "name": "@instantdb/admin",
   "version": "0.0.0",
   "description": "Admin SDK for Instant DB",
+  "license": "Apache-2.0",
   "type": "module",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/admin",
   "repository": {

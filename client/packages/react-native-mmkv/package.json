@@ -2,6 +2,7 @@
   "name": "@instantdb/react-native-mmkv",
   "version": "0.0.0",
   "description": "React Native MMKV interface for Instant DB",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/react-native-mmkv",
   "repository": {
     "type": "git",

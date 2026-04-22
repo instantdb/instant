@@ -3,6 +3,7 @@
   "type": "module",
   "version": "0.0.0",
   "description": "Instant's CLI",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/cli",
   "repository": {
     "type": "git",
