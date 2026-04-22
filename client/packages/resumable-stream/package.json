@@ -2,6 +2,7 @@
   "name": "@instantdb/resumable-stream",
   "version": "0.0.0",
   "description": "Instant's drop-in replacement for Vercel's resumable-stream package.",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/resumable-stream",
   "repository": {
     "type": "git",

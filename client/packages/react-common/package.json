@@ -2,6 +2,7 @@
   "name": "@instantdb/react-common",
   "version": "0.0.0",
   "description": "Instant DB shared components for React and React Native",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/react-common",
   "repository": {
     "type": "git",

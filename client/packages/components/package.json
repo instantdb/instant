@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "description": "Instant's UI components",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/components",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

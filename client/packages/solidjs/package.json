@@ -3,6 +3,7 @@
   "type": "module",
   "version": "0.0.0",
   "description": "SolidJS client for InstantDB",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/instantdb/instant.git",

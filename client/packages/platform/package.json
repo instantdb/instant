@@ -2,6 +2,7 @@
   "name": "@instantdb/platform",
   "version": "0.0.0",
   "description": "Instant's platform package for managing Instant apps.",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/platform",
   "repository": {
     "type": "git",
