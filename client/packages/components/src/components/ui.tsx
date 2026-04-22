@@ -231,14 +231,29 @@ export function TextInput({
       <input
         disabled={disabled}
         title={title}
-        type={type === 'sensitive' ? 'password' : (type ?? 'text')}
-        // Try to prevent password managers from trying to save
-        // sensitive input, LastPass, 1password, BitWarden
+        // Try to prevent password managers (LastPass, 1Password,
+        // BitWarden) from attaching to or saving sensitive input.
         autoComplete={type === 'sensitive' ? 'off' : undefined}
         data-lpignore={type === 'sensitive' ? 'true' : undefined}
         data-1p-ignore={type === 'sensitive' ? 'true' : undefined}
         data-bwignore={type === 'sensitive' ? 'true' : undefined}
         data-form-type={type === 'sensitive' ? 'other' : undefined}
+        // LastPass attaches its UI to any <input type="password"> even
+        // when data-lpignore="true" is set. To opt out we render the
+        // field as type="text" and use -webkit-text-security to mask
+        // the value as discs visually.
+        type={type === 'sensitive' ? 'text' : (type ?? 'text')}
+        style={
+          type === 'sensitive' ? { WebkitTextSecurity: 'disc' } : undefined
+        }
+        // Turn off the text-entry protections that `type="password"`
+        // gives you for free but `type="text"` doesn't: browsers
+        // spellcheck on desktop and autocorrect / autocapitalize on
+        // mobile for text inputs, any of which can quietly mutate a
+        // secret or train the keyboard on its characters.
+        spellCheck={type === 'sensitive' ? false : undefined}
+        autoCapitalize={type === 'sensitive' ? 'none' : undefined}
+        autoCorrect={type === 'sensitive' ? 'off' : undefined}
         ref={inputRef}
         inputMode={inputMode}
         placeholder={placeholder}

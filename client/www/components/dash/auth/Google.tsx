@@ -185,7 +185,7 @@ export function AddGoogleClientForm({
             <a
               className="underline"
               target="_blank"
-              rel="noopener noreferer"
+              rel="noopener noreferrer"
               href="https://console.developers.google.com/apis/credentials"
             >
               Google console
@@ -207,7 +207,7 @@ export function AddGoogleClientForm({
               <a
                 className="underline"
                 target="_blank"
-                rel="noopener noreferer"
+                rel="noopener noreferrer"
                 href="https://console.developers.google.com/apis/credentials"
               >
                 Google console
@@ -227,7 +227,7 @@ export function AddGoogleClientForm({
             <a
               className="underline dark:text-white"
               target="_blank"
-              rel="noopener noreferer"
+              rel="noopener noreferrer"
               href={
                 clientId
                   ? `https://console.cloud.google.com/apis/credentials/oauthclient/${clientId}`
@@ -513,7 +513,7 @@ function Login() {
                     className="underline dark:text-white"
                     href={`https://console.cloud.google.com/apis/credentials/oauthclient/${client.client_id}`}
                     target="_blank"
-                    rel="noopener noreferer"
+                    rel="noopener noreferrer"
                   >
                     Google OAuth client
                   </a>{' '}

@@ -197,7 +197,7 @@ export function AddLinkedInClientForm({
             <a
               className="underline"
               target="_blank"
-              rel="noopener noreferer"
+              rel="noopener noreferrer"
               href="https://www.linkedin.com/developers/apps"
             >
               LinkedIn developer portal
@@ -218,7 +218,7 @@ export function AddLinkedInClientForm({
             <a
               className="underline"
               target="_blank"
-              rel="noopener noreferer"
+              rel="noopener noreferrer"
               href="https://www.linkedin.com/developers/apps"
             >
               LinkedIn developer portal

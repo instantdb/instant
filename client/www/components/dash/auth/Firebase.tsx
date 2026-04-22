@@ -334,7 +334,7 @@ export function AddFirebaseClientForm({
             <a
               className="underline"
               target="_blank"
-              rel="noopener noreferer"
+              rel="noopener noreferrer"
               href="https://console.firebase.google.com/"
             >
               Firebase dashboard
