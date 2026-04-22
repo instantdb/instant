@@ -11,7 +11,10 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
+   [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
+   [instant.model.app-oauth-client :as app-oauth-client-model]
    [instant.model.app-oauth-service-provider :as provider-model]
+   [instant.model.shared-oauth-client :refer [shared-credentials-user-limit]]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
    [instant.postmark :as postmark]
@@ -796,4 +799,94 @@
                (permissioned-tx/transact!
                 ctx
                 [[:add-triple user-id (:id id-attr) user-id]]))))))))
+
+(deftest upsert-oauth-link-enforces-shared-credentials-cap
+  (with-empty-app
+    (fn [app]
+      (let [provider (provider-model/create! {:app-id (:id app)
+                                              :provider-name "google"})]
+        (testing "no cap check for non-shared-credentials clients"
+          (with-redefs [shared-credentials-user-limit 1]
+            (let [link (route/upsert-oauth-link! {:email "non-shared@example.com"
+                                                  :sub "non-shared-sub"
+                                                  :app-id (:id app)
+                                                  :provider-id (:id provider)
+                                                  :use-shared-credentials? false})]
+              (is (uuid? (:user_id link))))))
+        (testing "first sign-up under the cap succeeds for shared-credentials clients"
+          (with-redefs [shared-credentials-user-limit 2]
+            (let [link (route/upsert-oauth-link! {:email "shared-1@example.com"
+                                                  :sub "shared-1-sub"
+                                                  :app-id (:id app)
+                                                  :provider-id (:id provider)
+                                                  :use-shared-credentials? true})]
+              (is (uuid? (:user_id link))))))
+        (testing "hitting the cap rejects the new-user sign-up"
+          (with-redefs [shared-credentials-user-limit 2]
+            (is (thrown-with-msg?
+                 ExceptionInfo
+                 #"Shared dev credentials are limited"
+                 (route/upsert-oauth-link! {:email "shared-over@example.com"
+                                            :sub "shared-over-sub"
+                                            :app-id (:id app)
+                                            :provider-id (:id provider)
+                                            :use-shared-credentials? true})))))
+        (testing "returning users (same sub) are not blocked by the cap"
+          (with-redefs [shared-credentials-user-limit 2]
+            (let [link (route/upsert-oauth-link! {:email "shared-1@example.com"
+                                                  :sub "shared-1-sub"
+                                                  :app-id (:id app)
+                                                  :provider-id (:id provider)
+                                                  :use-shared-credentials? true})]
+              (is (uuid? (:user_id link))))))))))
+
+(deftest assert-authorized-redirect-uri!
+  (with-empty-app
+    (fn [app]
+      (app-authorized-redirect-origin-model/add!
+       {:app-id (:id app)
+        :service "generic"
+        :params ["example.com"]})
+      (let [shared-client {:app_id (:id app) :meta {"useSharedCredentials" true}}
+            custom-client {:app_id (:id app) :meta {"useSharedCredentials" false}}]
+        (testing "authorized origin always works regardless of shared-credentials flag"
+          (is (nil? (route/assert-authorized-redirect-uri! shared-client "https://example.com/cb")))
+          (is (nil? (route/assert-authorized-redirect-uri! custom-client "https://example.com/cb"))))
+        (testing "shared-credentials clients get the localhost / exp default fallback"
+          (is (nil? (route/assert-authorized-redirect-uri! shared-client "http://localhost:3000")))
+          (is (nil? (route/assert-authorized-redirect-uri! shared-client "https://localhost:8443")))
+          (is (nil? (route/assert-authorized-redirect-uri! shared-client "exp://192.168.1.5:8081"))))
+        (testing "non-shared clients do not get the default fallback"
+          (is (thrown-with-msg?
+               ExceptionInfo #"Invalid redirect_uri"
+               (route/assert-authorized-redirect-uri! custom-client "http://localhost:3000")))
+          (is (thrown-with-msg?
+               ExceptionInfo #"Invalid redirect_uri"
+               (route/assert-authorized-redirect-uri! custom-client "exp://192.168.1.5:8081"))))
+        (testing "unauthorized domain rejected even with shared credentials"
+          (is (thrown-with-msg?
+               ExceptionInfo #"Invalid redirect_uri"
+               (route/assert-authorized-redirect-uri! shared-client "https://attacker.com/cb"))))))))
+
+(deftest assert-authorized-request-origin!
+  (with-empty-app
+    (fn [app]
+      (app-authorized-redirect-origin-model/add!
+       {:app-id (:id app)
+        :service "generic"
+        :params ["example.com"]})
+      (let [shared-client {:app_id (:id app) :meta {"useSharedCredentials" true}}
+            custom-client {:app_id (:id app) :meta {"useSharedCredentials" false}}]
+        (testing "authorized origin always works"
+          (is (nil? (route/assert-authorized-request-origin! custom-client "https://example.com"))))
+        (testing "shared-credentials fall back to default match"
+          (is (nil? (route/assert-authorized-request-origin! shared-client "http://localhost:3000"))))
+        (testing "non-shared clients do not fall back"
+          (is (thrown-with-msg?
+               ExceptionInfo #"Unauthorized origin"
+               (route/assert-authorized-request-origin! custom-client "http://localhost:3000"))))
+        (testing "unauthorized origin rejected"
+          (is (thrown-with-msg?
+               ExceptionInfo #"Unauthorized origin"
+               (route/assert-authorized-request-origin! shared-client "https://attacker.com"))))))))
 

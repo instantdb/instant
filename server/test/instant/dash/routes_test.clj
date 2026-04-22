@@ -7,9 +7,13 @@
    [instant.dash.ephemeral-app :as ephemeral-app]
    [instant.dash.get-a-db :as get-a-db]
    [instant.dash.routes :as routes]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
+   [instant.model.app-oauth-client :as app-oauth-client-model]
+   [instant.model.app-user :as app-user-model]
+   [instant.model.shared-oauth-client :refer [shared-credentials-user-limit]]
    [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
    [instant.model.instant-stripe-customer :as stripe-customer-model]
    [instant.model.org-members :as org-members]
@@ -1148,3 +1152,92 @@
                        (-> resp :body <-json (get "type"))))
                 (is (= (:id owner)
                        (:creator_id (app-model/get-by-id! {:id (:id app)}))))))))))))
+
+(defn- create-provider! [app user provider-name]
+  (let [resp (http/post (str config/server-origin "/dash/apps/" (:id app) "/oauth_service_providers")
+                        {:headers {:Authorization (str "Bearer " (:refresh-token user))
+                                   :Content-Type "application/json"}
+                         :as :json
+                         :body (->json {:provider_name provider-name})})]
+    (get-in resp [:body :provider])))
+
+(defn- post-oauth-client [app user body]
+  (http/post (str config/server-origin "/dash/apps/" (:id app) "/oauth_clients")
+             {:throw-exceptions false
+              :headers {:Authorization (str "Bearer " (:refresh-token user))
+                        :Content-Type "application/json"}
+              :as :json
+              :body (->json body)}))
+
+(defn- post-oauth-client-update [app user client-id body]
+  (http/post (str config/server-origin "/dash/apps/" (:id app) "/oauth_clients/" client-id)
+             {:throw-exceptions false
+              :headers {:Authorization (str "Bearer " (:refresh-token user))
+                        :Content-Type "application/json"}
+              :as :json
+              :body (->json body)}))
+
+(deftest oauth-clients-post-rejects-shared-credentials-for-unconfigured-provider
+  (with-user
+    (fn [u]
+      (with-empty-app (:id u)
+        (fn [app]
+          (with-redefs [flags/shared-oauth-clients (constantly {})]
+            (let [provider (create-provider! app u "github")
+                  resp (post-oauth-client app u {:provider_id (:id provider)
+                                                 :client_name "github-web"
+                                                 :client_id "id"
+                                                 :client_secret "secret"
+                                                 :meta {:useSharedCredentials true}})
+                  body (some-> resp :body <-json)]
+              (is (= 400 (:status resp)))
+              (is (= "record-not-found" (get body "type")))
+              (is (= "shared-oauth-client" (get-in body ["hint" "record-type"]))))))))))
+
+(deftest oauth-clients-post-rejects-shared-credentials-over-user-cap
+  (with-user
+    (fn [u]
+      (with-empty-app (:id u)
+        (fn [app]
+          (dotimes [i 5]
+            (app-user-model/create! {:app-id (:id app)
+                                     :id (random-uuid)
+                                     :email (str "cap-" i "@test.com")
+                                     :type "user"}))
+          (let [fake-shared {"github" [{:id (random-uuid)
+                                        :clientId "shared-github"
+                                        :encryptedClientSecret "deadbeef"}]}]
+            (with-redefs [flags/shared-oauth-clients (constantly fake-shared)
+                          shared-credentials-user-limit 5]
+              (let [provider (create-provider! app u "github")
+                    resp (post-oauth-client app u {:provider_id (:id provider)
+                                                   :client_name "github-web"
+                                                   :meta {:useSharedCredentials true}})
+                    body (some-> resp :body <-json)]
+                (is (= 400 (:status resp)))
+                (is (= "validation-failed" (get body "type")))
+                (is (re-find #"Shared dev credentials are limited"
+                             (str (get body "message"))))))))))))
+
+(deftest update-oauth-client-rotates-credentials
+  (with-user
+    (fn [u]
+      (with-empty-app (:id u)
+        (fn [app]
+          (let [provider (create-provider! app u "github")
+                create-resp (post-oauth-client app u {:provider_id (:id provider)
+                                                      :client_name "github-web"
+                                                      :client_id "old-id"
+                                                      :client_secret "old-secret"})
+                _ (is (= 200 (:status create-resp)))
+                client-id (-> create-resp :body :client :id)
+                update-resp (post-oauth-client-update app u client-id
+                                                      {:client_id "new-id"
+                                                       :client_secret "new-secret"})]
+            (is (= 200 (:status update-resp)))
+            (is (= "new-id" (-> update-resp :body :client :client_id)))
+            (let [row (app-oauth-client-model/get-by-id {:app-id (:id app)
+                                                         :id (java.util.UUID/fromString client-id)})
+                  decrypted (app-oauth-client-model/decrypted-client-secret row)]
+              (is (= "new-id" (:client_id row)))
+              (is (= "new-secret" (crypt-util/secret-value decrypted))))))))))

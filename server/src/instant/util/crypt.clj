@@ -109,6 +109,14 @@
   (^bytes [^AeadWrapper$WrappedAead aead {:keys [^bytes ciphertext ^bytes associated-data] :as _input}]
    (.decrypt aead ciphertext associated-data)))
 
+(defn aead-encrypt-hex
+  "Encrypts `plaintext` (a string) with `associated-data` (bytes) via
+   `aead-encrypt`, returning the ciphertext as a hex string."
+  ^String [^String plaintext ^bytes associated-data]
+  (bytes->hex-string
+   (aead-encrypt {:plaintext (str->utf-8-bytes plaintext)
+                  :associated-data associated-data})))
+
 (defn hybrid-encrypt
   "Encrypts plaintext with associated data:
    https://developers.google.com/tink/exchange-data#hybrid_encryption"

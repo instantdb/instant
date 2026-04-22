@@ -68,6 +68,30 @@
   (and (not (contains? reserved-uri-schemes uri-scheme))
        (= scheme uri-scheme)))
 
+(def ^:private localhost-hosts
+  "Hostnames we treat as a developer's own machine for shared-credential
+   redirects: the literal name, IPv4 loopback, IPv6 loopback, and the
+   wildcard bind address that browsers route back to localhost."
+  #{"localhost" "127.0.0.1" "[::1]" "0.0.0.0"})
+
+(defn shared-credentials-default-match
+  "When users choose shared credentials, we automatically allow
+   localhost (http/https) and expo dev (exp://) as redirect targets,
+   without them having to set those explicitly in their allowed
+   origins. For custom domains or schemes, they can still add them to
+   allowed origins."
+  [url]
+  (let [parsed-url (uri/uri url)
+        host (:host parsed-url)
+        scheme (:scheme parsed-url)]
+    (cond
+      (and (contains? localhost-hosts host)
+           (contains? #{"http" "https"} scheme))
+      {:service "localhost"}
+
+      (= scheme "exp")
+      {:service "custom-scheme"})))
+
 (defn find-match [site-origins url]
   (let [parsed-url (uri/uri url)
         raw-host (:host parsed-url)
@@ -85,6 +109,11 @@
                        (tracer/with-span! {:name "origins/unknown-service"
                                            :attributes {:service service}})))
                    site-origins))))
+
+(defn authorized-origin? [authorized-origins url use-shared-credentials?]
+  (boolean (or (find-match authorized-origins url)
+               (when use-shared-credentials?
+                 (shared-credentials-default-match url)))))
 
 (defn validation-error [service params]
   (case service
