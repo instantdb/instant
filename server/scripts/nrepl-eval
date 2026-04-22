@@ -48,13 +48,22 @@
       (let [f (io/file dir ".nrepl-port")]
         (if (.exists f) f (recur (.getParentFile dir)))))))
 
-(let [[arg] *command-line-args*
+(defn- extract-port [args]
+  (loop [args args, port nil, acc []]
+    (cond
+      (empty? args)            [port acc]
+      (#{"--port" "-p"} (first args)) (recur (drop 2 args) (Integer/parseInt (second args)) acc)
+      :else                    (recur (next args) port (conj acc (first args))))))
+
+(let [[port-arg rest-args] (extract-port *command-line-args*)
+      [arg] rest-args
       code  (if (or (nil? arg) (= "-" arg)) (slurp *in*) arg)
-      pf    (or (find-port-file (.getParentFile (io/file *file*)))
-                (binding [*out* *err*]
-                  (println "Could not find .nrepl-port. Is `make dev` running?")
-                  (System/exit 1)))
-      port  (Integer/parseInt (str/trim (slurp pf)))
+      port  (or port-arg
+                (let [pf (or (find-port-file (.getParentFile (io/file *file*)))
+                             (binding [*out* *err*]
+                               (println "Could not find .nrepl-port. Is `make dev` running? Or pass --port N.")
+                               (System/exit 1)))]
+                  (Integer/parseInt (str/trim (slurp pf)))))
       {:keys [vals out err]} (nrepl-eval port code)]
   (when (seq out) (print out))
   (when (seq err) (binding [*out* *err*] (print err)))
