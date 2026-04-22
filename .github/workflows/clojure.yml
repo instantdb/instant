@@ -258,6 +258,18 @@ jobs:
       working-directory: server
       run: clojure -T:build uber
 
+    - name: Scan deprecated APIs for JDK 26
+      working-directory: server
+      run: jdeprscan --release 26 target/instant-standalone.jar
+
+    - name: Scan APIs marked for removal in JDK 26
+      working-directory: server
+      run: jdeprscan --release 26 --for-removal target/instant-standalone.jar
+
+    - name: Analyze dependencies for JDK 26
+      working-directory: server
+      run: jdeps --multi-release 26 target/instant-standalone.jar
+
   lint:
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
