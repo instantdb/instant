@@ -47,6 +47,48 @@ const GoogleAppTypeSchema = Schema.Literal(
   'button-for-web',
 );
 
+const selectCredentialMode = (value: unknown) =>
+  Effect.gen(function* () {
+    const { yes } = yield* GlobalOpts;
+    // Explicit --dev-credentials wins.
+    if (value === true || value === 'true') return 'dev' as const;
+    // Explicit --client-id (or equivalent) means the user already
+    // committed to supplying their own credentials — skip the prompt.
+    if (value === false) return 'custom' as const;
+    if (yes) return 'custom' as const;
+
+    return yield* runUIEffect(
+      new UI.Select({
+        options: [
+          {
+            label:
+              'Use dev credentials' +
+              chalk.dim(
+                '  — works on localhost / Expo with no Google setup',
+              ),
+            value: 'dev' as const,
+          },
+          {
+            label:
+              'Use my own' +
+              chalk.dim('           — provide your own client_id / client_secret'),
+            value: 'custom' as const,
+          },
+        ],
+        promptText: 'Credential mode:',
+        modifyOutput: UI.modifiers.piped([
+          UI.modifiers.topPadding,
+          UI.modifiers.dimOnComplete,
+        ]),
+        defaultValue: 'dev' as const,
+      }),
+    ).pipe(
+      Effect.catchTag('UIError', (e) =>
+        BadArgsError.make({ message: `UI error: ${e.message}` }),
+      ),
+    );
+  });
+
 const selectGoogleAppType = (value: unknown) =>
   Effect.gen(function* () {
     const { yes } = yield* GlobalOpts;
@@ -126,6 +168,40 @@ const getOrCreateProvider = Effect.fn(function* (
 
 const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
   const appType = yield* selectGoogleAppType(opts['app-type']);
+
+  // Dev-credentials preconditions: Google + web only, and must not be
+  // combined with any of the fields it replaces.
+  const devCredentialsFlag = Boolean(opts['dev-credentials']);
+  if (devCredentialsFlag && appType !== 'web') {
+    return yield* BadArgsError.make({
+      message:
+        '--dev-credentials is only supported for --app-type web. Native clients need a real client_id from Google.',
+    });
+  }
+  if (
+    devCredentialsFlag &&
+    (opts['client-id'] || opts['client-secret'] || opts['custom-redirect-uri'])
+  ) {
+    return yield* BadArgsError.make({
+      message:
+        '--dev-credentials cannot be combined with --client-id, --client-secret, or --custom-redirect-uri. Omit them (Instant supplies the credentials) or drop --dev-credentials.',
+    });
+  }
+
+  // For web, ask whether the user wants dev creds or their own. Skip
+  // the selector if they already supplied --client-id (implicit
+  // "custom") or --dev-credentials (implicit "dev").
+  const credentialModeHint = devCredentialsFlag
+    ? true
+    : opts['client-id']
+      ? false
+      : undefined;
+  const credentialMode =
+    appType === 'web'
+      ? yield* selectCredentialMode(credentialModeHint)
+      : ('custom' as const);
+  const useDevCredentials = credentialMode === 'dev';
+
   const { auth, provider } = yield* getOrCreateProvider('google');
   const usedClientNames = new Set(
     (auth.oauth_clients ?? []).map((client) => client.client_name),
@@ -153,8 +229,10 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
 
   const clientId = yield* optOrPrompt(opts['client-id'], {
     simpleName: '--client-id',
-    required: true,
-    skipIf: false,
+    required: !useDevCredentials,
+    skipIf: useDevCredentials,
+    skipMessage:
+      '--client-id is not compatible with --dev-credentials. Drop one or the other.',
     prompt: {
       prompt: `Client ID: ${chalk.dim('(from https://console.developers.google.com/apis/credentials)')}`,
       modifyOutput: UI.modifiers.piped([
@@ -166,9 +244,12 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
   });
 
   const clientSecret = yield* optOrPrompt(opts['client-secret'], {
-    required: appType === 'web',
-    skipIf: appType !== 'web',
+    required: !useDevCredentials && appType === 'web',
+    skipIf: useDevCredentials || appType !== 'web',
     simpleName: '--client-secret',
+    skipMessage: useDevCredentials
+      ? '--client-secret is not compatible with --dev-credentials. Drop one or the other.'
+      : undefined,
     prompt: {
       prompt: `Client Secret: ${chalk.dim('(from https://console.developers.google.com/apis/credentials)')}`,
       validate: validateRequired,
@@ -201,20 +282,24 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
       ]),
     },
     simpleName: '--custom-redirect-uri',
-    skipIf: appType !== 'web',
-    skipMessage: 'Provided custom redirect URI when not using web app type.',
+    skipIf: useDevCredentials || appType !== 'web',
+    skipMessage: useDevCredentials
+      ? '--custom-redirect-uri is not compatible with --dev-credentials.'
+      : 'Provided custom redirect URI when not using web app type.',
   });
 
   if (!clientName) {
     return yield* BadArgsError.make({ message: 'Client name is required.' }); // Should never reach this
   }
-  const redirectUri = customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
+  const redirectUri = useDevCredentials
+    ? undefined
+    : customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
 
   const response = yield* addOAuthClient({
     providerId: provider.id,
     clientName,
-    clientId,
-    clientSecret: clientSecret,
+    clientId: useDevCredentials ? undefined : clientId,
+    clientSecret: useDevCredentials ? undefined : clientSecret,
     authorizationEndpoint: GOOGLE_AUTHORIZATION_ENDPOINT,
     tokenEndpoint: GOOGLE_TOKEN_ENDPOINT,
     discoveryEndpoint: GOOGLE_DISCOVERY_ENDPOINT,
@@ -222,11 +307,32 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
     meta: {
       appType,
       skipNonceChecks: true,
+      ...(useDevCredentials ? { useSharedCredentials: true } : {}),
     },
   });
 
+  if (useDevCredentials) {
+    yield* Effect.log(
+      boxen(
+        [
+          `Google OAuth client created: ${response.client.client_name}`,
+          `App type: ${appType} (dev credentials)`,
+          `ID: ${response.client.id}`,
+          '',
+          'No setup required — works on localhost / Expo out of the box.',
+          '',
+          'Ready for production? Run:',
+          `  instant-cli auth client update --name ${response.client.client_name} \\`,
+          `    --client-id <id> --client-secret <secret>`,
+        ].join('\n'),
+        { dimBorder: true, padding: { right: 1, left: 1 } },
+      ),
+    );
+    return;
+  }
+
   const redirectMessages: string[] = [];
-  if (appType === 'web') {
+  if (appType === 'web' && redirectUri) {
     redirectMessages.push(
       chalk.bold(
         `\nAdd this redirect URI in Google Console:\n${redirectUri}\n`,
@@ -769,6 +875,13 @@ export const authClientAddCmd = Effect.fn(
         }),
       ),
     );
+
+    if (Boolean(opts['dev-credentials']) && clientType !== 'google') {
+      return yield* BadArgsError.make({
+        message:
+          '--dev-credentials is only supported for --type google at the moment.',
+      });
+    }
 
     yield* Match.value(clientType).pipe(
       Match.withReturnType<Effect.Effect<void, any, any>>(),

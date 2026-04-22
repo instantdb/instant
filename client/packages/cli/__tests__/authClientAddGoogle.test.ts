@@ -169,10 +169,14 @@ describe('web: interactive prompts for each missing flag', () => {
     expect((prompts[0] as any).props.prompt).toBe('Client Name:');
   });
 
-  test('missing --client-id → prompts for client id', async () => {
-    mockPromptReturn = '123456.apps.googleusercontent.com';
+  test('missing --client-id → prompts for credential mode then client id', async () => {
+    // With neither --client-id nor --dev-credentials the CLI first
+    // asks whether the user wants dev creds or their own. After
+    // picking 'custom' it falls through to the Client ID prompt.
+    mockPromptReturn = 'custom';
     await run(without(webFlags, 'client-id'), { yes: false });
-    expect((prompts[0] as any).props.prompt).toContain('Client ID');
+    expect((prompts[0] as any).params.promptText).toBe('Credential mode:');
+    expect((prompts[1] as any).props.prompt).toContain('Client ID');
   });
 
   test('missing --client-secret → prompts for client secret', async () => {
@@ -273,5 +277,82 @@ describe('ios', () => {
     expect(output).toContain(
       'Google Client ID: 123456.apps.googleusercontent.com',
     );
+  });
+});
+
+// -- web: dev credentials (shared) --
+
+const webDevFlags = new Map([
+  ['type', 'google'],
+  ['app-type', 'web'],
+  ['name', 'g-dev'],
+  ['dev-credentials', 'true'],
+]);
+
+describe('web: --dev-credentials', () => {
+  test('--yes + --dev-credentials → creates a shared-creds client', async () => {
+    await run(webDevFlags, { yes: true });
+    expect(addedClients).toHaveLength(1);
+    const added = addedClients[0];
+    expect(added.clientName).toBe('g-dev');
+    expect(added.clientId).toBeUndefined();
+    expect(added.clientSecret).toBeUndefined();
+    expect(added.redirectTo).toBeUndefined();
+    expect(added.meta).toMatchObject({
+      appType: 'web',
+      useSharedCredentials: true,
+    });
+    const output = logs.join('\n');
+    expect(output).toContain('App type: web (dev credentials)');
+    expect(output).toContain('No setup required');
+    expect(output).toContain('Ready for production?');
+    expect(output).not.toContain('Add this redirect URI in Google Console');
+  });
+
+  test('--dev-credentials + --client-id → error', async () => {
+    await run(
+      withEntry(webDevFlags, 'client-id', '123.apps.googleusercontent.com'),
+      { yes: true },
+    );
+    expect(logs.join('\n')).toContain(
+      '--dev-credentials cannot be combined with --client-id',
+    );
+    expect(addedClients).toHaveLength(0);
+  });
+
+  test('--dev-credentials + --app-type ios → error', async () => {
+    await run(
+      new Map([
+        ['type', 'google'],
+        ['app-type', 'ios'],
+        ['name', 'g-dev'],
+        ['dev-credentials', 'true'],
+      ]),
+      { yes: true },
+    );
+    expect(logs.join('\n')).toContain(
+      '--dev-credentials is only supported for --app-type web',
+    );
+    expect(addedClients).toHaveLength(0);
+  });
+
+  test('interactive: picks dev credentials → skips id/secret prompts', async () => {
+    // Selector for credential mode returns 'dev'. mockPromptReturn is
+    // also consumed by the name prompt but we don't assert on that.
+    mockPromptReturn = 'dev';
+    await run(
+      new Map([
+        ['type', 'google'],
+        ['app-type', 'web'],
+        ['name', 'g-dev'],
+      ]),
+      { yes: false },
+    );
+    // Only one prompt: the credential-mode selector. Name was supplied,
+    // id/secret/redirect are skipped for dev-credentials mode.
+    expect(prompts).toHaveLength(1);
+    expect((prompts[0] as any).params.promptText).toBe('Credential mode:');
+    expect(addedClients).toHaveLength(1);
+    expect(addedClients[0].meta).toMatchObject({ useSharedCredentials: true });
   });
 });

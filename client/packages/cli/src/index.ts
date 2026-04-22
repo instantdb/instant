@@ -28,6 +28,7 @@ import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.ts';
 import { authClientAddCmd } from './commands/auth/client/add.ts';
 import { authClientListCmd } from './commands/auth/client/list.ts';
 import { authClientDeleteCmd } from './commands/auth/client/delete.ts';
+import { authClientUpdateCmd } from './commands/auth/client/update.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -99,14 +100,19 @@ export const authClientAddDef = authClient
     '-a --app <app-id>',
     'App ID to modify. Defaults to *_INSTANT_APP_ID in .env',
   )
+  .option(
+    '--dev-credentials',
+    'Use Instant-provided dev credentials (Google web only). Works on localhost / Expo with no Google Cloud Console setup.',
+  )
   .addHelpText(
     'after',
     `
 Provider Specific Options:
   Google:
    --app-type       web|ios|android|button-for-web
-   --client-id
-   --client-secret                      (web only)
+   --dev-credentials          (optional, web only — skip client-id/secret)
+   --client-id                (required unless --dev-credentials)
+   --client-secret                      (web only, unless --dev-credentials)
    --custom-redirect-uri      (optional, web only)
   GitHub:
    --client-id
@@ -177,6 +183,33 @@ export const authClientDeleteDef = authClient
   .action((opts) => {
     return runCommandEffect(
       authClientDeleteCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    );
+  });
+
+export const authClientUpdateDef = authClient
+  .command('update')
+  .description(
+    'Rotate an OAuth client\'s credentials, or upgrade one created with --dev-credentials to use your own.',
+  )
+  .option('--id <client-id>', 'Client ID to update')
+  .option('--name <client-name>', 'Client name to update')
+  .option('--client-id <client-id>', 'New client_id to set')
+  .option('--client-secret <client-secret>', 'New client_secret to set')
+  .option(
+    '-a --app <app-id>',
+    'App ID to update a client in. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      authClientUpdateCmd(opts).pipe(
         Effect.provide(
           WithAppLayer({
             coerce: false,
