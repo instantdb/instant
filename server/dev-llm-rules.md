@@ -162,18 +162,18 @@ Application starts at `instant.core/-main`. Server runs on Undertow at port 8888
 
 When you need to debug Clojure code, the running nREPL is often the fastest way to poke at live state.
 
-`bin/nrepl-eval` is a babashka one-shot client. It reads the port from
+`scripts/nrepl-eval` is a babashka one-shot client. It reads the port from
 `.nrepl-port` and accepts code via argv, stdin, or `-`. Fully-qualified
 symbols resolve from `user`; prepend `(in-ns 'foo)` if you need to be inside
 a namespace.
 
 ```bash
-bin/nrepl-eval "(var instant.runtime.routes/client)"   # one-liner
-bin/nrepl-eval <<'EOF'                                  # big form, no escaping
+scripts/nrepl-eval "(var instant.runtime.routes/client)"   # one-liner
+scripts/nrepl-eval <<'EOF'                                  # big form, no escaping
 (do (require '[instant.runtime.routes :as r])
     (keys @(var r/client)))
 EOF
-bin/nrepl-eval < scratch/probe.clj                     # from a file
+scripts/nrepl-eval < scratch/probe.clj                     # from a file
 ```
 
 ## Navigation Guide
