@@ -93,6 +93,29 @@ export const addOAuthProvider = Effect.fn(function* (params: {
     );
 });
 
+export const updateOAuthClient = Effect.fn(function* (params: {
+  appId?: string;
+  oauthClientId: string;
+  body: {
+    client_id?: string;
+    client_secret?: string;
+    meta?: unknown;
+    redirect_to?: string | null;
+  };
+}) {
+  const http = (yield* InstantHttpAuthed).pipe(withCommand('auth'));
+  const targetAppId = params.appId ?? (yield* CurrentApp).appId;
+
+  return yield* http
+    .post(
+      `/dash/apps/${targetAppId}/oauth_clients/${params.oauthClientId}`,
+      { body: HttpBody.unsafeJson(params.body) },
+    )
+    .pipe(
+      Effect.flatMap(HttpClientResponse.schemaBodyJson(AddOAuthClientResponse)),
+    );
+});
+
 export const addOAuthClient = Effect.fn(function* (params: {
   appId?: string;
   providerId: string;
