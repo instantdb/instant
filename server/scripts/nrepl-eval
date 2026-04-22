@@ -1,0 +1,60 @@
+#!/usr/bin/env bb
+;; Inspired by
+;; https://github.com/babashka/nrepl-client/blob/main/src/impl/babashka/nrepl_client.clj
+(require '[babashka.cli :as cli]
+         '[bencode.core :as bc]
+         '[clojure.java.io :as io]
+         '[clojure.string :as str])
+
+(defn- ->str [v] (if (bytes? v) (String. ^bytes v) v))
+
+(defn- decode [m]
+  (let [m (reduce-kv (fn [acc k v] (assoc acc (keyword (->str k)) (->str v))) {} m)]
+    (cond-> m
+      (:status m) (update :status #(mapv ->str %)))))
+
+(defn- send-recv [out in msg match?]
+  (bc/write-bencode out msg)
+  (.flush ^java.io.OutputStream out)
+  (loop []
+    (let [m (decode (bc/read-bencode in))]
+      (if (match? m) m (recur)))))
+
+(defn- read-until-done [out in msg]
+  (bc/write-bencode out msg)
+  (.flush ^java.io.OutputStream out)
+  (loop [acc {:vals [] :out "" :err ""}]
+    (let [{:keys [status value] :as m} (decode (bc/read-bencode in))
+          acc (cond-> acc
+                value        (update :vals conj value)
+                (:out m)     (update :out str (:out m))
+                (:err m)     (update :err str (:err m)))]
+      (if (some #{"done"} status) acc (recur acc)))))
+
+(defn nrepl-eval [port code]
+  (with-open [s   (java.net.Socket. "127.0.0.1" (int port))
+              in  (java.io.PushbackInputStream. (io/input-stream s))
+              out (io/output-stream s)]
+    (let [clone-id (str (random-uuid))
+          {session :new-session} (send-recv out in
+                                            {"op" "clone" "id" clone-id}
+                                            #(= clone-id (:id %)))
+          eval-id  (str (random-uuid))]
+      (read-until-done out in
+                       {"op" "eval" "code" code "id" eval-id "session" session}))))
+
+(let [{:keys [opts args]} (cli/parse-args *command-line-args*
+                                          {:coerce {:port :long}
+                                           :alias  {:p :port}})
+      [arg] args
+      code  (if (or (nil? arg) (= "-" arg)) (slurp *in*) arg)
+      pf    (io/file (.getParentFile (io/file *file*)) ".." ".nrepl-port")
+      port  (or (:port opts)
+                (when (.exists pf) (Integer/parseInt (str/trim (slurp pf))))
+                (binding [*out* *err*]
+                  (println "Could not find .nrepl-port. Is `make dev` running? Or pass --port N.")
+                  (System/exit 1)))
+      {:keys [vals out err]} (nrepl-eval port code)]
+  (when (seq out) (print out))
+  (when (seq err) (binding [*out* *err*] (print err)))
+  (doseq [v vals] (println v)))

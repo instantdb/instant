@@ -158,6 +158,26 @@ Use `DEV_SLOT` for running multiple servers: `DEV_SLOT=1 make dev` (shifts all p
 
 Application starts at `instant.core/-main`. Server runs on Undertow at port 8888 (configurable via `PORT` env var). nREPL available on port 6005.
 
+### Talking to the running nREPL
+
+When you need to debug Clojure code, the running nREPL is often the fastest way to poke at live state.
+
+`scripts/nrepl-eval` is a babashka one-shot client. It reads the port from
+`.nrepl-port` (or `--port N`) and accepts code via argv, stdin, or `-`.
+Fully-qualified symbols resolve from `user`; prepend `(in-ns 'foo)` if you
+need to be inside a namespace. If you edited code on disk and want the
+server to pick it up, reload the namespace first: `(require 'foo :reload)`.
+
+```bash
+scripts/nrepl-eval "(var instant.runtime.routes/client)"   # one-liner
+scripts/nrepl-eval <<'EOF'                                  # big form, no escaping
+(do (require '[instant.runtime.routes :as r])
+    (keys @(var r/client)))
+EOF
+scripts/nrepl-eval < scratch/probe.clj                     # from a file
+scripts/nrepl-eval --port 6006 "(+ 1 1)"                   # explicit port
+```
+
 ## Navigation Guide
 
 - **Schema/permissions work**: Start at `model/schema.clj` and `model/rule.clj`, then `db/cel.clj` for CEL evaluation
