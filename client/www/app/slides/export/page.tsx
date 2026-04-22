@@ -9,6 +9,7 @@ import { SlideD as Slide5 } from '../slide-5/page';
 import { Slide6A4 } from '../slide-6/page';
 import { Slide7C2 } from '../slide-7/page';
 import { Slide8D4 } from '../slide-8/page';
+import { Slide9B } from '../slide-9/page';
 import { useStarCount } from '@/lib/starCountContext';
 import { instantRepo } from '@/lib/config';
 
@@ -93,6 +94,7 @@ const slideComponents: Record<string, React.ReactNode> = {
   '6': <Slide6A4 />,
   '7': <Slide7C2 />,
   '8': <Slide8D4 />,
+  '9': <Slide9B />,
 };
 
 function ExportContent() {

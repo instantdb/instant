@@ -9,6 +9,7 @@ import { SlideD as Slide5 } from './slide-5/page';
 import { Slide6A4 } from './slide-6/page';
 import { Slide7C2 } from './slide-7/page';
 import { Slide8D4 } from './slide-8/page';
+import { Slide9B } from './slide-9/page';
 import { useStarCount } from '@/lib/starCountContext';
 import { instantRepo } from '@/lib/config';
 
@@ -191,6 +192,12 @@ const slides = [
     label: 'Slide 8',
     varPath: '/slides/slide-8',
     component: <Slide8D4 />,
+  },
+  {
+    id: 'slide-9',
+    label: 'Slide 9',
+    varPath: '/slides/slide-9',
+    component: <Slide9B />,
   },
 ];
 
