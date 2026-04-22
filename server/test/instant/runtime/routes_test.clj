@@ -12,7 +12,6 @@
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
-   [instant.model.app-oauth-client :as app-oauth-client-model]
    [instant.model.app-oauth-service-provider :as provider-model]
    [instant.model.shared-oauth-client :refer [shared-credentials-user-limit]]
    [instant.model.app-user :as app-user-model]
