@@ -43,23 +43,17 @@
       (read-until-done out in
                        {"op" "eval" "code" code "id" eval-id "session" session}))))
 
-(defn- find-port-file [start]
-  (loop [dir (.getAbsoluteFile ^java.io.File start)]
-    (when dir
-      (let [f (io/file dir ".nrepl-port")]
-        (if (.exists f) f (recur (.getParentFile dir)))))))
-
 (let [{:keys [opts args]} (cli/parse-args *command-line-args*
                                           {:coerce {:port :long}
                                            :alias  {:p :port}})
       [arg] args
       code  (if (or (nil? arg) (= "-" arg)) (slurp *in*) arg)
+      pf    (io/file (.getParentFile (io/file *file*)) ".." ".nrepl-port")
       port  (or (:port opts)
-                (let [pf (or (find-port-file (.getParentFile (io/file *file*)))
-                             (binding [*out* *err*]
-                               (println "Could not find .nrepl-port. Is `make dev` running? Or pass --port N.")
-                               (System/exit 1)))]
-                  (Integer/parseInt (str/trim (slurp pf)))))
+                (when (.exists pf) (Integer/parseInt (str/trim (slurp pf))))
+                (binding [*out* *err*]
+                  (println "Could not find .nrepl-port. Is `make dev` running? Or pass --port N.")
+                  (System/exit 1)))
       {:keys [vals out err]} (nrepl-eval port code)]
   (when (seq out) (print out))
   (when (seq err) (binding [*out* *err*] (print err)))
