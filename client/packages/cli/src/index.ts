@@ -99,14 +99,19 @@ export const authClientAddDef = authClient
     '-a --app <app-id>',
     'App ID to modify. Defaults to *_INSTANT_APP_ID in .env',
   )
+  .option(
+    '--dev-credentials',
+    'Use Instant-provided dev credentials (Google web only). Works on localhost / Expo with no Google Cloud Console setup.',
+  )
   .addHelpText(
     'after',
     `
 Provider Specific Options:
   Google:
    --app-type       web|ios|android|button-for-web
-   --client-id
-   --client-secret                      (web only)
+   --dev-credentials          (optional, web only — skip client-id/secret)
+   --client-id                (required unless --dev-credentials)
+   --client-secret                      (web only, unless --dev-credentials)
    --custom-redirect-uri      (optional, web only)
   GitHub:
    --client-id
