@@ -156,7 +156,6 @@ export function AddGitHubClientForm({
         clientId,
         clientSecret,
         redirectTo,
-        meta: { providerName: 'github' },
       });
       onAddClient(resp.client);
     } catch (e) {

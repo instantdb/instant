@@ -181,10 +181,7 @@ export const MainDashLayout: React.FC<{
         )}
       >
         <div
-          className={cn(
-            'flex h-[100dvh] w-full flex-col',
-            darkMode ? 'dark' : '',
-          )}
+          className={cn('fixed inset-0 flex flex-col', darkMode ? 'dark' : '')}
         >
           <TopBar />
           <div
