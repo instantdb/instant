@@ -113,7 +113,7 @@ export function AppleClient({
               className="underline"
               href="/docs/auth/apple"
               target="_blank"
-              rel="noopener noreferer"
+              rel="noopener noreferrer"
             >
               Setup and Usage
             </a>
@@ -266,7 +266,7 @@ export function AddClientExpanded({
             <a
               className="underline"
               target="_blank"
-              rel="noopener noreferer"
+              rel="noopener noreferrer"
               href="https://developer.apple.com/account/resources/identifiers/list/serviceId"
             >
               Identifiers
@@ -302,7 +302,7 @@ export function AddClientExpanded({
                   <a
                     className="underline"
                     target="_blank"
-                    rel="noopener noreferer"
+                    rel="noopener noreferrer"
                     href="https://developer.apple.com/account#MembershipDetailsCard"
                   >
                     Membership details
@@ -321,7 +321,7 @@ export function AddClientExpanded({
                   <a
                     className="underline"
                     target="_blank"
-                    rel="noopener noreferer"
+                    rel="noopener noreferrer"
                     href="https://developer.apple.com/account/resources/authkeys/list"
                   >
                     Keys

@@ -106,7 +106,7 @@ export function NavTabBar({
           <Link
             key={t.id}
             {...t.link}
-            rel="noopener noreferer"
+            rel="noopener noreferrer"
             className={clsx(
               'flex cursor-pointer rounded bg-none p-2 py-0.5 whitespace-nowrap disabled:text-gray-400',
               {

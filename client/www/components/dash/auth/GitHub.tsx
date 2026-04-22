@@ -195,7 +195,7 @@ export function AddGitHubClientForm({
             <a
               className="underline"
               target="_blank"
-              rel="noopener noreferer"
+              rel="noopener noreferrer"
               href="https://github.com/settings/developers"
             >
               GitHub OAuth Apps
@@ -216,7 +216,7 @@ export function AddGitHubClientForm({
             <a
               className="underline"
               target="_blank"
-              rel="noopener noreferer"
+              rel="noopener noreferrer"
               href="https://github.com/settings/developers"
             >
               GitHub OAuth Apps

@@ -357,7 +357,7 @@ export function ClerkClient({
                 className="underline dark:text-white"
                 href={`https://dashboard.clerk.com`}
                 target="_blank"
-                rel="noopener noreferer"
+                rel="noopener noreferrer"
               >
                 Clerk dashboard
               </a>
@@ -531,7 +531,7 @@ export function AddClerkClientForm({
             <a
               className="underline"
               target="_blank"
-              rel="noopener noreferer"
+              rel="noopener noreferrer"
               href="https://dashboard.clerk.com/last-active?path=api-keys"
             >
               Clerk dashboard
@@ -547,7 +547,7 @@ export function AddClerkClientForm({
             className="underline dark:text-white"
             href={'https://dashboard.clerk.com/last-active?path=sessions'}
             target="_blank"
-            rel="noopener noreferer"
+            rel="noopener noreferrer"
           >
             Clerk dashboard
           </a>
