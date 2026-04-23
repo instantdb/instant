@@ -16,6 +16,7 @@ import {
   InstantHttpLive,
 } from './lib/http.ts';
 import { SimpleLogLayer } from './logging.ts';
+import { RequestError } from '@effect/platform/HttpClientError';
 
 const runtime = ManagedRuntime.make(SimpleLogLayer);
 
@@ -38,6 +39,13 @@ export const printRedErrors = Effect.catchAllCause((cause) =>
       failure.value instanceof UnknownException
         ? failure.value.error
         : failure.value;
+
+    // Simplify "can't connect to url errors" instead of printing
+    // crazy stack trace
+    if (theError instanceof RequestError) {
+      yield* Effect.logError(theError.toString());
+      return process.exit(1);
+    }
 
     // Special error handling for specific error types
     if (theError instanceof InstantHttpError) {

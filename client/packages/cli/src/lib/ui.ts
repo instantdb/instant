@@ -31,7 +31,10 @@ export const promptOk = Effect.fn('promptOk')(function* (
 export const runUIEffect = <P>(prompt: Prompt<P>) =>
   Effect.tryPromise({
     try: () => renderUnwrap(prompt),
-    catch: (error) => new UIError({ message: 'UI Error', cause: error }),
+    catch: (error) =>
+      new UIError({
+        message: error instanceof Error ? error.message : String(error),
+      }),
   });
 
 export const invalidFlagError = (flag: string, message: string) =>

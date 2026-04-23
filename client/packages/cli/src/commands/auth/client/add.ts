@@ -36,7 +36,7 @@ const ClientTypeSchema = Schema.Literal(
   'github',
   'apple',
   'linkedin',
-  // 'clerk',
+  'clerk',
   // 'firebase',
 );
 
@@ -734,6 +734,110 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
   );
 });
 
+const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
+  const { auth, provider } = yield* getOrCreateProvider('clerk');
+  const usedClientNames = new Set(
+    (auth.oauth_clients ?? []).map((client) => client.client_name),
+  );
+  const suggestedClientName = findName('clerk-web', usedClientNames);
+
+  const clientName = yield* optOrPrompt(opts.name, {
+    simpleName: '--name',
+    required: true,
+    skipIf: false,
+    prompt: {
+      prompt: 'Client Name:',
+      defaultValue: suggestedClientName,
+      placeholder: suggestedClientName,
+      validate: validateRequired,
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+    },
+  });
+
+  if (usedClientNames.has(clientName || '')) {
+    return yield* BadArgsError.make({
+      message: `The unique name '${clientName}' is already in use.`,
+    });
+  }
+
+  const publishableKey = yield* optOrPrompt(opts['publishable-key'], {
+    simpleName: '--publishable-key',
+    required: true,
+    skipIf: false,
+    prompt: {
+      prompt: `Clerk publishable key ${chalk.dim('(from https://dashboard.clerk.com/last-active?path=api-keys)')}`,
+      placeholder:
+        'pk_********************************************************',
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+      validate: (val) => {
+        if (!val) {
+          return 'Publishable key is required';
+        }
+        if (!val.startsWith('pk_')) {
+          return 'Invalid publishable key. It should start with "pk_".';
+        }
+      },
+    },
+  });
+
+  if (!clientName) {
+    return yield* BadArgsError.make({ message: 'Client name is required.' });
+  }
+  if (!publishableKey) {
+    return yield* BadArgsError.make({
+      message: 'Publishable key is required.',
+    });
+  }
+
+  const domain = domainFromClerkKey(publishableKey);
+  if (!domain) {
+    return yield* BadArgsError.make({
+      message: 'Invalid publishable key. Could not extract domain.',
+    });
+  }
+
+  const response = yield* addOAuthClient({
+    providerId: provider.id,
+    clientName,
+    discoveryEndpoint: `https://${domain}/.well-known/openid-configuration`,
+    meta: { clerkPublishableKey: publishableKey },
+  });
+
+  const clerkDomain = response.client.discovery_endpoint?.replace(
+    '/.well-known/openid-configuration',
+    '',
+  );
+
+  yield* Effect.log(
+    boxen(
+      [
+        `Clerk OAuth client created: ${response.client.client_name}`,
+        `ID: ${response.client.id}`,
+        `Clerk Publishable Key: ${response.client.meta?.clerkPublishableKey}`,
+        `Clerk Domain: ${clerkDomain}`,
+      ].join('\n'),
+      { dimBorder: true, padding: { right: 1, left: 1 } },
+    ),
+  );
+
+  yield* Effect.log(
+    '\nNavigate to your Clerk dashboard. On the Sessions page, click the Edit button in the Customize session token section.\nEnsure your Claims field has the email claim:\n' +
+      boxen(
+        `{
+  "email": "{{user.primary_email_address}}",
+  "email_verified": "{{user.email_verified}}"
+}`,
+        { borderStyle: 'none' },
+      ),
+  );
+});
+
 export const authClientAddCmd = Effect.fn(
   function* (
     opts: OptsFromCommand<typeof authClientAddDef> & Record<string, unknown>,
@@ -753,8 +857,8 @@ export const authClientAddCmd = Effect.fn(
               { label: 'GitHub', value: 'github' },
               { label: 'Apple', value: 'apple' },
               { label: 'LinkedIn', value: 'linkedin' },
+              { label: 'Clerk', value: 'clerk' },
               // TODO: implement
-              // { label: 'Clerk', value: 'clerk' },
               // { label: 'Firebase', value: 'firebase' },
             ],
             promptText: 'Select a client type:',
@@ -776,7 +880,7 @@ export const authClientAddCmd = Effect.fn(
       Match.when('github', () => handleGithubClient(opts)),
       Match.when('apple', () => handleAppleClient(opts)),
       Match.when('linkedin', () => handleLinkedInClient(opts)),
-      // Match.when('clerk', () => Effect.logError('Not Implemented')),
+      Match.when('clerk', () => handleClerkClient(opts)),
       // Match.when('firebase', () => Effect.logError('Not Implemented')),
       Match.exhaustive,
     );
@@ -792,3 +896,28 @@ export const authClientAddCmd = Effect.fn(
     }),
   ),
 );
+
+function domainFromClerkKey(key: string): string | null {
+  try {
+    const parts = key.split('_');
+    const domainPartB64 = parts[parts.length - 1];
+    const domainPart = base64Decode(domainPartB64);
+    return domainPart.replace('$', '');
+  } catch (e) {
+    console.error('Error getting domain from clerk key', e);
+    return null;
+  }
+}
+
+// Base64 decode, switching to url-safe decode if we hit an error
+// Can't be sure which method Clerk uses because you can't generate
+// `+` or `/` with characters that go in a normal host. Urls with
+// chinese characters exist, they might encode to `+` or `/`, and
+// Clerk might support them, so we'll be safe and do both.
+function base64Decode(s: string) {
+  try {
+    return Buffer.from(s, 'base64').toString('utf-8');
+  } catch (e) {
+    return Buffer.from(s, 'base64url').toString('utf-8');
+  }
+}
