@@ -1187,7 +1187,7 @@
                                                  :client_name "github-web"
                                                  :client_id "id"
                                                  :client_secret "secret"
-                                                 :meta {:useSharedCredentials true}})
+                                                 :use_shared_credentials true})
                   body (some-> resp :body <-json)]
               (is (= 400 (:status resp)))
               (is (= "record-not-found" (get body "type")))
@@ -1211,7 +1211,7 @@
               (let [provider (create-provider! app u "github")
                     resp (post-oauth-client app u {:provider_id (:id provider)
                                                    :client_name "github-web"
-                                                   :meta {:useSharedCredentials true}})
+                                                   :use_shared_credentials true})
                     body (some-> resp :body <-json)]
                 (is (= 400 (:status resp)))
                 (is (= "validation-failed" (get body "type")))

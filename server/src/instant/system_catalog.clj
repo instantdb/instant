@@ -86,6 +86,7 @@
    "sub+$oauthProvider" "subprovid"
    "type" "type"
    "url" "url"
+   "useSharedCredentials" "usesharcr"
    "userInfo" "userInfo"})
 
 (def shortcodes-label (map-invert label-shortcodes))
@@ -259,7 +260,9 @@
               :checked-data-type :string)
    (make-attr "$oauthClients" "meta")
    (make-attr "$oauthClients" "redirectTo"
-              :checked-data-type :string)])
+              :checked-data-type :string)
+   (make-attr "$oauthClients" "useSharedCredentials"
+              :checked-data-type :boolean)])
 
 (def $oauth-code-attrs
   [(make-attr "$oauthCodes" "id"

@@ -66,6 +66,7 @@
                                 :cooke-hash :cookie_hash
                                 :redirectUrl :redirect_url
                                 :redirectTo :redirect_to
+                                :useSharedCredentials :use_shared_credentials
                                 :authCode :auth_code
                                 :userInfo :user_info
                                 :name (case etype

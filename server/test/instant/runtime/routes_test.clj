@@ -846,8 +846,8 @@
        {:app-id (:id app)
         :service "generic"
         :params ["example.com"]})
-      (let [shared-client {:app_id (:id app) :meta {"useSharedCredentials" true}}
-            custom-client {:app_id (:id app) :meta {"useSharedCredentials" false}}]
+      (let [shared-client {:app_id (:id app) :use_shared_credentials true}
+            custom-client {:app_id (:id app) :use_shared_credentials false}]
         (testing "authorized origin always works regardless of shared-credentials flag"
           (is (nil? (route/assert-authorized-redirect-uri! shared-client "https://example.com/cb")))
           (is (nil? (route/assert-authorized-redirect-uri! custom-client "https://example.com/cb"))))
@@ -874,8 +874,8 @@
        {:app-id (:id app)
         :service "generic"
         :params ["example.com"]})
-      (let [shared-client {:app_id (:id app) :meta {"useSharedCredentials" true}}
-            custom-client {:app_id (:id app) :meta {"useSharedCredentials" false}}]
+      (let [shared-client {:app_id (:id app) :use_shared_credentials true}
+            custom-client {:app_id (:id app) :use_shared_credentials false}]
         (testing "authorized origin always works"
           (is (nil? (route/assert-authorized-request-origin! custom-client "https://example.com"))))
         (testing "shared-credentials fall back to default match"

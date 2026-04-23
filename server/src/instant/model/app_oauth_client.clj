@@ -14,8 +14,8 @@
 
 (def etype "$oauthClients")
 
-(defn use-shared-credentials? [meta]
-  (boolean (get meta "useSharedCredentials")))
+(defn use-shared-credentials? [oauth-client]
+  (boolean (:use_shared_credentials oauth-client)))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
@@ -26,7 +26,8 @@
                  client-secret
                  discovery-endpoint
                  meta
-                 redirect-to]}]
+                 redirect-to
+                 use-shared-credentials?]}]
    ;; Only validate discovery endpoint if provided (OIDC providers)
    (when discovery-endpoint
      (try
@@ -59,7 +60,9 @@
                     [:add-triple id (resolve-id :encryptedClientSecret) enc-client-secret-hex]
                     [:add-triple id (resolve-id :discoveryEndpoint) discovery-endpoint]
                     [:add-triple id (resolve-id :meta) meta]
-                    [:add-triple id (resolve-id :redirectTo) redirect-to]])
+                    [:add-triple id (resolve-id :redirectTo) redirect-to]
+                    [:add-triple id (resolve-id :useSharedCredentials)
+                     (boolean use-shared-credentials?)]])
         (get-entity id))))))
 
 (defn update!
@@ -80,7 +83,10 @@
                          (when (contains? params :client-secret)
                            [[:add-triple id (resolve-id :encryptedClientSecret)
                              (crypt-util/aead-encrypt-hex (:client-secret params)
-                                                          (uuid-util/->bytes id))]])))
+                                                          (uuid-util/->bytes id))]])
+                         (when (contains? params :use-shared-credentials?)
+                           [[:add-triple id (resolve-id :useSharedCredentials)
+                             (boolean (:use-shared-credentials? params))]])))
       (get-entity id)))))
 
 (defn get-by-id
@@ -134,7 +140,7 @@
         (app-oauth-service-provider-model/get-by-id!
          {:app-id (:app_id oauth-client)
           :id (:provider_id oauth-client)})
-        shared? (use-shared-credentials? (:meta oauth-client))
+        shared? (use-shared-credentials? oauth-client)
         shared-cred (when shared? (get-shared-credential! provider-name))
         client-id (if shared?
                     (:client-id shared-cred)
