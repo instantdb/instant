@@ -6,9 +6,9 @@ import { readPackage } from 'pkg-types';
 import { GlobalOpts } from '../context/globalOpts.ts';
 import { FileSystem, Path } from '@effect/platform';
 import chalk from 'chalk';
-import terminalLink from 'terminal-link';
 import { getDashUrl } from './http.ts';
 import { promptOk } from './ui.ts';
+import { link } from '../logging.ts';
 
 export const handleEnv = Effect.fn(function* (app: CurrentAppInfo) {
   const opts = yield* GlobalOpts;
@@ -107,7 +107,7 @@ function printDotEnvInfo(
   otherEnvs.sort();
   const otherEnvStr = otherEnvs.map((x) => '  ' + chalk.green(x)).join('\n');
   console.log(`Alternative names: \n${otherEnvStr} \n`);
-  console.log(terminalLink('Dashboard:', appDashUrl(appId, dashOrigin)) + '\n');
+  console.log(link(appDashUrl(appId, dashOrigin), 'Dashboard:') + '\n');
 }
 
 function appDashUrl(id: string, instantOrigin: string) {

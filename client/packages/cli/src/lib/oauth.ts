@@ -4,7 +4,6 @@ import { CurrentApp } from '../context/currentApp.ts';
 import { InstantHttpAuthed, withCommand } from './http.ts';
 import chalk from 'chalk';
 import {
-  getOptionalStringFlag,
   optOrPrompt,
   runUIEffect,
   stripFirstBlankLine,
