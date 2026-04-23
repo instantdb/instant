@@ -1,5 +1,4 @@
 import { loadEnv } from './util/loadEnv.ts';
-import supportsHyperlinks from 'supports-hyperlinks';
 
 loadEnv();
 
@@ -126,9 +125,9 @@ Provider Specific Options:
    --client-secret
    --custom-redirect-uri      (optional)
   Clerk:
-   --publishable-key    (Publishable Key from dashboard.clerk.com)
+   --publishable-key    (Publishable Key from ${link('https://dashboard.clerk.com', 'dashboard.clerk.com')})
   Firebase:
-   --project-id         (Project ID from console.firebase.google.com)
+   --project-id         (Project ID from ${link('https://console.firebase.google.com', 'console.firebase.google.com')})
 `,
   )
   .action((opts) => {
