@@ -288,8 +288,8 @@ jobs:
       run: |
         command -v jdeprscan
         command -v jdeps
-        jdeprscan --version
-        jdeps -version
+        jdeprscan --version || true
+        jdeps --version || jdeps -version || true
 
     - name: Scan deprecated APIs for JDK 26
       working-directory: server
