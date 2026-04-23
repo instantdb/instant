@@ -29,9 +29,6 @@
    [instant.model.app-user :as app-user-model]
    [instant.util.exception :as ex]))
 
-;; --------------------------------------------------------------
-;; Runtime reads
-
 (defn get-shared-credential [provider-name]
   (->> (config/shared-oauth-clients)
        (filter #(= (:provider-name %) provider-name))
@@ -41,9 +38,6 @@
   (ex/assert-record! (get-shared-credential provider-name)
                      :shared-oauth-client
                      {:provider-name provider-name}))
-
-;; --------------------------------------------------------------
-;; Cap enforcement
 
 (def shared-credentials-user-limit 100)
 
