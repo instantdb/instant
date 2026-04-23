@@ -730,8 +730,9 @@ const handleFirebaseClient = Effect.fn(function* (
     opts,
   );
 
+  const firebaseProjectIdRegex = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/;
   const projectId = yield* optOrPrompt(opts['project-id'], {
-    simpleName: 'project-id',
+    simpleName: '--project-id',
     required: true,
     skipIf: false,
     prompt: {
@@ -742,7 +743,14 @@ const handleFirebaseClient = Effect.fn(function* (
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
       ]),
-      validate: validateRequired,
+      validate: (val) => {
+        if (!val) {
+          return 'Project ID is required';
+        }
+        if (!firebaseProjectIdRegex.test(val)) {
+          return 'Invalid Firebase project ID. It must be 6-30 characters, start with a lowercase letter, contain only lowercase letters, digits, and hyphens, and not end with a hyphen.';
+        }
+      },
     },
   });
   // typeguard
@@ -751,10 +759,16 @@ const handleFirebaseClient = Effect.fn(function* (
       message: 'Missing required arguments',
     });
   }
+  if (!firebaseProjectIdRegex.test(projectId)) {
+    return yield* BadArgsError.make({
+      message:
+        'Invalid Firebase project ID. It must be 6-30 characters, start with a lowercase letter, contain only lowercase letters, digits, and hyphens, and not end with a hyphen.',
+    });
+  }
   const response = yield* addOAuthClient({
     providerId: provider.id,
     clientName,
-    discoveryEndpoint: `https://securetoken.google.com/${projectId}/.well-known/openid-configuration`,
+    discoveryEndpoint: `https://securetoken.google.com/${encodeURIComponent(projectId)}/.well-known/openid-configuration`,
   });
 
   yield* Effect.log(

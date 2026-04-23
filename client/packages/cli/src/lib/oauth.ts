@@ -183,7 +183,8 @@ export const getOrCreateProvider = Effect.fn(function* (
   return { auth, provider: created.provider };
 });
 
-// If user has clients google-web-1 and google-web-2, it will provide google-web-3
+// Returns prefix if unused; otherwise appends integers starting at 2.
+// e.g. findName('google', new Set(['google', 'google2'])) returns 'google3'.
 export const findName = (prefix: string, used: Set<string>) => {
   if (!used.has(prefix)) {
     return prefix;
