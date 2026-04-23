@@ -2,6 +2,6 @@
 // Update the version here and merge your code to main to
 // publish a new version of all of the packages to npm.
 
-const version = 'v1.0.14';
+const version = 'v1.0.15';
 
 export { version };
