@@ -37,7 +37,7 @@ const ClientTypeSchema = Schema.Literal(
   'apple',
   'linkedin',
   'clerk',
-  // 'firebase',
+  'firebase',
 );
 
 const GoogleAppTypeSchema = Schema.Literal(
@@ -858,8 +858,7 @@ export const authClientAddCmd = Effect.fn(
               { label: 'Apple', value: 'apple' },
               { label: 'LinkedIn', value: 'linkedin' },
               { label: 'Clerk', value: 'clerk' },
-              // TODO: implement
-              // { label: 'Firebase', value: 'firebase' },
+              { label: 'Firebase', value: 'firebase' },
             ],
             promptText: 'Select a client type:',
             modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
@@ -881,7 +880,7 @@ export const authClientAddCmd = Effect.fn(
       Match.when('apple', () => handleAppleClient(opts)),
       Match.when('linkedin', () => handleLinkedInClient(opts)),
       Match.when('clerk', () => handleClerkClient(opts)),
-      // Match.when('firebase', () => Effect.logError('Not Implemented')),
+      Match.when('firebase', () => Effect.logError('Not Implemented')),
       Match.exhaustive,
     );
   },

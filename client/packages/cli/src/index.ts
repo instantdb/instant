@@ -124,6 +124,8 @@ Provider Specific Options:
    --custom-redirect-uri      (optional)
   Clerk:
    --publishable-key    (Publishable Key from dashboard.clerk.com)
+  Firebase:
+   --project-id         (Project ID from console.firebase.google.com)
 `,
   )
   .action((opts) => {
