@@ -838,6 +838,12 @@ const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
   );
 });
 
+const handleFirebaseClient = Effect.fn(function* (
+  opts: OptsFromCommand<typeof authClientAddDef> & Record<string, unknown>,
+) {
+  yield* Effect.log('HERE');
+});
+
 export const authClientAddCmd = Effect.fn(
   function* (
     opts: OptsFromCommand<typeof authClientAddDef> & Record<string, unknown>,
@@ -880,7 +886,7 @@ export const authClientAddCmd = Effect.fn(
       Match.when('apple', () => handleAppleClient(opts)),
       Match.when('linkedin', () => handleLinkedInClient(opts)),
       Match.when('clerk', () => handleClerkClient(opts)),
-      Match.when('firebase', () => Effect.logError('Not Implemented')),
+      Match.when('firebase', () => handleFirebaseClient(opts)),
       Match.exhaustive,
     );
   },
