@@ -617,7 +617,7 @@
         client-id (coerce-optional-param! [:body :client_id])
         client-secret (coerce-optional-param! [:body :client_secret])
         meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
-        use-shared-credentials? (boolean (get-in req [:body :use_shared_credentials]))
+        use-shared-credentials? (boolean (-> req :body :use_shared_credentials))
         redirect-to (-> req :body :redirect_to string-util/coerce-non-blank-str)
         _ (when redirect-to
             (ex/assert-valid!
@@ -655,8 +655,8 @@
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         id (ex/get-param! req [:params :id] uuid-util/coerce)
         meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
-        use-shared-credentials? (when (contains? (:body req) :use_shared_credentials)
-                                  (boolean (get-in req [:body :use_shared_credentials])))
+        use-shared-credentials? (when-some [v (-> req :body :use_shared_credentials)]
+                                  (boolean v))
         redirect-to (-> req :body :redirect_to string-util/coerce-non-blank-str)
         client-id (ex/get-optional-param! req [:body :client_id] string-util/coerce-non-blank-str)
         client-secret (ex/get-optional-param! req [:body :client_secret] string-util/coerce-non-blank-str)
