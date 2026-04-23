@@ -134,21 +134,24 @@
         (app-oauth-service-provider-model/get-by-id!
          {:app-id (:app_id oauth-client)
           :id (:provider_id oauth-client)})
-        oauth-client (if-not (use-shared-credentials? (:meta oauth-client))
-                       oauth-client
-                       (let [shared-cred (get-shared-credential! provider-name)]
-                         (assoc oauth-client
-                                :id (:id shared-cred)
-                                :client_id (:clientId shared-cred)
-                                :client_secret (:encryptedClientSecret shared-cred))))]
+        shared? (use-shared-credentials? (:meta oauth-client))
+        shared-cred (when shared? (get-shared-credential! provider-name))
+        client-id (if shared?
+                    (:client-id shared-cred)
+                    (:client_id oauth-client))
+        client-secret (cond
+                        shared?
+                        (:client-secret shared-cred)
+
+                        (:client_secret oauth-client)
+                        (decrypted-client-secret oauth-client))]
     (cond
       (:discovery_endpoint oauth-client)
       (oauth/generic-oauth-client-from-discovery-url
        {:app-id (:app_id oauth-client)
         :provider-id (:provider_id oauth-client)
-        :client-id (:client_id oauth-client)
-        :client-secret (when (:client_secret oauth-client)
-                         (decrypted-client-secret oauth-client))
+        :client-id client-id
+        :client-secret client-secret
         :discovery-endpoint (:discovery_endpoint oauth-client)
         :meta (:meta oauth-client)})
 
@@ -156,9 +159,8 @@
       (oauth/map->GitHubOAuthClient
        {:app-id (:app_id oauth-client)
         :provider-id (:provider_id oauth-client)
-        :client-id (:client_id oauth-client)
-        :client-secret (when (:client_secret oauth-client)
-                         (decrypted-client-secret oauth-client))
+        :client-id client-id
+        :client-secret client-secret
         :meta (:meta oauth-client)})
 
       :else

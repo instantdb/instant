@@ -28,6 +28,12 @@
 (s/def ::oauth-client (s/keys :req-un [::client-id
                                        ::client-secret]))
 
+(s/def ::provider-name string?)
+(s/def ::shared-oauth-client (s/keys :req-un [::provider-name
+                                              ::client-id
+                                              ::client-secret]))
+(s/def ::shared-oauth-clients (s/coll-of ::shared-oauth-client))
+
 (s/def ::private-key (s/or ::encoded-bytes (s/keys :req-un [::enc-bytes])))
 (s/def ::key-id string?)
 (s/def ::cloudfront-signing-key (s/keys :req-un [::key-id ::private-key]))
@@ -77,6 +83,7 @@
                                  ::honeycomb-api-key
                                  ::posthog-api-key
                                  ::google-oauth-client
+                                 ::shared-oauth-clients
                                  ::hybrid-keyset
                                  ::rate-limit-hmac-key]
                         :req-un [::aead-keyset]))
@@ -99,7 +106,8 @@
                                       ::hybrid-keyset
                                       ::rate-limit-hmac-key]
                              :opt-un [::instant-config-app-id
-                                      ::next-database-cluster-id]))
+                                      ::next-database-cluster-id
+                                      ::shared-oauth-clients]))
 
 (defn config-spec [prod?]
   (if prod?

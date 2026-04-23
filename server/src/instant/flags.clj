@@ -7,7 +7,6 @@
    [clojure.tools.logging :as log]
    [clojure.walk :as w]
    [instant.config :as config]
-   [instant.util.crypt :as crypt-util]
    [instant.util.json :as json]
    [instant.util.uuid :as uuid-util]))
 
@@ -34,8 +33,7 @@
             :toggles {}
             :flags {}
             :handle-receive-timeout {}
-            :query-modifiers {}
-            :shared-oauth-clients {}})
+            :query-modifiers {}})
 
 (def toggle-defaults {:pg-hints-by-default (= :test (config/get-env))})
 
@@ -149,14 +147,6 @@
                                first
                                (get "enabled")
                                (or false))
-        shared-oauth-clients (->> (get result "shared-oauth-clients")
-                                  (map (fn [c]
-                                         {:id (parse-uuid (get c "id"))
-                                          :providerName (get c "providerName")
-                                          :clientId (get c "clientId")
-                                          :encryptedClientSecret (crypt-util/hex-string->bytes
-                                                                  (get c "encryptedClientSecretHexString"))}))
-                                  (group-by :providerName))
         query-modifiers (reduce (fn [acc {:strs [app-id query-hash etype dollar-params]}]
                                   (update-in acc
                                              [(parse-uuid app-id) query-hash]
@@ -184,8 +174,7 @@
      :toggles toggles
      :flags flags
      :handle-receive-timeout handle-receive-timeout
-     :query-modifiers query-modifiers
-     :shared-oauth-clients shared-oauth-clients}))
+     :query-modifiers query-modifiers}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -366,9 +355,6 @@
 
 (defn statement-cancel-wait-ms []
   (flag :statement-cancel-wait-ms 500))
-
-(defn shared-oauth-clients []
-  (get (query-result) :shared-oauth-clients))
 
 (defn query-modifiers [app-id query-hash]
   (get-in (query-result) [:query-modifiers app-id query-hash]))

@@ -3,42 +3,39 @@
    they can test OAuth (Google, etc.) without setting up their own
    client in the provider's console.
 
-   Rows live in the `shared-oauth-clients` entity on the instant-config
-   app, keyed by provider name (e.g. \"google\"). The runtime reads
-   those rows via `get-shared-credential!` when an app's
-   `app-oauth-client` has `meta.useSharedCredentials = true`.
+   Credentials live in the per-env config files
+   (`resources/config/{dev,staging,prod}.edn`) under
+   `:shared-oauth-clients`. They are decrypted once at startup alongside
+   every other config secret, so the runtime lookup is an in-process
+   read with no DB round-trip.
 
-   Two parallel entities live on instant-config:
+   Each entry has the shape:
 
-   - `shared-oauth-clients` — used by apps in every env. Registered
-     with the provider against
-     `https://api.instantdb.com/runtime/oauth/callback`.
+     {:provider-name \"google\"
+      :client-id     \"...apps.googleusercontent.com\"
+      :client-secret <Secret>}  ;; already decrypted by config-edn
 
-   - `shared-oauth-clients-instant-dev` — parallel entity, registered
-     against `http://localhost:8888/runtime/oauth/callback`. Used by
-     Instant engineers running the server locally. Pulled into a dev's
-     local `shared-oauth-clients` via `import-from-prod!` so the
-     runtime code stays provider-agnostic (it just reads
-     `shared-oauth-clients`).
+   The dev/staging/prod variants are registered with the OAuth provider
+   under different callback URLs (localhost for dev, api-staging /
+   api.instantdb.com for staging / prod), so the same provider name can
+   point at different `:client-id` values per env.
 
-   KMS key ARN is the same across envs, so ciphertext produced in any
-   JVM decrypts in any other. `instant-config-app-id` is also the same
-   across envs."
+   To add a new provider's secret to a config file, run
+   `clj -X tasks/encrypt-config-secret :env :dev` (or :staging / :prod),
+   paste the plaintext, and drop the resulting `{:enc \"...\"}` into
+   the relevant `*.edn`."
   (:require
    [instant.config :as config]
-   [instant.flags :as flags]
-   [instant.jdbc.aurora :as aurora]
    [instant.model.app-user :as app-user-model]
-   [instant.system-catalog-ops :as sco]
-   [instant.util.crypt :as crypt-util]
-   [instant.util.exception :as ex]
-   [instant.util.uuid :as uuid-util]))
+   [instant.util.exception :as ex]))
 
 ;; --------------------------------------------------------------
 ;; Runtime reads
 
 (defn get-shared-credential [provider-name]
-  (first (get (flags/shared-oauth-clients) provider-name)))
+  (->> (config/shared-oauth-clients)
+       (filter #(= (:provider-name %) provider-name))
+       first))
 
 (defn get-shared-credential! [provider-name]
   (ex/assert-record! (get-shared-credential provider-name)
@@ -65,80 +62,3 @@
      [{:message (str "Shared dev credentials are limited to "
                      shared-credentials-user-limit
                      " users. Please add your own client_id and client_secret in the dashboard.")}])))
-
-;; --------------------------------------------------------------
-;; Ops helpers
-
-(defn make-row
-  "Build a row map ready to paste into instant-config's
-   `shared-oauth-clients` (or `shared-oauth-clients-instant-dev`) 
-   via the dashboard Explorer."
-  [{:keys [provider-name client-id client-secret]}]
-  (assert (and provider-name client-id client-secret)
-          "make-row needs :provider-name, :client-id, :client-secret")
-  (let [id (random-uuid)]
-    {:id id
-     :providerName provider-name
-     :clientId client-id
-     :encryptedClientSecretHexString (crypt-util/aead-encrypt-hex
-                                      client-secret
-                                      (uuid-util/->bytes id))}))
-
-(defn import-from-prod!
-  "Copy the `shared-oauth-clients-instant-dev` row for `provider-name`
-   from prod into the caller's local instant-config app's
-   `shared-oauth-clients` entity.
-
-   Run this once when setting up a local server so the shared-creds
-   flow works end-to-end"
-  [{:keys [provider-name prod-conn-pool]}]
-  (assert (and provider-name prod-conn-pool)
-          "import-from-prod! needs :provider-name and :prod-conn-pool")
-  (let [prod-row (sco/query-op
-                  prod-conn-pool
-                  {:app-id (config/instant-config-app-id)
-                   :etype "shared-oauth-clients-instant-dev"}
-                  (fn [{:keys [get-entity-where]}]
-                    (get-entity-where {:providerName provider-name})))
-        _ (assert prod-row
-                  (str "No shared-oauth-clients-instant-dev row for "
-                       provider-name " in prod"))
-        local-pool (aurora/conn-pool :write)]
-    (sco/update-op
-     local-pool
-     {:app-id (config/instant-config-app-id)
-      :etype "shared-oauth-clients"}
-     (fn [{:keys [transact! resolve-id get-entity delete-entity!]}]
-       ;; Replace any existing local row so the import is idempotent.
-       (delete-entity! [(resolve-id :providerName) provider-name])
-       ;; Reads come back with snake_case `:client_id` (system-catalog-
-       ;; ops remaps `:clientId` on output). Writes still use the
-       ;; original label via `resolve-id :clientId`.
-       (let [id (:id prod-row)]
-         (transact!
-          [[:add-triple id (resolve-id :id) id]
-           [:add-triple id (resolve-id :providerName) provider-name]
-           [:add-triple id (resolve-id :clientId) (:client_id prod-row)]
-           [:add-triple id (resolve-id :encryptedClientSecretHexString)
-            (:encryptedClientSecretHexString prod-row)]])
-         (dissoc (get-entity id) :encryptedClientSecretHexString))))))
-
-(comment
-  ;; Evaluate these from inside this ns in the REPL.
-  
-  ;; ---- Adding a new shared credential ----
-  
-  (make-row {:provider-name "google"
-             :client-id     "1234567890-abc.apps.googleusercontent.com"
-             :client-secret "GOCSPX-example-secret"})
-  ;; You can now paste the result in instant-config
-  
-  ;; ---- Local dev setup ----
-  ;;
-  ;; Pull the Instant-dev variant out of prod so shared-creds work
-  ;; against your locally-running server. 
-  
-  (tool/with-prod-conn [prod-conn]
-    (import-from-prod! {:provider-name "google"
-                        :prod-conn-pool prod-conn})))
-  

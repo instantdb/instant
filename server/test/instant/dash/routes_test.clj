@@ -7,7 +7,6 @@
    [instant.dash.ephemeral-app :as ephemeral-app]
    [instant.dash.get-a-db :as get-a-db]
    [instant.dash.routes :as routes]
-   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
@@ -1182,7 +1181,7 @@
     (fn [u]
       (with-empty-app (:id u)
         (fn [app]
-          (with-redefs [flags/shared-oauth-clients (constantly {})]
+          (with-redefs [config/shared-oauth-clients (constantly [])]
             (let [provider (create-provider! app u "github")
                   resp (post-oauth-client app u {:provider_id (:id provider)
                                                  :client_name "github-web"
@@ -1204,10 +1203,10 @@
                                      :id (random-uuid)
                                      :email (str "cap-" i "@test.com")
                                      :type "user"}))
-          (let [fake-shared {"github" [{:id (random-uuid)
-                                        :clientId "shared-github"
-                                        :encryptedClientSecret "deadbeef"}]}]
-            (with-redefs [flags/shared-oauth-clients (constantly fake-shared)
+          (let [fake-shared [{:provider-name "github"
+                              :client-id "shared-github"
+                              :client-secret (crypt-util/obfuscate "fake")}]]
+            (with-redefs [config/shared-oauth-clients (constantly fake-shared)
                           shared-credentials-user-limit 5]
               (let [provider (create-provider! app u "github")
                     resp (post-oauth-client app u {:provider_id (:id provider)

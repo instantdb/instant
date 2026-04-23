@@ -63,22 +63,6 @@ const _schema = i.schema({
     "rule-where-testing": i.entity({
       enabled: i.boolean(),
     }),
-    "shared-oauth-clients": i.entity({
-      providerName: i.string().unique().indexed(),
-      clientId: i.string(),
-      encryptedClientSecretHexString: i.string(),
-    }),
-    // Parallel to `shared-oauth-clients`, these oauth clients
-    // are registered to allow `http://localhost:8888`
-    //
-    // This lets Instant engineers run the shared-creds flow locally. 
-    // There's a handy script to import these credential to your local server:
-    // Check out `instant.model.shared-oauth-client/import-from-prod!`.
-    "shared-oauth-clients-instant-dev": i.entity({
-      providerName: i.string().unique().indexed(),
-      clientId: i.string(),
-      encryptedClientSecretHexString: i.string(),
-    }),
     "rule-wheres": i.entity({
       "app-ids": i.json(),
       "query-hash-blacklist": i.any(),
