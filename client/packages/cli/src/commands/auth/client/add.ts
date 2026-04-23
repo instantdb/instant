@@ -738,6 +738,10 @@ const handleFirebaseClient = Effect.fn(function* (
       prompt:
         'Firebase project ID: (From Project Settings page on https://console.firebase.google.com/)',
       placeholder: '',
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
       validate: validateRequired,
     },
   });

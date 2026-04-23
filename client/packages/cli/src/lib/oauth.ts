@@ -205,7 +205,7 @@ export const getClientNameAndProvider = Effect.fn(function* (
   const usedClientNames = new Set(
     (auth.oauth_clients ?? []).map((client) => client.client_name),
   );
-  const suggestedClientName = findName('github-web', usedClientNames);
+  const suggestedClientName = findName(providerType, usedClientNames);
 
   const clientName = yield* optOrPrompt(opts.name, {
     simpleName: '--name',
