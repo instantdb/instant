@@ -21,9 +21,9 @@
    point at different `:client-id` values per env.
 
    To add a new provider's secret to a config file, run
-   `clj -X tasks/encrypt-config-secret :env :dev` (or :staging / :prod),
-   paste the plaintext, and drop the resulting `{:enc \"...\"}` into
-   the relevant `*.edn`."
+   `make encrypt-secret-dev` (or `-staging` / `-prod`), paste the
+   plaintext, and drop the resulting `{:enc \"...\"}` into the
+   relevant `*.edn`."
   (:require
    [instant.config :as config]
    [instant.model.app-user :as app-user-model]
