@@ -191,7 +191,7 @@
     (when-not (app-authorized-redirect-origin-model/authorized-origin?
                authorized-origins
                redirect-uri
-               (app-oauth-client-model/use-shared-credentials? client))
+               (:use_shared_credentials client))
       (ex/throw-validation-err!
        :redirect-uri
        redirect-uri
@@ -203,7 +203,7 @@
     (when-not (app-authorized-redirect-origin-model/authorized-origin?
                authorized-origins
                origin
-               (app-oauth-client-model/use-shared-credentials? client))
+               (:use_shared_credentials client))
       (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
 (defn oauth-start [{{:keys [state code_challenge code_challenge_method]} :params :as req}]
@@ -636,7 +636,7 @@
                                                 :guest-user-id (:id guest-user)
                                                 :extra-fields extra-fields
                                                 :use-shared-credentials?
-                                                (app-oauth-client-model/use-shared-credentials? client)})
+                                                (:use_shared_credentials client)})
 
         refresh-token-id (random-uuid)
 
@@ -698,7 +698,7 @@
                                           :guest-user-id (:id guest-user)
                                           :extra-fields extra-fields
                                           :use-shared-credentials?
-                                          (app-oauth-client-model/use-shared-credentials? client)})
+                                          (:use_shared_credentials client)})
 
         {refresh-token-id :id} (if (and current-refresh-token
                                         (= (:user_id social-login)

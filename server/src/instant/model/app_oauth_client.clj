@@ -14,9 +14,6 @@
 
 (def etype "$oauthClients")
 
-(defn use-shared-credentials? [oauth-client]
-  (boolean (:use_shared_credentials oauth-client)))
-
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id
@@ -140,7 +137,7 @@
         (app-oauth-service-provider-model/get-by-id!
          {:app-id (:app_id oauth-client)
           :id (:provider_id oauth-client)})
-        shared? (use-shared-credentials? oauth-client)
+        shared? (:use_shared_credentials oauth-client)
         shared-cred (when shared? (get-shared-credential! provider-name))
         client-id (if shared?
                     (:client-id shared-cred)
