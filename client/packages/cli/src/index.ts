@@ -123,7 +123,7 @@ Provider Specific Options:
    --client-secret
    --custom-redirect-uri      (optional)
   Clerk:
-   --publishable-key
+   --publishable-key    (Publishable Key from dashboard.clerk.com)
 `,
   )
   .action((opts) => {

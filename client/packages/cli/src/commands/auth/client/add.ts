@@ -802,8 +802,6 @@ const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
     });
   }
 
-  // The backend infers GitHub's authorization/token endpoints from
-  // meta.providerName === 'github', so we don't pass them here.
   const response = yield* addOAuthClient({
     providerId: provider.id,
     clientName,
