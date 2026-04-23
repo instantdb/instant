@@ -830,14 +830,12 @@ const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
 
   yield* Effect.log(
     '\nNavigate to your Clerk dashboard. On the Sessions page, click the Edit button in the Customize session token section.\nEnsure your Claims field has the email claim:\n' +
-      chalk.bgBlack.white(
-        boxen(
-          `{
+      boxen(
+        `{
   "email": "{{user.primary_email_address}}",
   "email_verified": "{{user.email_verified}}"
 }`,
-          { borderStyle: 'none' },
-        ),
+        { borderStyle: 'none' },
       ),
   );
 });
