@@ -34,8 +34,8 @@ export const SimpleLogLayer = Logger.replace(
 );
 
 export const link = (url: string, text?: string): string => {
-  if (supportsHyperlinks) {
+  if (supportsHyperlinks.stdout) {
     return ansiEscapes.link(text ?? url, url);
   }
-  return url;
+  return text ?? url;
 };
