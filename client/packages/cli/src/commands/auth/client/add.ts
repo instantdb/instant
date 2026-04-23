@@ -729,6 +729,40 @@ const handleFirebaseClient = Effect.fn(function* (
     'firebase',
     opts,
   );
+
+  const projectId = yield* optOrPrompt(opts['project-id'], {
+    simpleName: 'project-id',
+    required: true,
+    skipIf: false,
+    prompt: {
+      prompt:
+        'Firebase project ID: (From Project Settings page on https://console.firebase.google.com/)',
+      placeholder: '',
+      validate: validateRequired,
+    },
+  });
+  // typeguard
+  if (!clientName || !projectId) {
+    return yield* BadArgsError.make({
+      message: 'Missing required arguments',
+    });
+  }
+  const response = yield* addOAuthClient({
+    providerId: provider.id,
+    clientName,
+    discoveryEndpoint: `https://securetoken.google.com/${projectId}/.well-known/openid-configuration`,
+  });
+
+  yield* Effect.log(
+    boxen(
+      [
+        `Firebase OAuth client created: ${response.client.client_name}`,
+        `ID: ${response.client.id}`,
+        `Firebase Project ID: ${projectId}`,
+      ].join('\n'),
+      { dimBorder: true, padding: { right: 1, left: 1 } },
+    ),
+  );
 });
 
 export const authClientAddCmd = Effect.fn(
