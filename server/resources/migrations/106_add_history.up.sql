@@ -4,7 +4,7 @@ create type history_storage as enum ('s3', 'pg');
 create table history (
   isn isn not null,
   app_id uuid not null,
-  -- Acts as a bloom filter for the `e`, and `a` (and possibly `v`) topic fields
+  -- Acts as a bloom filter for the `a`, `e` (and possibly `v`) topic fields
   topics bigint not null,
   storage history_storage not null,
   -- Only present if storage = 'pg'
@@ -33,7 +33,7 @@ create table history_10 partition of history for values from (10) to (11);
 create table history_11 partition of history for values from (11) to (12);
 create table history_12 partition of history for values from (12) to (13);
 
--- topic_idx allows us to do:
+-- topics allows us to do:
 --   `select isn from history where app_id = :id and isn > :last-isn and (topics & :topic-mask != 0)`
 -- That will return false positives, but should be very fast and requires very little data.
 

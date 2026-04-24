@@ -28,6 +28,16 @@
 
 (set! *warn-on-reflection* true)
 
+(defn parse-isn
+  "Parses the value that we get from postgres into an isn.
+   We get something that looks like (0,328/26EEF7F8)"
+  ^ISN [^String value]
+  (let [idx (.indexOf value (int \,))
+        slot-str (subs value 1 idx)
+        lsn-str (subs value (inc idx) (dec (count value)))]
+    (ISN. (Integer/parseInt slot-str)
+          (LogSequenceNumber/valueOf lsn-str))))
+
 (defn <-pgobject
   "Transform PGobject containing `json` or `jsonb` value to Clojure data"
   [^PGobject v]
@@ -38,12 +48,7 @@
         ("json" "jsonb") (<-json value)
         "bit" (Long/parseLong value 2)
         "pg_lsn" (LogSequenceNumber/valueOf value)
-        "isn" (let [inner (subs value 1 (dec (count value)))
-                    idx (.indexOf ^String inner (int \,))
-                    slot-str (subs inner 0 idx)
-                    lsn-str (subs inner (inc idx))]
-                (ISN. (Integer/parseInt slot-str)
-                      (LogSequenceNumber/valueOf ^String lsn-str)))
+        "isn" (parse-isn value)
         value))))
 
 (defn <-array [^Array a]
@@ -51,6 +56,7 @@
         vs (.getArray a)]
     (case type
       ("json" "jsonb") (mapv <-json vs)
+      "isn" (mapv <-pgobject vs)
       (vec vs))))
 
 (defn- create-pg-array [^PreparedStatement s pgtype clazz vs]
@@ -90,7 +96,6 @@
       (.setObject s i (doto (PGobject.)
                         (.setType pgtype)
                         (.setValue (->json v)))))))
-
 
 (extend-protocol rs/ReadableColumn
   Array
