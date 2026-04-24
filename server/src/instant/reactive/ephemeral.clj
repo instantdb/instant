@@ -51,9 +51,14 @@
 
 (declare handle-broadcast-message)
 
+;; {machine-id Member}
 (defonce hz-member-by-machine-id-cache ^ConcurrentHashMap (ConcurrentHashMap.))
 
+;; {machine-id {callback-id (fn [:action])}}
 (defonce hz-member-callbacks ^ConcurrentHashMap (ConcurrentHashMap.))
+
+;; {callback-id (fn [machine-id :action])}
+(defonce hz-member-change-callbacks ^ConcurrentHashMap (ConcurrentHashMap.))
 
 (defn remove-hz-member-callback [machine-id cb-id]
   (Map/.compute hz-member-callbacks machine-id ^BiFunction (reify BiFunction
@@ -70,9 +75,20 @@
     (fn []
       (remove-hz-member-callback machine-id cb-id))))
 
+(defn remove-hz-member-change-callback [cb-id]
+  (Map/.remove hz-member-change-callbacks cb-id))
+
+(defn add-hz-member-change-callback [cb]
+  (let [cb-id (random-uuid)]
+    (Map/.put hz-member-change-callbacks cb-id cb)
+    (fn []
+      (remove-hz-member-change-callback cb-id))))
+
 (defn run-member-callbacks [machine-id action]
   (doseq [[_k cb] (Map/.get hz-member-callbacks machine-id)]
-    (cb action)))
+    (cb action))
+  (doseq [[_k cb] hz-member-change-callbacks]
+    (cb machine-id action)))
 
 (defn- add-member-listener [^HazelcastInstance hz]
   (.addMembershipListener (.getCluster hz)

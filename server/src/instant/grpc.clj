@@ -10,6 +10,7 @@
    (java.io ByteArrayInputStream DataInputStream)
    (java.time Instant)
    (java.util UUID)
+   (java.util.concurrent Executors)
    (org.postgresql.replication LogSequenceNumber)))
 
 ;; These defrecords are used to transfer messages between machines.
@@ -33,7 +34,6 @@
 
 (defrecord-once StreamError [error])
 
-
 (defrecord-once WalRecord [^UUID app-id
                            ^long tx-id
                            ^ISN isn
@@ -46,6 +46,13 @@
                            triple-changes
                            messages
                            wal-logs])
+
+(defrecord-once PackedWalRecord [^bytes ba])
+
+(defrecord-once SlotDisconnect [])
+
+(defrecord-once InvalidatorSubscribe [^UUID machine-id])
+
 (def stream-error-map
   {:unknown -1
    :rate-limit 1
@@ -78,6 +85,14 @@
       (.setResponseMarshaller nippy-marshaller)
       (.build)))
 
+(def invalidator-method
+  (-> (MethodDescriptor/newBuilder)
+      (.setType MethodDescriptor$MethodType/SERVER_STREAMING)
+      (.setFullMethodName "Invalidator/Subscribe")
+      (.setRequestMarshaller nippy-marshaller)
+      (.setResponseMarshaller nippy-marshaller)
+      (.build)))
+
 (def test-method
   (-> (MethodDescriptor/newBuilder)
       (.setType MethodDescriptor$MethodType/SERVER_STREAMING)
@@ -85,3 +100,5 @@
       (.setRequestMarshaller nippy-marshaller)
       (.setResponseMarshaller nippy-marshaller)
       (.build)))
+
+(def invalidator-thread-pool (Executors/newFixedThreadPool 3))

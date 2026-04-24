@@ -148,6 +148,38 @@
     (.append s "}")
     (.toString s)))
 
+;; ISN is a Clojure deftype in instant.isn; we can't :import it here because
+;; tool.clj loads before instant.isn. Check by class name instead.
+(defn isn?
+  [v]
+  (and (some? v)
+       (= "instant.isn.ISN" (.getName ^Class (class v)))))
+
+;; Delegate to the reflection-free version in instant.jdbc.sql. tool.clj can't
+;; :import ISN (loaded before instant.isn) and can't :require instant.jdbc.sql
+;; eagerly for the same reason, so resolve at first call.
+(def ^:private sql-isn->composite-str
+  (delay (requiring-resolve 'instant.jdbc.sql/isn->composite-str)))
+
+(defn isn->composite-str
+  "Serializes an ISN as the Postgres composite literal (slot_num,lsn)."
+  ^String [v]
+  (@sql-isn->composite-str v))
+
+(defn ->pg-isn-array
+  "Array-literal form: {\"(s,l)\",\"(s,l)\"}. Composites must be double-quoted
+   inside an array literal because they contain commas."
+  [isns]
+  (let [s (StringBuilder. "{")]
+    (doseq [isn isns]
+      (when (not= 1 (.length s))
+        (.append s \,))
+      (.append s \")
+      (.append s (isn->composite-str isn))
+      (.append s \"))
+    (.append s "}")
+    (.toString s)))
+
 (defn ->pg-json-array [items]
   (let [s (StringBuilder. "ARRAY[")]
     (doseq [item items]
@@ -199,7 +231,9 @@
                                                      (= "float8[]" (-> v meta :pgtype))
                                                      (= "timestamptz[]" (-> v meta :pgtype))
                                                      (= "integer[]" (-> v meta :pgtype))
+                                                     (= "int[]" (-> v meta :pgtype))
                                                      (= "bigint[]" (-> v meta :pgtype))
+                                                     (= "history_storage[]" (-> v meta :pgtype))
                                                      (and (set? v)
                                                           (or (every? uuid? v)
                                                               (every? boolean? v)
@@ -244,6 +278,12 @@
 
                                                  (instance? LogSequenceNumber v)
                                                  (format "'%s'::pg_lsn" (LogSequenceNumber/.asString v))
+
+                                                 (isn? v)
+                                                 (format "'%s'::isn" (isn->composite-str v))
+
+                                                 (= "isn[]" (-> v meta :pgtype))
+                                                 (format "'%s'::isn[]" (->pg-isn-array v))
 
                                                  ;; Fallback to JSON
                                                  (set? v)

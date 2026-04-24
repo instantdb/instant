@@ -249,6 +249,18 @@
     :staging "instant-storage-staging"
     "instantdb-test-bucket"))
 
+(def s3-wal-history-bucket-name
+  (when-not (= "pg" (System/getenv "WAL_HISTORY_STORAGE"))
+    (or (System/getenv "WAL_HISTORY_BUCKET_NAME")
+        (case (get-env)
+          :prod "instant-wal-logs-prod--use1-az4--x-s3"
+          :staging "instant-wal-logs-staging--use1-az4--x-s3"
+          "instant-wal-logs-dev--use1-az4--x-s3"))))
+
+(def wal-history-prefix
+  (when (= :dev (get-env))
+    @hostname))
+
 (def cloudfront-s3-bucket-url
   (case [(get-env) s3-bucket-name]
     [:dev "instantdb-test-bucket"] "https://files-dev.instantdb.com"

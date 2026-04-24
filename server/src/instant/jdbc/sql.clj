@@ -5,6 +5,7 @@
    ;; load all pg-ops for hsql
    [honey.sql :as hsql]
    [honey.sql.pg-ops]
+   [instant.isn]
    [instant.jdbc.socket-track :as socket-track]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
@@ -18,6 +19,7 @@
   (:import
    (clojure.lang IPersistentList IPersistentMap IPersistentSet IPersistentVector ISeq)
    (com.zaxxer.hikari HikariDataSource)
+   (instant.isn ISN)
    (java.sql Array Connection PreparedStatement ResultSet ResultSetMetaData)
    (java.time Instant LocalDate LocalDateTime)
    (javax.sql DataSource)
@@ -36,6 +38,12 @@
         ("json" "jsonb") (<-json value)
         "bit" (Long/parseLong value 2)
         "pg_lsn" (LogSequenceNumber/valueOf value)
+        "isn" (let [inner (subs value 1 (dec (count value)))
+                    idx (.indexOf ^String inner (int \,))
+                    slot-str (subs inner 0 idx)
+                    lsn-str (subs inner (inc idx))]
+                (ISN. (Integer/parseInt slot-str)
+                      (LogSequenceNumber/valueOf ^String lsn-str)))
         value))))
 
 (defn <-array [^Array a]
@@ -55,6 +63,9 @@
 
 (def byte-class (Class/forName "[B"))
 
+(defn ^String isn->composite-str [^ISN isn]
+  (str "(" (.slotNum isn) "," (.asString ^LogSequenceNumber (.-lsn isn)) ")"))
+
 (defn set-param
   "Transform PGobject containing `json` or `jsonb` value to Clojure data"
   [^PreparedStatement s i v]
@@ -69,11 +80,13 @@
       "timestamptz[]" (.setArray s i (create-pg-array s "timestamptz" Instant v))
       "float8[]" (.setArray s i (create-pg-array s "float8" Number v))
       "boolean[]" (.setArray s i (create-pg-array s "boolean" Boolean v))
-      "integer[]" (.setArray s i (create-pg-array s "integer" Integer v))
+      ("integer[]" "int[]") (.setArray s i (create-pg-array s "integer" Integer v))
       "bigint[]" (.setArray s i (create-pg-array s "bigint" Long v))
       "bigint[][]" (.setArray s i (create-2d-pg-array s "bigint" Long v))
       "bytea[]" (.setArray s i (create-pg-array s "bytea" byte-class v))
       "bytea[][]" (.setArray s i (create-2d-pg-array s "bytea" byte-class v))
+      "isn[]" (.setArray s i (create-pg-array s "isn" String (map isn->composite-str v)))
+      "history_storage[]" (.setArray s i (create-pg-array s "history_storage" String v))
       (.setObject s i (doto (PGobject.)
                         (.setType pgtype)
                         (.setValue (->json v)))))))
@@ -106,6 +119,12 @@
     (.setObject ps i (doto (PGobject.)
                        (.setType "pg_lsn")
                        (.setValue (.asString v)))))
+
+  ISN
+  (set-parameter [^ISN v ^PreparedStatement ps ^long i]
+    (.setObject ps i (doto (PGobject.)
+                       (.setType "isn")
+                       (.setValue (isn->composite-str v)))))
 
   IPersistentMap
   (set-parameter [m ^PreparedStatement s i]

@@ -4,7 +4,7 @@
    [instant.isn]
    [taoensso.nippy :as nippy])
   (:import
-   (instant.grpc StreamAborted StreamComplete StreamContent StreamError StreamFile StreamInit StreamRequest WalRecord)
+   (instant.grpc InvalidatorSubscribe PackedWalRecord SlotDisconnect StreamAborted StreamComplete StreamContent StreamError StreamFile StreamInit StreamRequest WalRecord)
    (instant.isn ISN)
    (instant.jdbc WalColumn WalEntry)
    (java.io DataInput DataOutput)
@@ -247,3 +247,26 @@
                               (nippy/thaw-from-in! data-input) ; triple-changes
                               (nippy/thaw-from-in! data-input) ; messages
                               (nippy/thaw-from-in! data-input)))) ; wal-logs
+
+;; 13 is our custom identifier for SlotDisconnect, no other type can use it and
+;; it must be the same across all machines.
+(nippy/extend-freeze SlotDisconnect 13 [^SlotDisconnect _ _data-output])
+
+(nippy/extend-thaw 13 [_data-input]
+  (instant.grpc/->SlotDisconnect))
+
+;; 14 is our custom identifier for SlotDisconnect, no other type can use it and
+;; it must be the same across all machines.
+(nippy/extend-freeze PackedWalRecord 14 [^PackedWalRecord r data-output]
+  (nippy/freeze-to-out! data-output (:ba r)))
+
+(nippy/extend-thaw 14 [data-input]
+  (instant.grpc/->PackedWalRecord (nippy/thaw-from-in! data-input)))
+
+;; 15 is our custom identifier for SlotDisconnect, no other type can use it and
+;; it must be the same across all machines.
+(nippy/extend-freeze InvalidatorSubscribe 15 [^InvalidatorSubscribe {:keys [machine-id]} data-output]
+  (write-uuid data-output machine-id))
+
+(nippy/extend-thaw 15 [data-input]
+  (instant.grpc/->InvalidatorSubscribe (read-uuid data-input)))

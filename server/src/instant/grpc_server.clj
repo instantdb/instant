@@ -3,10 +3,11 @@
    [instant.config :as config]
    [instant.grpc :as grpc]
    [instant.model.app-stream :as app-stream-model]
+   [instant.reactive.invalidator :as invalidator]
    [instant.reactive.store :as rs]
    [instant.util.tracer :as tracer])
   (:import
-   (io.grpc Grpc InsecureServerCredentials Server ServerServiceDefinition)
+   (io.grpc Grpc InsecureServerCredentials Server ServerServiceDefinition ServerCallExecutorSupplier)
    (io.grpc.services AdminInterface)
    (io.grpc.stub ServerCalls ServerCalls$BidiStreamingMethod ServerCalls$ServerStreamingMethod StreamObserver)))
 
@@ -29,13 +30,32 @@
         (.addMethod grpc/subscribe-method subscribe-handler)
         (.build))))
 
+(defn instant-invalidator-service ^ServerServiceDefinition []
+  (let [subscribe-handler (ServerCalls/asyncServerStreamingCall
+                           (proxy [ServerCalls$ServerStreamingMethod] []
+                             (invoke [req ^StreamObserver observer]
+                               (invalidator/handle-grpc-subscribe req observer))))]
+    (-> (ServerServiceDefinition/builder "Invalidator")
+        (.addMethod grpc/invalidator-method subscribe-handler)
+        (.build))))
+
+(def call-executor
+  (reify ServerCallExecutorSupplier
+    (getExecutor [_ server-call _metadata]
+      (tool/def-locals)
+      (when (= (.getServiceName (.getMethodDescriptor server-call))
+               "Invalidator")
+        grpc/invalidator-thread-pool))))
+
 (defn grpc-server ^Server [store port]
   (tracer/with-span! {:name "grpc-server/start"
                       :attributes {:port port}}
     (-> (Grpc/newServerBuilderForPort port (InsecureServerCredentials/create))
         (.addService (instant-stream-service store))
         (.addService (instant-test-service))
+        (.addService (instant-invalidator-service))
         (.addServices (AdminInterface/getStandardServices))
+        (.callExecutor call-executor)
         (.build))))
 
 (declare global-server)

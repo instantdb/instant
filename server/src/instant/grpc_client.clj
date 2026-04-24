@@ -77,6 +77,13 @@
      :cancel (fn [^String reason]
                (.cancel call reason nil))}))
 
+(defn subscribe-to-invalidator [^ManagedChannel channel ^StreamObserver observer]
+  (let [call (.newCall channel grpc/invalidator-method CallOptions/DEFAULT)
+        req (grpc/->InvalidatorSubscribe config/machine-id)]
+    (ClientCalls/asyncServerStreamingCall call req observer)
+    {:cancel (fn [^String reason]
+               (.cancel call reason nil))}))
+
 (defn subscribe-to-test [^ManagedChannel channel req ^StreamObserver observer]
   (let [call (.newCall channel grpc/test-method CallOptions/DEFAULT)]
     (ClientCalls/asyncServerStreamingCall call req observer)

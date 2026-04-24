@@ -1,6 +1,7 @@
 (ns instant.reactive.invalidator
   (:require
    [clojure.core.async :as a]
+   [clojure.set :as set]
    [datascript.core :as ds]
    [instant.config :as config]
    [instant.db.pg-introspect :as pg-introspect]
@@ -8,27 +9,28 @@
    [instant.gauges :as gauges]
    [instant.grouped-queue :as grouped-queue]
    [instant.grpc :as grpc]
+   [instant.grpc-client :as grpc-client]
+   [instant.isn]
+   [instant.jdbc.sql :as sql]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
+   [instant.model.history :as history-model]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.reactive.topics :as topics]
    [instant.util.async :as ua]
    [instant.util.e2e-tracer :as e2e-tracer]
-   [instant.util.tracer :as tracer]
-   [clojure.set :as set])
+   [instant.util.tracer :as tracer])
   (:import
-   (com.hazelcast.core HazelcastInstance)
-   (com.hazelcast.ringbuffer Ringbuffer)
-   (com.hazelcast.ringbuffer.impl RingbufferService)
-   (com.hazelcast.topic Message ITopic ReliableMessageListener TopicOverloadPolicy)
+   (instant.grpc InvalidatorSubscribe PackedWalRecord SlotDisconnect WalRecord)
+   (io.grpc Status Status$Code)
+   (io.grpc.stub ServerCallStreamObserver StreamObserver)
    (java.sql Timestamp)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
-   (java.util Map Queue)
-   (java.util.concurrent ConcurrentHashMap Executors)
-   (java.util.concurrent.atomic AtomicLong)
+   (java.util ArrayList Map Queue)
+   (java.util.concurrent ConcurrentHashMap Executors LinkedBlockingQueue)
    (org.postgresql.replication LogSequenceNumber)))
 
 (declare wal-opts)
@@ -36,18 +38,18 @@
 (declare invalidator-q)
 
 (defn- schema-changes-require-refreshing-sessions?
-  "All sessions may need to know about some schema changes. 
+  "All sessions may need to know about some schema changes.
 
-   For example, if we create an attr, then all sessions should know about this, 
-   so they don't accidentally try create the same attr again. 
+   For example, if we create an attr, then all sessions should know about this,
+   so they don't accidentally try create the same attr again.
 
-   Right now we detect: 
+   Right now we detect:
     - Attr creates or deletes
-    - Ident changes 
+    - Ident changes
 
-   Technically, sessions may need to know about other things: like if an attr 
-   becomes unique. But I am worried we may end up causing too much thrash 
-   for larger apps. 
+   Technically, sessions may need to know about other things: like if an attr
+   becomes unique. But I am worried we may end up causing too much thrash
+   for larger apps.
 
    For now, I'm only notifying on these changes."
   [{:keys [attr-changes ident-changes]}]
@@ -284,31 +286,9 @@
       (tracer/record-info! {:name "invalidation-worker/shutdown"}))
     queue))
 
-(defn start-singleton-worker [{:keys [wal-chan
-                                      close-signal-chan
-                                      flush-lsn-chan
-                                      ^ITopic _hz-topic
-                                      on-error
-                                      stop-lsn
-                                      check-disabled]}]
-  (tracer/record-info! {:name "invalidator/singleton-worker-start"})
-  (let [process (a/go
-                  (loop []
-                    (if (check-disabled)
-                      (on-error (ex-info "Invalidator singleton disabled" {}))
-                      (when-let [wal-record (a/<! wal-chan)]
-                        (when-not (and stop-lsn
-                                       (= -1 (compare stop-lsn (:nextlsn wal-record))))
-                          (try
-                            ;; Remove while we prepare to switch from hazelcast to grpc
-                            ;;(.publish hz-topic (->WalRecord wal-record))
-                            (ua/>!-close-safe close-signal-chan flush-lsn-chan (:nextlsn wal-record))
-                            (catch Exception e
-                              (on-error e)))
-                          (recur)))))
-
-                  (tracer/record-info! {:name "invalidator/singleton-worker-stop"}))]
-    {:completed-chan process}))
+;; ----
+;; BYOP
+;; ----
 
 (defn handle-byop-record [table-info app-id store wal-record]
   (when-let [record (transform-byop-wal-record wal-record)]
@@ -344,6 +324,143 @@
                 (def -store-value store)
                 (tracer/add-exception! t {:escaping? false})))
             (recur)))))))
+
+;; ---------------------
+;; Singleton Invalidator
+;; ---------------------
+
+(defn handle-singleton-wal-record
+  "This can be called either by the wal listener or by the stream observer,
+   so it's either from our machine processing the wal, or by a stream of another
+   machine processing the wal.
+
+   You might worry that things will get out of sync, since this function tracks
+   the previous isn and it could be called by two different streams simultaneously
+   when the wal slot changes machines. It shouldn't be a problem because the calls
+   from each individual stream will always be in order.
+
+   The worst case should be that we handle the same record twice."
+  [{:keys [queue previous-isn-atom]} ^WalRecord wal-record]
+  (let [{:keys [isn previous-isn]} wal-record
+        [old-previous next-previous] (swap-vals! previous-isn-atom
+                                                 (fn [v]
+                                                   (cond (nil? v)
+                                                         isn ;; This is our first record
+
+                                                         ;; Don't let previous-isn go backwards
+                                                         (= -1 (compare isn v))
+                                                         v
+
+                                                         :else isn)))]
+    (when (and old-previous
+               (not= old-previous previous-isn))
+      ;; TODO: We should fetch the missing wal-records from the history table
+      ;; XXX: This will probably fire when the slot switches machines
+      (tracer/record-info! {:name "singleton-missing-wal-records"
+                            :attributes {:isn isn
+                                         :previous-isn previous-isn
+                                         :old-previous old-previous
+                                         :next-previous next-previous
+                                         :compare (compare previous-isn old-previous)}}))
+    (tracer/with-span! {:name "handle-singleton-wal-record"
+                        :attributes {:isn isn
+                                     :previous-isn previous-isn
+                                     :previous-handled-isn old-previous
+                                     :skip? (= -1 (compare isn old-previous))}}
+      (grouped-queue/put! queue wal-record))))
+
+(defn broadcast-slot-disconnect [{:keys [connections]}]
+  (doseq [^StreamObserver observer (vals @connections)]
+    (.onNext observer (grpc/->SlotDisconnect))))
+
+(defn start-save-history-process
+  "Saves wal records to history table in batches of up to 1000.
+   Returns a map with `push` function that takes a wal-record
+   and a `shutdown` function that will wait for the queue to clear
+   before returning."
+  [{:keys [flush-lsn-chan]}]
+  (let [executor (Executors/newSingleThreadExecutor)
+        q (LinkedBlockingQueue.)
+        stop-gauge (gauges/add-gauge-metrics-fn (fn [_]
+                                                  [{:path "instant.reactive.invalidator.save-history-queue.size"
+                                                    :value (.size q)}
+                                                   {:path "instant.reactive.invalidator.save-history-queue.oldest-waiting-ms"
+                                                    :value (when-let [item (.peek q)]
+                                                             (when (instance? WalRecord item)
+                                                               (- (System/currentTimeMillis)
+                                                                  (.toEpochMilli ^Instant (:tx-created-at item)))))}]))
+        shutdown-sentinel (Object.)
+        shutdown? (atom false)
+        ;; XXX: Need to bubble up if this throws
+        process (reify Runnable
+                  (run [_]
+                    (loop [batch (ArrayList.)
+                          ;; First item will block
+                           item (.take q)]
+                      (.add batch item)
+                      ;; Grab up to 1000 items from the queue
+                      (.drainTo q batch 999)
+                      (let [quit? (identical? shutdown-sentinel (.get batch (dec (.size batch))))]
+                        (when quit?
+                          (.remove batch (dec (.size batch))))
+                        (when-not (.isEmpty batch)
+                          (history-model/push-batch! batch)
+                          (a/put! flush-lsn-chan (:nextlsn (.get batch (dec (.size batch))))))
+
+                        (when-not quit?
+                          (recur (ArrayList.)
+                                 (.take q)))))))]
+    (.submit executor process)
+    {:push (fn [wal-record]
+             (when @shutdown?
+               (throw (Exception. "Put after shutdown to save-history queue")))
+             (.put q wal-record))
+     :shutdown (fn []
+                 (reset! shutdown? true)
+                 (.put q shutdown-sentinel)
+                 (.shutdown executor)
+                 (stop-gauge))}))
+
+(defn broadcast-wal-record [connections packed-wal-record]
+  (let [msg (grpc/->PackedWalRecord packed-wal-record)]
+    ;; XXX: Log if it's ready
+    (doseq [^StreamObserver observer (vals @connections)]
+      (.onNext observer msg))))
+
+(defn start-singleton-worker [{:keys [wal-chan
+                                      connections
+                                      flush-lsn-chan
+                                      on-error
+                                      stop-lsn
+                                      check-disabled
+                                      queue
+                                      previous-isn-atom]}]
+  (tracer/record-info! {:name "invalidator/singleton-worker-start"})
+  (let [save-history-process (start-save-history-process {:flush-lsn-chan flush-lsn-chan})
+        process (a/go
+                  (loop []
+                    (if (check-disabled)
+                      (on-error (ex-info "Invalidator singleton disabled" {}))
+                      (when-let [wal-record (a/<! wal-chan)]
+                        ;; Compress and encode it here once so that don't have to encode it for every
+                        ;; grpc send and saving history
+                        (let [packed-wal-record (history-model/pack-wal-record wal-record)
+                              wal-record (with-meta wal-record {:packed packed-wal-record})]
+                          (when-not (and stop-lsn
+                                         (= -1 (compare stop-lsn (:nextlsn wal-record))))
+                            (try
+                              (broadcast-wal-record connections packed-wal-record)
+                              (handle-singleton-wal-record {:queue queue
+                                                            :previous-isn-atom previous-isn-atom}
+                                                           wal-record)
+                              ((:push save-history-process) wal-record)
+                              (catch Exception e
+                                (on-error e)))
+                            (recur))))))
+
+                  ((:shutdown save-history-process))
+                  (tracer/record-info! {:name "invalidator/singleton-worker-stop"}))]
+    {:completed-chan process}))
 
 ;; ------
 ;; orchestration
@@ -387,14 +504,28 @@
   (a/close! (:close-signal-chan wal-opts))
   (a/close! (:worker-chan wal-opts)))
 
+(defn fast-active-slot-check
+  "Just checks the db to see if the slot is active. It only
+   works when we're in the middle of switching db instances, but we check for that."
+  [{:keys [get-conn-config
+           slot-type
+           slot-suffix]}]
+  (when (:same-as-read-conn (meta get-conn-config))
+    (let [slot-name (wal/full-slot-name slot-type slot-suffix)]
+      (:active (sql/select-one ::fast-active-slot-check
+                               (aurora/conn-pool :read)
+                               ["select active from pg_replication_slots where slot_name = ?" slot-name])))))
+
 (defn start-singleton-listener [{:keys [acquire-slot-interval-ms
                                         process-id
                                         check-disabled
                                         stop-lsn
                                         acquire-slot-interrupt-chan
                                         get-conn-config
-                                        ^ITopic hz-topic
-                                        slot-num]}]
+                                        slot-num
+                                        connections
+                                        previous-isn-atom
+                                        queue]}]
   (let [shutdown-chan (a/chan)
 
         process (a/go
@@ -405,6 +536,11 @@
                       (cond
                         (= matched-chan shutdown-chan) nil
                         (check-disabled) (recur (a/timeout acquire-slot-interval-ms))
+
+                        (fast-active-slot-check {:get-conn-config get-conn-config
+                                                 :slot-type :invalidator})
+                        (recur (a/timeout acquire-slot-interval-ms))
+
                         :else
                         (let [{:keys [wal-chan worker-chan flush-lsn-chan close-signal-chan]}
                               (create-wal-chans)
@@ -449,7 +585,9 @@
                                                            :close-signal-chan close-signal-chan
                                                            :flush-lsn-chan flush-lsn-chan
                                                            :process-id process-id
-                                                           :hz-topic hz-topic
+                                                           :connections connections
+                                                           :previous-isn-atom previous-isn-atom
+                                                           :queue queue
                                                            :on-error (fn [e]
                                                                        (tracer/record-exception-span! e {:name "invalidator/singleton-worker-error"})
                                                                        (a/close! close-signal-chan))
@@ -462,7 +600,7 @@
                                 (stop wal-opts))
                               ;; serves as a signal to the other instances that they should
                               ;; grab the topic
-                              (.publish hz-topic process-id)
+                              (broadcast-slot-disconnect {:connections connections})
                               (when (= exit-ch close-signal-chan)
                                 (tracer/record-info! {:name "invalidator-singleton/retry"
                                                       :attributes {:wait-ms acquire-slot-interval-ms
@@ -477,90 +615,152 @@
                    @wal-worker-finished))
      :completed-chan process}))
 
-(defn hz-gauges [^ITopic topic]
-  (let [stats (.getLocalTopicStats topic)]
-    [{:path "hz.invalidator-topic.publishOperationCount"
-      :value (.getPublishOperationCount stats)}
-     {:path "hz.invalidator-topic.receiveOperationCount"
-      :value (.getReceiveOperationCount stats)}]))
+(defonce remote-observers (atom {}))
 
-(defn hz-topic-listener [^Ringbuffer ring-buffer on-msg]
-  (let [seq-id (AtomicLong. -1)]
-    (reify ReliableMessageListener
-      (onMessage [_ m]
-        (on-msg m))
-      (isLossTolerant [_]
-        true)
-      (isTerminal [_ t]
-        (tracer/record-exception-span! t {:name "invalidator/singleton-listener-error"})
-        false)
-      (retrieveInitialSequence [_]
-        (inc (.tailSequence ring-buffer)))
-      (onCancel [_]
-        nil)
-      (storeSequence [_ s]
-        (let [prev-seq-id (AtomicLong/.getAndSet seq-id s)]
-          (when (and (not= prev-seq-id -1)
-                     (not= s (inc prev-seq-id)))
-            (tracer/record-exception-span! (ex-info "Skipped a message in the reliable topic"
-                                                    {:s s
-                                                     :prev-seq-id prev-seq-id
-                                                     :lost-message-count (inc (- s prev-seq-id))})
-                                           {:name "invalidator/singleton-listener-skipped-tx"})))))))
+;; Used to indicate to grpc that we meant to cancel
+(def shutdown-reason "s")
 
-(defn topic-ring-buffer [^HazelcastInstance hz topic-name]
-  (.getRingbuffer hz (str RingbufferService/TOPIC_RB_PREFIX topic-name)))
+(defn make-subscription-observer
+  "This observer receives the wal records from the remote machine."
+  [{:keys [queue
+           previous-isn-atom
+           acquire-slot-interrupt-chan]}
+   remote-machine-id
+   on-cancel]
+  (let [cleanup (fn []
+                  (on-cancel)
+                  (tracer/record-info! {:name "invalidator/subscription-ended"
+                                        :attributes {:remote-machine-id remote-machine-id}}))]
+    (reify StreamObserver
+      (onNext [_ msg]
+        (condp instance? msg
+          WalRecord (handle-singleton-wal-record {:queue queue
+                                                  :previous-isn-atom previous-isn-atom}
+                                                 msg)
+          PackedWalRecord (handle-singleton-wal-record {:queue queue
+                                                        :previous-isn-atom previous-isn-atom}
+                                                       (history-model/unpack-wal-record (:ba msg)))
+          SlotDisconnect (a/put! acquire-slot-interrupt-chan true)
+          (tracer/record-info! {:name "invalidator/unknown-message"
+                                :attributes {:msg msg}})))
+      (onError [_ t]
+        (cleanup)
+        (let [status (Status/fromThrowable t)]
+          (when (or (not= (.getCode status) Status$Code/CANCELLED)
+                    (not= (.getDescription status) shutdown-reason))
+            (tracer/record-exception-span! t {:name "invalidator/singleton-gprc-subscription-stream-error"}))))
+      (onCompleted [_]
+        (cleanup)))))
 
-(defn start-singleton-hz-topic [{:keys [acquire-slot-interrupt-chan]}]
-  (let [queue
-        (grouped-queue/start
-         {:group-key-fn :app-id
-          :combine-fn combine-wal-records
-          :process-fn (fn [_key wal-record]
-                        ;; Just testing what kind of latency we'll see with the hazelcast topic
-                        (tracer/with-span! {:name "singleton-hz-topic-latency"
-                                            :attributes {:tx-id (:tx-id wal-record)
-                                                         :latency-ms (wal-latency-ms wal-record)}}))
-          :metrics-path "instant.reactive.invalidator.singleton-q"
-          :max-workers 8})
+(defn handle-grpc-subscribe
+  "This is called when a remote machine subscribes to our invalidator stream.
+   The remote machine will create the connection when it starts up the
+   singleton invalidator, indicating that it wants to subscribe to wal records."
+  [^InvalidatorSubscribe {:keys [machine-id]} ^ServerCallStreamObserver observer]
+  (tracer/with-span! {:name "handle-grpc-subscribe"
+                      :attributes {:machine-id machine-id}}
+    (let [[old-observers new-observers] (swap-vals! remote-observers assoc machine-id observer)]
+      (when-let [^ServerCallStreamObserver old-observer (get old-observers machine-id)]
+        (when (not= old-observer observer)
+          (.onError old-observer (Exception. "New subscription for same machine-id, closing old subscription."))))
+      (if (not= (get new-observers machine-id) observer)
+        (.onError observer (Exception. "Clashing subscribe requests."))
+        (let [cleanup (reify Runnable
+                        (run [_]
+                          (swap! remote-observers
+                                 (fn [observers]
+                                   (if (= observer (get observers machine-id))
+                                     (dissoc observers machine-id)
+                                     observers)))))]
+          (.setOnCloseHandler observer cleanup)
+          (.setOnCancelHandler observer cleanup))))))
 
-        topic-name "invalidator-wal-logs"
-        hz (eph/get-hz)
-        topic (.getReliableTopic hz topic-name)
-        topic-config (.getReliableTopicConfig (.getConfig hz) topic-name)
-        _ (.setTopicOverloadPolicy topic-config TopicOverloadPolicy/DISCARD_OLDEST)
-        _ (.setExecutor topic-config (Executors/newSingleThreadExecutor))
-        _ (.setStatisticsEnabled topic-config true)
-        ring-buffer (topic-ring-buffer hz topic-name)
-        stop-gauge (gauges/add-gauge-metrics-fn (fn [_]
-                                                  (hz-gauges topic)))
-        on-msg (fn [^Message m]
-                 (let [msg (.getMessageObject m)]
-                   (if true ;; remove while we switch to grpc (instance? WalRecord msg)
-                     (grouped-queue/put! queue (:record msg))
-                     ;; We should try to reconnect, but only if we weren't
-                     ;; the ones that sent the message to reconnect (if there
-                     ;; is only one machine it will try again within 10 seconds)
-                     (when (not (.localMember (.getPublishingMember m)))
-                       (a/put! acquire-slot-interrupt-chan true)))))
-        listener (hz-topic-listener ring-buffer on-msg)
-        listener-id (.addMessageListener topic listener)]
-    {:topic topic
-     :shutdown (fn []
-                 (.removeMessageListener topic listener-id)
-                 (grouped-queue/stop queue)
-                 (stop-gauge))}))
+;; How the singleton subscriber works
+;; # Connecting
+;; 1. On startup, we connect via grpc to all of the existing instances to register
+;;    our interest in receiving wal records
+;; 2. When new machines are added to hazelcast, we automatically connect via grpc
+;; 3. Remote instances connect to us when we join hazelcast
+;;
+;; # If someone else holds the invalidator slot
+;; 1. The machine that holds the slot will send us wal records through the grpc connection
+;;    and we will apply them, sending an ack after each one
+;; 2. When the remote machine gives up the slot, they'll broadcast a message through the
+;;    grpc connection and we'll race to pick it up.
+;;    a. We'll also periodically try to grab the slot in case the disconnect message is lost
+;;
+;; # If we hold the invalidator slot
+;; 1. We distribute each wal record to all subscribers over the grpc connection
+;; 2. We push the wal record into an s3 directory bucket (or directly into the db if there
+;;    is no bucket defined for self-hosted) and write an entry into the history table.
+;; 3. We mark the lsn as flushed once we've finished writing to the history table.
+;;    a. If any of the subscribers miss a transaction, they can read it from the history table
+;;    b. By waiting until we write to the history table, we can ensure that we never miss a
+;;       transaction
+
+;; TODO:
+;;  1. We need to have something that retries if we're unable to connect to a machine
+;;  2. We need to have something that turns off the thing globally
 
 (defn start-singleton []
-  (let [get-conn-config (fn []
-                          (config/get-aurora-config))
+  (let [conn-config (config/get-aurora-config)
+        get-conn-config (with-meta (fn []
+                                     conn-config)
+                          ;; When we're not transitioning to a new cluster,
+                          ;; this lets us check if the slot is active without
+                          ;; creating a new connection
+                          {:same-as-read-conn true})
         _ (wal/ensure-slot (get-conn-config) "invalidator")
         acquire-slot-interrupt-chan (a/chan (a/sliding-buffer 1))
 
-        {hz-topic :topic
-         shutdown-topic :shutdown}
-        (start-singleton-hz-topic
-         {:acquire-slot-interrupt-chan acquire-slot-interrupt-chan})
+        queue (grouped-queue/start
+               {:group-key-fn :app-id
+                :combine-fn combine-wal-records
+                :process-fn (fn [_key wal-record]
+                              ;; Just testing what kind of latency we'll see with this setup
+                              (tracer/with-span! {:name "singleton-topic-latency"
+                                                  :attributes {:tx-id (:tx-id wal-record)
+                                                               :latency-ms (wal-latency-ms wal-record)}}))
+                :metrics-path "instant.reactive.invalidator.singleton-q"
+                :max-workers 8})
+
+        previous-isn-atom (atom nil)
+
+        grpc-cancels (atom {})
+
+        ;; Add listener so that we can subscribe to machines as they arrive
+        remove-cb (eph/add-hz-member-change-callback
+                   (fn [member-id action]
+                     (when (and (= action :added)
+                                (not= member-id config/machine-id))
+                       (let [client (grpc-client/grpc-client-for-machine-id member-id)
+                             cancel-id (random-uuid)
+                             on-cancel (fn []
+                                         (swap! grpc-cancels dissoc cancel-id))
+                             observer (make-subscription-observer {:queue queue
+                                                                   :previous-isn-atom previous-isn-atom
+                                                                   :acquire-slot-interrupt-chan acquire-slot-interrupt-chan}
+                                                                  member-id
+                                                                  on-cancel)
+                             {:keys [cancel]} (grpc-client/subscribe-to-invalidator client observer)]
+                         (swap! grpc-cancels assoc cancel-id cancel)))))
+
+        ;; Start the grpc subscribers to remote machines that arrive before we added the listener
+        ;; If we race and connect to the same machine twice, the remote machine will error on one
+        ;; of the connections
+        _ (doseq [member-id (keys eph/hz-member-by-machine-id-cache)]
+            (when (not= member-id config/machine-id)
+              (let [client (grpc-client/grpc-client-for-machine-id member-id)
+                    cancel-id (random-uuid)
+                    on-cancel (fn []
+                                (swap! grpc-cancels dissoc cancel-id))
+                    observer (make-subscription-observer {:queue queue
+                                                          :previous-isn-atom previous-isn-atom
+                                                          :acquire-slot-interrupt-chan acquire-slot-interrupt-chan}
+                                                         member-id
+                                                         on-cancel)
+                    {:keys [cancel]} (grpc-client/subscribe-to-invalidator client observer)]
+                (swap! grpc-cancels assoc cancel-id cancel))))
 
         {shutdown-listener :shutdown}
         (start-singleton-listener
@@ -569,13 +769,16 @@
           :check-disabled (fn []
                             (flags/toggled? :disable-singleton-invalidator))
           :acquire-slot-interrupt-chan acquire-slot-interrupt-chan
-          :get-conn-config (fn []
-                             (config/get-aurora-config))
-          :hz-topic hz-topic
-          :slot-num config/invalidator-slot-num})]
+          :get-conn-config get-conn-config
+          :slot-num config/invalidator-slot-num
+          :previous-isn-atom previous-isn-atom
+          :connections remote-observers
+          :queue queue})]
     {:shutdown (fn []
-                 (shutdown-listener)
-                 (shutdown-topic))}))
+                 (remove-cb)
+                 (doseq [cancel (vals @grpc-cancels)]
+                   (cancel shutdown-reason))
+                 (shutdown-listener))}))
 
 (defn start
   "Entry point for invalidator. Starts a WAL listener and pipes WAL records to
@@ -596,7 +799,7 @@
                                       :slot-type :invalidator
                                       :slot-num config/invalidator-slot-num})]
      (ua/fut-bg
-       (wal/start-worker wal-opts))
+      (wal/start-worker wal-opts))
 
      @(:started-promise wal-opts)
 
@@ -605,20 +808,21 @@
 
      (when byop-chan
        (ua/fut-bg
-         (start-byop-worker rs/store byop-chan)))
+        (start-byop-worker rs/store byop-chan)))
 
      wal-opts)))
 
 (defn start-global []
   (def wal-opts (start))
-  (when false ;; disable while we figure out why hazelcast is unhappy
-    (def shutdown-singleton (:shutdown (start-singleton)))))
+  (when true
+    (def singleton-process (start-singleton))))
 
 (defn stop-global []
   (when (bound? #'wal-opts)
     (stop wal-opts))
-  (when (bound? #'shutdown-singleton)
-    (shutdown-singleton)))
+  (when (and (bound? #'singleton-process)
+             singleton-process)
+    ((:shutdown singleton-process))))
 
 (defn restart []
   (stop-global)

@@ -16,6 +16,7 @@
    [instant.db.indexing-jobs :as indexing-jobs]
    [instant.db.hint-testing :as hint-testing]
    [instant.db.model.wal-log :as wal-log-model]
+   [instant.model.history :as history-model]
    [instant.db.model.transaction :as tx-model]
    [instant.demo-routes :as demo-routes]
    [instant.storage.sweeper :as storage-sweeper]
@@ -280,7 +281,13 @@
             (posthog/shutdown!))))
       (future
         (tracer/with-span! {:name "stop-rate-limit-sweeper"}
-          (rate-limit/stop)))))
+          (rate-limit/stop)))
+      (future
+        (tracer/with-span! {:name "stop-wal-log-truncator"}
+          (wal-log-model/stop)))
+      (future
+        (tracer/with-span! {:name "stop-history-truncator"}
+          (history-model/stop)))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []
@@ -371,6 +378,8 @@
         (rate-limit/start))
       (with-log-init :wal-log-truncator
         (wal-log-model/start))
+      (with-log-init :history-truncator
+        (history-model/start))
       (when (= (config/get-env) :prod)
         (with-log-init :analytics
           (analytics/start)))
