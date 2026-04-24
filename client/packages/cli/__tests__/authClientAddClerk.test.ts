@@ -30,32 +30,35 @@ let addedClients: any[] = [];
 let addedProviders: any[] = [];
 let mockHasExistingProvider = true;
 
-vi.mock('../src/lib/oauth.ts', () => ({
-  getAppsAuth: () =>
-    Effect.succeed({
-      oauth_service_providers: mockHasExistingProvider
-        ? [{ id: 'prov-1', provider_name: 'clerk' }]
-        : [],
-      oauth_clients: [],
-    }),
-  addOAuthProvider: (params: any) => {
-    addedProviders.push(params);
-    return Effect.succeed({
-      provider: { id: 'prov-new', provider_name: 'clerk' },
-    });
-  },
-  addOAuthClient: (params: any) => {
-    addedClients.push(params);
-    return Effect.succeed({
-      client: {
-        id: 'client-1',
-        client_name: params.clientName,
-        client_id: params.clientId,
-        discovery_endpoint: params.discoveryEndpoint,
-      },
-    });
-  },
-}));
+vi.mock('../src/lib/oauth.ts', async () => {
+  const { makeOAuthMock } = await import('./oauthMock.ts');
+  return makeOAuthMock({
+    getAppsAuth: () =>
+      Effect.succeed({
+        oauth_service_providers: mockHasExistingProvider
+          ? [{ id: 'prov-1', provider_name: 'clerk' }]
+          : [],
+        oauth_clients: [],
+      }),
+    addOAuthProvider: (params: any) => {
+      addedProviders.push(params);
+      return Effect.succeed({
+        provider: { id: 'prov-new', provider_name: 'clerk' },
+      });
+    },
+    addOAuthClient: (params: any) => {
+      addedClients.push(params);
+      return Effect.succeed({
+        client: {
+          id: 'client-1',
+          client_name: params.clientName,
+          client_id: params.clientId,
+          discovery_endpoint: params.discoveryEndpoint,
+        },
+      });
+    },
+  });
+});
 
 // Lazy import so mocks are in place
 const { authClientAddCmd } = await import('../src/commands/auth/client/add.ts');

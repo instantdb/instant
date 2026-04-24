@@ -27,27 +27,30 @@ vi.mock('../src/ui/lib.ts', async (importOriginal) => {
 
 let addedClients: any[] = [];
 
-vi.mock('../src/lib/oauth.ts', () => ({
-  getAppsAuth: () =>
-    Effect.succeed({
-      oauth_service_providers: [{ id: 'prov-1', provider_name: 'github' }],
-      oauth_clients: [],
-    }),
-  addOAuthProvider: () =>
-    Effect.succeed({
-      provider: { id: 'prov-1', provider_name: 'github' },
-    }),
-  addOAuthClient: (params: any) => {
-    addedClients.push(params);
-    return Effect.succeed({
-      client: {
-        id: 'client-1',
-        client_name: params.clientName,
-        client_id: params.clientId,
-      },
-    });
-  },
-}));
+vi.mock('../src/lib/oauth.ts', async () => {
+  const { makeOAuthMock } = await import('./oauthMock.ts');
+  return makeOAuthMock({
+    getAppsAuth: () =>
+      Effect.succeed({
+        oauth_service_providers: [{ id: 'prov-1', provider_name: 'github' }],
+        oauth_clients: [],
+      }),
+    addOAuthProvider: () =>
+      Effect.succeed({
+        provider: { id: 'prov-1', provider_name: 'github' },
+      }),
+    addOAuthClient: (params: any) => {
+      addedClients.push(params);
+      return Effect.succeed({
+        client: {
+          id: 'client-1',
+          client_name: params.clientName,
+          client_id: params.clientId,
+        },
+      });
+    },
+  });
+});
 
 // Lazy import so mocks are in place
 const { authClientAddCmd } = await import('../src/commands/auth/client/add.ts');

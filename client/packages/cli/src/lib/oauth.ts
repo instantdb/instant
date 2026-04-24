@@ -5,11 +5,14 @@ import { InstantHttpAuthed, withCommand } from './http.ts';
 import chalk from 'chalk';
 import {
   getOptionalStringFlag,
+  optOrPrompt,
   runUIEffect,
   stripFirstBlankLine,
+  validateRequired,
 } from './ui.ts';
 import { UI } from '../ui/index.ts';
 import { BadArgsError } from '../errors.ts';
+import type { ClientTypeSchema } from '../commands/auth/client/add.ts';
 
 export const AuthorizedOriginService = Schema.Literal(
   'generic',
@@ -162,4 +165,69 @@ ${chalk.dim('Your URL must forward to https://api.instantdb.com/runtime/oauth/ca
   );
 
   return result === '' ? undefined : result;
+});
+
+export const getOrCreateProvider = Effect.fn(function* (
+  type: typeof ClientTypeSchema.Type,
+) {
+  const auth = yield* getAppsAuth();
+  const provider = auth.oauth_service_providers?.find(
+    (entry) => entry.provider_name === type,
+  );
+
+  if (provider) {
+    return { auth, provider };
+  }
+
+  const created = yield* addOAuthProvider({ providerName: type });
+  return { auth, provider: created.provider };
+});
+
+// Returns prefix if unused; otherwise appends integers starting at 2.
+// e.g. findName('google', new Set(['google', 'google2'])) returns 'google3'.
+export const findName = (prefix: string, used: Set<string>) => {
+  if (!used.has(prefix)) {
+    return prefix;
+  }
+
+  for (let i = 2; ; i++) {
+    const candidate = `${prefix}${i}`;
+    if (!used.has(candidate)) {
+      return candidate;
+    }
+  }
+};
+
+export const getClientNameAndProvider = Effect.fn(function* (
+  providerType: typeof ClientTypeSchema.Type,
+  opts: Record<string, unknown>,
+) {
+  const { auth, provider } = yield* getOrCreateProvider(providerType);
+  const usedClientNames = new Set(
+    (auth.oauth_clients ?? []).map((client) => client.client_name),
+  );
+  const suggestedClientName = findName(providerType, usedClientNames);
+
+  const clientName = yield* optOrPrompt(opts.name, {
+    simpleName: '--name',
+    required: true,
+    skipIf: false,
+    prompt: {
+      prompt: 'Client Name:',
+      defaultValue: suggestedClientName,
+      placeholder: suggestedClientName,
+      validate: validateRequired,
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+    },
+  });
+
+  if (usedClientNames.has(clientName || '')) {
+    return yield* BadArgsError.make({
+      message: `The unique name '${clientName}' is already in use.`,
+    });
+  }
+  return { provider, clientName };
 });

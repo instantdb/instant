@@ -12,8 +12,9 @@ import {
 } from '../../../lib/ui.ts';
 import {
   addOAuthClient,
-  addOAuthProvider,
-  getAppsAuth,
+  findName,
+  getClientNameAndProvider,
+  getOrCreateProvider,
 } from '../../../lib/oauth.ts';
 import {
   DEFAULT_OAUTH_CALLBACK_URL,
@@ -31,13 +32,13 @@ import { UI } from '../../../ui/index.ts';
 import chalk from 'chalk';
 import boxen from 'boxen';
 
-const ClientTypeSchema = Schema.Literal(
+export const ClientTypeSchema = Schema.Literal(
   'google',
   'github',
   'apple',
   'linkedin',
   'clerk',
-  // 'firebase',
+  'firebase',
 );
 
 const GoogleAppTypeSchema = Schema.Literal(
@@ -94,37 +95,9 @@ const selectGoogleAppType = (value: unknown) =>
     );
   });
 
-// If user has clients google-web-1 and google-web-2, it will provide google-web-3
-const findName = (prefix: string, used: Set<string>) => {
-  if (!used.has(prefix)) {
-    return prefix;
-  }
-
-  for (let i = 2; ; i++) {
-    const candidate = `${prefix}${i}`;
-    if (!used.has(candidate)) {
-      return candidate;
-    }
-  }
-};
-
-const getOrCreateProvider = Effect.fn(function* (
-  type: typeof ClientTypeSchema.Type,
-) {
-  const auth = yield* getAppsAuth();
-  const provider = auth.oauth_service_providers?.find(
-    (entry) => entry.provider_name === type,
-  );
-
-  if (provider) {
-    return { auth, provider };
-  }
-
-  const created = yield* addOAuthProvider({ providerName: type });
-  return { auth, provider: created.provider };
-});
-
 const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
+  // This one requires special logic for getting client name
+  // because the suggested name includes the app type
   const appType = yield* selectGoogleAppType(opts['app-type']);
   const { auth, provider } = yield* getOrCreateProvider('google');
   const usedClientNames = new Set(
@@ -257,33 +230,10 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
 });
 
 const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
-  const { auth, provider } = yield* getOrCreateProvider('github');
-  const usedClientNames = new Set(
-    (auth.oauth_clients ?? []).map((client) => client.client_name),
+  const { clientName, provider } = yield* getClientNameAndProvider(
+    'github',
+    opts,
   );
-  const suggestedClientName = findName('github-web', usedClientNames);
-
-  const clientName = yield* optOrPrompt(opts.name, {
-    simpleName: '--name',
-    required: true,
-    skipIf: false,
-    prompt: {
-      prompt: 'Client Name:',
-      defaultValue: suggestedClientName,
-      placeholder: suggestedClientName,
-      validate: validateRequired,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-  });
-
-  if (usedClientNames.has(clientName || '')) {
-    return yield* BadArgsError.make({
-      message: `The unique name '${clientName}' is already in use.`,
-    });
-  }
 
   const clientId = yield* optOrPrompt(opts['client-id'], {
     simpleName: '--client-id',
@@ -385,33 +335,10 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
 const handleLinkedInClient = Effect.fn(function* (
   opts: Record<string, unknown>,
 ) {
-  const { auth, provider } = yield* getOrCreateProvider('linkedin');
-  const usedClientNames = new Set(
-    (auth.oauth_clients ?? []).map((client) => client.client_name),
+  const { clientName, provider } = yield* getClientNameAndProvider(
+    'linkedin',
+    opts,
   );
-  const suggestedClientName = findName('linkedin-web', usedClientNames);
-
-  const clientName = yield* optOrPrompt(opts.name, {
-    simpleName: '--name',
-    required: true,
-    skipIf: false,
-    prompt: {
-      prompt: 'Client Name:',
-      defaultValue: suggestedClientName,
-      placeholder: suggestedClientName,
-      validate: validateRequired,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-  });
-
-  if (usedClientNames.has(clientName || '')) {
-    return yield* BadArgsError.make({
-      message: `The unique name '${clientName}' is already in use.`,
-    });
-  }
 
   const clientId = yield* optOrPrompt(opts['client-id'], {
     simpleName: '--client-id',
@@ -538,30 +465,10 @@ const readPrivateKeyFile = Effect.fn('readPrivateKeyFile')(function* (
 
 const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
   const { yes } = yield* GlobalOpts;
-  const { auth, provider } = yield* getOrCreateProvider('apple');
-  const usedClientNames = new Set(
-    (auth.oauth_clients ?? []).map((client) => client.client_name),
+  const { clientName, provider } = yield* getClientNameAndProvider(
+    'apple',
+    opts,
   );
-  const suggestedClientName = findName('apple', usedClientNames);
-
-  const clientName = yield* optOrPrompt(opts.name, {
-    simpleName: '--name',
-    required: true,
-    skipIf: false,
-    prompt: {
-      prompt: 'Client Name:',
-      defaultValue: suggestedClientName,
-      placeholder: suggestedClientName,
-      validate: validateRequired,
-      modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
-    },
-  });
-
-  if (usedClientNames.has(clientName || '')) {
-    return yield* BadArgsError.make({
-      message: `The unique name '${clientName}' is already in use.`,
-    });
-  }
 
   const servicesId = yield* optOrPrompt(opts['services-id'], {
     simpleName: '--services-id',
@@ -735,33 +642,10 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
 });
 
 const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
-  const { auth, provider } = yield* getOrCreateProvider('clerk');
-  const usedClientNames = new Set(
-    (auth.oauth_clients ?? []).map((client) => client.client_name),
+  const { clientName, provider } = yield* getClientNameAndProvider(
+    'clerk',
+    opts,
   );
-  const suggestedClientName = findName('clerk-web', usedClientNames);
-
-  const clientName = yield* optOrPrompt(opts.name, {
-    simpleName: '--name',
-    required: true,
-    skipIf: false,
-    prompt: {
-      prompt: 'Client Name:',
-      defaultValue: suggestedClientName,
-      placeholder: suggestedClientName,
-      validate: validateRequired,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-  });
-
-  if (usedClientNames.has(clientName || '')) {
-    return yield* BadArgsError.make({
-      message: `The unique name '${clientName}' is already in use.`,
-    });
-  }
 
   const publishableKey = yield* optOrPrompt(opts['publishable-key'], {
     simpleName: '--publishable-key',
@@ -838,6 +722,67 @@ const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
   );
 });
 
+const handleFirebaseClient = Effect.fn(function* (
+  opts: OptsFromCommand<typeof authClientAddDef> & Record<string, unknown>,
+) {
+  const { clientName, provider } = yield* getClientNameAndProvider(
+    'firebase',
+    opts,
+  );
+
+  const firebaseProjectIdRegex = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/;
+  const projectId = yield* optOrPrompt(opts['project-id'], {
+    simpleName: '--project-id',
+    required: true,
+    skipIf: false,
+    prompt: {
+      prompt:
+        'Firebase project ID: (From Project Settings page on https://console.firebase.google.com/)',
+      placeholder: '',
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+      validate: (val) => {
+        if (!val) {
+          return 'Project ID is required';
+        }
+        if (!firebaseProjectIdRegex.test(val)) {
+          return 'Invalid Firebase project ID. It must be 6-30 characters, start with a lowercase letter, contain only lowercase letters, digits, and hyphens, and not end with a hyphen.';
+        }
+      },
+    },
+  });
+  // typeguard
+  if (!clientName || !projectId) {
+    return yield* BadArgsError.make({
+      message: 'Missing required arguments',
+    });
+  }
+  if (!firebaseProjectIdRegex.test(projectId)) {
+    return yield* BadArgsError.make({
+      message:
+        'Invalid Firebase project ID. It must be 6-30 characters, start with a lowercase letter, contain only lowercase letters, digits, and hyphens, and not end with a hyphen.',
+    });
+  }
+  const response = yield* addOAuthClient({
+    providerId: provider.id,
+    clientName,
+    discoveryEndpoint: `https://securetoken.google.com/${encodeURIComponent(projectId)}/.well-known/openid-configuration`,
+  });
+
+  yield* Effect.log(
+    boxen(
+      [
+        `Firebase OAuth client created: ${response.client.client_name}`,
+        `ID: ${response.client.id}`,
+        `Firebase Project ID: ${projectId}`,
+      ].join('\n'),
+      { dimBorder: true, padding: { right: 1, left: 1 } },
+    ),
+  );
+});
+
 export const authClientAddCmd = Effect.fn(
   function* (
     opts: OptsFromCommand<typeof authClientAddDef> & Record<string, unknown>,
@@ -858,8 +803,7 @@ export const authClientAddCmd = Effect.fn(
               { label: 'Apple', value: 'apple' },
               { label: 'LinkedIn', value: 'linkedin' },
               { label: 'Clerk', value: 'clerk' },
-              // TODO: implement
-              // { label: 'Firebase', value: 'firebase' },
+              { label: 'Firebase', value: 'firebase' },
             ],
             promptText: 'Select a client type:',
             modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
@@ -881,7 +825,7 @@ export const authClientAddCmd = Effect.fn(
       Match.when('apple', () => handleAppleClient(opts)),
       Match.when('linkedin', () => handleLinkedInClient(opts)),
       Match.when('clerk', () => handleClerkClient(opts)),
-      // Match.when('firebase', () => Effect.logError('Not Implemented')),
+      Match.when('firebase', () => handleFirebaseClient(opts)),
       Match.exhaustive,
     );
   },
