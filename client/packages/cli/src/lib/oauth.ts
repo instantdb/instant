@@ -56,6 +56,10 @@ export const AddOAuthClientResponse = Schema.Struct({
   client: OAuthClient,
 });
 
+export const AuthorizedOriginResponse = Schema.Struct({
+  origin: AuthorizedOrigin,
+});
+
 const NullableArray = <A, I, R>(schema: Schema.Schema<A, I, R>) =>
   Schema.Union(Schema.Array(schema).pipe(Schema.mutable), Schema.Null).pipe(
     Schema.optional,
@@ -230,4 +234,21 @@ export const getClientNameAndProvider = Effect.fn(function* (
     });
   }
   return { provider, clientName };
+});
+
+export const removeAuthorizedOrigin = Effect.fn(function* (
+  originId: string,
+) {
+  const http = (yield* InstantHttpAuthed).pipe(
+    withCommand('auth origin delete'),
+  );
+  const { appId } = yield* CurrentApp;
+
+  return yield* http
+    .del(`/dash/apps/${appId}/authorized_redirect_origins/${originId}`)
+    .pipe(
+      Effect.flatMap(
+        HttpClientResponse.schemaBodyJson(AuthorizedOriginResponse),
+      ),
+    );
 });
