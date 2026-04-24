@@ -86,17 +86,14 @@
 (defn pack-wal-record
   "byte-encodes the wal record with nippy and compresses it with zstd."
   ^bytes [^WalRecord wal-record]
-  (tracer/with-span! {:name "pack-wal-record"
-                      :attributes {:packed? (boolean (:packed (meta wal-record)))}}
-    (if-let [packed (:packed (meta wal-record))]
-      packed
-      (Zstd/compress (nippy/fast-freeze wal-record)))))
+  (if-let [packed (:packed (meta wal-record))]
+    packed
+    (Zstd/compress (nippy/fast-freeze wal-record))))
 
 (defn unpack-wal-record ^WalRecord [^bytes ba]
-  (tracer/with-span! {:name "unpack-wal-record"}
-    (-> ba
-        (Zstd/decompress)
-        (nippy/fast-thaw))))
+  (-> ba
+      (Zstd/decompress)
+      (nippy/fast-thaw)))
 
 (defn upload-to-s3
   "Uploads the wal-record to s3, trying 3 times by default."

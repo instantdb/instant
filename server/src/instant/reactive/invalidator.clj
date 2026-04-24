@@ -371,7 +371,7 @@
 
 (defn broadcast-slot-disconnect [{:keys [connections]}]
   (let [msg (grpc/->SlotDisconnect)]
-    (doseq [^StreamObserver observer @connections]
+    (doseq [^StreamObserver observer (vals @connections)]
       (try
         (.onNext observer msg)
         (catch Throwable t
