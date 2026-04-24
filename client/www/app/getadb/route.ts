@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { getServerConfig } from '@/lib/config';
 import generateMarkdown from './generateMarkdown';
 
@@ -17,7 +18,12 @@ export async function GET(request: Request) {
 
   return new Response(markdown, {
     headers: {
-      'Cache-Control': 'private, no-store, max-age=0',
+      'Cache-Control':
+        'private, no-store, no-cache, max-age=0, must-revalidate, proxy-revalidate',
+      Pragma: 'no-cache',
+      Expires: '0',
+      Vary: '*',
+      ETag: `"${randomUUID()}"`,
       'Content-Disposition': 'inline; filename="AGENTS.md"',
       'Content-Type': 'text/markdown; charset=utf-8',
     },
