@@ -229,9 +229,13 @@
           email (.asString (.getClaim verified-jwt "email"))
 
           jwt-nonce (.asString (.getClaim verified-jwt "nonce"))
-          skip-nonce-checks? (-> client
-                                 :meta
-                                 (get "skipNonceChecks"))
+          ;; Google id_tokens are validated by signature, issuer, audience,
+          ;; and subject; we don't rely on the nonce for replay protection,
+          ;; so skip it for all Google clients (new and pre-existing).
+          skip-nonce-checks? (or (= issuer "https://accounts.google.com")
+                                 (-> client
+                                     :meta
+                                     (get "skipNonceChecks")))
           nonce-error (cond
                         skip-nonce-checks?
                         nil
