@@ -3,7 +3,9 @@ import { Effect, Schema } from 'effect';
 import type { authOriginListDef, OptsFromCommand } from '../../../index.ts';
 import { AuthorizedOrigin, getAppsAuth } from '../../../lib/oauth.ts';
 
-export const originSource = (origin: Schema.Schema.Type<typeof AuthorizedOrigin>) => {
+export const originSource = (
+  origin: Schema.Schema.Type<typeof AuthorizedOrigin>,
+) => {
   switch (origin.service) {
     case 'generic':
       return 'Website';
@@ -21,7 +23,9 @@ export const originSource = (origin: Schema.Schema.Type<typeof AuthorizedOrigin>
   }
 };
 
-export const originDisplay = (origin: Schema.Schema.Type<typeof AuthorizedOrigin>) => {
+export const originDisplay = (
+  origin: Schema.Schema.Type<typeof AuthorizedOrigin>,
+) => {
   switch (origin.service) {
     case 'generic':
       return origin.params[0];

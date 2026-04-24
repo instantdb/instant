@@ -223,10 +223,19 @@ export const authOriginListDef = authOrigin
 export const authOriginAddDef = authOrigin
   .command('add')
   .option(
-    '--type <generic>',
-    'Type of origin to add. Currently only "generic" (website) is supported.',
+    '--type <website|vercel|netlify|custom-scheme>',
+    'Type of origin to add.',
   )
-  .option('--url <url>', 'Website URL (e.g. example.com)')
+  .option('--url <url>', 'Website URL (for website type, e.g. example.com)')
+  .option(
+    '--project <name>',
+    'Vercel project name (for vercel type, e.g. my-project)',
+  )
+  .option('--site <name>', 'Netlify site name (for netlify type, e.g. my-site)')
+  .option(
+    '--scheme <scheme>',
+    'App scheme (for custom-scheme type, e.g. myapp://)',
+  )
   .option(
     '-a --app <app-id>',
     'App ID to add an origin to. Defaults to *_INSTANT_APP_ID in .env',
@@ -235,7 +244,10 @@ export const authOriginAddDef = authOrigin
     'after',
     `
 Origin Types:
-  generic    A standard website origin (e.g. example.com)
+  website         A standard website origin (e.g. example.com)
+  vercel          Vercel preview deployments (project name)
+  netlify         Netlify preview deployments (site name)
+  custom-scheme   Native app scheme (e.g. your-app-scheme://)
 `,
   )
   .action((opts) => {
