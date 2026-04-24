@@ -42,7 +42,6 @@
 (def call-executor
   (reify ServerCallExecutorSupplier
     (getExecutor [_ server-call _metadata]
-      (tool/def-locals)
       (when (= (.getServiceName (.getMethodDescriptor server-call))
                "Invalidator")
         grpc/invalidator-thread-pool))))

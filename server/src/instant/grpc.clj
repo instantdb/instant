@@ -101,4 +101,4 @@
       (.setResponseMarshaller nippy-marshaller)
       (.build)))
 
-(def invalidator-thread-pool (Executors/newFixedThreadPool 3))
+(defonce invalidator-thread-pool (Executors/newFixedThreadPool 3))

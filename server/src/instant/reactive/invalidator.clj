@@ -348,7 +348,7 @@
                                                          isn ;; This is our first record
 
                                                          ;; Don't let previous-isn go backwards
-                                                         (= -1 (compare isn v))
+                                                         (neg? (compare isn v))
                                                          v
 
                                                          :else isn)))]
@@ -366,7 +366,7 @@
                         :attributes {:isn isn
                                      :previous-isn previous-isn
                                      :previous-handled-isn old-previous
-                                     :skip? (= -1 (compare isn old-previous))}}
+                                     :skip? (neg? (compare isn old-previous))}}
       (grouped-queue/put! queue wal-record))))
 
 (defn broadcast-slot-disconnect [{:keys [connections]}]
@@ -423,9 +423,15 @@
 
 (defn broadcast-wal-record [connections packed-wal-record]
   (let [msg (grpc/->PackedWalRecord packed-wal-record)]
-    ;; XXX: Log if it's ready
-    (doseq [^StreamObserver observer (vals @connections)]
-      (.onNext observer msg))))
+    (doseq [^StreamObserver observer @connections]
+      (try
+        (.onNext observer msg)
+        (catch Throwable t
+          ;; Isolate failures: one flaky observer must not abort the loop or
+          ;; trigger the outer singleton-worker restart. The cancel handler
+          ;; in handle-grpc-subscribe takes care of removing dead observers.
+          (tracer/record-exception-span! t {:name "invalidator/broadcast-wal-record-observer-error"
+                                            :escaping? false}))))))
 
 (defn start-singleton-worker [{:keys [wal-chan
                                       connections
@@ -447,7 +453,7 @@
                         (let [packed-wal-record (history-model/pack-wal-record wal-record)
                               wal-record (with-meta wal-record {:packed packed-wal-record})]
                           (when-not (and stop-lsn
-                                         (= -1 (compare stop-lsn (:nextlsn wal-record))))
+                                         (neg? (compare stop-lsn (:nextlsn wal-record))))
                             (try
                               (broadcast-wal-record connections packed-wal-record)
                               (handle-singleton-wal-record {:queue queue

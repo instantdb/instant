@@ -255,7 +255,7 @@
 (nippy/extend-thaw 13 [_data-input]
   (instant.grpc/->SlotDisconnect))
 
-;; 14 is our custom identifier for SlotDisconnect, no other type can use it and
+;; 14 is our custom identifier for PackedWalRecord, no other type can use it and
 ;; it must be the same across all machines.
 (nippy/extend-freeze PackedWalRecord 14 [^PackedWalRecord r data-output]
   (nippy/freeze-to-out! data-output (:ba r)))
@@ -263,7 +263,7 @@
 (nippy/extend-thaw 14 [data-input]
   (instant.grpc/->PackedWalRecord (nippy/thaw-from-in! data-input)))
 
-;; 15 is our custom identifier for SlotDisconnect, no other type can use it and
+;; 15 is our custom identifier for InvalidatorSubscribe, no other type can use it and
 ;; it must be the same across all machines.
 (nippy/extend-freeze InvalidatorSubscribe 15 [^InvalidatorSubscribe {:keys [machine-id]} data-output]
   (write-uuid data-output machine-id))

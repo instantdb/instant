@@ -63,7 +63,7 @@
 
 (def byte-class (Class/forName "[B"))
 
-(defn ^String isn->composite-str [^ISN isn]
+(defn isn->composite-str ^String [^ISN isn]
   (str "(" (.slotNum isn) "," (.asString ^LogSequenceNumber (.-lsn isn)) ")"))
 
 (defn set-param

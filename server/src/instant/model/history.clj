@@ -171,14 +171,6 @@
        :content (with-meta (persistent! content) {:pgtype "bytea[]"})
        :partition-bucket (with-meta (persistent! partition-bucket) {:pgtype "int[]"})})))
 
-(def push-batch-q (uhsql/preformat {:insert-into [[:history [:isn :app_id :topics :storage :content]]
-                                                  {:select [:isn :app_id :topics :storage :content]
-                                                   :from [[[:unnest :?isn :?app-id :?topics :?storage :?content]
-                                                           [[:t :isn :app-id :topics :storage :content]]]]}]
-
-                                    :on-conflict [:isn :partition-bucket]
-                                    :do-nothing true}))
-
 (def push-batch-q
   (uhsql/preformat
    {:insert-into [[:history [:isn :app-id :topics :storage :content :partition-bucket]]
@@ -201,7 +193,6 @@
                                    :wal-record wal-record})
                                 wal-records))
          params (collect-push-batch-params upload-results)]
-     (tool/def-locals)
      (sql/do-execute! ::push-batch!
                       conn
                       (uhsql/formatp push-batch-q params)))))
@@ -209,16 +200,17 @@
 (defn partitions-to-truncate
   "Calculates which partitions to truncate. Each bucket spans 30 days, with 13 buckets cycling.
    The bucket formula is (days-since-epoch / 30) % 13.
-   To save at least 90 days, we must keep the current bucket and at least 3 previous buckets.
-   Keeping 4 buckets (current + 3 previous) covers 90 to 120 days.
-   We truncate everything else, which means buckets (current + 4) through (current + 12) mod 13."
+   To save at least 90 days, we keep the current bucket and the 3 previous buckets.
+   The kept buckets are at offsets 0, -1 (≡ +12), -2 (≡ +11), -3 (≡ +10) mod 13,
+   which covers 90 to 120 days.
+   We truncate the complement: buckets (current + 1) through (current + 9) mod 13."
   [^Instant now]
   (let [current-bucket (-> now
                            (.getEpochSecond)
                            (quot 86400) ; 1 day
                            (quot 30)
                            (mod 13))]
-    (for [offset (range 4 13)]
+    (for [offset (range 1 10)]
       (mod (+ current-bucket offset) 13))))
 
 (defn truncate-old-partitions!

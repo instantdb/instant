@@ -255,7 +255,8 @@
         (case (get-env)
           :prod "instant-wal-logs-prod--use1-az4--x-s3"
           :staging "instant-wal-logs-staging--use1-az4--x-s3"
-          "instant-wal-logs-dev--use1-az4--x-s3"))))
+          :dev "instant-wal-logs-dev--use1-az4--x-s3"
+          nil))))
 
 (def wal-history-prefix
   (when (= :dev (get-env))
