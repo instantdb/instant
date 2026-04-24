@@ -437,7 +437,7 @@
 
 (defn broadcast-wal-record [connections packed-wal-record]
   (let [msg (grpc/->PackedWalRecord packed-wal-record)]
-    (doseq [^StreamObserver observer @connections]
+    (doseq [^StreamObserver observer (vals @connections)]
       (try
         (.onNext observer msg)
         (catch Throwable t
