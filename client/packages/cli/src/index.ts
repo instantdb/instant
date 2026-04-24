@@ -29,6 +29,8 @@ import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.ts';
 import { authClientAddCmd } from './commands/auth/client/add.ts';
 import { authClientListCmd } from './commands/auth/client/list.ts';
 import { authClientDeleteCmd } from './commands/auth/client/delete.ts';
+import { authOriginListCmd } from './commands/auth/origin/list.ts';
+import { authOriginDeleteCmd } from './commands/auth/origin/delete.ts';
 import { link } from './logging.ts';
 
 export type OptsFromCommand<C> =
@@ -183,6 +185,50 @@ export const authClientDeleteDef = authClient
   .action((opts) => {
     return runCommandEffect(
       authClientDeleteCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    );
+  });
+
+const authOrigin = auth.command('origin');
+export const authOriginListDef = authOrigin
+  .command('list')
+  .option(
+    '-a --app <app-id>',
+    'App ID to list origins for. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option('--json', 'Enable JSON output')
+  .action((opts) => {
+    return runCommandEffect(
+      authOriginListCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }).pipe(Layer.annotateLogs('silent', !!opts.json)),
+        ),
+      ),
+    );
+  });
+
+export const authOriginDeleteDef = authOrigin
+  .command('delete')
+  .option('--id <origin-id>', 'Origin ID to delete')
+  .option(
+    '-a --app <app-id>',
+    'App ID to delete an origin from. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      authOriginDeleteCmd(opts).pipe(
         Effect.provide(
           WithAppLayer({
             coerce: false,
