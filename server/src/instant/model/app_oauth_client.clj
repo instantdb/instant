@@ -140,11 +140,11 @@
         shared? (:use_shared_credentials oauth-client)
         shared-cred (when shared? (get-shared-credential! provider-name))
         client-id (if shared?
-                    (:client-id shared-cred)
+                    (:client_id shared-cred)
                     (:client_id oauth-client))
         client-secret (cond
                         shared?
-                        (:client-secret shared-cred)
+                        (:client_secret shared-cred)
 
                         (:client_secret oauth-client)
                         (decrypted-client-secret oauth-client))]

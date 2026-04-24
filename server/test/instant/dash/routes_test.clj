@@ -1203,9 +1203,9 @@
                                      :id (random-uuid)
                                      :email (str "cap-" i "@test.com")
                                      :type "user"}))
-          (let [fake-shared [{:provider-name "github"
-                              :client-id "shared-github"
-                              :client-secret (crypt-util/obfuscate "fake")}]]
+          (let [fake-shared [{:provider_name "github"
+                              :client_id "shared-github"
+                              :client_secret (crypt-util/obfuscate "fake")}]]
             (with-redefs [config/shared-oauth-clients (constantly fake-shared)
                           shared-credentials-user-limit 5]
               (let [provider (create-provider! app u "github")

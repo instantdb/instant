@@ -11,14 +11,17 @@
 
    Each entry has the shape:
 
-     {:provider-name \"google\"
-      :client-id     \"...apps.googleusercontent.com\"
-      :client-secret <Secret>}  ;; already decrypted by config-edn
+     {:provider_name \"google\"
+      :client_id     \"...apps.googleusercontent.com\"
+      :client_secret <Secret>}  ;; already decrypted by config-edn
+
+   Keys are snake_case so they line up with the oauth-client row we
+   read from Postgres, letting callers mix the two without renaming.
 
    The dev/staging/prod variants are registered with the OAuth provider
    under different callback URLs (localhost for dev, api-staging /
    api.instantdb.com for staging / prod), so the same provider name can
-   point at different `:client-id` values per env.
+   point at different `:client_id` values per env.
 
    To add a new provider's secret to a config file, run
    `make encrypt-secret-dev` (or `-staging` / `-prod`), paste the
@@ -31,7 +34,7 @@
 
 (defn get-shared-credential [provider-name]
   (->> (config/shared-oauth-clients)
-       (filter #(= (:provider-name %) provider-name))
+       (filter #(= (:provider_name %) provider-name))
        first))
 
 (defn get-shared-credential! [provider-name]
