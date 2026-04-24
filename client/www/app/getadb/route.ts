@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     const redirectUrl = new URL(url);
     redirectUrl.searchParams.set('n', nanoid());
     return new Response(null, {
-      status: 302,
+      status: 307,
       headers: {
         Location: redirectUrl.toString(),
         'Cache-Control':
