@@ -145,6 +145,7 @@ export type OAuthClient = {
   discovery_endpoint?: string;
   redirect_to?: string;
   meta?: any;
+  use_shared_credentials?: boolean;
 };
 
 export type AppsAuthResponse = {

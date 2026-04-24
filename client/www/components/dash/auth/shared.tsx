@@ -65,6 +65,7 @@ export function addClient({
   discoveryEndpoint,
   redirectTo,
   meta,
+  useSharedCredentials,
 }: {
   token: string;
   appId: string;
@@ -77,6 +78,7 @@ export function addClient({
   discoveryEndpoint?: string;
   redirectTo?: string;
   meta?: any;
+  useSharedCredentials?: boolean;
 }): Promise<{ client: OAuthClient }> {
   return jsonFetch(`${config.apiURI}/dash/apps/${appId}/oauth_clients`, {
     method: 'POST',
@@ -94,6 +96,7 @@ export function addClient({
       discovery_endpoint: discoveryEndpoint,
       redirect_to: redirectTo,
       meta,
+      use_shared_credentials: useSharedCredentials,
     }),
   });
 }
@@ -164,6 +167,36 @@ export function updateClientRedirectTo({
         'content-type': 'application/json',
       },
       body: JSON.stringify({ redirect_to: redirectTo }),
+    },
+  );
+}
+
+export function updateClient({
+  token,
+  appId,
+  oauthClientID,
+  body,
+}: {
+  token: string;
+  appId: string;
+  oauthClientID: string;
+  body: {
+    client_id?: string;
+    client_secret?: string;
+    meta?: Record<string, any>;
+    redirect_to?: string | null;
+    use_shared_credentials?: boolean;
+  };
+}): Promise<{ client: OAuthClient }> {
+  return jsonFetch(
+    `${config.apiURI}/dash/apps/${appId}/oauth_clients/${oauthClientID}`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
     },
   );
 }
@@ -317,7 +350,7 @@ export function EditableRedirectUrl({
 
   if (!hasValue && !isEditing) {
     return (
-      <div>
+      <div className="flex justify-end">
         <Button
           variant="secondary"
           size="mini"
