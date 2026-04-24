@@ -370,15 +370,24 @@
       (grouped-queue/put! queue wal-record))))
 
 (defn broadcast-slot-disconnect [{:keys [connections]}]
-  (doseq [^StreamObserver observer (vals @connections)]
-    (.onNext observer (grpc/->SlotDisconnect))))
+  (let [msg (grpc/->SlotDisconnect)]
+    (doseq [^StreamObserver observer @connections]
+      (try
+        (.onNext observer msg)
+        (catch Throwable t
+          ;; Isolate failures: one flaky observer must not abort the loop.
+          ;; The cancel handler in handle-grpc-subscribe takes care of removing
+          ;; dead observers.
+          (tracer/record-exception-span! t {:name "invalidator/broadcast-slot-disconnect-observer-error"
+                                            :escaping? false}))))))
 
 (defn start-save-history-process
   "Saves wal records to history table in batches of up to 1000.
    Returns a map with `push` function that takes a wal-record
    and a `shutdown` function that will wait for the queue to clear
    before returning."
-  [{:keys [flush-lsn-chan]}]
+  [{:keys [flush-lsn-chan
+           on-error]}]
   (let [executor (Executors/newSingleThreadExecutor)
         q (LinkedBlockingQueue.)
         stop-gauge (gauges/add-gauge-metrics-fn (fn [_]
@@ -391,25 +400,30 @@
                                                                   (.toEpochMilli ^Instant (:tx-created-at item)))))}]))
         shutdown-sentinel (Object.)
         shutdown? (atom false)
-        ;; XXX: Need to bubble up if this throws
         process (reify Runnable
                   (run [_]
-                    (loop [batch (ArrayList.)
-                          ;; First item will block
-                           item (.take q)]
-                      (.add batch item)
-                      ;; Grab up to 1000 items from the queue
-                      (.drainTo q batch 999)
-                      (let [quit? (identical? shutdown-sentinel (.get batch (dec (.size batch))))]
-                        (when quit?
-                          (.remove batch (dec (.size batch))))
-                        (when-not (.isEmpty batch)
-                          (history-model/push-batch! batch)
-                          (a/put! flush-lsn-chan (:nextlsn (.get batch (dec (.size batch))))))
+                    (try
+                      (loop [batch (ArrayList.)
+                             ;; First item will block
+                             item (.take q)]
+                        (.add batch item)
+                        ;; Grab up to 1000 items from the queue
+                        (.drainTo q batch 999)
+                        (let [quit? (identical? shutdown-sentinel (.get batch (dec (.size batch))))]
+                          (when quit?
+                            (.remove batch (dec (.size batch))))
+                          (when-not (.isEmpty batch)
+                            (history-model/push-batch! batch)
+                            (a/put! flush-lsn-chan (:nextlsn (.get batch (dec (.size batch))))))
 
-                        (when-not quit?
-                          (recur (ArrayList.)
-                                 (.take q)))))))]
+                          (when-not quit?
+                            (recur (ArrayList.)
+                                   (.take q)))))
+                      (catch Throwable t
+                        (on-error t))
+                      (finally
+                        (when-not @shutdown?
+                          (on-error (Exception. "Save history process exited before shut down.")))))))]
     (.submit executor process)
     {:push (fn [wal-record]
              (when @shutdown?
@@ -442,7 +456,8 @@
                                       queue
                                       previous-isn-atom]}]
   (tracer/record-info! {:name "invalidator/singleton-worker-start"})
-  (let [save-history-process (start-save-history-process {:flush-lsn-chan flush-lsn-chan})
+  (let [save-history-process (start-save-history-process {:flush-lsn-chan flush-lsn-chan
+                                                          :on-error on-error})
         process (a/go
                   (loop []
                     (if (check-disabled)
