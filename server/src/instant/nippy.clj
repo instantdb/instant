@@ -265,8 +265,12 @@
 
 ;; 15 is our custom identifier for InvalidatorSubscribe, no other type can use it and
 ;; it must be the same across all machines.
-(nippy/extend-freeze InvalidatorSubscribe 15 [^InvalidatorSubscribe {:keys [machine-id]} data-output]
-  (write-uuid data-output machine-id))
+(nippy/extend-freeze InvalidatorSubscribe 15 [^InvalidatorSubscribe {:keys [machine-id
+                                                                            process-id]}
+                                              data-output]
+  (write-uuid data-output machine-id)
+  (nippy/freeze-to-out! data-output process-id))
 
 (nippy/extend-thaw 15 [data-input]
-  (instant.grpc/->InvalidatorSubscribe (read-uuid data-input)))
+  (instant.grpc/->InvalidatorSubscribe (read-uuid data-input)
+                                       (nippy/thaw-from-in! data-input)))

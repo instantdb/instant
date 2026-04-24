@@ -258,14 +258,13 @@
       (stop))
     @(ua/all-of
       (future
-        (tracer/with-span! {:name "stop-invalidator"}
-          (inv/stop-global)))
-      (future
         (tracer/with-span! {:name "stop-aggregator"}
           (agg/stop-global)))
       (future
         (tracer/with-span! {:name "stop-ephemeral"}
           (eph/stop))
+        (tracer/with-span! {:name "stop-invalidator"}
+          (inv/stop-global))
         (tracer/with-span! {:name "stop-grpc"}
           (grpc-server/stop-global)))
       (future

@@ -51,7 +51,7 @@
 
 (defrecord-once SlotDisconnect [])
 
-(defrecord-once InvalidatorSubscribe [^UUID machine-id])
+(defrecord-once InvalidatorSubscribe [^UUID machine-id ^Integer process-id])
 
 (def stream-error-map
   {:unknown -1

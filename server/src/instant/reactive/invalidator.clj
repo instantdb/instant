@@ -20,6 +20,7 @@
    [instant.reactive.store :as rs]
    [instant.reactive.topics :as topics]
    [instant.util.async :as ua]
+   [instant.util.coll :as ucoll]
    [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.tracer :as tracer])
   (:import
@@ -369,9 +370,9 @@
                                      :skip? (neg? (compare isn old-previous))}}
       (grouped-queue/put! queue wal-record))))
 
-(defn broadcast-slot-disconnect [{:keys [connections]}]
+(defn broadcast-slot-disconnect [{:keys [get-remote-observers]}]
   (let [msg (grpc/->SlotDisconnect)]
-    (doseq [^StreamObserver observer (vals @connections)]
+    (doseq [^StreamObserver observer (get-remote-observers)]
       (try
         (.onNext observer msg)
         (catch Throwable t
@@ -435,9 +436,9 @@
                  (.shutdown executor)
                  (stop-gauge))}))
 
-(defn broadcast-wal-record [connections packed-wal-record]
+(defn broadcast-wal-record [get-remote-observers packed-wal-record]
   (let [msg (grpc/->PackedWalRecord packed-wal-record)]
-    (doseq [^StreamObserver observer (vals @connections)]
+    (doseq [^StreamObserver observer (get-remote-observers)]
       (try
         (.onNext observer msg)
         (catch Throwable t
@@ -448,7 +449,7 @@
                                             :escaping? false}))))))
 
 (defn start-singleton-worker [{:keys [wal-chan
-                                      connections
+                                      get-remote-observers
                                       flush-lsn-chan
                                       on-error
                                       stop-lsn
@@ -470,7 +471,7 @@
                           (when-not (and stop-lsn
                                          (neg? (compare stop-lsn (:nextlsn wal-record))))
                             (try
-                              (broadcast-wal-record connections packed-wal-record)
+                              (broadcast-wal-record get-remote-observers packed-wal-record)
                               (handle-singleton-wal-record {:queue queue
                                                             :previous-isn-atom previous-isn-atom}
                                                            wal-record)
@@ -544,7 +545,7 @@
                                         acquire-slot-interrupt-chan
                                         get-conn-config
                                         slot-num
-                                        connections
+                                        get-remote-observers
                                         previous-isn-atom
                                         queue]}]
   (let [shutdown-chan (a/chan)
@@ -606,7 +607,7 @@
                                                            :close-signal-chan close-signal-chan
                                                            :flush-lsn-chan flush-lsn-chan
                                                            :process-id process-id
-                                                           :connections connections
+                                                           :get-remote-observers get-remote-observers
                                                            :previous-isn-atom previous-isn-atom
                                                            :queue queue
                                                            :on-error (fn [e]
@@ -621,7 +622,7 @@
                                 (stop wal-opts))
                               ;; serves as a signal to the other instances that they should
                               ;; grab the topic
-                              (broadcast-slot-disconnect {:connections connections})
+                              (broadcast-slot-disconnect {:get-remote-observers get-remote-observers})
                               (when (= exit-ch close-signal-chan)
                                 (tracer/record-info! {:name "invalidator-singleton/retry"
                                                       :attributes {:wait-ms acquire-slot-interval-ms
@@ -636,7 +637,44 @@
                    @wal-worker-finished))
      :completed-chan process}))
 
-(defonce remote-observers (atom {}))
+(defonce next-process-id (atom (int 0)))
+(defn gen-process-id []
+  (swap! next-process-id unchecked-inc-int))
+
+(defonce remote-observers {})
+
+(defonce grpc-registry (atom {:local-processes {}
+                              :remote-observers {}}))
+
+(defn handle-grpc-subscribe
+  "This is called when a remote machine subscribes to our invalidator stream.
+   The remote machine will create the connection when it starts up the
+   singleton invalidator, indicating that it wants to subscribe to wal records
+   on this machine."
+  [^InvalidatorSubscribe req ^ServerCallStreamObserver observer]
+  (tracer/with-span! {:name "handle-grpc-subscribe"
+                      :attributes {:remote-machine-id (:machine-id req)
+                                   :remote-process-id (:process-id req)}}
+    (let [new-state (swap! grpc-registry
+                           (fn [state]
+                             (if (empty? (:local-processes state))
+                               state
+                               (assoc-in state [:remote-observers req] observer))))
+          new-observer (get-in new-state [:remote-observers req])]
+      (if (or (not new-observer) ; We don't have any processes running, so tell them to go away
+              (not= new-observer observer)) ; Someone else won the race, close this one
+        (.onCompleted observer)
+        (let [cleanup (reify Runnable
+                        (run [_]
+                          (swap! grpc-registry
+                                 (fn [state]
+                                   (if (= observer (get-in state [:remote-observers req]))
+                                     (ucoll/dissoc-in state [:remote-observers req])
+                                     state)))))]
+          (.setOnCloseHandler observer cleanup)
+          (.setOnCancelHandler observer cleanup)
+          (doseq [{:keys [subscribe]} (vals (:local-processes new-state))]
+            (subscribe (:machine-id req))))))))
 
 ;; Used to indicate to grpc that we meant to cancel
 (def shutdown-reason "s")
@@ -667,34 +705,13 @@
       (onError [_ t]
         (cleanup)
         (let [status (Status/fromThrowable t)]
-          (when (or (not= (.getCode status) Status$Code/CANCELLED)
-                    (not= (.getDescription status) shutdown-reason))
+          (if (= (.getCode status) Status$Code/CANCELLED)
+            (tracer/record-info! {:name "invalidator/singleton-gprc-subscription-cancelled"
+                                  :attributes {:description (.getDescription status)
+                                               :remote-machine-id remote-machine-id}})
             (tracer/record-exception-span! t {:name "invalidator/singleton-gprc-subscription-stream-error"}))))
       (onCompleted [_]
         (cleanup)))))
-
-(defn handle-grpc-subscribe
-  "This is called when a remote machine subscribes to our invalidator stream.
-   The remote machine will create the connection when it starts up the
-   singleton invalidator, indicating that it wants to subscribe to wal records."
-  [^InvalidatorSubscribe {:keys [machine-id]} ^ServerCallStreamObserver observer]
-  (tracer/with-span! {:name "handle-grpc-subscribe"
-                      :attributes {:machine-id machine-id}}
-    (let [[old-observers new-observers] (swap-vals! remote-observers assoc machine-id observer)]
-      (when-let [^ServerCallStreamObserver old-observer (get old-observers machine-id)]
-        (when (not= old-observer observer)
-          (.onError old-observer (Exception. "New subscription for same machine-id, closing old subscription."))))
-      (if (not= (get new-observers machine-id) observer)
-        (.onError observer (Exception. "Clashing subscribe requests."))
-        (let [cleanup (reify Runnable
-                        (run [_]
-                          (swap! remote-observers
-                                 (fn [observers]
-                                   (if (= observer (get observers machine-id))
-                                     (dissoc observers machine-id)
-                                     observers)))))]
-          (.setOnCloseHandler observer cleanup)
-          (.setOnCancelHandler observer cleanup))))))
 
 ;; How the singleton subscriber works
 ;; # Connecting
@@ -723,8 +740,60 @@
 ;;  1. We need to have something that retries if we're unable to connect to a machine
 ;;  2. We need to have something that turns off the thing globally
 
+(defn subscribe-to-machine [{:keys [grpc-cancels
+                                    previous-isn-atom
+                                    acquire-slot-interrupt-chan
+                                    process-id
+                                    queue
+                                    outbound-subscriptions]}
+                            machine-id]
+  (tracer/with-span! {:name "invalidator/subscribe-to-machine"
+                      :attributes {:remote-machine-id machine-id
+                                   :process-id process-id}}
+    (let [sentinel (Object.)
+          after (swap! outbound-subscriptions (fn [subs]
+                                                (if (get subs machine-id)
+                                                  subs
+                                                  (assoc subs machine-id sentinel))))]
+      (if-not (= sentinel (get after machine-id))
+        (tracer/add-data! {:attributes {:already-subscribed? true}})
+        (let [client (grpc-client/grpc-client-for-machine-id machine-id)
+              cancel-id (random-uuid)
+              on-close (fn []
+                         (swap! outbound-subscriptions (fn [state]
+                                                         (if (= sentinel (get state machine-id))
+                                                           (dissoc state machine-id)
+                                                           state)))
+                         (swap! grpc-cancels dissoc cancel-id))
+              observer (make-subscription-observer {:queue queue
+                                                    :previous-isn-atom previous-isn-atom
+                                                    :acquire-slot-interrupt-chan acquire-slot-interrupt-chan}
+                                                   machine-id
+                                                   on-close)
+              {:keys [cancel]} (grpc-client/subscribe-to-invalidator client process-id observer)]
+          (swap! grpc-cancels assoc cancel-id cancel))))))
+
+(defn cleanup-local-process
+  "Removes the process from the grpc-registry and closes any
+   remote-observers if we're the last process."
+  [process-id]
+  (let [[old new] (swap-vals! grpc-registry (fn [state]
+                                              (let [processes-after (dissoc (:local-processes state) process-id)]
+                                                (cond-> state
+                                                  true (assoc :local-processes processes-after)
+
+                                                  (empty? processes-after)
+                                                  (assoc :remote-observers {})))))]
+    (when (empty? (:remote-observers new))
+      ;; XXX: What happens if you call onCompleted twice?
+      (doseq [^StreamObserver observer (vals (:remote-observers old))]
+        (try
+          (.onCompleted observer)
+          (catch Throwable _ nil))))))
+
 (defn start-singleton []
-  (let [conn-config (config/get-aurora-config)
+  (let [process-id (gen-process-id)
+        conn-config (config/get-aurora-config)
         get-conn-config (with-meta (fn []
                                      conn-config)
                           ;; When we're not transitioning to a new cluster,
@@ -747,41 +816,35 @@
 
         previous-isn-atom (atom nil)
 
+        ;; Holds a map of unique-id to cancel function
+        ;; used to close the outbound grpc connections
         grpc-cancels (atom {})
 
+        outbound-subscriptions (atom {})
+
+        subscribe (partial subscribe-to-machine {:grpc-cancels grpc-cancels
+                                                 :previous-isn-atom previous-isn-atom
+                                                 :acquire-slot-interrupt-chan acquire-slot-interrupt-chan
+                                                 :process-id process-id
+                                                 :queue queue
+                                                 :outbound-subscriptions outbound-subscriptions})
+
+        _ (swap! grpc-registry (fn [state]
+                                 (assoc-in state [:local-processes process-id] {:subscribe subscribe})))
+
         ;; Add listener so that we can subscribe to machines as they arrive
-        remove-cb (eph/add-hz-member-change-callback
-                   (fn [member-id action]
-                     (when (and (= action :added)
-                                (not= member-id config/machine-id))
-                       (let [client (grpc-client/grpc-client-for-machine-id member-id)
-                             cancel-id (random-uuid)
-                             on-cancel (fn []
-                                         (swap! grpc-cancels dissoc cancel-id))
-                             observer (make-subscription-observer {:queue queue
-                                                                   :previous-isn-atom previous-isn-atom
-                                                                   :acquire-slot-interrupt-chan acquire-slot-interrupt-chan}
-                                                                  member-id
-                                                                  on-cancel)
-                             {:keys [cancel]} (grpc-client/subscribe-to-invalidator client observer)]
-                         (swap! grpc-cancels assoc cancel-id cancel)))))
+        remove-hz-cb (eph/add-hz-member-change-callback
+                      (fn [member-id action]
+                        (when (and (= action :added)
+                                   (not= member-id config/machine-id))
+                          (subscribe member-id))))
 
         ;; Start the grpc subscribers to remote machines that arrive before we added the listener
         ;; If we race and connect to the same machine twice, the remote machine will error on one
         ;; of the connections
         _ (doseq [member-id (keys eph/hz-member-by-machine-id-cache)]
             (when (not= member-id config/machine-id)
-              (let [client (grpc-client/grpc-client-for-machine-id member-id)
-                    cancel-id (random-uuid)
-                    on-cancel (fn []
-                                (swap! grpc-cancels dissoc cancel-id))
-                    observer (make-subscription-observer {:queue queue
-                                                          :previous-isn-atom previous-isn-atom
-                                                          :acquire-slot-interrupt-chan acquire-slot-interrupt-chan}
-                                                         member-id
-                                                         on-cancel)
-                    {:keys [cancel]} (grpc-client/subscribe-to-invalidator client observer)]
-                (swap! grpc-cancels assoc cancel-id cancel))))
+              (subscribe member-id)))
 
         {shutdown-listener :shutdown}
         (start-singleton-listener
@@ -793,13 +856,22 @@
           :get-conn-config get-conn-config
           :slot-num config/invalidator-slot-num
           :previous-isn-atom previous-isn-atom
-          :connections remote-observers
+          :get-remote-observers (fn []
+                                  (-> @grpc-registry
+                                      :remote-observers
+                                      vals))
           :queue queue})]
     {:shutdown (fn []
-                 (remove-cb)
+                 (remove-hz-cb)
+                 (shutdown-listener)
+                 ;; Shutdown outbound subscribers
                  (doseq [cancel (vals @grpc-cancels)]
-                   (cancel shutdown-reason))
-                 (shutdown-listener))}))
+                   (try
+                     (tracer/with-span! {:name "invalidator/cancel-outbound-sub"}
+                       (cancel shutdown-reason))
+                     (catch Throwable _ nil)))
+                 ;; Shutdown inbound subscribers if we're the last
+                 (cleanup-local-process process-id))}))
 
 (defn start
   "Entry point for invalidator. Starts a WAL listener and pipes WAL records to
