@@ -356,7 +356,6 @@
     (when (and old-previous
                (not= old-previous previous-isn))
       ;; TODO: We should fetch the missing wal-records from the history table
-      ;; XXX: This will probably fire when the slot switches machines
       (tracer/record-info! {:name "singleton-missing-wal-records"
                             :attributes {:isn isn
                                          :previous-isn previous-isn
@@ -722,7 +721,7 @@
 ;;
 ;; # If someone else holds the invalidator slot
 ;; 1. The machine that holds the slot will send us wal records through the grpc connection
-;;    and we will apply them, sending an ack after each one
+;;    and we will apply them
 ;; 2. When the remote machine gives up the slot, they'll broadcast a message through the
 ;;    grpc connection and we'll race to pick it up.
 ;;    a. We'll also periodically try to grab the slot in case the disconnect message is lost
@@ -735,10 +734,6 @@
 ;;    a. If any of the subscribers miss a transaction, they can read it from the history table
 ;;    b. By waiting until we write to the history table, we can ensure that we never miss a
 ;;       transaction
-
-;; TODO:
-;;  1. We need to have something that retries if we're unable to connect to a machine
-;;  2. We need to have something that turns off the thing globally
 
 (defn subscribe-to-machine [{:keys [grpc-cancels
                                     previous-isn-atom
@@ -785,7 +780,6 @@
                                                   (empty? processes-after)
                                                   (assoc :remote-observers {})))))]
     (when (empty? (:remote-observers new))
-      ;; XXX: What happens if you call onCompleted twice?
       (doseq [^StreamObserver observer (vals (:remote-observers old))]
         (try
           (.onCompleted observer)
@@ -905,10 +899,26 @@
 
      wal-opts)))
 
+(defn singleton-startup-disabled?
+  "Reads the `prevent-singleton-invalidator-startup` row from the config table.
+   The flags subscription isn't initialised until after the invalidator starts,
+   so we can't use `flags/toggled?` here."
+  []
+  (-> (sql/select-one
+       ::singleton-startup-disabled?
+       (aurora/conn-pool :read)
+       ["select v from config where k = 'prevent-singleton-invalidator-startup'"])
+      :v
+      boolean))
+
 (defn start-global []
   (def wal-opts (start))
-  (when true
-    (def singleton-process (start-singleton))))
+  (def singleton-process
+    (if (singleton-startup-disabled?)
+      (do
+        (tracer/record-info! {:name "invalidator/singleton-startup-prevented-by-config"})
+        nil)
+      (start-singleton))))
 
 (defn stop-global []
   (when (bound? #'wal-opts)
