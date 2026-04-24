@@ -244,6 +244,7 @@ export function TextInput({
         // the value as discs visually.
         type={type === 'sensitive' ? 'text' : (type ?? 'text')}
         style={
+          // @ts-expect-error non-standard css property
           type === 'sensitive' ? { WebkitTextSecurity: 'disc' } : undefined
         }
         // Turn off the text-entry protections that `type="password"`
