@@ -234,5 +234,5 @@
     (is (= (dissoc obj :ba) (dissoc round :ba)))))
 
 (deftest invalidator-subscribe
-  (let [obj (grpc/->InvalidatorSubscribe (random-uuid))]
+  (let [obj (grpc/->InvalidatorSubscribe (random-uuid) (rand-int 1000))]
     (is (= obj (roundtrip obj)))))
