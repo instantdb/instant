@@ -572,7 +572,7 @@
     (response/ok data)))
 
 (defn authorized-redirect-origins-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/write req)
         service (ex/get-param! req [:body :service] string-util/coerce-non-blank-str)
         service-params (ex/get-param! req [:body :params] #(when (coll? %) %))
         origin-req {:app-id app-id
