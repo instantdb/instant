@@ -30,7 +30,11 @@
   (and config/s3-wal-history-bucket-name
        (not (flags/toggled? :store-history-in-db))))
 
-(defn s3-key [{:keys [^UUID app-id ^ISN isn]}]
+(defn s3-key
+  "Creates an s3 key that is sortable by isn (for a given app id).
+   We convert the slot num and lsn to fixed-length hex strings that will
+   sort the same way as numbers."
+  [{:keys [^UUID app-id ^ISN isn]}]
   (str (when config/wal-history-prefix
          (str config/wal-history-prefix "/"))
        (format "%s/%08x/%016x" app-id (.slotNum isn) (.asLong ^LogSequenceNumber (.lsn isn)))))
@@ -79,7 +83,9 @@
                               :on-conflict [:isn :partition-bucket]
                               :do-nothing true}))
 
-(defn pack-wal-record ^bytes [^WalRecord wal-record]
+(defn pack-wal-record
+  "byte-encodes the wal record with nippy and compresses it with zstd."
+  ^bytes [^WalRecord wal-record]
   (tracer/with-span! {:name "pack-wal-record"
                       :attributes {:packed? (boolean (:packed (meta wal-record)))}}
     (if-let [packed (:packed (meta wal-record))]
@@ -93,8 +99,9 @@
         (nippy/fast-thaw))))
 
 (defn upload-to-s3
+  "Uploads the wal-record to s3, trying 3 times by default."
   ([^WalRecord wal-record]
-   (upload-to-s3 0 3 wal-record))
+   (upload-to-s3 1 3 wal-record))
   ([attempt max-attempts ^WalRecord wal-record]
    (let [ba (pack-wal-record wal-record)]
      (try (upload-body-to-s3 (s3-async-client)
@@ -104,7 +111,7 @@
                               :content-type "application/octet-stream"}
                              (AsyncRequestBody/fromBytesUnsafe ba))
           (catch Throwable t
-            (if (> attempt max-attempts)
+            (if (>= attempt max-attempts)
               (throw t)
               (do
                 (tracer/record-exception-span! t {:name "history/upload-to-s3-failure"
@@ -113,6 +120,8 @@
                 (upload-to-s3 (inc attempt) max-attempts wal-record))))))))
 
 (defn push!
+  "Saves a single wal record in the history table, pushing the content to s3 (or
+   the database if s3 is disabled)."
   ([wal-record] (push! (aurora/conn-pool :write) wal-record))
   ([conn wal-record]
    (let [topic-filter (topic-filter-of-wal-record wal-record)
@@ -130,7 +139,10 @@
                                                  (pack-wal-record wal-record))
                                       :partition-bucket (partition-bucket-of-wal-record wal-record)})))))
 
-(defn upload-batch-to-s3! [wal-records]
+(defn upload-batch-to-s3!
+  "Uploads a batch of wal records to s3 simultaneously, trying 3 times for each.
+   Returns {:status :ok|:error, :wal-record wal-record}[]"
+  [wal-records]
   (->> wal-records
        (mapv (fn [wal-record]
                (ua/vfuture (try
@@ -182,6 +194,8 @@
     :do-nothing true}))
 
 (defn push-batch!
+  "Saves a batch of wal records in the history table, pushing the content to s3 (or
+   the database if s3 is disabled)."
   ([wal-records] (push-batch! (aurora/conn-pool :write) wal-records))
   ([conn wal-records]
    (let [upload-results (if (store-to-s3?)
