@@ -107,7 +107,9 @@ function printDotEnvInfo(
   otherEnvs.sort();
   const otherEnvStr = otherEnvs.map((x) => '  ' + chalk.green(x)).join('\n');
   console.log(`Alternative names: \n${otherEnvStr} \n`);
-  console.log(link(appDashUrl(appId, dashOrigin), 'Dashboard:') + '\n');
+  console.log(
+    `${link(appDashUrl(appId, dashOrigin))}: ${appDashUrl(appId, dashOrigin)}\n`,
+  );
 }
 
 function appDashUrl(id: string, instantOrigin: string) {
