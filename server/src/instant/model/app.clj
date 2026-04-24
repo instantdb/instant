@@ -301,7 +301,8 @@
                             "meta" (get client "meta")
                             "discovery_endpoint" (get client "discoveryEndpoint")
                             "created_at" (get client "$serverCreatedAt")
-                            "redirect_to" (get client "redirectTo")})
+                            "redirect_to" (get client "redirectTo")
+                            "use_shared_credentials" (boolean (get client "useSharedCredentials"))})
                          $oauthClients)]
         {:data {"oauth_service_providers" providers
                 "oauth_clients" clients

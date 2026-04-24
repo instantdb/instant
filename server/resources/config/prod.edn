@@ -34,6 +34,11 @@
  :google-oauth-client {:client-id "785415128641-a5pmq866egf7ti8chk7n7d6d2p4jlugh.apps.googleusercontent.com"
                        :client-secret {:enc "01506bc4f4578c7ed25ebc62d3e685ab755ad83c4e39efe94c21eab013e80ebfd7a77440453373dbf2cb4e51344969861f90c9b4e262d39908e6d82b4126813a5b8cded4bbf16acd5c76bd53fa737236280f691fce32615f"}}
 
+ :shared-oauth-clients
+ [{:provider_name "google"
+   :client_id "305103028354-91o25ba795d7gh9b27hebu8pcbb5nskn.apps.googleusercontent.com"
+   :client_secret {:enc "01506bc4f497f1748e46b8c9169591ca37817f40ed5e04fb4a0c50fc121a4bf64018d0e1094b0011ab70a3dcdb0294cd6e49b47c52f6627df387114dc843268c835e549bbdd900b81f8b16d7af11c695b461ba6edb65aea9"}}]
+
  :rate-limit-hmac-key {:enc "01506bc4f45346e25ec4784dd454f700a0168ccfc6a55ce40594c615d82e6b174178781647198d0561ae1fdae197512eb148fef4e7c1cf3798deadaaebdf206502ef67e446bb5c43e8bcf36a738626cf93ad658bf62a0f2f7e5ebb8931df361078cbcf5348da648d57b933ddf907059a878ae29d10"}
 
  :database-cluster-id "instant-aurora-17"

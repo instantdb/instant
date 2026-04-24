@@ -34,6 +34,11 @@
  :google-oauth-client {:client-id "785415128641-ccl4op4i0h9hfgietklpaqe2jqc4v90r.apps.googleusercontent.com"
                        :client-secret {:enc "01761259c7ce11373e60e945f959c3071c0e56efd173ec83dfac673d658f08f54ff4e2097e57deef55953e8dc200b895a5e64609be8c1ce67fec4968eeb283708ce43dc3ea72976583858dcaa64fb93f675ace50c77dc9b5"}}
 
+ :shared-oauth-clients
+ [{:provider_name "google"
+   :client_id "305103028354-b1f6os6tu0qr7q80a39t86c4jqi1711e.apps.googleusercontent.com"
+   :client_secret {:enc "01761259c7074a1e88afe154fb0b48432a20e3375f06da85a3c99dfc329aeae3c16fb4a258cbe504d395bc7785dac01d07492d8a25ebe575270b99aa40c6b90917ae4124bedcae6d6dcdd843b029e81a41375bf87b0f798b"}}]
+
  :rate-limit-hmac-key {:enc "01761259c7425892fa512a1f194ef5e8164573813d6811065607efd8a920ef192c18b77c3a071d3bded54f3cdf5a7be54b6263532aeaf0daa3f28d1e5092d3176069a3d7423762461878ef11ca27dcf2851af51fd0e64ae48575ceea47b7d339becfcc430a2135e021eb6994737c9f7f725f4df594"}
 
  :database-url "jdbc:postgresql://localhost:5432/instant"

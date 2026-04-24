@@ -14,6 +14,7 @@
    [instant.model.app :as app-model]
    [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
    [instant.model.app-oauth-client :as app-oauth-client-model]
+   [instant.model.shared-oauth-client :refer [assert-shared-credentials-allowed!]]
    [instant.model.app-oauth-code :as app-oauth-code-model]
    [instant.model.app-oauth-redirect :as app-oauth-redirect-model]
    [instant.model.app-user :as app-user-model]
@@ -184,6 +185,27 @@
   (when (string/starts-with? v cookie-value-prefix)
     (uuid-util/coerce (subs v (count cookie-value-prefix)))))
 
+(defn assert-authorized-redirect-uri! [client redirect-uri]
+  (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
+                            {:app-id (:app_id client)})]
+    (when-not (app-authorized-redirect-origin-model/authorized-origin?
+               authorized-origins
+               redirect-uri
+               (:use_shared_credentials client))
+      (ex/throw-validation-err!
+       :redirect-uri
+       redirect-uri
+       [{:message "Invalid redirect_uri. If you're the developer, make sure to add your website to the list of approved domains."}]))))
+
+(defn assert-authorized-request-origin! [client origin]
+  (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
+                            {:app-id (:app_id client)})]
+    (when-not (app-authorized-redirect-origin-model/authorized-origin?
+               authorized-origins
+               origin
+               (:use_shared_credentials client))
+      (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
+
 (defn oauth-start [{{:keys [state code_challenge code_challenge_method]} :params :as req}]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
 
@@ -206,16 +228,8 @@
                                     :let [value (get-in req [:params param])]
                                     :when value]
                                 [param value]))
-        authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
-                            {:app-id (:app_id client)})
-        matched-origin (app-authorized-redirect-origin-model/find-match
-                        authorized-origins
-                        redirect-uri)
-        _ (when-not matched-origin
-            (ex/throw-validation-err!
-             :redirect-uri
-             redirect-uri
-             [{:message "Invalid redirect_uri. If you're the developer, make sure to add your website to the list of approved domains from the Dashboard."}]))
+
+        _ (assert-authorized-redirect-uri! client redirect-uri)
 
         app-redirect-url
         (if state
@@ -255,7 +269,8 @@
                               ;; matches everything under the subdirectory
                               :path "/runtime/oauth"}))))
 
-(defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id extra-fields]}]
+(defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id extra-fields
+                                  use-shared-credentials?]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
                {:email email
                 :app-id app-id
@@ -283,23 +298,26 @@
                                        :sub (:app_user_oauth_links/sub oauth-link)})})))]
 
     (if-not user
-      (let [_        (app-user-model/assert-signup!
+      (let [new-user-id (or guest-user-id (random-uuid))
+            _        (when use-shared-credentials?
+                       (assert-shared-credentials-allowed! app-id))
+            _        (app-user-model/assert-signup!
                       {:app-id app-id
                        :email email
-                       :id (or guest-user-id (random-uuid))
+                       :id new-user-id
                        :extra-fields extra-fields})
             new-user (app-user-model/create!
-                       {:id guest-user-id
-                        :app-id app-id
-                        :email email
-                        :imageURL imageURL
-                        :type "user"
-                        :extra-fields extra-fields})]
+                      {:id new-user-id
+                       :app-id app-id
+                       :email email
+                       :imageURL imageURL
+                       :type "user"
+                       :extra-fields extra-fields})]
         (assoc (app-user-oauth-link-model/create! {:id (random-uuid)
-                                                    :app-id app-id
-                                                    :provider-id provider-id
-                                                    :sub sub
-                                                    :user-id (:id new-user)})
+                                                   :app-id app-id
+                                                   :provider-id provider-id
+                                                   :sub sub
+                                                   :user-id (:id new-user)})
                :created true))
 
       (do
@@ -591,19 +609,16 @@
         oauth-code (app-oauth-code-model/consume! {:code code
                                                    :app-id app-id
                                                    :verifier code-verifier})
-        _ (when-let [origin (get-in req [:headers "origin"])]
-            (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
-                                      {:app-id app-id})]
-              (when-not (app-authorized-redirect-origin-model/find-match
-                         authorized-origins origin)
-                (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
         {:keys [app_id client_id user_info]} oauth-code
-
-        _ (assert (= app-id app_id) (str "(= " app-id " " app_id ")"))
 
         client (or (app-oauth-client-model/get-by-id {:app-id app-id
                                                       :id client_id})
                    (ex/throw-oauth-err! "Missing OAuth client"))
+
+        _ (when-let [origin (get-in req [:headers "origin"])]
+            (assert-authorized-request-origin! client origin))
+
+        _ (assert (= app-id app_id) (str "(= " app-id " " app_id ")"))
 
         guest-user (when-some [refresh-token (ex/get-optional-param! req [:body :refresh_token] uuid-util/coerce)]
                      (let [user (app-user-model/get-by-refresh-token!
@@ -619,7 +634,9 @@
                                                 :app-id app-id
                                                 :provider-id (:provider_id client)
                                                 :guest-user-id (:id guest-user)
-                                                :extra-fields extra-fields})
+                                                :extra-fields extra-fields
+                                                :use-shared-credentials?
+                                                (:use_shared_credentials client)})
 
         refresh-token-id (random-uuid)
 
@@ -647,14 +664,8 @@
         client (app-oauth-client-model/get-by-client-name! {:app-id app-id
                                                             :client-name client-name})
         oauth-client (app-oauth-client-model/->OAuthClient client)
-        _ (when-let [origin (and (:client_secret client)
-                                 (get-in req [:headers "origin"]))]
-            (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
-                                      {:app-id app-id})
-                  match (app-authorized-redirect-origin-model/find-match
-                         authorized-origins origin)]
-              (when-not match
-                (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
+        _ (when-let [origin (get-in req [:headers "origin"])]
+            (assert-authorized-request-origin! client origin))
 
         {:keys [email sub imageURL]} (oauth/get-user-info-from-id-token
                                       oauth-client
@@ -685,7 +696,9 @@
                                           :app-id (:app_id client)
                                           :provider-id (:provider_id client)
                                           :guest-user-id (:id guest-user)
-                                          :extra-fields extra-fields})
+                                          :extra-fields extra-fields
+                                          :use-shared-credentials?
+                                          (:use_shared_credentials client)})
 
         {refresh-token-id :id} (if (and current-refresh-token
                                         (= (:user_id social-login)
@@ -713,7 +726,7 @@
         app-id (req->app-id-untrusted! req)
         user (when auth-token
                (app-user-model/get-by-refresh-token {:refresh-token auth-token
-                                                      :app-id app-id}))
+                                                     :app-id app-id}))
         attrs (attr-model/get-by-app-id app-id)
         ctx {:db {:conn-pool (aurora/conn-pool :read)}
              :app-id app-id

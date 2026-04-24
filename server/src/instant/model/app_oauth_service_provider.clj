@@ -2,10 +2,10 @@
   "A provider is an issuer of unique issuer of subject ids (sub).
   An app might have a provider named google that has multiple OAuth
   clients, e.g. one for web and one for native."
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.system-catalog-ops :refer [query-op update-op]])
-  (:import
-   (java.util UUID)))
+  (:require [instant.comment :as c]
+            [instant.jdbc.aurora :as aurora]
+            [instant.system-catalog-ops :refer [query-op update-op]]
+            [instant.util.exception :as ex]))
 
 (def etype "$oauthProviders")
 
@@ -40,9 +40,14 @@
              (fn [{:keys [get-entity]}]
                (get-entity id)))))
 
-(comment
-  (create! {:app-id (UUID/fromString "3cc5c5c8-07df-42b2-afdc-6a04cbf0c40a")
-            :provider-name "google"})
+(defn get-by-id! [{:keys [app-id id]}]
+  (let [provider (get-by-id {:app-id app-id :id id})]
+    (ex/assert-record! provider :oauth-service-provider {:provider-id id})
+    provider))
 
-  (get-by-provider-name {:app-id (UUID/fromString "3cc5c5c8-07df-42b2-afdc-6a04cbf0c40a")
+(comment
+  (def app (c/empty-app!))
+  (create! {:app-id (:id app)
+            :provider-name "google"})
+  (get-by-provider-name {:app-id (:id app)
                          :provider-name "google"}))

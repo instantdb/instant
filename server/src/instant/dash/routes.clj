@@ -32,6 +32,8 @@
             [instant.model.org-members :as instant-org-members]
             [instant.model.app-oauth-client :as app-oauth-client-model]
             [instant.model.app-oauth-service-provider :as app-oauth-service-provider-model]
+            [instant.model.shared-oauth-client :refer [assert-shared-credentials-allowed!
+                                                       get-shared-credential!]]
             [instant.model.instant-cli-login :as instant-cli-login-model]
             [instant.model.instant-oauth-code :as instant-oauth-code-model]
             [instant.model.instant-oauth-redirect :as instant-oauth-redirect-model]
@@ -615,6 +617,7 @@
         client-id (coerce-optional-param! [:body :client_id])
         client-secret (coerce-optional-param! [:body :client_secret])
         meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
+        use-shared-credentials? (boolean (-> req :body :use_shared_credentials))
         redirect-to (-> req :body :redirect_to string-util/coerce-non-blank-str)
         _ (when redirect-to
             (ex/assert-valid!
@@ -622,12 +625,18 @@
              redirect-to
              (url-util/redirect-url-validation-errors
               redirect-to :allow-localhost? true)))
-        provider-name (ex/get-optional-param! meta [:providerName] string-util/coerce-non-blank-str)
+        {provider-name :provider_name}
+        (app-oauth-service-provider-model/get-by-id!
+         {:app-id app-id :id provider-id})
 
         ;; GitHub doesn't need discovery endpoints
         ;; OIDC providers (Google, LinkedIn, Apple) need discovery endpoints
         discovery-endpoint (when-not (= "github" provider-name)
                              (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str))
+
+        _ (when use-shared-credentials?
+            (get-shared-credential! provider-name)
+            (assert-shared-credentials-allowed! app-id))
 
         client (app-oauth-client-model/create! {:app-id app-id
                                                 :provider-id provider-id
@@ -636,29 +645,46 @@
                                                 :client-secret client-secret
                                                 :discovery-endpoint discovery-endpoint
                                                 :meta meta
-                                                :redirect-to redirect-to})]
+                                                :redirect-to redirect-to
+                                                :use-shared-credentials? use-shared-credentials?})]
     (response/ok {:client (select-keys client [:id :provider_id :client_name
-                                               :client_id :created_at :meta :discovery_endpoint])})))
+                                               :client_id :created_at :meta :discovery_endpoint
+                                               :use_shared_credentials])})))
 
 (defn update-oauth-client [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         id (ex/get-param! req [:params :id] uuid-util/coerce)
         meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
+        use-shared-credentials? (when-some [v (-> req :body :use_shared_credentials)]
+                                  (boolean v))
         redirect-to (-> req :body :redirect_to string-util/coerce-non-blank-str)
+        client-id (ex/get-optional-param! req [:body :client_id] string-util/coerce-non-blank-str)
+        client-secret (ex/get-optional-param! req [:body :client_secret] string-util/coerce-non-blank-str)
         _ (when redirect-to
             (ex/assert-valid!
              :redirect_to
              redirect-to
              (url-util/redirect-url-validation-errors
               redirect-to :allow-localhost? true)))
+        _ (when use-shared-credentials?
+            (let [existing (app-oauth-client-model/get-by-id! {:app-id app-id :id id})
+                  {provider-name :provider_name}
+                  (app-oauth-service-provider-model/get-by-id!
+                   {:app-id app-id :id (:provider_id existing)})]
+              (get-shared-credential! provider-name)
+              (assert-shared-credentials-allowed! app-id)))
         params (cond-> {:app-id app-id
                         :id id}
                  ;; Distinguish between null and undefined
                  (contains? (:body req) :meta) (assoc :meta meta)
-                 (contains? (:body req) :redirect_to) (assoc :redirect-to redirect-to))
+                 (contains? (:body req) :redirect_to) (assoc :redirect-to redirect-to)
+                 client-id (assoc :client-id client-id)
+                 client-secret (assoc :client-secret client-secret)
+                 (some? use-shared-credentials?) (assoc :use-shared-credentials? use-shared-credentials?))
         client (app-oauth-client-model/update! params)]
     (response/ok {:client (select-keys client [:id :provider_id :client_name
-                                               :client_id :created_at :meta :discovery_endpoint])})))
+                                               :client_id :created_at :meta :discovery_endpoint
+                                               :use_shared_credentials])})))
 
 (defn oauth-clients-delete [req]
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/write req)
