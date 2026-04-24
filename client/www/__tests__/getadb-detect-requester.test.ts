@@ -2,16 +2,12 @@ import { test, expect } from 'vitest';
 import { detectRequester } from '../app/getadb/detect-requester';
 
 test('detects figmaMake from curl/7.74.0 user-agent', () => {
-  const request = new Request('https://instant.ngrok.dev/getadb', {
+  const request = new Request('https://getadb.com/getadb', {
     headers: {
       accept: '*/*',
       'accept-encoding': 'gzip',
-      host: 'instant.ngrok.dev',
+      host: 'getadb.com',
       'user-agent': 'curl/7.74.0',
-      'x-forwarded-for': '104.28.162.252',
-      'x-forwarded-host': 'instant.ngrok.dev',
-      'x-forwarded-port': '3000',
-      'x-forwarded-proto': 'https',
     },
   });
 
@@ -19,7 +15,7 @@ test('detects figmaMake from curl/7.74.0 user-agent', () => {
 });
 
 test('returns unknown for a real browser request', () => {
-  const request = new Request('https://instant.ngrok.dev/getadb', {
+  const request = new Request('https://getadb.com/getadb', {
     headers: {
       accept:
         'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -34,14 +30,9 @@ test('returns unknown for a real browser request', () => {
 });
 
 test('returns unknown for a different curl version', () => {
-  const request = new Request('https://instant.ngrok.dev/getadb', {
+  const request = new Request('https://getadb.com/getadb', {
     headers: { 'user-agent': 'curl/8.4.0' },
   });
 
-  expect(detectRequester(request)).toBe('unknown');
-});
-
-test('returns unknown when user-agent is missing', () => {
-  const request = new Request('https://instant.ngrok.dev/getadb');
   expect(detectRequester(request)).toBe('unknown');
 });

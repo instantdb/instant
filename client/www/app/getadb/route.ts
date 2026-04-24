@@ -4,8 +4,6 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
-  const headers = Object.fromEntries(request.headers.entries());
-  console.log('[getadb] request headers', JSON.stringify(headers));
   const markdown = await agentMarkdown(request);
   return new Response(markdown, {
     headers: {
