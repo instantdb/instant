@@ -31,6 +31,7 @@ import { authClientListCmd } from './commands/auth/client/list.ts';
 import { authClientDeleteCmd } from './commands/auth/client/delete.ts';
 import { authOriginListCmd } from './commands/auth/origin/list.ts';
 import { authOriginDeleteCmd } from './commands/auth/origin/delete.ts';
+import { authOriginAddCmd } from './commands/auth/origin/add.ts';
 import { link } from './logging.ts';
 
 export type OptsFromCommand<C> =
@@ -214,6 +215,39 @@ export const authOriginListDef = authOrigin
             appId: opts.app,
             allowAdminToken: true,
           }).pipe(Layer.annotateLogs('silent', !!opts.json)),
+        ),
+      ),
+    );
+  });
+
+export const authOriginAddDef = authOrigin
+  .command('add')
+  .option(
+    '--type <generic>',
+    'Type of origin to add. Currently only "generic" (website) is supported.',
+  )
+  .option('--url <url>', 'Website URL (e.g. example.com)')
+  .option(
+    '-a --app <app-id>',
+    'App ID to add an origin to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .addHelpText(
+    'after',
+    `
+Origin Types:
+  generic    A standard website origin (e.g. example.com)
+`,
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      authOriginAddCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
         ),
       ),
     );

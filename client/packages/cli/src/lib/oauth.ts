@@ -252,3 +252,26 @@ export const removeAuthorizedOrigin = Effect.fn(function* (
       ),
     );
 });
+
+export const addAuthorizedOrigin = Effect.fn(function* (params: {
+  service: Schema.Schema.Type<typeof AuthorizedOriginService>;
+  params: string[];
+}) {
+  const http = (yield* InstantHttpAuthed).pipe(
+    withCommand('auth origin add'),
+  );
+  const { appId } = yield* CurrentApp;
+
+  return yield* http
+    .post(`/dash/apps/${appId}/authorized_redirect_origins`, {
+      body: HttpBody.unsafeJson({
+        service: params.service,
+        params: params.params,
+      }),
+    })
+    .pipe(
+      Effect.flatMap(
+        HttpClientResponse.schemaBodyJson(AuthorizedOriginResponse),
+      ),
+    );
+});
