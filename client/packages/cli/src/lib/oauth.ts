@@ -236,9 +236,7 @@ export const getClientNameAndProvider = Effect.fn(function* (
   return { provider, clientName };
 });
 
-export const removeAuthorizedOrigin = Effect.fn(function* (
-  originId: string,
-) {
+export const removeAuthorizedOrigin = Effect.fn(function* (originId: string) {
   const http = (yield* InstantHttpAuthed).pipe(
     withCommand('auth origin delete'),
   );
@@ -257,9 +255,7 @@ export const addAuthorizedOrigin = Effect.fn(function* (params: {
   service: Schema.Schema.Type<typeof AuthorizedOriginService>;
   params: string[];
 }) {
-  const http = (yield* InstantHttpAuthed).pipe(
-    withCommand('auth origin add'),
-  );
+  const http = (yield* InstantHttpAuthed).pipe(withCommand('auth origin add'));
   const { appId } = yield* CurrentApp;
 
   return yield* http
