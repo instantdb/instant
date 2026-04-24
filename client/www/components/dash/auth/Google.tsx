@@ -126,7 +126,7 @@ export function AddGoogleClientForm({
         redirectTo: useSharedCredentials ? undefined : redirectTo,
         useSharedCredentials,
         meta: {
-          skipNonceChecks: isNative(appType),
+          skipNonceChecks: true,
           appType,
         },
       });
