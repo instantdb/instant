@@ -19,7 +19,8 @@ import {
   SelectValue,
   useDialog,
 } from '@/components/ui';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
+import { useDeploymentConfig } from '@/lib/hooks/useDeploymentConfig';
 import { TokenContext } from '@/lib/contexts';
 import { useTokenFetch } from '@/lib/auth';
 import { jsonFetch } from '@/lib/fetch';
@@ -62,8 +63,9 @@ export function Perms({
 
   const [selectedVersion, setSelectedVersion] = useState<string>('current');
 
+  const { apiURI } = useDeploymentConfig();
   const versionsResponse = useTokenFetch<{ versions: RuleVersion[] }>(
-    `${config.apiURI}/dash/apps/${app.id}/rule-versions`,
+    `${apiURI}/dash/apps/${app.id}/rule-versions`,
     token,
   );
   const versions = versionsResponse.data?.versions ?? null;
@@ -498,7 +500,7 @@ async function onEditRules(
 }
 
 function updateRules(token: string, appId: string, newRulesObj: object) {
-  return jsonFetch(`${config.apiURI}/dash/apps/${appId}/rules`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/apps/${appId}/rules`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,

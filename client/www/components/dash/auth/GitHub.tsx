@@ -35,6 +35,7 @@ import {
   RedirectUrlInput,
   EditableRedirectUrl,
   TestRedirectButton,
+  getOAuthCallbackUrl,
 } from './shared';
 import { errorToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
@@ -229,14 +230,14 @@ export function AddGitHubClientForm({
 
       <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
         <p className="overflow-hidden">
-          Add <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> as
-          the Authorization callback URL in your GitHub OAuth App settings.
+          Add <Copytext value={redirectTo || getOAuthCallbackUrl()} /> as the
+          Authorization callback URL in your GitHub OAuth App settings.
         </p>
         {redirectTo && (
           <>
             <p className="text-sm text-gray-500 dark:text-neutral-400">
               Your redirect URL should forward to{' '}
-              <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
+              <Copytext value={getOAuthCallbackUrl()} /> with all query
               parameters.
             </p>
             <TestRedirectButton redirectTo={redirectTo} />
@@ -354,13 +355,13 @@ export function GitHubClient({
             </Content>
             <Copyable
               label="Authorization callback URL"
-              value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
+              value={client.redirect_to || getOAuthCallbackUrl()}
             />
             {client.redirect_to && (
               <>
                 <Content className="text-sm text-gray-500 dark:text-neutral-400">
                   Your redirect URL should forward to{' '}
-                  <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
+                  <Copytext value={getOAuthCallbackUrl()} /> with all query
                   parameters.
                 </Content>
                 <TestRedirectButton redirectTo={client.redirect_to} />

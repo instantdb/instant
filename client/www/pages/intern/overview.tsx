@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import { useAuthToken } from '@/lib/auth';
 import { jsonFetch } from '@/lib/fetch';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 
 import { FullscreenLoading, LogoIcon } from '@/components/ui';
@@ -11,7 +11,7 @@ import { format, parse } from 'date-fns';
 import useCurrentDate from '@/lib/hooks/useCurrentDate';
 
 async function fetchDailyOverview(token: string) {
-  return jsonFetch(`${config.apiURI}/dash/overview/daily`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/overview/daily`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -34,7 +34,7 @@ type SessionReports = Record<MachineId, MachineSessions>;
 type MinuteOverview = { 'session-reports': SessionReports };
 
 async function fetchMinuteOverview(token: string): Promise<MinuteOverview> {
-  return jsonFetch(`${config.apiURI}/dash/overview/minute`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/overview/minute`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`,

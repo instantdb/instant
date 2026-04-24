@@ -148,7 +148,7 @@
           (.setProperty "tag-value" (aws-util/get-environment-tag)))
         (.setEnabled metrics-config true))
 
-      :dev
+      (:dev :self-hosted)
       (do
         (.setEnabled tcp-ip-config true)
         (.setMembers tcp-ip-config (list "127.0.0.1"))

@@ -1,5 +1,5 @@
 import { ErrorMessage, Loading } from '@/components/dash/shared';
-import config from '@/lib/config';
+import { useDeploymentConfig } from '@/lib/hooks/useDeploymentConfig';
 import { useContext, useState } from 'react';
 
 import { Button, Divider, SectionHeading, Content } from '@/components/ui';
@@ -406,8 +406,9 @@ export function AppAuth({
   app: InstantApp;
   nav: (p: { s: string; t?: string; app?: string }) => void;
 }) {
+  const { apiURI } = useDeploymentConfig();
   const authResponse = useAuthedFetch<AppsAuthResponse>(
-    `${config.apiURI}/dash/apps/${app.id}/auth`,
+    `${apiURI}/dash/apps/${app.id}/auth`,
   );
 
   // Used to know if we should open the client details by default

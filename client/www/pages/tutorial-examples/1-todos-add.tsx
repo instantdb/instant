@@ -1,12 +1,16 @@
 'use client';
 
-import config from '@/lib/config'; // hide-line
+import { getConfig } from '@/lib/config'; // hide-line
 import { init, id } from '@instantdb/react';
 
 // Connect to the database
 // ---------
+// hide-start
+const config = getConfig();
+// hide-end
 const db = init({
-  ...config, // hide-line
+  apiURI: config.apiURI,
+  websocketURI: config.websocketURI, // hide-line
   appId: __getAppId(),
 });
 

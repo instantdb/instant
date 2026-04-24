@@ -2,9 +2,9 @@ node_modules
 .git
 .gitignore
 *.md
-dist
 .turbo
-www
+dist
 sandbox
 scripts
 .env
+www/_emails/replace-images

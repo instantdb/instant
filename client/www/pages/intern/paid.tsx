@@ -3,11 +3,11 @@ import React, { useEffect, useState } from 'react';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { useAuthToken } from '@/lib/auth';
 import { jsonFetch } from '@/lib/fetch';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { formatDistanceToNow } from 'date-fns';
 
 function fetchPaidData(token: string | undefined) {
-  return jsonFetch(`${config.apiURI}/dash/paid`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/paid`, {
     method: 'GET',
     headers: {
       authorization: `Bearer ${token}`,

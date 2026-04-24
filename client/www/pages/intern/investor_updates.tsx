@@ -3,10 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { useAuthToken } from '@/lib/auth';
 import { jsonFetch } from '@/lib/fetch';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 
 function fetchGraphData(token: string | undefined) {
-  return jsonFetch(`${config.apiURI}/dash/investor_updates`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/investor_updates`, {
     method: 'GET',
     headers: {
       authorization: `Bearer ${token}`,

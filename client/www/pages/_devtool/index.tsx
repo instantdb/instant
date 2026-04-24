@@ -1,7 +1,8 @@
 import { TokenContext } from '@/lib/contexts';
 import { successToast } from '@/lib/toast';
 import { InstantApp } from '@/lib/types';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
+import { useDeploymentConfig } from '@/lib/hooks/useDeploymentConfig';
 import { useSchemaQuery } from '@/lib/hooks/explorer';
 import { jsonFetch } from '@/lib/fetch';
 import { APIResponse, signOut, useAuthToken, useTokenFetch } from '@/lib/auth';
@@ -48,7 +49,7 @@ function DevtoolComp() {
   useEffect(() => {
     if (appId && authToken) {
       let cancel = false;
-      jsonFetch(`${config.apiURI}/dash/apps/${appId}`, {
+      jsonFetch(`${getConfig().apiURI}/dash/apps/${appId}`, {
         method: 'GET',
         headers: { Authorization: `Bearer ${authToken}` },
       })
@@ -186,6 +187,7 @@ function DevtoolWithData({
   appId: string;
 }) {
   const app = dashResponse.data?.apps?.find((a) => a.id === appId);
+  const { apiURI, websocketURI } = useDeploymentConfig();
   const [tab, setTab] = useState('explorer');
   const [connection, setConnection] = useState<
     | {
@@ -229,8 +231,8 @@ function DevtoolWithData({
     try {
       const db = init({
         appId,
-        apiURI: config.apiURI,
-        websocketURI: config.websocketURI,
+        apiURI: apiURI,
+        websocketURI: websocketURI,
         // @ts-expect-error
         __adminToken: adminToken,
         devtool: false,
@@ -245,7 +247,7 @@ function DevtoolWithData({
       const message = (error as Error).message;
       setConnection({ state: 'error', errorMessage: message });
     }
-  }, [appId, adminToken]);
+  }, [appId, adminToken, apiURI, websocketURI]);
 
   if (!app && dashResponse.fromCache) {
     // We couldn't find this app. Perhaps the cache is stale. Let's
@@ -567,7 +569,7 @@ function Admin({
                 variant="destructive"
                 onClick={async () => {
                   await jsonFetch(
-                    `${config.apiURI}/dash/apps/${app.id}/clear`,
+                    `${getConfig().apiURI}/dash/apps/${app.id}/clear`,
                     {
                       method: 'POST',
                       headers: {

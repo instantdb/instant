@@ -9,7 +9,7 @@ import {
   TextInput,
 } from '@/components/ui';
 import { useEffect, useState } from 'react';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import { i } from '@instantdb/core';
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
@@ -41,7 +41,7 @@ export PLATFORM_TOKEN="${token}"
 
 export APP_ID="${appId}"
 
-curl -X DELETE "${config.apiURI}/superadmin/apps/$APP_ID/" \\
+curl -X DELETE "${getConfig().apiURI}/superadmin/apps/$APP_ID/" \\
   -H "Authorization: Bearer $PLATFORM_TOKEN" \\
   -H "Content-Type: application/json"
 `.trim();
@@ -51,7 +51,7 @@ const createAppCurl = (token: string): string => {
   return `
 export PLATFORM_TOKEN="${token}"
 
-curl -X POST "${config.apiURI}/superadmin/apps" \\
+curl -X POST "${getConfig().apiURI}/superadmin/apps" \\
   -H "Authorization: Bearer $PLATFORM_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{"title": "my cool app"}'  
@@ -139,7 +139,7 @@ export PLATFORM_TOKEN="${token}"
 
 export APP_ID="${appId}"
 
-curl -v -X POST "${config.apiURI}/superadmin/apps/$APP_ID/schema/push/apply" \\
+curl -v -X POST "${getConfig().apiURI}/superadmin/apps/$APP_ID/schema/push/apply" \\
   -H "Authorization: Bearer $PLATFORM_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify({ schema: exSchema(appId) }, null, 2)}'  
@@ -152,7 +152,7 @@ export PLATFORM_TOKEN="${token}"
 
 export APP_ID="${appId}"
 
-curl -v -X POST "${config.apiURI}/superadmin/apps/$APP_ID/perms" \\
+curl -v -X POST "${getConfig().apiURI}/superadmin/apps/$APP_ID/perms" \\
   -H "Authorization: Bearer $PLATFORM_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify(
@@ -200,7 +200,7 @@ function AppStage({
         <Button
           onClick={async () => {
             const res = await jsonFetchCatchingErr(
-              `${config.apiURI}/superadmin/apps/${app.id}/schema/push/apply`,
+              `${getConfig().apiURI}/superadmin/apps/${app.id}/schema/push/apply`,
               {
                 method: 'POST',
                 headers: {
@@ -233,7 +233,7 @@ function AppStage({
         <Button
           onClick={async () => {
             const res = await jsonFetchCatchingErr(
-              `${config.apiURI}/superadmin/apps/${app.id}/perms`,
+              `${getConfig().apiURI}/superadmin/apps/${app.id}/perms`,
               {
                 method: 'POST',
                 headers: {
@@ -268,7 +268,7 @@ function AppStage({
         <Button
           onClick={async () => {
             const res = await jsonFetchCatchingErr(
-              `${config.apiURI}/superadmin/apps/${app.id}`,
+              `${getConfig().apiURI}/superadmin/apps/${app.id}`,
               {
                 method: 'DELETE',
                 headers: {
@@ -423,7 +423,7 @@ export CLIENT_SECRET="${secretValue}"
 export REDIRECT_URI="${redirectUri}"
 export CODE="${codeParam}"
 
-curl -v -X POST "${config.apiURI}/platform/oauth/token" \\
+curl -v -X POST "${getConfig().apiURI}/platform/oauth/token" \\
   -H "Content-Type: application/json" \\
   -d "{
         \\"client_id\\": \\"$CLIENT_ID\\",
@@ -437,7 +437,7 @@ curl -v -X POST "${config.apiURI}/platform/oauth/token" \\
 function fetchAppsCurl({ token }: { token: string }) {
   return `export ACCESS_TOKEN="${token}"
 
-curl -v "${config.apiURI}/superadmin/apps" \\
+curl -v "${getConfig().apiURI}/superadmin/apps" \\
   -H "Authorization: Bearer $ACCESS_TOKEN"  
  `;
 }
@@ -455,7 +455,7 @@ function refreshTokenCurl({
 export CLIENT_SECRET="${clientSecret}"
 export REFRESH_TOKEN="${refreshToken}"
 
-curl -v -X POST "${config.apiURI}/platform/oauth/token" \\
+curl -v -X POST "${getConfig().apiURI}/platform/oauth/token" \\
   -H "Content-Type: application/json" \\
   -d "{
         \\"client_id\\": \\"$CLIENT_ID\\",
@@ -498,7 +498,7 @@ function CreateAuthorizationUrlStep({
     urlParams.set('redirect_uri', redirectUri);
   }
 
-  const baseUrl = `${config.apiURI}/platform/oauth/start`;
+  const baseUrl = `${getConfig().apiURI}/platform/oauth/start`;
   const authorizationUrl = urlParams.size
     ? `${baseUrl}?${urlParams.toString()}`
     : null;
@@ -674,7 +674,7 @@ function CreateAuthorizationUrlStep({
               onClick={async () => {
                 try {
                   const resp = await jsonFetch(
-                    `${config.apiURI}/platform/oauth/token`,
+                    `${getConfig().apiURI}/platform/oauth/token`,
                     {
                       method: 'POST',
                       headers: {
@@ -724,7 +724,7 @@ function CreateAuthorizationUrlStep({
               onClick={async () => {
                 try {
                   const resp = await jsonFetch(
-                    `${config.apiURI}/superadmin/apps`,
+                    `${getConfig().apiURI}/superadmin/apps`,
                     {
                       method: 'GET',
                       headers: {
@@ -776,7 +776,7 @@ function CreateAuthorizationUrlStep({
             onClick={async () => {
               try {
                 const resp = await jsonFetch(
-                  `${config.apiURI}/platform/oauth/token`,
+                  `${getConfig().apiURI}/platform/oauth/token`,
                   {
                     method: 'POST',
                     headers: {
@@ -840,7 +840,7 @@ function Authed() {
           oauthAppId: client.client.oauthAppId,
         });
       }
-      await jsonFetch(`${config.apiURI}/dash/apps/${app.id}`, {
+      await jsonFetch(`${getConfig().apiURI}/dash/apps/${app.id}`, {
         method: 'DELETE',
         headers: {
           authorization: `Bearer ${token}`,

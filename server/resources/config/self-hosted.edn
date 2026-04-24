@@ -1,0 +1,23 @@
+;; Self-hosted configuration - no AWS dependencies
+;; All secrets are plaintext, optional integrations are omitted
+{:aead-keyset
+ {:encrypted? false
+  :json "{\"primaryKeyId\":2052323702,\"key\":[{\"keyData\":{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.AesGcmKey\",\"value\":\"GhCJSdzHNXZL2nnpyRs+h+sx\",\"keyMaterialType\":\"SYMMETRIC\"},\"status\":\"ENABLED\",\"keyId\":2052323702,\"outputPrefixType\":\"TINK\"}]}"}
+
+ ;; No hybrid-keyset means no AWS KMS dependency for decryption
+
+ ;; Database - override via DATABASE_URL env var
+ :database-url "jdbc:postgresql://localhost:5432/instant"
+
+ ;; Optional integrations are omitted (not nil) - add via overlay.edn if needed:
+ ;; :s3-storage-access-key "your-key"
+ ;; :s3-storage-secret-key "your-secret"
+ ;; :postmark-token "your-token"
+ ;; :sendgrid-token "your-token"
+ ;; :stripe-secret "your-secret"
+ ;; :stripe-webhook-secret "your-secret"
+ ;; :honeycomb-api-key "your-key"
+ ;; :posthog-api-key "your-key"
+ ;; :google-oauth-client {:client-id "..." :client-secret "..."}
+
+ :instant-config-app-id #uuid "00000000-0000-0000-0000-000000000000"}

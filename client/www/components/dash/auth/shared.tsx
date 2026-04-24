@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { jsonFetch } from '@/lib/fetch';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import {
   InstantApp,
   InstantIssue,
@@ -19,6 +19,15 @@ import {
 } from '@/components/ui';
 import { errorToast, successToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
+
+/**
+ * Returns the OAuth callback URL for the current deployment.
+ * For cloud: https://api.instantdb.com/runtime/oauth/callback
+ * For self-hosted: uses the configured backend URL
+ */
+export function getOAuthCallbackUrl(): string {
+  return `${getConfig().apiURI}/runtime/oauth/callback`;
+}
 
 export function findName(prefix: string, used: Set<string>): string {
   if (!used.has(prefix)) {
@@ -41,7 +50,7 @@ export function addProvider({
   providerName: string;
 }): Promise<{ provider: OAuthServiceProvider }> {
   return jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/oauth_service_providers`,
+    `${getConfig().apiURI}/dash/apps/${appId}/oauth_service_providers`,
     {
       method: 'POST',
       headers: {
@@ -78,7 +87,7 @@ export function addClient({
   redirectTo?: string;
   meta?: any;
 }): Promise<{ client: OAuthClient }> {
-  return jsonFetch(`${config.apiURI}/dash/apps/${appId}/oauth_clients`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/apps/${appId}/oauth_clients`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,
@@ -108,7 +117,7 @@ export function deleteClient({
   clientDatabaseId: string;
 }): Promise<{ client: OAuthClient }> {
   return jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/oauth_clients/${clientDatabaseId}`,
+    `${getConfig().apiURI}/dash/apps/${appId}/oauth_clients/${clientDatabaseId}`,
     {
       method: 'DELETE',
       headers: {
@@ -132,7 +141,7 @@ export function updateClientMeta({
   meta: Record<string, any>;
 }): Promise<{ client: OAuthClient }> {
   return jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/oauth_clients/${clientDatabaseId}`,
+    `${getConfig().apiURI}/dash/apps/${appId}/oauth_clients/${clientDatabaseId}`,
     {
       method: 'POST',
       headers: {
@@ -156,7 +165,7 @@ export function updateClientRedirectTo({
   redirectTo: string | null;
 }): Promise<{ client: OAuthClient }> {
   return jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/oauth_clients/${clientDatabaseId}`,
+    `${getConfig().apiURI}/dash/apps/${appId}/oauth_clients/${clientDatabaseId}`,
     {
       method: 'POST',
       headers: {
@@ -176,8 +185,7 @@ function RedirectUrlLabel() {
         <div className="max-w-sm space-y-3 p-2 text-sm leading-relaxed text-gray-700 dark:text-neutral-300">
           <p>
             By default, OAuth providers redirect users to Instant's callback
-            URL. During this redirect, users see "Redirecting to
-            api.instantdb.com..."
+            URL. During this redirect, users see the redirect destination.
           </p>
           <p>
             With a custom redirect URL, users will instead see "Redirecting to
@@ -186,7 +194,7 @@ function RedirectUrlLabel() {
           <p>
             Your URL must forward to{' '}
             <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-800 dark:bg-neutral-700 dark:text-neutral-200">
-              https://api.instantdb.com/runtime/oauth/callback
+              {getOAuthCallbackUrl()}
             </code>{' '}
             with all query parameters preserved.
           </p>

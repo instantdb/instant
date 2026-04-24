@@ -1,5 +1,9 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
-import config from '@/lib/config';
+import { ClipboardDocumentIcon, PlusIcon } from '@heroicons/react/24/outline';
+import format from 'date-fns/format';
+import CopyToClipboard from 'react-copy-to-clipboard';
+
+import { getConfig } from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import { Button, cn, Content, SectionHeading } from '@/components/ui';
 import { TokenContext } from '@/lib/contexts';
@@ -19,7 +23,7 @@ type OAuthApp = {
 async function fetchOAuthApps(token: string): Promise<OAuthApp[]> {
   console.log('fetch apps');
 
-  const data = await jsonFetch(`${config.apiURI}/dash/user/oauth_apps`, {
+  const data = await jsonFetch(`${getConfig().apiURI}/dash/user/oauth_apps`, {
     method: 'GET',
     headers: {
       'content-type': 'application/json',
@@ -34,7 +38,7 @@ async function revokeOAuthApp(
   oauthAppId: string,
 ): Promise<OAuthApp[]> {
   const data = await jsonFetch(
-    `${config.apiURI}/dash/user/oauth_apps/revoke_access`,
+    `${getConfig().apiURI}/dash/user/oauth_apps/revoke_access`,
     {
       body: JSON.stringify({ oauthAppId }),
       method: 'POST',

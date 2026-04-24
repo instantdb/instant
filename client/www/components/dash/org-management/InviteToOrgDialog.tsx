@@ -6,7 +6,7 @@ import {
   TextInput,
   useDialog,
 } from '@/components/ui';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonMutate } from '@/lib/fetch';
 import { useContext, useState } from 'react';
@@ -27,7 +27,7 @@ export const InviteToOrgDialog = ({
   function onSubmit() {
     return dashResponse.optimisticUpdateWorkspace(
       jsonMutate(
-        `${config.apiURI}/dash/orgs/${
+        `${getConfig().apiURI}/dash/orgs/${
           dashResponse.data.currentWorkspaceId
         }/invite/send`,
         {

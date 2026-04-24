@@ -1,7 +1,7 @@
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 import { Button, Content, Copyable, SectionHeading } from '@/components/ui';
 import { useAuthToken } from '@/lib/auth';
-import config, { bugsAndQuestionsInviteUrl } from '@/lib/config';
+import { bugsAndQuestionsInviteUrl, getConfig } from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import { useRouter } from 'next/router';
 import React, { useEffect, useState } from 'react';
@@ -11,7 +11,7 @@ function fetchDebugUriInfo(
   token: string | undefined,
 ) {
   return jsonFetch(
-    `${config.apiURI}/dash/admin-debug-uri?trace-id=${traceId}&span-id=${spanId}`,
+    `${getConfig().apiURI}/dash/admin-debug-uri?trace-id=${traceId}&span-id=${spanId}`,
     {
       method: 'GET',
       headers: {

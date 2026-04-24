@@ -12,7 +12,7 @@ import {
 } from '@/components/ui';
 import { InviteToOrgDialog } from './InviteToOrgDialog';
 import { isMinRole, Role } from '@/pages/dash';
-import config, { areTeamsFree } from '@/lib/config';
+import { getConfig, areTeamsFree } from '@/lib/config';
 import { useAuthToken } from '@/lib/auth';
 import { MemberMenu } from './MemberMenu';
 import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
@@ -54,7 +54,7 @@ export const Members = () => {
       throw new Error('Cannot revoke invite from personal workspace');
     }
     const responsePromise = fetch(
-      `${config.apiURI}/dash/orgs/${org.id}/invite/revoke`,
+      `${getConfig().apiURI}/dash/orgs/${org.id}/invite/revoke`,
       {
         body: JSON.stringify({ 'invite-id': inviteId, 'org-id': org.id }),
         headers: {

@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { Button, Content, ScreenHeading } from '@/components/ui';
 import { exchangeOAuthCodeForToken } from '@/lib/auth';
 import { messageFromInstantError } from '@/lib/errors';
-import config, { cliOauthParamName } from '@/lib/config';
+import { cliOauthParamName } from '@/lib/config';
+import { useDeploymentConfig } from '@/lib/hooks/useDeploymentConfig';
 import { InstantIssue } from '@/lib/types';
 import { usePostHog } from 'posthog-js/react';
 import { Toaster } from '@instantdb/components';
@@ -48,12 +49,13 @@ function ErrorScreen({ error }: { error: string }) {
 }
 
 function LoginScreen() {
+  const { apiURI } = useDeploymentConfig();
   return (
     <div className="flex h-full w-full items-center justify-center">
       <div className="flex w-full max-w-sm flex-col gap-4 p-4">
         <ScreenHeading className="text-center">Log in</ScreenHeading>
         <Content className="text-center">
-          <a href={`${config.apiURI}/dash/oauth/start`}>Log in with Google</a>
+          <a href={`${apiURI}/dash/oauth/start`}>Log in with Google</a>
         </Content>
       </div>
     </div>

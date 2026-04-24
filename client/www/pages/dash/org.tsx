@@ -9,7 +9,7 @@ import { OrgBilling } from '@/components/dash/org-management/OrgBilling';
 import { OrgManagePage } from '@/components/dash/org-management/OrgManagePage';
 import { Badge, NavTabBar, SmallCopyable } from '@/components/ui';
 import { useAuthedFetch } from '@/lib/auth';
-import config from '@/lib/config';
+import { useDeploymentConfig } from '@/lib/hooks/useDeploymentConfig';
 import { BuildingOffice2Icon } from '@heroicons/react/24/outline';
 import Head from 'next/head';
 import { parseAsStringEnum, useQueryState } from 'nuqs';
@@ -22,6 +22,7 @@ import useLocalStorage from '@/lib/hooks/useLocalStorage';
 const OrgSettingsPage: NextPageWithLayout = () => {
   const fetchedDash = useFetchedDash();
   const router = useReadyRouter();
+  const { apiURI } = useDeploymentConfig();
 
   const [tab, setTab] = useQueryState(
     'tab',
@@ -32,7 +33,7 @@ const OrgSettingsPage: NextPageWithLayout = () => {
   const [hideOrgId, setHideOrgId] = useLocalStorage('hide_org_id', false);
 
   const billingInfo = useAuthedFetch(
-    `${config.apiURI}/dash/orgs/${fetchedDash.data.currentWorkspaceId}/billing`,
+    `${apiURI}/dash/orgs/${fetchedDash.data.currentWorkspaceId}/billing`,
   );
 
   if (

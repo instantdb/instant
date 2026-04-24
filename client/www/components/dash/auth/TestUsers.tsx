@@ -1,5 +1,5 @@
 import { useContext, useState } from 'react';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { jsonMutate } from '@/lib/fetch';
 import { TokenContext } from '@/lib/contexts';
 import { useAuthedFetch } from '@/lib/auth';
@@ -34,7 +34,7 @@ export function TestUsers({ app }: { app: InstantApp }) {
   const deleteDialog = useDialog();
 
   const fetchResult = useAuthedFetch<{ 'test-users': TestUser[] }>(
-    `${config.apiURI}/dash/apps/${app.id}/test_users`,
+    `${getConfig().apiURI}/dash/apps/${app.id}/test_users`,
   );
 
   const testUsers = fetchResult.data?.['test-users'] || [];
@@ -51,7 +51,7 @@ export function TestUsers({ app }: { app: InstantApp }) {
     }
     setIsAdding(true);
     try {
-      await jsonMutate(`${config.apiURI}/dash/apps/${app.id}/test_users`, {
+      await jsonMutate(`${getConfig().apiURI}/dash/apps/${app.id}/test_users`, {
         body: { email: normalizedEmail, code },
         token,
       });
@@ -75,7 +75,7 @@ export function TestUsers({ app }: { app: InstantApp }) {
     if (!deletingUser) return;
     setIsDeleting(true);
     try {
-      await jsonMutate(`${config.apiURI}/dash/apps/${app.id}/test_users`, {
+      await jsonMutate(`${getConfig().apiURI}/dash/apps/${app.id}/test_users`, {
         body: { id: deletingUser.id },
         token,
         method: 'DELETE',

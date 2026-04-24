@@ -8,7 +8,7 @@ import {
 import { useContext, useState } from 'react';
 import { useFetchedDash } from '../MainDashLayout';
 import { jsonFetch } from '@/lib/fetch';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { useReadyRouter } from '@/components/clientOnlyPage';
 import { infoToast, successToast } from '@/lib/toast';
@@ -30,7 +30,7 @@ export const CreateOrgModal = ({
       return;
     }
     const createdOrg = (await dash.optimisticUpdate(
-      await jsonFetch(`${config.apiURI}/dash/orgs`, {
+      await jsonFetch(`${getConfig().apiURI}/dash/orgs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

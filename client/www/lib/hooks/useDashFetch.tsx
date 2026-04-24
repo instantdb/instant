@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo } from 'react';
 import { APIResponse, useAuthedFetch } from '../auth';
-import config from '../config';
+import { useDeploymentConfig } from './useDeploymentConfig';
 import { DashResponse } from '../types';
 import { TokenContext } from '../contexts';
 import useLocalStorage from './useLocalStorage';
@@ -28,6 +28,7 @@ export type CachedAPIResponse<T> = APIResponse<T> & { fromCache?: boolean };
 export function useDashFetch(): CachedAPIResponse<DashResponse> {
   const now = new Date();
   const oneWeekAgo = subDays(now, 7).getTime();
+  const { apiURI } = useDeploymentConfig();
 
   const token = useContext(TokenContext);
   const [cachedEntry, setCachedEntry] = useLocalStorage<
@@ -39,7 +40,7 @@ export function useDashFetch(): CachedAPIResponse<DashResponse> {
       ? cachedEntry.item
       : undefined;
 
-  const dashResponse = useAuthedFetch<DashResponse>(`${config.apiURI}/dash`);
+  const dashResponse = useAuthedFetch<DashResponse>(`${apiURI}/dash`);
 
   useEffect(() => {
     if (dashResponse.data) {

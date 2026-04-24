@@ -1,5 +1,5 @@
 import { Button, Fence } from '@/components/ui';
-import config, { getLocal, isDev } from '@/lib/config';
+import { getConfig, getLocal, isDev } from '@/lib/config';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/solid';
 import confetti from 'canvas-confetti';
 import * as ephemeral from '@/lib/ephemeral';
@@ -291,7 +291,7 @@ function AppCreatedSection({
           onClick={async () => {
             const api = new PlatformApi({
               auth: { token: state.adminToken },
-              apiURI: config.apiURI,
+              apiURI: getConfig().apiURI,
             });
             const res = await api.schemaPush(state.appId, {
               schema: getSchema(),
@@ -344,7 +344,7 @@ function AppSchemaSection({
         onClick={async () => {
           const api = new PlatformApi({
             auth: { token: state.adminToken },
-            apiURI: config.apiURI,
+            apiURI: getConfig().apiURI,
           });
           const res = await api.pushPerms(state.appId, {
             perms: getPerms(),

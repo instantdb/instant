@@ -25,6 +25,7 @@
 
 (def staging-env (System/getenv "STAGING"))
 (def prod-env (System/getenv "PRODUCTION"))
+(def self-hosted-env (System/getenv "SELF_HOSTED"))
 
 (defn get-env []
   (cond
@@ -33,6 +34,7 @@
     ;;      override it in the eb env vars
     (= "true" staging-env)                        :staging
     (= "true" prod-env)                           :prod
+    (= "true" self-hosted-env)                    :self-hosted
     (= "test" (System/getProperty "instant.env")) :test
     (= "true" (System/getenv "TEST"))             :test
     :else                                         :dev))
@@ -185,6 +187,7 @@
    (case env
      :prod "https://www.instantdb.com"
      :staging "https://staging.instantdb.com"
+     :self-hosted (System/getenv "INSTANT_DASHBOARD_URL")
      "http://localhost:3000")))
 
 ;; ---

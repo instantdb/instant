@@ -1,4 +1,6 @@
-import config, { stripeKey } from '@/lib/config';
+import { getConfig } from '@/lib/config';
+import { stripeKey } from '@/lib/config';
+import { useDeploymentConfig } from '@/lib/hooks/useDeploymentConfig';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { useContext, useEffect, useState } from 'react';
@@ -11,7 +13,7 @@ import { errorToast } from '@/lib/toast';
 import { useFetchedDash } from './MainDashLayout';
 
 function createOrg(token: string, params: { title: string }) {
-  return jsonFetch(`${config.apiURI}/dash/orgs`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/orgs`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,
@@ -22,7 +24,7 @@ function createOrg(token: string, params: { title: string }) {
 }
 
 function deleteOrg(token: string, params: { id: string }) {
-  return jsonFetch(`${config.apiURI}/dash/orgs/${params.id}`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/orgs/${params.id}`, {
     method: 'DELETE',
     headers: {
       authorization: `Bearer ${token}`,
@@ -33,7 +35,7 @@ function deleteOrg(token: string, params: { id: string }) {
 
 async function createPortalSession(orgId: string, token: string) {
   const sessionPromise = jsonFetch(
-    `${config.apiURI}/dash/orgs/${orgId}/portal_session`,
+    `${getConfig().apiURI}/dash/orgs/${orgId}/portal_session`,
     {
       method: 'POST',
       headers: {
@@ -63,7 +65,7 @@ async function rename(
   { orgId, title }: { orgId: string; title: string },
   token: string,
 ) {
-  await jsonFetch(`${config.apiURI}/dash/orgs/${orgId}/rename`, {
+  await jsonFetch(`${getConfig().apiURI}/dash/orgs/${orgId}/rename`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -75,7 +77,7 @@ async function rename(
 
 async function createCheckoutSession(orgId: string, token: string) {
   const sessionPromise = jsonFetch(
-    `${config.apiURI}/dash/orgs/${orgId}/checkout_session`,
+    `${getConfig().apiURI}/dash/orgs/${orgId}/checkout_session`,
     {
       method: 'POST',
       headers: {
@@ -106,7 +108,7 @@ async function transfer(
   token: string,
 ) {
   return await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/transfer_to_org/${orgId}`,
+    `${getConfig().apiURI}/dash/apps/${appId}/transfer_to_org/${orgId}`,
     {
       method: 'POST',
       headers: {
@@ -119,10 +121,9 @@ async function transfer(
 
 function OrgDetails({ id }: { id: string }) {
   const token = useContext(TokenContext);
-  const resp = useAuthedFetch(`${config.apiURI}/dash/orgs/${id}`);
-  const billingResp = useAuthedFetch(
-    `${config.apiURI}/dash/orgs/${id}/billing`,
-  );
+  const { apiURI } = useDeploymentConfig();
+  const resp = useAuthedFetch(`${apiURI}/dash/orgs/${id}`);
+  const billingResp = useAuthedFetch(`${apiURI}/dash/orgs/${id}/billing`);
 
   if (resp.isLoading || billingResp.isLoading) {
     return <div>Loading...</div>;

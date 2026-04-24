@@ -6,10 +6,10 @@ async function fetchStarCount() {
   const { init } = await import('@instantdb/admin');
   const db = init({
     appId:
-      process.env.NEXT_PUBLIC_FEEDBACK_APP_ID ||
+      // process.env.NEXT_PUBLIC_FEEDBACK_APP_ID ||
       '5d9c6277-e6ac-42d6-8e51-2354b4870c05',
   }).asUser({ guest: true });
-  const { instantRepo } = await import('./lib/config.ts');
+  const { instantRepo } = await import('./lib/constants.ts');
   const data = await db.query({
     ghStarTotals: {
       $: { where: { repoFullName: instantRepo }, limit: 1 },
@@ -24,6 +24,7 @@ async function fetchStarCount() {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   reactStrictMode: true,
   pageExtensions: ['js', 'jsx', 'ts', 'tsx', 'md'],
   transpilePackages: ['@instantdb/components'],

@@ -1,7 +1,9 @@
 import { SectionHeading, Button, Content } from '@/components/ui';
 import { friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
 import { messageFromInstantError } from '@/lib/errors';
-import config, { stripeKey } from '@/lib/config';
+import { getConfig } from '@/lib/config';
+import { stripeKey } from '@/lib/config';
+import { useDeploymentConfig } from '@/lib/hooks/useDeploymentConfig';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { AppsSubscriptionResponse, InstantIssue } from '@/lib/types';
@@ -31,7 +33,7 @@ export function friendlyUsage(usage: number) {
 
 async function createCheckoutSession(appId: string, token: string) {
   const sessionPromise = jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/checkout_session`,
+    `${getConfig().apiURI}/dash/apps/${appId}/checkout_session`,
     {
       method: 'POST',
       headers: {
@@ -59,7 +61,7 @@ async function createCheckoutSession(appId: string, token: string) {
 
 async function createPortalSession(appId: string, token: string) {
   const sessionPromise = jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/portal_session`,
+    `${getConfig().apiURI}/dash/apps/${appId}/portal_session`,
     {
       method: 'POST',
       headers: {
@@ -116,8 +118,9 @@ export default function Billing({ appId }: { appId: string }) {
 
   const orgIsPaid = useOrgPaid();
 
+  const { apiURI } = useDeploymentConfig();
   const authResponse = useAuthedFetch<AppsSubscriptionResponse>(
-    `${config.apiURI}/dash/apps/${appId}/billing`,
+    `${apiURI}/dash/apps/${appId}/billing`,
   );
 
   if (authResponse.isLoading) {

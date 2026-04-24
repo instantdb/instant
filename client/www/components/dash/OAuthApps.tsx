@@ -12,7 +12,9 @@ import {
 } from '@/components/ui';
 import { useAuthedFetch, useAuthToken } from '@/lib/auth';
 import { messageFromInstantError } from '@/lib/errors';
-import config, { discordOAuthAppsFeedbackInviteUrl } from '@/lib/config';
+import { getConfig } from '@/lib/config';
+import { discordOAuthAppsFeedbackInviteUrl } from '@/lib/config';
+import { useDeploymentConfig } from '@/lib/hooks/useDeploymentConfig';
 import { jsonFetch } from '@/lib/fetch';
 import {
   InstantIssue,
@@ -67,7 +69,7 @@ export async function createOAuthApp({
   supportEmail?: string | null | undefined;
 }) {
   const resp = await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/oauth-apps`,
+    `${getConfig().apiURI}/dash/apps/${appId}/oauth-apps`,
     {
       method: 'POST',
       headers: {
@@ -113,7 +115,7 @@ async function updateApp({
   supportEmail?: string | null;
 }) {
   const resp = await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/oauth-apps/${oauthAppId}`,
+    `${getConfig().apiURI}/dash/apps/${appId}/oauth-apps/${oauthAppId}`,
     {
       method: 'POST',
       headers: {
@@ -144,7 +146,7 @@ export async function deleteOAuthApp({
   token: string;
 }) {
   const resp = await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/oauth-apps/${oauthAppId}`,
+    `${getConfig().apiURI}/dash/apps/${appId}/oauth-apps/${oauthAppId}`,
     {
       method: 'DELETE',
       headers: {
@@ -171,7 +173,7 @@ export async function createClient({
   authorizedRedirectUrls: string[];
 }) {
   const resp = await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/oauth-apps/${oauthAppId}/clients`,
+    `${getConfig().apiURI}/dash/apps/${appId}/oauth-apps/${oauthAppId}/clients`,
     {
       method: 'POST',
       headers: {
@@ -203,7 +205,7 @@ async function updateClient({
   removeRedirectUrl?: string | null | undefined;
 }) {
   const resp = await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/oauth-app-clients/${clientId}`,
+    `${getConfig().apiURI}/dash/apps/${appId}/oauth-app-clients/${clientId}`,
     {
       method: 'POST',
       headers: {
@@ -231,7 +233,7 @@ async function deleteClient({
   clientId: string;
 }) {
   const resp = await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/oauth-app-clients/${clientId}`,
+    `${getConfig().apiURI}/dash/apps/${appId}/oauth-app-clients/${clientId}`,
     {
       method: 'DELETE',
       headers: {
@@ -254,7 +256,7 @@ async function deleteClientSecret({
   clientSecretId: string;
 }) {
   const resp = await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/oauth-app-client-secrets/${clientSecretId}`,
+    `${getConfig().apiURI}/dash/apps/${appId}/oauth-app-client-secrets/${clientSecretId}`,
     {
       method: 'DELETE',
       headers: {
@@ -277,7 +279,7 @@ async function createClientSecret({
   clientId: string;
 }) {
   const resp = await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/oauth-app-clients/${clientId}/client-secrets`,
+    `${getConfig().apiURI}/dash/apps/${appId}/oauth-app-clients/${clientId}/client-secrets`,
     {
       method: 'POST',
       headers: {
@@ -1384,12 +1386,13 @@ function Layout({
 
 export default function OAuthApps({ appId }: { appId: string }) {
   const router = useReadyRouter();
+  const { apiURI } = useDeploymentConfig();
   const [secretToCopy, setSecretToCopy] = useState<{
     clientId: string;
     clientSecret: string;
   } | null>(null);
   const authResponse = useAuthedFetch<OAuthAppsResponse>(
-    `${config.apiURI}/dash/apps/${appId}/oauth-apps`,
+    `${apiURI}/dash/apps/${appId}/oauth-apps`,
   );
 
   if (authResponse.isLoading) {

@@ -3,7 +3,7 @@ import { ClipboardDocumentIcon, PlusIcon } from '@heroicons/react/24/outline';
 import format from 'date-fns/format';
 import CopyToClipboard from 'react-copy-to-clipboard';
 
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import {
   ActionButton,
@@ -30,7 +30,7 @@ async function fetchPersonalAccessTokens(
   token: string,
 ): Promise<PersonalAccessToken[]> {
   const { data } = await jsonFetch(
-    `${config.apiURI}/dash/personal_access_tokens`,
+    `${getConfig().apiURI}/dash/personal_access_tokens`,
     {
       method: 'GET',
       headers: {
@@ -48,7 +48,7 @@ async function createPersonalAccessToken(
   name: string,
 ): Promise<PersonalAccessToken & { token: string }> {
   const { data } = await jsonFetch(
-    `${config.apiURI}/dash/personal_access_tokens`,
+    `${getConfig().apiURI}/dash/personal_access_tokens`,
     {
       method: 'POST',
       headers: {
@@ -67,7 +67,7 @@ async function deletePersonalAccessToken(
   personalAccessTokenId: string,
 ): Promise<any> {
   const { data } = await jsonFetch(
-    `${config.apiURI}/dash/personal_access_tokens/${personalAccessTokenId}`,
+    `${getConfig().apiURI}/dash/personal_access_tokens/${personalAccessTokenId}`,
     {
       method: 'DELETE',
       headers: {

@@ -5,10 +5,10 @@ import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { useAuthToken } from '@/lib/auth';
 import { jsonFetch } from '@/lib/fetch';
 import { formatBytes } from '@/lib/format';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 
 function fetchStorageMetrics(token: string | undefined) {
-  return jsonFetch(`${config.apiURI}/dash/storage`, {
+  return jsonFetch(`${getConfig().apiURI}/dash/storage`, {
     method: 'GET',
     headers: {
       authorization: `Bearer ${token}`,

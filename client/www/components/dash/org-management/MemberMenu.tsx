@@ -5,7 +5,7 @@ import {
   Select,
   useDialog,
 } from '@/components/ui';
-import config from '@/lib/config';
+import { getConfig } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { OrgWorkspace } from '@/lib/hooks/useWorkspace';
@@ -67,7 +67,7 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
   const handleChangeRole = async () => {
     try {
       await dash.optimisticUpdateWorkspace(
-        jsonFetch(`${config.apiURI}/dash/orgs/${org.id}/members/update`, {
+        jsonFetch(`${getConfig().apiURI}/dash/orgs/${org.id}/members/update`, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -105,7 +105,7 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
   const handleRemoveMember = (memberId: string) => {
     return dash.optimisticUpdateWorkspace(
       fetch(
-        `${config.apiURI}/dash/orgs/${
+        `${getConfig().apiURI}/dash/orgs/${
           dash.data.currentWorkspaceId
         }/members/remove`,
         {

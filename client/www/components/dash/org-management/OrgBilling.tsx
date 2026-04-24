@@ -1,5 +1,5 @@
 import { useAuthedFetch, friendlyErrorMessage } from '@/lib/auth';
-import config, { stripeKey } from '@/lib/config';
+import { getConfig, stripeKey } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { useContext } from 'react';
@@ -20,7 +20,7 @@ import { OrgWorkspace } from '@/lib/hooks/useWorkspace';
 
 async function createPortalSession(orgId: string, token: string) {
   const sessionPromise = jsonFetch(
-    `${config.apiURI}/dash/orgs/${orgId}/portal_session`,
+    `${getConfig().apiURI}/dash/orgs/${orgId}/portal_session`,
     {
       method: 'POST',
       headers: {
@@ -48,7 +48,7 @@ async function createPortalSession(orgId: string, token: string) {
 
 async function createCheckoutSession(orgId: string, token: string) {
   const sessionPromise = jsonFetch(
-    `${config.apiURI}/dash/orgs/${orgId}/checkout_session`,
+    `${getConfig().apiURI}/dash/orgs/${orgId}/checkout_session`,
     {
       method: 'POST',
       headers: {
@@ -102,7 +102,7 @@ export const OrgBilling = () => {
     'subscription-name': string;
     'stripe-subscription-id': string | null;
     'customer-balance': number | null;
-  }>(`${config.apiURI}/dash/orgs/${orgId}/billing`);
+  }>(`${getConfig().apiURI}/dash/orgs/${orgId}/billing`);
   if (fetchResult.error) {
     return <div>Error fetching data</div>;
   }
