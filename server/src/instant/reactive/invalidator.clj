@@ -704,7 +704,7 @@
         (cleanup)
         (let [status (Status/fromThrowable t)]
           (if (= (.getCode status) Status$Code/CANCELLED)
-            (tracer/record-info! {:name "invalidator/singleton-gprc-subscription-cancelled"
+            (tracer/record-info! {:name "invalidator/singleton-grpc-subscription-cancelled"
                                   :attributes {:description (.getDescription status)
                                                :remote-machine-id remote-machine-id}})
             (tracer/record-exception-span! t {:name "invalidator/singleton-grpc-subscription-stream-error"}))))
