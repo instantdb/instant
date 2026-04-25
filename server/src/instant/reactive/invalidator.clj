@@ -31,7 +31,7 @@
    (java.time Instant)
    (java.time.temporal ChronoUnit)
    (java.util ArrayList Map Queue)
-   (java.util.concurrent ConcurrentHashMap Executors LinkedBlockingQueue)
+   (java.util.concurrent ConcurrentHashMap Executors LinkedBlockingQueue TimeUnit)
    (org.postgresql.replication LogSequenceNumber)))
 
 (declare wal-opts)
@@ -433,6 +433,7 @@
                  (reset! shutdown? true)
                  (.put q shutdown-sentinel)
                  (.shutdown executor)
+                 (.awaitTermination executor 20 TimeUnit/SECONDS)
                  (stop-gauge))}))
 
 (defn broadcast-wal-record [get-remote-observers packed-wal-record]
