@@ -708,7 +708,7 @@
             (tracer/record-info! {:name "invalidator/singleton-gprc-subscription-cancelled"
                                   :attributes {:description (.getDescription status)
                                                :remote-machine-id remote-machine-id}})
-            (tracer/record-exception-span! t {:name "invalidator/singleton-gprc-subscription-stream-error"}))))
+            (tracer/record-exception-span! t {:name "invalidator/singleton-grpc-subscription-stream-error"}))))
       (onCompleted [_]
         (cleanup)))))
 
@@ -752,21 +752,32 @@
                                                   (assoc subs machine-id sentinel))))]
       (if-not (= sentinel (get after machine-id))
         (tracer/add-data! {:attributes {:already-subscribed? true}})
-        (let [client (grpc-client/grpc-client-for-machine-id machine-id)
-              cancel-id (random-uuid)
+        (let [cancel-id (random-uuid)
               on-close (fn []
                          (swap! outbound-subscriptions (fn [state]
                                                          (if (= sentinel (get state machine-id))
                                                            (dissoc state machine-id)
                                                            state)))
-                         (swap! grpc-cancels dissoc cancel-id))
-              observer (make-subscription-observer {:queue queue
-                                                    :previous-isn-atom previous-isn-atom
-                                                    :acquire-slot-interrupt-chan acquire-slot-interrupt-chan}
-                                                   machine-id
-                                                   on-close)
-              {:keys [cancel]} (grpc-client/subscribe-to-invalidator client process-id observer)]
-          (swap! grpc-cancels assoc cancel-id cancel))))))
+                         (swap! grpc-cancels dissoc cancel-id))]
+          (try
+            (let [client (grpc-client/grpc-client-for-machine-id machine-id)
+                  observer (make-subscription-observer {:queue queue
+                                                        :previous-isn-atom previous-isn-atom
+                                                        :acquire-slot-interrupt-chan acquire-slot-interrupt-chan}
+                                                       machine-id
+                                                       on-close)
+                  {:keys [cancel]} (grpc-client/subscribe-to-invalidator client process-id observer)]
+              (swap! grpc-cancels assoc cancel-id cancel))
+            (catch Throwable t
+              ;; Setup failed before the observer could drive its own cleanup,
+              ;; so release the sentinel to unblock future reconnect attempts.
+              (swap! outbound-subscriptions (fn [state]
+                                              (if (= sentinel (get state machine-id))
+                                                (dissoc state machine-id)
+                                                state)))
+              (tracer/record-exception-span! t {:name "invalidator/subscribe-to-machine-failed"
+                                                :escaping? false
+                                                :attributes {:remote-machine-id machine-id}}))))))))
 
 (defn cleanup-local-process
   "Removes the process from the grpc-registry and closes any
