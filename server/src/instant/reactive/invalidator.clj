@@ -640,8 +640,6 @@
 (defn gen-process-id []
   (swap! next-process-id unchecked-inc-int))
 
-(defonce remote-observers {})
-
 (defonce grpc-registry (atom {:local-processes {}
                               :remote-observers {}}))
 
