@@ -55,6 +55,16 @@
                                                     :ms-since-update (- now last-update)}}))
                (remove-client-on-shutdown client member machine-id now)))))))))
 
+(defn client-channel-counts
+  "Returns {:total N :ready M} for the cached ManagedChannels. Used by gauges."
+  []
+  (let [values (Map/.values grpc-client-map)]
+    {:total (Map/.size grpc-client-map)
+     :ready (count (filter (fn [^ManagedChannel c]
+                             (try (= ConnectivityState/READY (.getState c false))
+                                  (catch Throwable _ false)))
+                           values))}))
+
 (defn grpc-client-for-machine-id [machine-id]
   (when-let [member (get eph/hz-member-by-machine-id-cache machine-id)]
     (let [client (Map/.computeIfAbsent grpc-client-map
@@ -75,6 +85,13 @@
     (.onNext outbound-observer req)
     {:outbound-observer outbound-observer
      :cancel (fn [^String reason]
+               (.cancel call reason nil))}))
+
+(defn subscribe-to-invalidator [^ManagedChannel channel ^Integer process-id ^StreamObserver observer]
+  (let [call (.newCall channel grpc/invalidator-method CallOptions/DEFAULT)
+        req (grpc/->InvalidatorSubscribe config/machine-id process-id)]
+    (ClientCalls/asyncServerStreamingCall call req observer)
+    {:cancel (fn [^String reason]
                (.cancel call reason nil))}))
 
 (defn subscribe-to-test [^ManagedChannel channel req ^StreamObserver observer]

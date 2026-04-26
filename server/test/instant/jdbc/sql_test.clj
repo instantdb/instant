@@ -6,10 +6,12 @@
    [instant.util.test :refer [wait-for]]
    [clojure.test :refer [deftest testing is]])
   (:import
+   (clojure.lang ExceptionInfo)
+   (instant.isn ISN)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
    (java.sql Timestamp)
-   (clojure.lang ExceptionInfo)))
+   (org.postgresql.replication LogSequenceNumber)))
 
 (deftest in-progress-stmts
   (let [in-progress (sql/make-statement-tracker)]
@@ -96,7 +98,21 @@
     (let [vs [true false true]]
       (is (= {:v vs}
              (sql/select-one (aurora/conn-pool :read)
-                             ["select ? as v" (with-meta vs {:pgtype "boolean[]"})]))))))
+                             ["select ? as v" (with-meta vs {:pgtype "boolean[]"})])))))
+
+  (testing "isn"
+    (let [isn (ISN. 7 (LogSequenceNumber/valueOf "16/B374D848"))]
+      (is (= {:v isn}
+             (sql/select-one (aurora/conn-pool :read)
+                             ["select ? as v" isn])))))
+
+  (testing "isn[]"
+    (let [vs [(ISN. 0 (LogSequenceNumber/valueOf 0))
+              (ISN. 7 (LogSequenceNumber/valueOf "16/B374D848"))
+              (ISN. 42 (LogSequenceNumber/valueOf "1A2B/3C4D5E6F"))]]
+      (is (= {:v vs}
+             (sql/select-one (aurora/conn-pool :read)
+                             ["select ? as v" (with-meta vs {:pgtype "isn[]"})]))))))
 
 (deftest elementset-test
   (let [xs [1 2 3]
@@ -154,6 +170,23 @@
             (aurora/conn-pool :read)
             (hsql/format
              (sql/recordset [] columns)))))))
+
+(deftest parse-isn-test
+  (testing "basic composite from postgres"
+    (let [isn (sql/parse-isn "(0,328/26EEF7F8)")]
+      (is (= (ISN. 0 (LogSequenceNumber/valueOf "328/26EEF7F8")) isn))))
+
+  (testing "zero slot and zero lsn"
+    (is (= (ISN. 0 (LogSequenceNumber/valueOf 0))
+           (sql/parse-isn "(0,0/0)"))))
+
+  (testing "multi-digit slot number"
+    (is (= (ISN. 42 (LogSequenceNumber/valueOf "16/B374D848"))
+           (sql/parse-isn "(42,16/B374D848)"))))
+
+  (testing "roundtrip with isn->composite-str"
+    (let [isn (ISN. 7 (LogSequenceNumber/valueOf "1A2B/3C4D5E6F"))]
+      (is (= isn (sql/parse-isn (sql/isn->composite-str isn)))))))
 
 (deftest format-test
   (testing "static"

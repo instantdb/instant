@@ -619,7 +619,7 @@
    the same machine instead of sending it through GRPC.
    We need to upgrade it to a ServerCallStreamObserver with support for setOnCancelHandler.
    Sets up an executor so that calling `onNext` for a local observer operates the same as
-   if we had sent that observer through the gprc server."
+   if we had sent that observer through the grpc server."
   ^ServerCallStreamObserver [^StreamObserver observer on-cancel-atom]
   (let [closed? (atom false)
         check-state (fn []

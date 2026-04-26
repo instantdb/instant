@@ -5,6 +5,7 @@
    ;; load all pg-ops for hsql
    [honey.sql :as hsql]
    [honey.sql.pg-ops]
+   [instant.isn]
    [instant.jdbc.socket-track :as socket-track]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
@@ -18,6 +19,7 @@
   (:import
    (clojure.lang IPersistentList IPersistentMap IPersistentSet IPersistentVector ISeq)
    (com.zaxxer.hikari HikariDataSource)
+   (instant.isn ISN)
    (java.sql Array Connection PreparedStatement ResultSet ResultSetMetaData)
    (java.time Instant LocalDate LocalDateTime)
    (javax.sql DataSource)
@@ -25,6 +27,16 @@
    (org.postgresql.replication LogSequenceNumber)))
 
 (set! *warn-on-reflection* true)
+
+(defn parse-isn
+  "Parses the value that we get from postgres into an isn.
+   We get something that looks like (0,328/26EEF7F8)"
+  ^ISN [^String value]
+  (let [idx (.indexOf value (int \,))
+        slot-str (subs value 1 idx)
+        lsn-str (subs value (inc idx) (dec (count value)))]
+    (ISN. (Integer/parseInt slot-str)
+          (LogSequenceNumber/valueOf lsn-str))))
 
 (defn <-pgobject
   "Transform PGobject containing `json` or `jsonb` value to Clojure data"
@@ -36,6 +48,7 @@
         ("json" "jsonb") (<-json value)
         "bit" (Long/parseLong value 2)
         "pg_lsn" (LogSequenceNumber/valueOf value)
+        "isn" (parse-isn value)
         value))))
 
 (defn <-array [^Array a]
@@ -43,6 +56,7 @@
         vs (.getArray a)]
     (case type
       ("json" "jsonb") (mapv <-json vs)
+      "isn" (mapv <-pgobject vs)
       (vec vs))))
 
 (defn- create-pg-array [^PreparedStatement s pgtype clazz vs]
@@ -54,6 +68,9 @@
                                                              vs))))
 
 (def byte-class (Class/forName "[B"))
+
+(defn isn->composite-str ^String [^ISN isn]
+  (str "(" (.slotNum isn) "," (.asString ^LogSequenceNumber (.-lsn isn)) ")"))
 
 (defn set-param
   "Transform PGobject containing `json` or `jsonb` value to Clojure data"
@@ -69,15 +86,16 @@
       "timestamptz[]" (.setArray s i (create-pg-array s "timestamptz" Instant v))
       "float8[]" (.setArray s i (create-pg-array s "float8" Number v))
       "boolean[]" (.setArray s i (create-pg-array s "boolean" Boolean v))
-      "integer[]" (.setArray s i (create-pg-array s "integer" Integer v))
+      ("integer[]" "int[]") (.setArray s i (create-pg-array s "integer" Integer v))
       "bigint[]" (.setArray s i (create-pg-array s "bigint" Long v))
       "bigint[][]" (.setArray s i (create-2d-pg-array s "bigint" Long v))
       "bytea[]" (.setArray s i (create-pg-array s "bytea" byte-class v))
       "bytea[][]" (.setArray s i (create-2d-pg-array s "bytea" byte-class v))
+      "isn[]" (.setArray s i (create-pg-array s "isn" String (map isn->composite-str v)))
+      "history_storage[]" (.setArray s i (create-pg-array s "history_storage" String v))
       (.setObject s i (doto (PGobject.)
                         (.setType pgtype)
                         (.setValue (->json v)))))))
-
 
 (extend-protocol rs/ReadableColumn
   Array
@@ -106,6 +124,12 @@
     (.setObject ps i (doto (PGobject.)
                        (.setType "pg_lsn")
                        (.setValue (.asString v)))))
+
+  ISN
+  (set-parameter [^ISN v ^PreparedStatement ps ^long i]
+    (.setObject ps i (doto (PGobject.)
+                       (.setType "isn")
+                       (.setValue (isn->composite-str v)))))
 
   IPersistentMap
   (set-parameter [m ^PreparedStatement s i]
