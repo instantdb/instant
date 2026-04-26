@@ -19,6 +19,7 @@
    [instant.postmark :as postmark]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.store :as rs]
+   [instant.runtime.magic-code-auth :as magic-code-auth]
    [instant.runtime.routes :as route]
    [instant.system-catalog :as system-catalog]
    [instant.util.coll :as coll]
@@ -153,6 +154,16 @@
                (is (= (str app-id) (:app_id user)))
                (is (= "a@b.c" (:email user)))
                (is (some? (:refresh_token user)))))))))))
+
+(deftest default-magic-code-body-renders-app-title
+  (let [body (magic-code-auth/default-body
+              {:user_email "a@b.c"
+               :code       "123456"
+               :app_title  "MyApp"
+               :expiration "10 minutes"})]
+    (is (re-find #"MyApp" body))
+    (is (re-find #"123456" body))
+    (is (re-find #"10 minutes" body))))
 
 (defn update-created-at [app-id code created-at]
   (sql/execute!

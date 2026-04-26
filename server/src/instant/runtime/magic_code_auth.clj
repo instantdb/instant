@@ -71,10 +71,10 @@
     (or (= code postmark-unconfirmed-sender-body-error-code)
         (= code postmark-not-found-sender-body-error-code))))
 
-(defn default-body [{:keys [title code expiration]}]
+(defn default-body [{:keys [app_title code expiration]}]
   (postmark/standard-body "<p><strong>Welcome,</strong></p>
         <p>
-          You asked to join " title ". To complete your registration, use this
+          You asked to join " app_title ". To complete your registration, use this
           verification code:
         </p>
         <h2 style=\"text-align: center\"><strong>" code "</strong></h2>
