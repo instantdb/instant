@@ -14,7 +14,7 @@
 
 (deftest all-of-the-custom-readers-are-tested
   ;; Only update this number if you also added a freeze/thaw test for the type
-  (is (= 12 (count nippy/*custom-readers*))))
+  (is (= 15 (count nippy/*custom-readers*))))
 
 (defn roundtrip [x]
   (nippy/fast-thaw (nippy/fast-freeze x)))
@@ -219,4 +219,20 @@
                               [triple-insert]
                               [message]
                               [wal-log-insert])]
+    (is (= obj (roundtrip obj)))))
+
+(deftest slot-disconnect
+  (let [obj (grpc/->SlotDisconnect)]
+    (is (= obj (roundtrip obj)))))
+
+(deftest packed-wal-record
+  (let [ba (.getBytes "packed-wal-record-payload" "UTF-8")
+        obj (grpc/->PackedWalRecord ba)
+        round (roundtrip obj)]
+    ;; byte arrays don't compare with =, so roundtrip is checked by value
+    (is (Arrays/equals ^bytes (:ba obj) ^bytes (:ba round)))
+    (is (= (dissoc obj :ba) (dissoc round :ba)))))
+
+(deftest invalidator-subscribe
+  (let [obj (grpc/->InvalidatorSubscribe (random-uuid) (rand-int 1000))]
     (is (= obj (roundtrip obj)))))

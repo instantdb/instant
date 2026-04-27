@@ -215,20 +215,21 @@
     (throw (ex-info "Unsupported method for presigned url" {:method method}))))
 
 (defn- make-s3-put-opts
-  [bucket-name {:keys [object-key content-type content-disposition content-length]} file-opts]
+  [bucket-name {:keys [object-key content-type content-disposition content-length content-encoding]} file-opts]
   (merge
    {:bucket-name bucket-name
     :key object-key
     :metadata {:content-type (or content-type default-content-type)
                :content-disposition (or content-disposition default-content-disposition)
-               :content-length content-length}}
+               :content-length content-length
+               :content-encoding content-encoding}}
    file-opts))
 
-(defn upload-stream-to-s3
-  [^S3AsyncClient async-client bucket-name ctx stream]
+(defn upload-body-to-s3
+  [^S3AsyncClient async-client bucket-name ctx ^AsyncRequestBody body]
   (let [{:keys [key metadata] :as _opts} (make-s3-put-opts bucket-name ctx {})
-        {:keys [content-disposition content-type content-length]} metadata]
-    (tracer/with-span! {:name "s3/upload-stream-to-s3"
+        {:keys [content-disposition content-type content-length content-encoding]} metadata]
+    (tracer/with-span! {:name "s3/upload-body-to-s3"
                         :attributes {:bucket-name bucket-name
                                      :key key
                                      :content-type content-type
@@ -240,10 +241,16 @@
                                     true (.contentType content-type)
                                     true (.contentDisposition content-disposition)
                                     content-length (.contentLength content-length)
-                                    true (.build))
-            body (AsyncRequestBody/fromInputStream stream
-                                                   (when content-length
-                                                     (long content-length))
-                                                   default-virtual-thread-executor)]
+                                    content-encoding (.contentEncoding content-encoding)
+                                    true (.build))]
         (-> (.putObject async-client req body)
             deref)))))
+
+(defn upload-stream-to-s3
+  [^S3AsyncClient async-client bucket-name ctx stream]
+  (let [content-length (:content-length ctx)
+        body (AsyncRequestBody/fromInputStream stream
+                                               (when content-length (long content-length))
+                                               default-virtual-thread-executor)]
+    (upload-body-to-s3 async-client bucket-name ctx body)))
+
