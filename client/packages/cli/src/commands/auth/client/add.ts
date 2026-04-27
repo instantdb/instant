@@ -31,6 +31,7 @@ import {
 import { UI } from '../../../ui/index.ts';
 import chalk from 'chalk';
 import boxen from 'boxen';
+import { link } from '../../../logging.ts';
 
 export const ClientTypeSchema = Schema.Literal(
   'google',
@@ -129,7 +130,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     required: true,
     skipIf: false,
     prompt: {
-      prompt: `Client ID: ${chalk.dim('(from https://console.developers.google.com/apis/credentials)')}`,
+      prompt: `Client ID: ${chalk.dim(`(from ${link('https://console.developers.google.com/apis/credentials')})`)}`,
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
@@ -143,7 +144,7 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     skipIf: appType !== 'web',
     simpleName: '--client-secret',
     prompt: {
-      prompt: `Client Secret: ${chalk.dim('(from https://console.developers.google.com/apis/credentials)')}`,
+      prompt: `Client Secret: ${chalk.dim(`(from ${link('https://console.developers.google.com/apis/credentials')})`)}`,
       validate: validateRequired,
       sensitive: true,
       modifyOutput: UI.modifiers.piped([
@@ -240,7 +241,7 @@ const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
     required: true,
     skipIf: false,
     prompt: {
-      prompt: `Client ID ${chalk.dim('(from https://github.com/settings/developers)')}`,
+      prompt: `Client ID ${chalk.dim(`(from ${link('https://github.com/settings/developers')})`)}`,
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
@@ -254,7 +255,7 @@ const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
     skipIf: false,
     simpleName: '--client-secret',
     prompt: {
-      prompt: `Client Secret: ${chalk.dim('(from https://github.com/settings/developers)')}`,
+      prompt: `Client Secret: ${chalk.dim(`(from ${link('https://github.com/settings/developers')})`)}`,
       validate: validateRequired,
       sensitive: true,
       modifyOutput: UI.modifiers.piped([
@@ -345,7 +346,7 @@ const handleLinkedInClient = Effect.fn(function* (
     required: true,
     skipIf: false,
     prompt: {
-      prompt: `Client ID: ${chalk.dim('(from https://www.linkedin.com/developers/apps)')}`,
+      prompt: `Client ID: ${chalk.dim(`(from ${link('https://www.linkedin.com/developers/apps')})`)}`,
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
@@ -359,7 +360,7 @@ const handleLinkedInClient = Effect.fn(function* (
     skipIf: false,
     simpleName: '--client-secret',
     prompt: {
-      prompt: `Client Secret: ${chalk.dim('(from https://www.linkedin.com/developers/apps)')}`,
+      prompt: `Client Secret: ${chalk.dim(`(from ${link('https://www.linkedin.com/developers/apps')})`)}`,
       validate: validateRequired,
       sensitive: true,
       modifyOutput: UI.modifiers.piped([
@@ -475,7 +476,7 @@ const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     required: true,
     skipIf: false,
     prompt: {
-      prompt: `Services ID ${chalk.dim('(from https://developer.apple.com/account/resources/identifiers/list/serviceId)')}`,
+      prompt: `Services ID ${chalk.dim(`(from ${link('https://developer.apple.com/account/resources/identifiers/list/serviceId')})`)}`,
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
@@ -518,7 +519,7 @@ const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     skipIf: skipWeb,
     skipMessage: `--team-id ${webSkipMessage}`,
     prompt: {
-      prompt: `Team ID ${chalk.dim('(from https://developer.apple.com/account#MembershipDetailsCard)')}`,
+      prompt: `Team ID ${chalk.dim(`(from ${link('https://developer.apple.com/account#MembershipDetailsCard')})`)}`,
       validate: validateRequired,
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
@@ -533,7 +534,7 @@ const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     skipIf: skipWeb,
     skipMessage: `--key-id ${webSkipMessage}`,
     prompt: {
-      prompt: `Key ID ${chalk.dim('(from https://developer.apple.com/account/resources/authkeys/list)')}`,
+      prompt: `Key ID ${chalk.dim(`(from ${link('https://developer.apple.com/account/resources/authkeys/list')})`)}`,
       validate: validateRequired,
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
@@ -621,7 +622,7 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
     summaryLines.push(`Key ID: ${keyId}`);
     summaryLines.push(
       chalk.bold(
-        `\nAdd this return URL under your Services ID on developer.apple.com:\n${redirectUri}\n`,
+        `\nAdd this return URL under your Services ID on ${link('https://developer.apple.com', 'developer.apple.com')}:\n${redirectUri}\n`,
       ),
     );
     if (customRedirectUri) {
@@ -652,7 +653,7 @@ const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
     required: true,
     skipIf: false,
     prompt: {
-      prompt: `Clerk publishable key ${chalk.dim('(from https://dashboard.clerk.com/last-active?path=api-keys)')}`,
+      prompt: `Clerk publishable key ${chalk.dim(`(from ${link('https://dashboard.clerk.com/last-active?path=api-keys')})`)}`,
       placeholder:
         'pk_********************************************************',
       modifyOutput: UI.modifiers.piped([
@@ -736,8 +737,7 @@ const handleFirebaseClient = Effect.fn(function* (
     required: true,
     skipIf: false,
     prompt: {
-      prompt:
-        'Firebase project ID: (From Project Settings page on https://console.firebase.google.com/)',
+      prompt: `Firebase project ID: (From Project Settings page on ${link('https://console.firebase.google.com/')})`,
       placeholder: '',
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,

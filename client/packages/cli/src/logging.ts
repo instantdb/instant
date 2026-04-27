@@ -1,5 +1,7 @@
 import chalk from 'chalk';
+import ansiEscapes from 'ansi-escapes';
 import { HashMap, Logger, Match, Option } from 'effect';
+import supportsHyperlinks from 'supports-hyperlinks';
 
 export function warn(firstArg: string, ...rest: any[]) {
   console.warn(chalk.yellow('[warning]') + ' ' + firstArg, ...rest);
@@ -30,3 +32,10 @@ export const SimpleLogLayer = Logger.replace(
   Logger.defaultLogger,
   simpleLogger,
 );
+
+export const link = (url: string, text?: string): string => {
+  if (supportsHyperlinks.stdout) {
+    return ansiEscapes.link(text ?? url, url);
+  }
+  return text ?? url;
+};

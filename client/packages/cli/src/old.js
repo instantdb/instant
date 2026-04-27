@@ -3,7 +3,6 @@ import chalk from 'chalk';
 import { program } from '@commander-js/extra-typings';
 import { readFile } from 'fs/promises';
 import path from 'path';
-import terminalLink from 'terminal-link';
 import { UI } from './ui/index.ts';
 import { deferred, renderUnwrap } from './ui/lib.ts';
 import {
@@ -12,9 +11,9 @@ import {
 } from './util/findConfigCandidates.ts';
 import { getAuthPaths } from './util/getAuthPaths.ts';
 import { loadConfig } from './util/loadConfig.ts';
-import { loadEnv } from './util/loadEnv.ts';
 import { ResolveRenamePrompt } from './util/renamePrompt.ts';
 import version from './version.js';
+import { link } from './logging.ts';
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
@@ -119,9 +118,7 @@ function indexingJobCompletedMessage(job) {
           header: 'id',
           width: 37,
           getValue: (triple) =>
-            terminalLink(triple.entity_id, createUrl(triple, job).toString(), {
-              fallback: () => triple.entity_id,
-            }),
+            link(createUrl(triple, job).toString(), triple.entity_id),
         },
         {
           header: label,

@@ -1,4 +1,5 @@
 import { loadEnv } from './util/loadEnv.ts';
+
 loadEnv();
 
 import minimist from 'minimist';
@@ -28,6 +29,7 @@ import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.ts';
 import { authClientAddCmd } from './commands/auth/client/add.ts';
 import { authClientListCmd } from './commands/auth/client/list.ts';
 import { authClientDeleteCmd } from './commands/auth/client/delete.ts';
+import { link } from './logging.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -113,7 +115,7 @@ Provider Specific Options:
    --client-secret
    --custom-redirect-uri      (optional)
   Apple:
-   --services-id              (Services ID from developer.apple.com)
+   --services-id              (Services ID from ${link('https://developer.apple.com', 'developer.apple.com')})
    --team-id                  (optional, required for web redirect flow)
    --key-id                   (optional, required for web redirect flow)
    --private-key-file         (optional, path to .p8 PEM; required for web redirect flow)
@@ -123,9 +125,9 @@ Provider Specific Options:
    --client-secret
    --custom-redirect-uri      (optional)
   Clerk:
-   --publishable-key    (Publishable Key from dashboard.clerk.com)
+   --publishable-key    (Publishable Key from ${link('https://dashboard.clerk.com', 'dashboard.clerk.com')})
   Firebase:
-   --project-id         (Project ID from console.firebase.google.com)
+   --project-id         (Project ID from ${link('https://console.firebase.google.com', 'console.firebase.google.com')})
 `,
   )
   .action((opts) => {
