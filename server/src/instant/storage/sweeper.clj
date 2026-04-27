@@ -16,7 +16,7 @@
    (java.time Duration Instant)
    (java.time.temporal ChronoUnit)))
 
-(def max-loops 10) ;; max loops per sweep job
+(def default-max-loops 1000) ;; max loops per sweep job
 (def batch-size 1000) ;; max number of files to process in one loop
 
 (defn ms-between [^Instant start ^Instant end]
@@ -106,7 +106,7 @@
 (defn handle-sweep!
   ([params] (handle-sweep! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id max-loops limit]
-          :or {max-loops 10
+          :or {max-loops (flags/flag :storage-sweeper-max-loops default-max-loops)
                limit batch-size}}]
    (when-not (flags/failing-over?)
      (tracer/with-span! {:name "storage-sweeper/handle-sweep!"}
@@ -144,7 +144,7 @@
                         (Instant/now)
                         (Duration/ofMinutes 60))
                        (fn [_time]
-                         (handle-sweep! {:max-loops 10})))))))
+                         (handle-sweep! {})))))))
 
 (defn stop []
   (when-let [curr-schedule @schedule]
