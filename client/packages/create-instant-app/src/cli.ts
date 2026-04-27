@@ -32,6 +32,7 @@ export type Project = {
   app: string | null;
   token: string | null;
   yes: boolean;
+  temporary: boolean;
 };
 
 export const unwrapSkippablePrompt = <T>(result: Promise<T | symbol>) => {
@@ -52,6 +53,7 @@ const defaultOptions: Project = {
   app: null,
   token: null,
   yes: false,
+  temporary: false,
 };
 
 const baseFromFlags = (flags: Record<string, any>): Project['base'] | null =>
@@ -168,6 +170,9 @@ export const runCli = async (): Promise<Project> => {
         'Use all defaults (requires project name as first argument)',
       ).default(false),
     )
+    .addOption(
+      new Option('--temp', 'Create a temporary app by default').default(false),
+    )
     .version(version)
     .parse(process.argv);
   const cliProvidedName = program.args[0] && coerceAppName(program.args[0]);
@@ -181,6 +186,10 @@ export const runCli = async (): Promise<Project> => {
   }
 
   const flags = program.opts();
+
+  if (flags.app && flags.temp) {
+    throw new Error('--app and --temp cannot be used together');
+  }
 
   if (flags.yes) {
     if (flags.ai) {
@@ -201,6 +210,7 @@ export const runCli = async (): Promise<Project> => {
       app: flags.app ?? null,
       token: flags.token ?? null,
       yes: true,
+      temporary: flags.temp ?? false,
     };
   }
 
@@ -352,6 +362,9 @@ export const runCli = async (): Promise<Project> => {
           return flags.git as boolean;
         }
         return true;
+      },
+      temporary: async () => {
+        return flags.temp ?? false;
       },
     } satisfies {
       [K in keyof Omit<Project, 'app' | 'token' | 'yes'>]: (args: {

@@ -51,7 +51,7 @@ export const createApp = async (
     body: app,
     metadata,
   });
-  return { appID: id, adminToken: token, source: 'created' };
+  return { appId: id, adminToken: token, source: 'created' };
 };
 
 /**
@@ -180,7 +180,7 @@ const getAuthToken = async (): Promise<string | null> => {
   return authToken;
 };
 
-type AppTokenResponse = {
+export type AppTokenResponse = {
   appId: string;
   adminToken: string;
   approach: 'ephemeral' | 'import' | 'create';
@@ -225,14 +225,14 @@ export const tryConnectApp = async (
 
   if (project?.yes && !project?.app) {
     // Create a real app if logged in, ephemeral if not
-    if (authToken) {
-      const { appID, adminToken } = await createApp(
+    if (authToken && !project.temporary) {
+      const { appId, adminToken } = await createApp(
         toTitleCase(scopedAppName),
         authToken,
         undefined,
         metadata,
       );
-      return { appId: appID, adminToken, approach: 'create' };
+      return { appId, adminToken, approach: 'create' };
     } else {
       const { appId, adminToken } = await createPermissiveEphemeralApp(
         toTitleCase(scopedAppName),
@@ -240,6 +240,20 @@ export const tryConnectApp = async (
       );
       return { appId, adminToken, approach: 'ephemeral' };
     }
+  }
+
+  // User wants to create a temporary app and is interactive
+  if (project?.temporary) {
+    const name = await renderUnwrap(
+      new UI.TextInput({
+        defaultValue: toTitleCase(scopedAppName),
+        prompt: 'Enter a name for your temporary app:',
+        placeholder: toTitleCase(scopedAppName),
+        modifyOutput: UI.ciaModifier(),
+      }),
+    );
+    const app = await createPermissiveEphemeralApp(name, metadata);
+    return { ...app, approach: 'ephemeral' };
   }
 
   // Handle --app flag: skip interactive selection
@@ -343,9 +357,9 @@ export const tryConnectApp = async (
     if (choice === 'ephemeral') {
       const name = await renderUnwrap(
         new UI.TextInput({
-          defaultValue: 'my-cool-app',
+          defaultValue: toTitleCase(scopedAppName),
           prompt: 'Enter a name for your temporary app:',
-          placeholder: `my-cool-app`,
+          placeholder: toTitleCase(scopedAppName),
           modifyOutput: UI.ciaModifier(),
         }),
       );
@@ -382,13 +396,13 @@ export const tryConnectApp = async (
         },
 
         createApp: async (title: string, orgId?: string) => {
-          const { appID, adminToken } = await createApp(
+          const { appId, adminToken } = await createApp(
             title,
             authToken,
             orgId,
             metadata,
           );
-          return { appId: appID, adminToken };
+          return { appId, adminToken };
         },
       },
       modifyOutput: UI.ciaModifier(),
