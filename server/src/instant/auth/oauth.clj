@@ -229,13 +229,14 @@
           email (.asString (.getClaim verified-jwt "email"))
 
           jwt-nonce (.asString (.getClaim verified-jwt "nonce"))
-          ;; Google id_tokens are validated by signature, issuer, audience,
-          ;; and subject; we don't rely on the nonce for replay protection,
-          ;; so skip it for all Google clients (new and pre-existing).
-          skip-nonce-checks? (or (= issuer "https://accounts.google.com")
-                                 (-> client
-                                     :meta
-                                     (get "skipNonceChecks")))
+          ;; Skip the nonce check for all Google clients. Popular native
+          ;; sign-in libs don't expose an API to set/disable the nonce, and
+          ;; the id_token's nonce claim shows up inconsistently across
+          ;; platforms, so server-side validation has to relax it. See
+          ;; https://github.com/react-native-google-signin/google-signin/issues/1461
+          ;; The id_token is still validated by signature, issuer, audience,
+          ;; and subject.
+          skip-nonce-checks? (= issuer "https://accounts.google.com")
           nonce-error (cond
                         skip-nonce-checks?
                         nil
