@@ -56,6 +56,10 @@ export const AddOAuthClientResponse = Schema.Struct({
   client: OAuthClient,
 });
 
+export const AuthorizedOriginResponse = Schema.Struct({
+  origin: AuthorizedOrigin,
+});
+
 const NullableArray = <A, I, R>(schema: Schema.Schema<A, I, R>) =>
   Schema.Union(Schema.Array(schema).pipe(Schema.mutable), Schema.Null).pipe(
     Schema.optional,
@@ -230,4 +234,40 @@ export const getClientNameAndProvider = Effect.fn(function* (
     });
   }
   return { provider, clientName };
+});
+
+export const removeAuthorizedOrigin = Effect.fn(function* (originId: string) {
+  const http = (yield* InstantHttpAuthed).pipe(
+    withCommand('auth origin delete'),
+  );
+  const { appId } = yield* CurrentApp;
+
+  return yield* http
+    .del(`/dash/apps/${appId}/authorized_redirect_origins/${originId}`)
+    .pipe(
+      Effect.flatMap(
+        HttpClientResponse.schemaBodyJson(AuthorizedOriginResponse),
+      ),
+    );
+});
+
+export const addAuthorizedOrigin = Effect.fn(function* (params: {
+  service: Schema.Schema.Type<typeof AuthorizedOriginService>;
+  params: string[];
+}) {
+  const http = (yield* InstantHttpAuthed).pipe(withCommand('auth origin add'));
+  const { appId } = yield* CurrentApp;
+
+  return yield* http
+    .post(`/dash/apps/${appId}/authorized_redirect_origins`, {
+      body: HttpBody.unsafeJson({
+        service: params.service,
+        params: params.params,
+      }),
+    })
+    .pipe(
+      Effect.flatMap(
+        HttpClientResponse.schemaBodyJson(AuthorizedOriginResponse),
+      ),
+    );
 });
