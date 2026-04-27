@@ -180,7 +180,7 @@ const getAuthToken = async (): Promise<string | null> => {
   return authToken;
 };
 
-type AppTokenResponse = {
+export type AppTokenResponse = {
   appId: string;
   adminToken: string;
   approach: 'ephemeral' | 'import' | 'create';
@@ -232,14 +232,12 @@ export const tryConnectApp = async (
         undefined,
         metadata,
       );
-      UI.log(`Created new app with App ID: ${appId}`, UI.ciaModifier());
       return { appId, adminToken, approach: 'create' };
     } else {
       const { appId, adminToken } = await createPermissiveEphemeralApp(
         toTitleCase(scopedAppName),
         metadata,
       );
-      UI.log(`Created temporary app with App ID: ${appId}`, UI.ciaModifier());
       return { appId, adminToken, approach: 'ephemeral' };
     }
   }

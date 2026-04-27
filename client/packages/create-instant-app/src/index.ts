@@ -23,6 +23,7 @@ import { promptClaude } from './claude.js';
 import { parseNameAndPath } from './utils/validateAppName.js';
 import { execa } from 'execa';
 import { getRules, getSchema } from './utils/appConfig.js';
+import { printAppCreateResult } from './utils/printAppCreateResult.js';
 
 const main = async () => {
   if (
@@ -63,6 +64,7 @@ const main = async () => {
     project,
     scaffoldMetadata,
   );
+  printAppCreateResult(possibleAppTokenPair);
   if (possibleAppTokenPair) {
     applyEnvFile(
       project,
