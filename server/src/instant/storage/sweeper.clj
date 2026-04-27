@@ -16,7 +16,7 @@
    (java.time Duration Instant)
    (java.time.temporal ChronoUnit)))
 
-(def max-loops 10) ;; max loops per sweep job
+(def max-loops 1000) ;; max loops per sweep job
 (def batch-size 1000) ;; max number of files to process in one loop
 
 (defn ms-between [^Instant start ^Instant end]
