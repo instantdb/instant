@@ -527,8 +527,8 @@
   (a/close! (:worker-chan wal-opts)))
 
 (defn fast-active-slot-check
-  "Just checks the db to see if the slot is active. It only
-   works when we're in the middle of switching db instances, but we check for that."
+  "Just checks the db to see if the slot is active. It only works when we're not
+   in the middle of switching db instances, but we check for that."
   [{:keys [get-conn-config
            slot-type
            slot-suffix]}]
