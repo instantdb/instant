@@ -197,8 +197,8 @@
                                     :attributes {:id_token id-token}}
                   {:type :error :message "Missing user info"}))))))))
 
-  (get-user-info-from-id-token [client nonce jwt {:keys [allow-unverified-email?
-                                                         ignore-audience?]}]
+  (get-user-info-from-id-token [_client nonce jwt {:keys [allow-unverified-email?
+                                                          ignore-audience?]}]
     (when (or (string/blank? jwks-uri)
               (string/blank? issuer)
               (empty? id-token-signing-alg-values-supported))
