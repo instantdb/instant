@@ -106,7 +106,7 @@
 (defn handle-sweep!
   ([params] (handle-sweep! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id max-loops limit]
-          :or {max-loops default-max-loops
+          :or {max-loops (flags/flag :storage-sweeper-max-loops default-max-loops)
                limit batch-size}}]
    (when-not (flags/failing-over?)
      (tracer/with-span! {:name "storage-sweeper/handle-sweep!"}
@@ -144,7 +144,7 @@
                         (Instant/now)
                         (Duration/ofMinutes 60))
                        (fn [_time]
-                         (handle-sweep! {:max-loops default-max-loops})))))))
+                         (handle-sweep! {})))))))
 
 (defn stop []
   (when-let [curr-schedule @schedule]
