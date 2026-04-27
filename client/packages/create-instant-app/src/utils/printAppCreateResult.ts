@@ -6,6 +6,11 @@ export const printAppCreateResult = (result: AppTokenResponse | null) => {
     return;
   }
 
+  if (result.approach === 'import') {
+    UI.log(`Imported app with App ID: ${result.appId}`, UI.ciaModifier());
+    return;
+  }
+
   if (result.approach === 'create') {
     UI.log(`Created new app with App ID: ${result.appId}`, UI.ciaModifier());
   }
