@@ -7,8 +7,10 @@
    [instant.util.cloudfront :as cloudfront-util]
    [instant.util.tracer :as tracer])
   (:import
+   (java.io InputStream)
    (java.time Instant Duration)
-   (software.amazon.awssdk.core.async AsyncRequestBody)
+   (software.amazon.awssdk.core.async AsyncRequestBody
+                                      AsyncResponseTransformer)
    (software.amazon.awssdk.services.s3 S3AsyncClient
                                        S3Client)
    (software.amazon.awssdk.services.s3.model CopyObjectRequest
@@ -16,13 +18,16 @@
                                              Delete
                                              DeleteObjectRequest
                                              DeleteObjectsRequest
+                                             GetObjectRequest
                                              HeadObjectRequest
                                              HeadObjectResponse
                                              ListObjectsV2Request
                                              ListObjectsV2Response
                                              ObjectIdentifier
                                              PutObjectRequest
-                                             S3Object)))
+                                             S3Object)
+   (software.amazon.awssdk.transfer.s3 S3TransferManager)
+   (software.amazon.awssdk.transfer.s3.model UploadRequest)))
 
 (set! *warn-on-reflection* true)
 
@@ -92,6 +97,15 @@
                                    (.build))
         ^CopyObjectResponse resp (.copyObject s3-client req)]
     resp))
+
+(defn get-object
+  ^InputStream [^S3AsyncClient s3-client bucket-name object-key]
+  (let [^GetObjectRequest req (-> (GetObjectRequest/builder)
+                                  (.bucket bucket-name)
+                                  (.key object-key)
+                                  (.build))]
+    (-> (.getObject s3-client req (AsyncResponseTransformer/toBlockingInputStream))
+        deref)))
 
 (def user-controlled-metadata-keys
   #{:content-type :content-disposition})

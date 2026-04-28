@@ -63,6 +63,21 @@
     (tool/copy cipherhex)
     (println cipherhex)))
 
+(defn generate-webhook-signing-key [{:keys [env]}]
+  (setup-signal-handler)
+  (crypt-util/register-signature)
+  (let [key (crypt-util/generate-webhook-signing-key)
+        config (config-edn/read-config env)
+        hybrid (crypt-util/get-hybrid-encrypt-primitive (:hybrid-keyset config))
+        ciphertext (crypt-util/hybrid-encrypt
+                    hybrid
+                    {:plaintext (.getBytes key "UTF-8")
+                     :associated-data config-edn/associated-data})
+        cipherhex (crypt-util/bytes->hex-string ciphertext)]
+    (println-err "Your encrypted key (also copied to your clipboard):")
+    (tool/copy cipherhex)
+    (println ciphertext)))
+
 ;; OSS bootstrap
 
 (defn jdbc-url->postgres-url [url & params]
@@ -87,7 +102,9 @@
     (spit "resources/config/override.edn"
           (pr-str
            {:aead-keyset {:encrypted? false
-                          :json (crypt-util/generate-unencrypted-aead-keyset)}}))))
+                          :json (crypt-util/generate-unencrypted-aead-keyset)}
+            :webhook-keyset {:encrypted? false
+                             :json (crypt-util/generate-webhook-signing-key)}}))))
 
 (defn migrate-database []
   (config/init)

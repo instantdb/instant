@@ -68,7 +68,9 @@
 (s/def ::hybrid-keyset (s/keys :req-un [::kms-key-url
                                         ::json
                                         ::public-key-json]))
-
+(s/def ::webhook-keyset (s/keys :req-un [::encrypted?
+                                         ::json]
+                                :opt-un [::kms-key-url]))
 
 (s/def ::config (s/keys :opt-un [::instant-config-app-id
                                  ::cloudfront-signing-key
@@ -87,7 +89,8 @@
                                  ::google-oauth-client
                                  ::shared-oauth-clients
                                  ::hybrid-keyset
-                                 ::rate-limit-hmac-key]
+                                 ::rate-limit-hmac-key
+                                 ::webhook-keyset]
                         :req-un [::aead-keyset]))
 
 ;; Prod config is more restrictive because we don't want to accidentally
@@ -106,7 +109,8 @@
                                       ::honeycomb-api-key
                                       ::google-oauth-client
                                       ::hybrid-keyset
-                                      ::rate-limit-hmac-key]
+                                      ::rate-limit-hmac-key
+                                      ::webhook-keyset]
                              :opt-un [::instant-config-app-id
                                       ::next-database-cluster-id
                                       ::shared-oauth-clients]))
@@ -130,7 +134,7 @@
     (when override
       ;; Can't use tracer because it requires config to be decoded before
       ;; it is initialized
-      (log/infof "Using config at resources/config/override.edn"))
+      (log/info "Using config at resources/config/override.edn"))
     (-> (or override
             (io/resource (format "config/%s.edn" (name env))))
         slurp
