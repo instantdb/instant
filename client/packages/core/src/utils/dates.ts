@@ -182,7 +182,6 @@ const dateParsers = [
   zenecaDateStrToInstant,
   dowMonDayYearStrToInstant,
   usDateTimeStrToInstant,
-  rfc1123ToInstant,
   localDateTimeStrToInstant,
   iso8601IncompleteOffsetToInstant,
   offioDateStrToInstant,
@@ -190,6 +189,7 @@ const dateParsers = [
   specialStrToInstant,
   pgTimezoneStrToInstant,
   iso8601SingleDigitToInstant,
+  rfc1123ToInstant,
 ];
 
 // Try to parse with a specific parser

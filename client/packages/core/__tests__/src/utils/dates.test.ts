@@ -41,6 +41,7 @@ describe('coerceToDate', () => {
       it(`should parse ${dateString} to ${expected}`, () => {
         const result = coerceToDate(dateString);
         expect(result).toBeInstanceOf(Date);
+        expect(result?.toISOString()).toBe(expected);
       });
     }
   });
