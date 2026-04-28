@@ -25,9 +25,7 @@
                                              ListObjectsV2Response
                                              ObjectIdentifier
                                              PutObjectRequest
-                                             S3Object)
-   (software.amazon.awssdk.transfer.s3 S3TransferManager)
-   (software.amazon.awssdk.transfer.s3.model UploadRequest)))
+                                             S3Object)))
 
 (set! *warn-on-reflection* true)
 
