@@ -22,6 +22,7 @@ export const initCommand = (_options: OptsFromCommand<typeof initDef>) =>
             const doSchemaPush = yield* promptOk(
               {
                 promptText: 'Found local schema. Push it to the new app?',
+                defaultValue: false,
                 inline: true,
               },
               true,
@@ -45,6 +46,7 @@ export const initCommand = (_options: OptsFromCommand<typeof initDef>) =>
             const doPermsPush = yield* promptOk(
               {
                 promptText: 'Found local perms. Push it to the new app?',
+                defaultValue: false,
                 inline: true,
               },
               true,

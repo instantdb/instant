@@ -52,7 +52,7 @@
     "string-width": "^8.1.0",
     "strip-ansi": "^7.1.2",
     "supports-hyperlinks": "^4.4.0",
-    "unconfig": "^0.5.5"
+    "unconfig": "^7.5.0"
   },
   "scripts": {
     "build": "rm -rf dist; tsc -p tsconfig.build.json",
