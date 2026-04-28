@@ -83,6 +83,7 @@
   []
   (when-not (io/resource "config/override.edn")
     (crypt-util/register-aead)
+    (crypt-util/register-signature)
     (println "Writing config file to server/resources/config/override.edn")
     (spit "resources/config/override.edn"
           (pr-str
