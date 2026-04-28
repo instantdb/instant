@@ -94,15 +94,25 @@ function iso8601IncompleteOffsetToInstant(s) {
 function iso8601SingleDigitToInstant(s) {
   // Format: "2025-11-2T00:00:00.000Z" or "2025-1-2T00:00:00Z" (single-digit month/day)
   // Also handles space separator: "2025-1-2 00:00:00"
-  // Normalize to proper ISO 8601 format with two-digit month and day
-  const regex = /^(\d+)-(\d{1,2})-(\d{1,2})([ T])(.+)$/;
+  // Also handles single-digit hours/minutes/seconds: "2026-04-28T04:7:00.000Z"
+  // Normalize to proper ISO 8601 format with two-digit values
+  const regex =
+    /^(\d+)-(\d{1,2})-(\d{1,2})([ T])(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?(.*)$/;
   const match = s.match(regex);
 
   if (match) {
-    const [, year, month, day, separator, rest] = match;
+    const [, year, month, day, _separator, hours, minutes, seconds, rest] =
+      match;
     const paddedMonth = month.padStart(2, '0');
     const paddedDay = day.padStart(2, '0');
-    const correctedString = `${year}-${paddedMonth}-${paddedDay}T${rest}`;
+    let timeStr = hours.padStart(2, '0');
+    if (minutes !== undefined) {
+      timeStr += `:${minutes.padStart(2, '0')}`;
+    }
+    if (seconds !== undefined) {
+      timeStr += `:${seconds.padStart(2, '0')}`;
+    }
+    const correctedString = `${year}-${paddedMonth}-${paddedDay}T${timeStr}${rest}`;
     return new Date(correctedString);
   }
 
@@ -172,7 +182,6 @@ const dateParsers = [
   zenecaDateStrToInstant,
   dowMonDayYearStrToInstant,
   usDateTimeStrToInstant,
-  rfc1123ToInstant,
   localDateTimeStrToInstant,
   iso8601IncompleteOffsetToInstant,
   offioDateStrToInstant,
@@ -180,6 +189,7 @@ const dateParsers = [
   specialStrToInstant,
   pgTimezoneStrToInstant,
   iso8601SingleDigitToInstant,
+  rfc1123ToInstant,
 ];
 
 // Try to parse with a specific parser
