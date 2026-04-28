@@ -61,7 +61,6 @@
   ([conn {:keys [app-id isn etypes actions]}]
    (when-let [{:keys [wal-record]} (history/get-by-app-id-and-isn conn {:isn isn
                                                                         :app-id app-id})]
-     (tool/def-locals)
      (let [attrs (attr-model/get-by-app-id app-id)
            ents-after (topics/extract-entities-after wal-record)
            ents-before (topics/extract-entities-before attrs
