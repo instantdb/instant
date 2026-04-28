@@ -83,11 +83,14 @@
   []
   (when-not (io/resource "config/override.edn")
     (crypt-util/register-aead)
+    (crypt-util/register-signature)
     (println "Writing config file to server/resources/config/override.edn")
     (spit "resources/config/override.edn"
           (pr-str
            {:aead-keyset {:encrypted? false
-                          :json (crypt-util/generate-unencrypted-aead-keyset)}}))))
+                          :json (crypt-util/generate-unencrypted-aead-keyset)}
+            :webhook-keyset {:encrypted? false
+                             :json (crypt-util/generate-webhook-signing-key)}}))))
 
 (defn migrate-database []
   (config/init)

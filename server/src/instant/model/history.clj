@@ -12,15 +12,16 @@
    [instant.util.date :as date-util]
    [instant.util.hsql :as uhsql]
    [instant.util.lang :as lang]
-   [instant.util.s3 :refer [upload-body-to-s3]]
+   [instant.util.s3 :as s3]
    [instant.util.tracer :as tracer]
    [taoensso.nippy :as nippy]
    [honey.sql :as hsql])
   (:import
    (software.amazon.awssdk.core.async AsyncRequestBody)
-   (com.github.luben.zstd Zstd)
+   (com.github.luben.zstd Zstd ZstdInputStream)
    (instant.grpc WalRecord)
    (instant.isn ISN)
+   (java.io DataInputStream InputStream)
    (java.time Instant Period ZonedDateTime)
    (java.util UUID)
    (net.openhft.hashing LongHashFunction)
@@ -95,18 +96,46 @@
       (Zstd/decompress)
       (nippy/fast-thaw)))
 
+(defn unpack-wal-record-stream ^WalRecord [^InputStream s]
+  (with-open [z (ZstdInputStream. s)
+              in (DataInputStream. z)]
+    (nippy/thaw-from-in! in)))
+
+(defn fetch-from-s3
+  "Fetches the wal-record from s3, trying 3 times by default."
+  ([params]
+   (fetch-from-s3 1 3 params))
+  ([attempt max-attempts {:keys [app-id isn]}]
+   (try (tracer/with-span! {:name "history/fetch-from-s3"
+                            :attributes {:app-id app-id
+                                         :isn isn}}
+          (with-open [in (s3/get-object (s3-async-client)
+                                        config/s3-wal-history-bucket-name
+                                        (s3-key {:app-id app-id
+                                                 :isn isn}))]
+            (unpack-wal-record-stream in)))
+        (catch Throwable t
+          (if (>= attempt max-attempts)
+            (throw t)
+            (do
+              (tracer/record-exception-span! t {:name "history/fetch-from-s3-failure"
+                                                :attributes {:attempt attempt
+                                                             :max-attempts max-attempts}})
+              (fetch-from-s3 (inc attempt) max-attempts {:app-id app-id
+                                                         :isn isn})))))))
+
 (defn upload-to-s3
   "Uploads the wal-record to s3, trying 3 times by default."
   ([^WalRecord wal-record]
    (upload-to-s3 1 3 wal-record))
   ([attempt max-attempts ^WalRecord wal-record]
    (let [ba (pack-wal-record wal-record)]
-     (try (upload-body-to-s3 (s3-async-client)
-                             config/s3-wal-history-bucket-name
-                             {:object-key (s3-key wal-record)
-                              :content-length (long (alength ba))
-                              :content-type "application/octet-stream"}
-                             (AsyncRequestBody/fromBytesUnsafe ba))
+     (try (s3/upload-body-to-s3 (s3-async-client)
+                                config/s3-wal-history-bucket-name
+                                {:object-key (s3-key wal-record)
+                                 :content-length (long (alength ba))
+                                 :content-type "application/octet-stream"}
+                                (AsyncRequestBody/fromBytesUnsafe ba))
           (catch Throwable t
             (if (>= attempt max-attempts)
               (throw t)
@@ -207,6 +236,31 @@
      (sql/do-execute! ::push-batch!
                       conn
                       (uhsql/formatp push-batch-q params)))))
+
+(def get-by-app-id-and-isn-q
+  (uhsql/preformat
+   {:select :*
+    :from :history
+    :where [:and
+            [:= :app_id :?app-id]
+            [:= :isn :?isn]]}))
+
+(defn get-by-app-id-and-isn
+  ([params]
+   (get-by-app-id-and-isn (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id ^ISN isn]}]
+   (when-let [db-result (sql/select-one ::get-by-app-id-and-lsn
+                                        conn
+                                        (uhsql/formatp get-by-app-id-and-isn-q
+                                                       {:app-id app-id
+                                                        :isn isn}))]
+     (let [wal-record (if (= (:storage db-result) "pg")
+                        (unpack-wal-record (:content db-result))
+                        (fetch-from-s3 {:app-id (:app_id db-result)
+                                        :isn (:isn db-result)}))]
+       (-> db-result
+           (dissoc :content)
+           (assoc :wal-record wal-record))))))
 
 (defn partitions-to-truncate
   "Calculates which partitions to truncate. Each bucket spans 30 days, with 13 buckets cycling.

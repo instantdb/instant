@@ -8,6 +8,7 @@
             [lambdaisland.uri :as uri]
             [lambdaisland.uri.normalize :as normalize])
   (:import
+   (com.google.crypto.tink KeysetHandle)
    (java.net InetAddress)
    (java.time ZoneId ZonedDateTime)
    (javax.crypto.spec SecretKeySpec)))
@@ -67,6 +68,7 @@
   (delay (do
            ;; init-hybrid because we might need it to decrypt the config
            (crypt-util/init-hybrid)
+           (crypt-util/register-signature)
 
            (config-edn/decrypted-config crypt-util/obfuscate
                                         crypt-util/get-hybrid-decrypt-primitive
@@ -130,6 +132,19 @@
 (def instant-on-instant-app-id
   (when-let [app-id (System/getenv "INSTANT_ON_INSTANT_APP_ID")]
     (parse-uuid app-id)))
+
+(def webhook-signing-key* (delay (-> @config-map
+                                     :webhook-keyset
+                                     crypt-util/decode-keyset-handle)))
+
+(defn webhook-signing-key ^KeysetHandle []
+  @webhook-signing-key*)
+
+(def webhook-public-key* (delay (-> (webhook-signing-key)
+                                    (.getPublicKeysetHandle))))
+
+(defn webhook-public-key ^KeysetHandle []
+  @webhook-public-key*)
 
 (defn db-url->config [url]
   (cond (string/starts-with? url "jdbc")

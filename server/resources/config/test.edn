@@ -1,2 +1,4 @@
 {:aead-keyset {:encrypted? false
-               :json "{\"primaryKeyId\":1165732053,\"key\":[{\"keyData\":{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.AesGcmKey\",\"value\":\"GhBhFBF+w6HyDFJxNF0R50Pt\",\"keyMaterialType\":\"SYMMETRIC\"},\"status\":\"ENABLED\",\"keyId\":1165732053,\"outputPrefixType\":\"TINK\"}]}"}}
+               :json "{\"primaryKeyId\":1165732053,\"key\":[{\"keyData\":{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.AesGcmKey\",\"value\":\"GhBhFBF+w6HyDFJxNF0R50Pt\",\"keyMaterialType\":\"SYMMETRIC\"},\"status\":\"ENABLED\",\"keyId\":1165732053,\"outputPrefixType\":\"TINK\"}]}"}
+ :webhook-keyset {:encrypted? false
+                  :json "{\"primaryKeyId\":676891704,\"key\":[{\"keyData\":{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.Ed25519PrivateKey\",\"value\":\"EiADXJ37joRpUe63OWA8VBOdBcMhgen1JJ73L2wO7oOdmBoiEiCppZ9G4j2Oi4sn5v1AOEz8QzyDh9x5PSD/76A7YSq9BA==\",\"keyMaterialType\":\"ASYMMETRIC_PRIVATE\"},\"status\":\"ENABLED\",\"keyId\":676891704,\"outputPrefixType\":\"TINK\"}]}"}}

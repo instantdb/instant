@@ -58,6 +58,7 @@
    [instant.util.posthog :as posthog]
    [instant.util.tracer :as tracer]
    [instant.hard-deletion-sweeper :as hard-deletion-sweeper]
+   [instant.webhook-routes :as webhook-routes]
    [ring.middleware.cookies :refer [CookieDateTime]]
    [ring.middleware.cors :refer [wrap-cors preflight?]]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
@@ -181,7 +182,8 @@
                       health/routes
                       oauth-app-routes/routes
                       demo-routes/routes
-                      mma-example/routes)
+                      mma-example/routes
+                      webhook-routes/routes)
               (wrap-routes http-util/tracer-record-route)
               http-util/tracer-record-attrs
               wrap-keyword-params
