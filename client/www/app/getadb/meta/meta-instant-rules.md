@@ -22,6 +22,26 @@ The UMD build exposes `window.instant`.
 Do not use React, JSX, Babel, hooks, `@instantdb/react`, `db.useQuery`, or
 `db.useAuth`. Do not put `INSTANT_ADMIN_TOKEN` in browser code.
 
+# Browser Runtime
+
+The app may run in a sandboxed iframe. Do not use blocking browser modals:
+`alert()`, `confirm()`, or `prompt()`. They may be ignored by the browser.
+
+Use in-page UI for confirmations, errors, and input.
+
+```js
+function askToContinue(onConfirm) {
+  confirmPanel.hidden = false;
+  confirmYes.onclick = () => {
+    confirmPanel.hidden = true;
+    onConfirm();
+  };
+  confirmNo.onclick = () => {
+    confirmPanel.hidden = true;
+  };
+}
+```
+
 # Initialize Instant
 
 Browser apps only need the app id. Pass a schema with `i.schema(...)`.
