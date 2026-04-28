@@ -240,44 +240,48 @@ function TopicView() {
 # Query Guidelines
 
 CRITICAL: You MUST index any field you want to filter or order by in the schema.
+If you do not, you will get an error when you try to filter or order by it.
 
-Ordering:
-
-```js
-const query = {
-  items: {
-    $: {
-      order: {
-        createdAt: 'asc',
-      },
-    },
-  },
-};
-```
-
-Notes:
-
-- Ordered fields must be indexed and typed in schema
-- Cannot order by nested attributes
-
-Where operators:
+Here is how ordering works:
 
 ```text
-{ field: value }
-{ field: { $gt: value } }
-{ field: { $lt: value } }
-{ field: { $gte: value } }
-{ field: { $lte: value } }
-{ field: { $like: '%text%' } }
-{ field: { $ilike: '%text%' } }
-{ field: { $isNull: true } }
-{ field: { $in: [a, b] } }
-{ field: { $not: value } }
+Ordering:        order: { field: 'asc' | 'desc' }
+
+Example:         $: { order: { createdAt: 'asc' } }
+
+Notes:           - Field must be indexed + typed in schema
+                 - Cannot order by nested attributes (e.g. 'owner.name')
+```
+
+Here is the full `where` operator map:
+
+```
+Equality:        { field: value }
+
+Inequality:      { field: { $ne: value } }
+
+Null checks:     { field: { $isNull: true | false } }
+
+Comparison:      $gt, $lt, $gte, $lte   (indexed + typed fields only)
+
+Sets:            { field: { $in: [v1, v2] } }
+
+Substring:       { field: { $like: 'Get%' } }      // case-sensitive
+                  { field: { $ilike: '%get%' } }   // case-insensitive
+
+Logic:           and: [ {...}, {...} ]
+                  or:  [ {...}, {...} ]
+
+Nested fields:   'relation.field': value
 ```
 
 The operator map above is the full set of `where` filters Instant supports right
-now. Do not invent `$ne`, `$exists`, `$regex`, `$contains`, `$startsWith`,
-`$or`, `$and`, or `$notIn`.
+now. There is no `$exists`, `$nin`, or `$regex`. And `$like` and `$ilike` are
+what you use for `startsWith` / `endsWith` / `includes`.
+
+CRITICAL: Pagination keys (`limit`, `offset`, `first`, `after`, `last`,
+`before`) only work on top-level namespaces. Do not use them on nested
+relations.
 
 Combine multiple field predicates in one `where` object:
 
@@ -299,6 +303,34 @@ Use `null` to skip a query until inputs are ready:
 ```js
 const result = db.useQuery(user ? { items: {} } : null);
 ```
+
+# Instant Documentation
+
+These links are the Instant documentation table of contents. If you cannot fetch
+a URL directly, search for the topic title plus `InstantDB docs` and use the
+matching Instant docs page.
+
+- [Common mistakes](https://instantdb.com/docs/common-mistakes.md): Common mistakes when working with Instant
+- [Initializing Instant](https://instantdb.com/docs/init.md): How to integrate Instant with your app.
+- [Modeling data](https://instantdb.com/docs/modeling-data.md): How to model data with Instant's schema.
+- [Writing data](https://instantdb.com/docs/instaml.md): How to write data with Instant using InstaML.
+- [Reading data](https://instantdb.com/docs/instaql.md): How to read data with Instant using InstaQL.
+- [Instant on the Backend](https://instantdb.com/docs/backend.md): How to use Instant on the server with the Admin SDK.
+- [Patterns](https://instantdb.com/docs/patterns.md): Common patterns for working with InstantDB.
+- [Auth](https://instantdb.com/docs/auth/magic-codes.md): How to add magic code auth to your Instant app.
+- [Guest Auth](https://www.instantdb.com/docs/auth/guest-auth.md): How to add guest auth to your Instant app.
+- [Other Auth](https://instantdb.com/docs/auth.md): Additional auth methods supported by Instant.
+- [Managing users](https://instantdb.com/docs/users.md): How to manage users in your Instant app.
+- [Presence, Cursors, and Activity](https://instantdb.com/docs/presence-and-topics.md): How to add ephemeral features like presence and cursors to your Instant app.
+- [Instant CLI](https://instantdb.com/docs/cli.md): How to use the Instant CLI to manage schema.
+- [Storage](https://instantdb.com/docs/storage.md): How to upload and serve files with Instant.
+- [Streams](https://instantdb.com/docs/streams.md): How to use streams with Instant.
+- [Stripe Payments](https://instantdb.com/docs/stripe-payments.md): How to integrate Stripe payments with Instant.
+- [React Native](https://instantdb.com/docs/start-rn.md): How to use Instant in React Native apps.
+- [Vanilla JS](https://instantdb.com/docs/start-vanilla.md): How to use Instant in vanilla JS apps.
+- [SolidJS](https://instantdb.com/docs/start-solidjs.md): How to use Instant in SolidJS apps.
+- [Svelte](https://instantdb.com/docs/start-svelte.md): How to use Instant in Svelte apps.
+- [TanStack](https://instantdb.com/docs/start-tanstack.md): How to use Instant in TanStack apps.
 
 # React Checklist
 
