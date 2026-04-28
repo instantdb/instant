@@ -22,6 +22,8 @@
   (-> (Grpc/newChannelBuilderForAddress host port (InsecureChannelCredentials/create))
       (.build)))
 
+(def invalidator-max-message-size (* 128 1024 1024))
+
 (defn grpc-client-for-hazelcast-member [^Member member]
   (let [address (.getAddress member)
         hz-port (.getPort address)
@@ -88,7 +90,8 @@
                (.cancel call reason nil))}))
 
 (defn subscribe-to-invalidator [^ManagedChannel channel ^Integer process-id ^StreamObserver observer]
-  (let [call (.newCall channel grpc/invalidator-method CallOptions/DEFAULT)
+  (let [opts (.withMaxInboundMessageSize CallOptions/DEFAULT invalidator-max-message-size)
+        call (.newCall channel grpc/invalidator-method opts)
         req (grpc/->InvalidatorSubscribe config/machine-id process-id)]
     (ClientCalls/asyncServerStreamingCall call req observer)
     {:cancel (fn [^String reason]
