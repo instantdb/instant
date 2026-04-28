@@ -15,10 +15,10 @@
 (def ^{:tag 'bytes} period-bytes (.getBytes "." StandardCharsets/UTF_8))
 
 (defn sign-webhook [^String body-str]
-  (let [t-bytes (-> (Instant/now)
-                    (.getEpochSecond)
-                    str
-                    (.getBytes StandardCharsets/UTF_8))
+  (let [t (-> (Instant/now)
+              (.getEpochSecond)
+              str)
+        t-bytes (.getBytes t StandardCharsets/UTF_8)
         body-bytes (.getBytes body-str StandardCharsets/UTF_8)
 
         buf (doto (ByteBuffer/allocate (+ (alength t-bytes)
@@ -27,7 +27,8 @@
               (.put t-bytes)
               (.put period-bytes)
               (.put body-bytes))]
-    (crypt-util/signature-sign (config/webhook-signing-key) (.array buf))))
+    (assoc (crypt-util/signature-sign (config/webhook-signing-key) (.array buf))
+           :t t)))
 
 (defn claim-batch!
   ([] (claim-batch! (aurora/conn-pool :write) config/machine-id))
