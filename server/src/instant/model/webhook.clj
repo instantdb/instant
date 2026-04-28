@@ -80,7 +80,9 @@
                   :after (uuids->labels attrs ent)})
                (for [[etype ents] ents-before
                      [id ent] ents
-                     :when (not (get-in ents-after [etype id]))]
+                     :when (and (not (get-in ents-after [etype id]))
+                                (etypes etype)
+                                (actions "delete"))]
                  {:etype etype
                   :action "delete"
                   :id id

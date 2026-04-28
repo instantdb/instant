@@ -97,26 +97,28 @@
       (nippy/fast-thaw)))
 
 (defn unpack-wal-record-stream ^WalRecord [^InputStream s]
-  (-> s
-      (ZstdInputStream.)
-      (DataInputStream.)
-      (nippy/thaw-from-in!)))
+  (with-open [z (ZstdInputStream. s)
+              in (DataInputStream. z)]
+    (nippy/thaw-from-in! in)))
 
 (defn fetch-from-s3
   "Fetches the wal-record from s3, trying 3 times by default."
   ([params]
    (fetch-from-s3 1 3 params))
   ([attempt max-attempts {:keys [app-id isn]}]
-   (try (-> (s3/get-object (s3-async-client)
-                           config/s3-wal-history-bucket-name
-                           (s3-key {:app-id app-id
-                                    :isn isn}))
-            unpack-wal-record-stream)
+   (try (tracer/with-span! {:name "history/fetch-from-s3"
+                            :attributes {:app-id app-id
+                                         :isn isn}}
+          (with-open [in (s3/get-object (s3-async-client)
+                                        config/s3-wal-history-bucket-name
+                                        (s3-key {:app-id app-id
+                                                 :isn isn}))]
+            (unpack-wal-record-stream in)))
         (catch Throwable t
           (if (>= attempt max-attempts)
             (throw t)
             (do
-              (tracer/record-exception-span! t {:name "history/upload-to-s3-failure"
+              (tracer/record-exception-span! t {:name "history/fetch-from-s3-failure"
                                                 :attributes {:attempt attempt
                                                              :max-attempts max-attempts}})
               (fetch-from-s3 (inc attempt) max-attempts {:app-id app-id
