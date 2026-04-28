@@ -199,7 +199,7 @@ function PresenceView({ name }) {
 
   React.useEffect(() => {
     publishPresence({ name, status: 'online' });
-  }, [name]);
+  }, [name, publishPresence]);
 
   return <PresenceList user={user} peers={peers} />;
 }
@@ -262,55 +262,17 @@ Notes:
 
 Where operators:
 
-```js
-{
-  field: value;
-}
-{
-  field: {
-    $gt: value;
-  }
-}
-{
-  field: {
-    $lt: value;
-  }
-}
-{
-  field: {
-    $gte: value;
-  }
-}
-{
-  field: {
-    $lte: value;
-  }
-}
-{
-  field: {
-    $like: '%text%';
-  }
-}
-{
-  field: {
-    $ilike: '%text%';
-  }
-}
-{
-  field: {
-    $isNull: true;
-  }
-}
-{
-  field: {
-    $in: [a, b];
-  }
-}
-{
-  field: {
-    $not: value;
-  }
-}
+```text
+{ field: value }
+{ field: { $gt: value } }
+{ field: { $lt: value } }
+{ field: { $gte: value } }
+{ field: { $lte: value } }
+{ field: { $like: '%text%' } }
+{ field: { $ilike: '%text%' } }
+{ field: { $isNull: true } }
+{ field: { $in: [a, b] } }
+{ field: { $not: value } }
 ```
 
 The operator map above is the full set of `where` filters Instant supports right
