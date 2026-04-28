@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { getServerConfig } from '@/lib/config';
+import { createApp } from '../../createApp';
 import generateMarkdown from '../../generateMarkdown';
 
 export const dynamic = 'force-dynamic';
@@ -59,28 +59,4 @@ token yourself and put it in the URL in place of the placeholder. Each
 fetch must use a different random token so upstream caches never serve
 stale credentials.
 `;
-}
-
-async function createApp(
-  token: string,
-  title: string,
-): Promise<{ id: string; adminToken: string }> {
-  const { apiURI } = await getServerConfig();
-  const res = await fetch(`${apiURI}/dash/apps/get_a_db`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ title }),
-  });
-  if (!res.ok) {
-    throw new Error(
-      `Failed to create get-a-db app: ${res.status} ${await res.text()}`,
-    );
-  }
-  const body = (await res.json()) as {
-    app: { id: string; 'admin-token': string };
-  };
-  return { id: body.app.id, adminToken: body.app['admin-token'] };
 }
