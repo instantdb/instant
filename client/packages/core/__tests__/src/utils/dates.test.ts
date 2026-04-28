@@ -34,6 +34,7 @@ describe('coerceToDate', () => {
       '2025-06-05T17:00:00PDT': '2025-06-06T00:00:00.000Z',
       '2025-06-05T17:00:00CETDST': '2025-06-05T15:00:00.000Z',
       '2025-06-05T17:00:00CET': '2025-06-05T16:00:00.000Z',
+      '2026-04-28T04:7:00.000Z': '2026-04-28T04:07:00.000Z',
     };
 
     for (const [dateString, expected] of Object.entries(validDateStrings)) {

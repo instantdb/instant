@@ -50,7 +50,8 @@
              "2025-06-05T17:00:00CETDST"
              "2025-06-05T17:00:00CET"
              "3/12/4444"
-             "2025-9-29T23:59:59.999Z"]]
+             "2025-9-29T23:59:59.999Z"
+             "2026-04-28T04:7:00.000Z"]]
     (testing (str "Date string `" s "` parses.")
       (let [pg-date (extract-pg-date s)]
         (is (= pg-date
