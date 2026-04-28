@@ -38,6 +38,19 @@ The app may run in a sandboxed iframe. Do not use blocking browser modals:
 
 Use in-page UI for confirmations, errors, and input.
 
+# JSX Syntax
+
+Keep JSX easy for Babel to parse.
+
+- Prefer small components over one huge component with hundreds of nested tags
+- Every component return must have one root element or a closed fragment
+- Close wrapper elements before starting the next component or function
+- Self-close empty elements like `<input />`, `<img />`, and `<br />`
+
+If Babel reports `Unexpected token` on the next `function`, the previous
+component probably has unbalanced JSX. Check for a missing closing tag before
+that function.
+
 # Initialize Instant
 
 Browser apps only need the app id. Pass a schema with `i.schema(...)`.
