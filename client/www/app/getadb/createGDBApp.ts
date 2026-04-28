@@ -5,7 +5,7 @@ export type ProvisionedApp = {
   adminToken: string;
 };
 
-export async function createApp(
+export async function createGDBApp(
   token: string,
   title: string,
 ): Promise<ProvisionedApp> {

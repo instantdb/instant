@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { createApp } from '../../createApp';
+import { createGDBApp } from '../../createGDBApp';
 import generateMarkdown from '../../generateMarkdown';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +31,7 @@ export async function GET(
   }
   const title =
     new URL(request.url).searchParams.get('title')?.trim() || DEFAULT_APP_TITLE;
-  const app = await createApp(token, title);
+  const app = await createGDBApp(token, title);
 
   const markdown = await generateMarkdown(request, app);
 

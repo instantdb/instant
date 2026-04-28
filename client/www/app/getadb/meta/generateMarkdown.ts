@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import type { ProvisionedApp } from '../createApp';
+import type { ProvisionedApp } from '../createGDBApp';
 
 export default async function generateMetaMarkdown(
   app: ProvisionedApp,
