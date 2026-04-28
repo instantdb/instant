@@ -164,15 +164,23 @@ Use topics for fire-and-forget room events.
 In the vanilla SDK, use `db.joinRoom(...)`. Do not use React room hooks like
 `db.rooms.usePresence`.
 
-CRITICAL: `room.subscribePresence` takes an options object first and a callback
-second:
+CRITICAL: `room.subscribePresence` always takes two arguments: an options object
+first and a callback second. The options object is required. Its fields are
+optional.
 
 ```js
-room.subscribePresence(
+const unsubscribePresence = room.subscribePresence(
+  {},
+  ({ user, peers, isLoading, error }) => {
+    renderPresence(user, peers);
+  },
+);
+
+const unsubscribeFilteredPresence = room.subscribePresence(
   {
-    keys: ['name', 'status'], // optional, only include these fields
-    user: true, // optional, include your own presence
-    peers: ['peer-id'], // optional, only include these peers
+    keys: ['name', 'status'], // only include these fields
+    user: true, // include your own presence
+    peers: ['peer-id'], // only include these peers
   },
   (presence) => {
     renderPresence(presence.user, presence.peers);
@@ -181,7 +189,8 @@ room.subscribePresence(
 ```
 
 Use `{}` as the options object when you want all fields for yourself and all
-peers. Do not pass the callback as the first argument.
+peers. The one-argument form `room.subscribePresence((presence) => {})` is
+invalid and throws `TypeError: t.cb is not a function`.
 
 ```js
 const room = db.joinRoom('room', 'room-id', {
