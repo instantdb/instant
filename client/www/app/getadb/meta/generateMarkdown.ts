@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import type { ProvisionedApp } from '../createGDBApp';
 
-export default async function generateMeta2Markdown(
+export default async function generateMetaMarkdown(
   app: ProvisionedApp,
 ): Promise<string> {
   const rules = (await loadRules()).replaceAll('__INSTANT_APP_ID__', app.id);
@@ -31,7 +31,7 @@ const RULES_PATH = path.join(
   process.cwd(),
   'app',
   'getadb',
-  'meta2',
+  'meta',
   'meta-react-instant-rules.md',
 );
 
