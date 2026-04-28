@@ -83,7 +83,7 @@ db.subscribeAuth((auth) => {
 ```
 
 For guest auth, use `db.auth.signInAsGuest()`. There is no
-`signInAnonymously()`.
+`signInAnonymously()`. Do not add a fallback to `signInAnonymously`.
 
 ```js
 await db.auth.signInAsGuest();
@@ -163,6 +163,25 @@ Use topics for fire-and-forget room events.
 
 In the vanilla SDK, use `db.joinRoom(...)`. Do not use React room hooks like
 `db.rooms.usePresence`.
+
+CRITICAL: `room.subscribePresence` takes an options object first and a callback
+second:
+
+```js
+room.subscribePresence(
+  {
+    keys: ['name', 'status'], // optional, only include these fields
+    user: true, // optional, include your own presence
+    peers: ['peer-id'], // optional, only include these peers
+  },
+  (presence) => {
+    renderPresence(presence.user, presence.peers);
+  },
+);
+```
+
+Use `{}` as the options object when you want all fields for yourself and all
+peers. Do not pass the callback as the first argument.
 
 ```js
 const room = db.joinRoom('room', 'room-id', {
