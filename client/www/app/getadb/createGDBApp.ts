@@ -5,10 +5,12 @@ export type ProvisionedApp = {
   adminToken: string;
 };
 
-export async function createGDBApp(
-  token: string,
-  title: string,
-): Promise<ProvisionedApp> {
+export async function createGDBApp(title: string): Promise<ProvisionedApp> {
+  const token = process.env.GET_A_DB_PERSONAL_ACCESS_TOKEN;
+  if (!token) {
+    throw new Error('GET_A_DB_PERSONAL_ACCESS_TOKEN is not set');
+  }
+
   const { apiURI } = await getServerConfig();
   const res = await fetch(`${apiURI}/dash/apps/get_a_db`, {
     method: 'POST',

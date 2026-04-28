@@ -25,13 +25,9 @@ export async function GET(
     });
   }
 
-  const token = process.env.GET_A_DB_PERSONAL_ACCESS_TOKEN;
-  if (!token) {
-    throw new Error('GET_A_DB_PERSONAL_ACCESS_TOKEN is not set');
-  }
   const title =
     new URL(request.url).searchParams.get('title')?.trim() || DEFAULT_APP_TITLE;
-  const app = await createGDBApp(token, title);
+  const app = await createGDBApp(title);
 
   const markdown = await generateMarkdown(request, app);
 
