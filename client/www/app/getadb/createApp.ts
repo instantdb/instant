@@ -28,4 +28,3 @@ export async function createApp(
   };
   return { id: body.app.id, adminToken: body.app['admin-token'] };
 }
-

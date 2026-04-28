@@ -31,4 +31,3 @@ export async function GET(request: Request) {
 }
 
 const DEFAULT_APP_TITLE = 'Instant Meta App';
-

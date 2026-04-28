@@ -27,7 +27,7 @@ Do not use React, JSX, Babel, hooks, `@instantdb/react`, `db.useQuery`, or
 Browser apps only need the app id. Pass a schema with `i.schema(...)`.
 
 ```js
-const APP_ID = "__INSTANT_APP_ID__";
+const APP_ID = '__INSTANT_APP_ID__';
 
 const schema = i.schema({
   entities: {
@@ -99,7 +99,7 @@ Use `db.subscribeQuery`. It is live and returns an unsubscribe function.
 
 ```js
 const unsubscribe = db.subscribeQuery(
-  { items: { $: { order: { createdAt: "asc" } } } },
+  { items: { $: { order: { createdAt: 'asc' } } } },
   (resp) => {
     if (resp.error) {
       renderError(resp.error.message);
@@ -109,7 +109,7 @@ const unsubscribe = db.subscribeQuery(
     if (resp.data) {
       render(resp.data.items);
     }
-  }
+  },
 );
 ```
 
@@ -123,11 +123,11 @@ Use `id()` for new entity ids. Use `update` for create-or-update writes.
 const itemId = id();
 await db.transact(
   db.tx.items[itemId].update({
-    title: "New item",
+    title: 'New item',
     ownerId: user.id,
     createdAt: Date.now(),
     updatedAt: Date.now(),
-  })
+  }),
 );
 ```
 
@@ -140,13 +140,13 @@ await db.transact(db.tx.items[itemId].delete());
 
 await db.transact([
   db.tx.items[id()].update({
-    title: "A",
+    title: 'A',
     ownerId: user.id,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }),
   db.tx.items[id()].update({
-    title: "B",
+    title: 'B',
     ownerId: user.id,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -165,12 +165,12 @@ In the vanilla SDK, use `db.joinRoom(...)`. Do not use React room hooks like
 `db.rooms.usePresence`.
 
 ```js
-const room = db.joinRoom("room", "room-id", {
-  initialPresence: { name: "Guest", status: "online" },
+const room = db.joinRoom('room', 'room-id', {
+  initialPresence: { name: 'Guest', status: 'online' },
 });
 
 const unsubscribePresence = room.subscribePresence(
-  { keys: ["name", "status", "cursorX", "cursorY"] },
+  { keys: ['name', 'status', 'cursorX', 'cursorY'] },
   (presence) => {
     if (presence.error) {
       renderError(presence.error);
@@ -178,16 +178,16 @@ const unsubscribePresence = room.subscribePresence(
     }
 
     renderPresence(presence.user, presence.peers);
-  }
+  },
 );
 
-room.publishPresence({ status: "active" });
+room.publishPresence({ status: 'active' });
 
-const unsubscribeTopic = room.subscribeTopic("event", (event) => {
+const unsubscribeTopic = room.subscribeTopic('event', (event) => {
   handleRoomEvent(event);
 });
 
-room.publishTopic("event", { type: "changed", payload: { id: itemId } });
+room.publishTopic('event', { type: 'changed', payload: { id: itemId } });
 ```
 
 Presence callbacks receive `{ user, peers, isLoading, error }`. `peers` is an
@@ -202,7 +202,15 @@ CRITICAL: You MUST index any field you want to filter or order by in the schema.
 Ordering:
 
 ```js
-{ items: { $: { order: { createdAt: "asc" } } } }
+const query = {
+  items: {
+    $: {
+      order: {
+        createdAt: 'asc',
+      },
+    },
+  },
+};
 ```
 
 Notes:
