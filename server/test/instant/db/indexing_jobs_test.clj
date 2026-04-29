@@ -1,5 +1,6 @@
 (ns instant.db.indexing-jobs-test
-  (:require [honey.sql :as hsql]
+  (:require [clojure.string :as string]
+            [honey.sql :as hsql]
             [instant.config :as config]
             [instant.data.resolvers :as resolvers]
             [instant.db.indexing-jobs :as jobs]
@@ -12,8 +13,10 @@
                                       with-indexing-job-queue]]
             [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
+            [instant.util.async :as ua]
             [instant.util.json :refer [->json]]
             [instant.util.test :refer [wait-for with-sketches]]
+            [next.jdbc :as next-jdbc]
             [clojure.test :refer [deftest testing is]]))
 
 (def wait-timeout (if (= :test (config/get-env))
@@ -27,6 +30,16 @@
            completed# (:work_completed finished-job#)]
        (is (<= completed# estimate# (+ (* 1.05 completed#) 1))
            "work estimate is not within 5% of work"))))
+
+(defn pgjdbc-counting-socket-read? [^Thread thread]
+  (let [frames (map str (.getStackTrace thread))]
+    (and (.isVirtual thread)
+         (some #(string/includes? % "instant.socketutil.CountingInputStream.read")
+               frames)
+         (some #(string/includes? % "org.postgresql")
+               frames)
+         (some #(string/includes? % "instant.db.indexing_jobs$update_attr_BANG_")
+               frames))))
 
 (deftest checks-types-works
   (with-indexing-job-queue job-queue
@@ -737,3 +750,55 @@
             (is (not (-> (resolvers/->uuid r :books/title)
                          (attr-model/seek-by-id attrs)
                          :required?)))))))))
+
+(deftest metadata-only-attr-updates-do-not-starve-virtual-thread-carriers
+  (with-empty-app
+    (fn [app]
+      (let [conn (aurora/conn-pool :write)
+            attr-id (random-uuid)
+            worker-count (.availableProcessors (Runtime/getRuntime))
+            started (promise)
+            starts (atom 0)
+            worker-threads (atom [])
+            blockers (atom [])
+            lock-conn (next-jdbc/get-connection conn)]
+        (try
+          (tx/transact! conn
+                        (attr-model/get-by-app-id (:id app))
+                        (:id app)
+                        [[:add-attr {:id attr-id
+                                     :forward-identity [(random-uuid) "todos" "id"]
+                                     :unique? false
+                                     :index? false
+                                     :value-type :blob
+                                     :cardinality :one}]])
+          (.setAutoCommit lock-conn false)
+          (next-jdbc/execute! lock-conn
+                              ["select * from attrs where id = ?::uuid for update"
+                               attr-id])
+          (reset! blockers
+                  (doall
+                   (for [_ (range worker-count)]
+                     (ua/vfuture
+                       (swap! worker-threads conj (Thread/currentThread))
+                       (swap! starts inc)
+                       (when (= @starts worker-count)
+                         (deliver started true))
+                       (jobs/update-attr! conn
+                                          {:app-id (:id app)
+                                           :attr-id attr-id
+                                           :set {:is-required true}})))))
+          (is (= true (deref started 1000 false)))
+          (Thread/sleep 500)
+          (let [blocked-threads (filter pgjdbc-counting-socket-read?
+                                        @worker-threads)
+                marker (ua/vfuture :marker-ran)]
+            (is (= worker-count (count blocked-threads)))
+            (is (= :marker-ran
+                   (deref marker 500 :marker-timeout))
+                "PgJDBC attr updates pinned all virtual-thread carriers."))
+          (finally
+            (.rollback lock-conn)
+            (doseq [blocker @blockers]
+              (deref blocker 5000 :timeout))
+            (.close lock-conn)))))))
