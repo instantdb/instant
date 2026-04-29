@@ -266,7 +266,8 @@
                          :wal_logs_4
                          :wal_logs_5
                          :wal_logs_6
-                         :wal_logs_7])
+                         :wal_logs_7
+                         :webhooks])
 
 (defn- create-replication-stream
   "Given a PGConnection (with replication settings), a slot,

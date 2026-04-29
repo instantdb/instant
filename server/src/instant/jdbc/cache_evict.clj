@@ -6,6 +6,7 @@
    [instant.model.app-stream :as app-stream-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
+   [instant.model.webhook :as webhook-model]
    [instant.system-catalog :as system-catalog]))
 
 (defn get-column [columns col-name]
@@ -90,6 +91,8 @@
                                                         (nth 2)
                                                         :value)))
                   (notify-stream-machine-id-changed wal-record))
+      "webhooks" (webhook-model/evict-webhook-from-cache {:app-id (get-app-id wal-record)
+                                                          :webhook-id (get-id wal-record)})
       nil)
 
     nil))

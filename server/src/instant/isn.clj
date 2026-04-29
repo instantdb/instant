@@ -19,6 +19,7 @@
    [instant.util.json :as json])
   (:import
    (java.lang Comparable)
+   (java.nio ByteBuffer)
    (java.util Objects)
    (java.util.concurrent.atomic AtomicReference)
    (org.postgresql.replication LogSequenceNumber)))
@@ -98,3 +99,9 @@
   [^long i]
   (->ISN config/invalidator-slot-num
          (LogSequenceNumber/valueOf i)))
+
+(defn ->bytes ^bytes [^ISN isn]
+  (let [buf (doto (ByteBuffer/allocate 12)
+              (.putInt (slotNum isn))
+              (.putLong (.asLong ^LogSequenceNumber (lsn isn))))]
+    (.array buf)))

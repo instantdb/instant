@@ -15,7 +15,8 @@
                            ;; Only used for bootstrapping for OSS
                            InsecureSecretKeyAccess
                            RegistryConfiguration
-                           PublicKeySign)
+                           PublicKeySign
+                           PublicKeyVerify)
    (com.google.crypto.tink.aead AeadConfig
                                 PredefinedAeadParameters)
    (com.google.crypto.tink.proto Ed25519PublicKey)
@@ -238,6 +239,14 @@
                  PublicKeySign))
 
 (def get-sign-primitive (safe-memoize get-sign-primitive*))
+
+(defn get-verify-primitive* [^KeysetHandle k]
+  (.getPrimitive k
+                 (RegistryConfiguration/get)
+                 PublicKeyVerify))
+
+(def get-verify-primitive (safe-memoize get-verify-primitive*))
+
 
 (defn signature-sign [^KeysetHandle k ^bytes ba]
   (let [^PublicKeySign primitive (get-sign-primitive k)
