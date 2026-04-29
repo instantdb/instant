@@ -47,7 +47,7 @@ export const pushPerms = Effect.gen(function* () {
   );
 
   if (!diffedStr.length) {
-    yield* Effect.log('No perms changes detected. Skipping.');
+    yield* Effect.log(chalk.bgGray('No perms changes to apply!'));
     return;
   }
 
