@@ -161,7 +161,6 @@ Go to the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="In
 
 - Click "Set up Google"
 - Enter your "Client ID"
-- Make sure "skip nonce checks" is enabled.
 - Click "Add Client"
 
 And voila, you are connected!

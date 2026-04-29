@@ -1,5 +1,5 @@
 import { FormEventHandler, useState, useContext } from 'react';
-import { errorToast } from '@/lib/toast';
+import { errorToast, successToast } from '@/lib/toast';
 import { TokenContext } from '@/lib/contexts';
 import {
   InstantApp,
@@ -15,6 +15,7 @@ import {
   RedirectUrlInput,
   EditableRedirectUrl,
   TestRedirectButton,
+  updateClient,
 } from './shared';
 import { messageFromInstantError } from '@/lib/errors';
 import {
@@ -42,16 +43,6 @@ import {
 } from '@heroicons/react/24/solid';
 import { useDarkMode } from '../DarkModeToggle';
 
-function NonceCheckNotice() {
-  return (
-    <p className="dark:test-neutral-400 text-sm text-gray-500">
-      This option skips nonce checks for ID tokens. This is useful in iOS
-      environments, because libraries like `react-native-google-signin` do not
-      let you pass a nonce over to google.
-    </p>
-  );
-}
-
 type AppType = 'web' | 'ios' | 'android' | 'button-for-web';
 function isNative(appType: AppType) {
   return appType === 'ios' || appType === 'android';
@@ -71,9 +62,11 @@ export function AddGoogleClientForm({
   usedClientNames: Set<string>;
 }) {
   const token = useContext(TokenContext);
+  const [credentialMode, setCredentialMode] = useState<'dev' | 'custom'>('dev');
   const [appType, setAppType] = useState<
     'web' | 'ios' | 'android' | 'button-for-web'
   >('web');
+  const useSharedCredentials = appType === 'web' && credentialMode === 'dev';
   const [clientName, setClientName] = useState<string>(() =>
     findName(`google-${appType}`, usedClientNames),
   );
@@ -81,14 +74,12 @@ export function AddGoogleClientForm({
   const [clientSecret, setClientSecret] = useState<string>('');
   const [redirectTo, setRedirectTo] = useState<string>('');
   const [updatedRedirectURL, setUpdatedRedirectURL] = useState(false);
-  const [skipNonceChecks, setSkipNonceChecks] = useState(isNative(appType));
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const onChangeAppType = (item: { id: string; label: string }) => {
     const newAppType = item.id as 'web' | 'ios' | 'android' | 'button-for-web';
     setAppType(newAppType);
     setClientName(findName(`google-${newAppType}`, usedClientNames));
-    setSkipNonceChecks(isNative(newAppType));
   };
 
   const validationError = () => {
@@ -98,11 +89,13 @@ export function AddGoogleClientForm({
     if (usedClientNames.has(clientName)) {
       return `The unique name '${clientName}' is already in use.`;
     }
-    if (!clientId) {
-      return 'Missing client id';
-    }
-    if (appType === 'web' && !clientSecret) {
-      return 'Missing client secret';
+    if (!useSharedCredentials) {
+      if (!clientId) {
+        return 'Missing client id';
+      }
+      if (appType === 'web' && !clientSecret) {
+        return 'Missing client secret';
+      }
     }
   };
 
@@ -120,15 +113,20 @@ export function AddGoogleClientForm({
         appId: app.id,
         providerId: provider.id,
         clientName,
-        clientId,
-        clientSecret: clientSecret ? clientSecret : undefined,
+        clientId: useSharedCredentials ? undefined : clientId,
+        clientSecret: useSharedCredentials
+          ? undefined
+          : clientSecret
+            ? clientSecret
+            : undefined,
         authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
         tokenEndpoint: 'https://oauth2.googleapis.com/token',
         discoveryEndpoint:
           'https://accounts.google.com/.well-known/openid-configuration',
-        redirectTo,
+        redirectTo: useSharedCredentials ? undefined : redirectTo,
+        useSharedCredentials,
         meta: {
-          skipNonceChecks: skipNonceChecks,
+          skipNonceChecks: true,
           appType,
         },
       });
@@ -149,6 +147,9 @@ export function AddGoogleClientForm({
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
+      data-1p-ignore="true"
+      data-bwignore="true"
+      data-form-type="other"
     >
       <SubsectionHeading>Add a new Google client</SubsectionHeading>
       <div className="mb-4">
@@ -167,6 +168,19 @@ export function AddGoogleClientForm({
           ariaLabel="Application type"
         />
       </div>
+      {appType === 'web' && (
+        <div className="mb-2">
+          <ToggleGroup
+            items={[
+              { id: 'dev', label: 'Use dev credentials' },
+              { id: 'custom', label: 'Use my own' },
+            ]}
+            selectedId={credentialMode}
+            onChange={({ id }) => setCredentialMode(id as 'dev' | 'custom')}
+            ariaLabel="Credential mode"
+          />
+        </div>
+      )}
       <TextInput
         tabIndex={1}
         value={clientName}
@@ -175,96 +189,104 @@ export function AddGoogleClientForm({
         placeholder={`e.g. google-${appType}`}
       />
 
-      <TextInput
-        tabIndex={2}
-        value={clientId}
-        onChange={setClientId}
-        label={
-          <>
-            Client ID from{' '}
-            <a
-              className="underline"
-              target="_blank"
-              rel="noopener noreferrer"
-              href="https://console.developers.google.com/apis/credentials"
-            >
-              Google console
-            </a>
-          </>
-        }
-        placeholder=""
-      />
-
-      {appType === 'web' && (
-        <TextInput
-          type="sensitive"
-          tabIndex={3}
-          value={clientSecret}
-          onChange={setClientSecret}
-          label={
-            <>
-              Client secret from{' '}
-              <a
-                className="underline"
-                target="_blank"
-                rel="noopener noreferrer"
-                href="https://console.developers.google.com/apis/credentials"
-              >
-                Google console
-              </a>
-            </>
-          }
-        />
-      )}
-      {appType === 'web' && (
-        <RedirectUrlInput value={redirectTo} onChange={setRedirectTo} />
-      )}
-      {appType === 'web' && (
-        <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
-          <p className="overflow-hidden">
-            Add <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> to
-            the "Authorized redirect URIs" on your{' '}
-            <a
-              className="underline dark:text-white"
-              target="_blank"
-              rel="noopener noreferrer"
-              href={
-                clientId
-                  ? `https://console.cloud.google.com/apis/credentials/oauthclient/${clientId}`
-                  : 'https://console.developers.google.com/apis/credentials'
-              }
-            >
-              Google OAuth client
-            </a>
-            .
+      {useSharedCredentials ? (
+        <div className="rounded-sm bg-gray-50 p-3 text-sm text-gray-600 dark:bg-neutral-800 dark:text-neutral-400">
+          <p>
+            Instant provides dev credentials so you can test Google sign-in in
+            development without any setup.
           </p>
-          {redirectTo && (
-            <>
-              <p className="text-sm text-gray-500 dark:text-neutral-400">
-                Your redirect URL should forward to{' '}
-                <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
-                parameters.
-              </p>
-              <TestRedirectButton redirectTo={redirectTo} />
-            </>
+          <button
+            type="button"
+            className="mt-2 text-blue-600 hover:underline dark:text-blue-400"
+            onClick={() => setCredentialMode('custom')}
+          >
+            Ready for production? Add your own credentials
+          </button>
+        </div>
+      ) : (
+        <>
+          <TextInput
+            tabIndex={2}
+            value={clientId}
+            onChange={setClientId}
+            label={
+              <>
+                Client ID from{' '}
+                <a
+                  className="underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  href="https://console.developers.google.com/apis/credentials"
+                >
+                  Google console
+                </a>
+              </>
+            }
+            placeholder=""
+          />
+
+          {appType === 'web' && (
+            <TextInput
+              type="sensitive"
+              tabIndex={3}
+              value={clientSecret}
+              onChange={setClientSecret}
+              label={
+                <>
+                  Client secret from{' '}
+                  <a
+                    className="underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    href="https://console.developers.google.com/apis/credentials"
+                  >
+                    Google console
+                  </a>
+                </>
+              }
+            />
           )}
-          <Checkbox
-            checked={updatedRedirectURL}
-            onChange={setUpdatedRedirectURL}
-            label="I added the redirect to Google"
-          />
-        </div>
-      )}
-      {isNative(appType) && (
-        <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
-          {' '}
-          <Checkbox
-            checked={skipNonceChecks}
-            onChange={setSkipNonceChecks}
-            label="Skip nonce checks"
-          />
-          <NonceCheckNotice />
-        </div>
+          {appType === 'web' && (
+            <RedirectUrlInput value={redirectTo} onChange={setRedirectTo} />
+          )}
+          {appType === 'web' && (
+            <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+              <p className="overflow-hidden">
+                Add{' '}
+                <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> to
+                the "Authorized redirect URIs" on your{' '}
+                <a
+                  className="underline dark:text-white"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  href={
+                    clientId
+                      ? `https://console.cloud.google.com/apis/credentials/oauthclient/${clientId}`
+                      : 'https://console.developers.google.com/apis/credentials'
+                  }
+                >
+                  Google OAuth client
+                </a>
+                .
+              </p>
+              {redirectTo && (
+                <>
+                  <p className="text-sm text-gray-500 dark:text-neutral-400">
+                    Your redirect URL should forward to{' '}
+                    <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all
+                    query parameters.
+                  </p>
+                  <TestRedirectButton redirectTo={redirectTo} />
+                </>
+              )}
+              <Checkbox
+                checked={updatedRedirectURL}
+                onChange={setUpdatedRedirectURL}
+                label="I added the redirect to Google"
+              />
+            </div>
+          )}
+        </>
       )}
       <Button loading={isLoading} type="submit">
         Add client
@@ -330,6 +352,164 @@ function appTypeLabel(appType: AppType): string {
   }
 }
 
+function CredentialsEditor({
+  app,
+  client,
+  appType,
+  onUpdateClient,
+}: {
+  app: InstantApp;
+  client: OAuthClient;
+  appType: AppType;
+  onUpdateClient: (client: OAuthClient) => void;
+}) {
+  const token = useContext(TokenContext);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upgradeClientId, setUpgradeClientId] = useState('');
+  const [upgradeClientSecret, setUpgradeClientSecret] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const needsClientSecret = appType === 'web';
+
+  const cancelUpgrade = () => {
+    setShowUpgrade(false);
+    setUpgradeClientId('');
+    setUpgradeClientSecret('');
+  };
+
+  const handleUpgradeCredentials = async () => {
+    if (!upgradeClientId) {
+      errorToast('Missing client id', { autoClose: 5000 });
+      return;
+    }
+    if (needsClientSecret && !upgradeClientSecret) {
+      errorToast('Missing client secret', { autoClose: 5000 });
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const resp = await updateClient({
+        token,
+        appId: app.id,
+        oauthClientID: client.id,
+        body: {
+          client_id: upgradeClientId,
+          ...(needsClientSecret && upgradeClientSecret
+            ? { client_secret: upgradeClientSecret }
+            : {}),
+          use_shared_credentials: false,
+        },
+      });
+      onUpdateClient(resp.client);
+      cancelUpgrade();
+      successToast('Credentials updated');
+    } catch (e) {
+      console.error(e);
+      const msg =
+        messageFromInstantError(e as InstantIssue) ||
+        'Error updating credentials.';
+      errorToast(msg, { autoClose: 5000 });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const googleConsoleLink = (
+    <a
+      className="underline"
+      target="_blank"
+      rel="noopener noreferrer"
+      href="https://console.developers.google.com/apis/credentials"
+    >
+      Google console
+    </a>
+  );
+
+  const editForm = (
+    <form
+      className="mt-3 flex flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleUpgradeCredentials();
+      }}
+      autoComplete="off"
+      data-lpignore="true"
+      data-1p-ignore="true"
+      data-bwignore="true"
+      data-form-type="other"
+    >
+      <p className="text-sm text-gray-500 dark:text-neutral-400">
+        Find your credentials in the {googleConsoleLink} under "OAuth 2.0 Client
+        IDs".
+      </p>
+      <TextInput
+        value={upgradeClientId}
+        onChange={setUpgradeClientId}
+        label={<>Client ID from {googleConsoleLink}</>}
+      />
+      {needsClientSecret ? (
+        <TextInput
+          type="sensitive"
+          value={upgradeClientSecret}
+          onChange={setUpgradeClientSecret}
+          label={<>Client secret from {googleConsoleLink}</>}
+        />
+      ) : null}
+      <div className="flex gap-2">
+        <Button loading={isLoading} type="submit">
+          Save
+        </Button>
+        <Button variant="secondary" onClick={cancelUpgrade}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+
+  if (client.use_shared_credentials) {
+    return (
+      <div className="rounded-sm bg-gray-50 p-3 text-sm text-gray-600 dark:bg-neutral-800 dark:text-neutral-400">
+        <p>
+          Using Instant's dev credentials. Works in development out of the box.
+        </p>
+        {!showUpgrade ? (
+          <div className="mt-2 flex items-center gap-2">
+            <span>Ready to go to production?</span>
+            <Button
+              variant="secondary"
+              size="mini"
+              onClick={() => setShowUpgrade(true)}
+            >
+              Set custom credentials
+            </Button>
+          </div>
+        ) : (
+          editForm
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Copyable label="Google client ID" value={client.client_id || ''} />
+      {!showUpgrade ? (
+        <div className="flex justify-end">
+          <Button
+            variant="secondary"
+            size="mini"
+            onClick={() => setShowUpgrade(true)}
+          >
+            Update credentials
+          </Button>
+        </div>
+      ) : (
+        editForm
+      )}
+    </>
+  );
+}
+
 export function GoogleClient({
   app,
   client,
@@ -356,8 +536,6 @@ export function GoogleClient({
   const deleteDialog = useDialog();
 
   const { darkMode } = useDarkMode();
-
-  const didSkipNonceChecks = client.meta?.skipNonceChecks;
 
   const handleDelete = async () => {
     try {
@@ -476,8 +654,13 @@ function Login() {
             <div className="">App Type: {appTypeLabel(appType)}</div>
 
             <Copyable label="Client name" value={client.client_name} />
-            <Copyable label="Google client ID" value={client.client_id || ''} />
-            {appType === 'web' && (
+            <CredentialsEditor
+              app={app}
+              client={client}
+              appType={appType}
+              onUpdateClient={onUpdateClient}
+            />
+            {appType === 'web' && !client.use_shared_credentials && (
               <EditableRedirectUrl
                 app={app}
                 client={client}
@@ -486,16 +669,6 @@ function Login() {
               />
             )}
 
-            {didSkipNonceChecks ? (
-              <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
-                <Checkbox
-                  checked={client.meta?.skipNonceChecks || false}
-                  onChange={() => {}}
-                  label="Skip nonce checks"
-                />
-                <NonceCheckNotice />
-              </div>
-            ) : null}
             {appType === 'web' && (
               <>
                 <SubsectionHeading>
@@ -507,35 +680,42 @@ function Login() {
                     Setup and usage
                   </a>
                 </SubsectionHeading>
-                <Content>
-                  <strong className="dark:text-white">1.</strong> Navigate to{' '}
-                  <a
-                    className="underline dark:text-white"
-                    href={`https://console.cloud.google.com/apis/credentials/oauthclient/${client.client_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Google OAuth client
-                  </a>{' '}
-                  and add the redirect URL under "Authorized redirect URIs"
-                </Content>
-                <Copyable
-                  label="Redirect URI"
-                  value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
-                />
-                {client.redirect_to && (
+                {!client.use_shared_credentials && (
                   <>
-                    <Content className="text-sm text-gray-500 dark:text-neutral-400">
-                      Your redirect URL should forward to{' '}
-                      <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all
-                      query parameters.
+                    <Content>
+                      <strong className="dark:text-white">1.</strong> Navigate
+                      to{' '}
+                      <a
+                        className="underline dark:text-white"
+                        href={`https://console.cloud.google.com/apis/credentials/oauthclient/${client.client_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Google OAuth client
+                      </a>{' '}
+                      and add the redirect URL under "Authorized redirect URIs"
                     </Content>
-                    <TestRedirectButton redirectTo={client.redirect_to} />
+                    <Copyable
+                      label="Redirect URI"
+                      value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
+                    />
+                    {client.redirect_to && (
+                      <>
+                        <Content className="text-sm text-gray-500 dark:text-neutral-400">
+                          Your redirect URL should forward to{' '}
+                          <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with
+                          all query parameters.
+                        </Content>
+                        <TestRedirectButton redirectTo={client.redirect_to} />
+                      </>
+                    )}
                   </>
                 )}
                 <Content>
-                  <strong className="dark:text-white">2.</strong> Use the code
-                  below to generate a login link in your app.
+                  {!client.use_shared_credentials && (
+                    <strong className="dark:text-white">2. </strong>
+                  )}
+                  Use the code below to generate a login link in your app.
                 </Content>
                 <div className="overflow-auto rounded-sm border text-sm dark:border-none">
                   <Fence
