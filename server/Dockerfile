@@ -1,4 +1,4 @@
-FROM amazoncorretto:22 AS builder
+FROM amazoncorretto:26 AS builder
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ RUN clojure -X:deps tree
 
 RUN clojure -T:build uber
 
-FROM amazoncorretto:22
+FROM amazoncorretto:26
 
 WORKDIR /app
 
