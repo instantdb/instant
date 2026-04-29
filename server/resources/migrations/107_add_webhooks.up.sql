@@ -27,14 +27,14 @@ execute function update_updated_at_column();
 
 create index on webhooks (app_id);
 
-create type webhook_payload_status as enum ('pending', 'processing', 'success', 'error', 'failed');
+create type webhook_event_status as enum ('pending', 'processing', 'success', 'error', 'failed');
 
-create table webhook_payloads(
+create table webhook_events(
   id uuid not null,
   app_id uuid not null references apps (id) on delete cascade,
   webhook_id uuid not null references webhooks (id) on delete cascade,
   isn isn not null,
-  status webhook_payload_status not null,
+  status webhook_event_status not null,
   machine_id uuid,
   status_code int,
   response text,
@@ -49,46 +49,46 @@ create table webhook_payloads(
   primary key (id, partition_bucket)
 ) partition by range (partition_bucket);
 
-create table webhook_payloads_0 partition of webhook_payloads for values from (0) to (1);
-create table webhook_payloads_1 partition of webhook_payloads for values from (1) to (2);
-create table webhook_payloads_2 partition of webhook_payloads for values from (2) to (3);
-create table webhook_payloads_3 partition of webhook_payloads for values from (3) to (4);
-create table webhook_payloads_4 partition of webhook_payloads for values from (4) to (5);
-create table webhook_payloads_5 partition of webhook_payloads for values from (5) to (6);
-create table webhook_payloads_6 partition of webhook_payloads for values from (6) to (7);
-create table webhook_payloads_7 partition of webhook_payloads for values from (7) to (8);
-create table webhook_payloads_8 partition of webhook_payloads for values from (8) to (9);
-create table webhook_payloads_9 partition of webhook_payloads for values from (9) to (10);
-create table webhook_payloads_10 partition of webhook_payloads for values from (10) to (11);
-create table webhook_payloads_11 partition of webhook_payloads for values from (11) to (12);
-create table webhook_payloads_12 partition of webhook_payloads for values from (12) to (13);
+create table webhook_events_0 partition of webhook_events for values from (0) to (1);
+create table webhook_events_1 partition of webhook_events for values from (1) to (2);
+create table webhook_events_2 partition of webhook_events for values from (2) to (3);
+create table webhook_events_3 partition of webhook_events for values from (3) to (4);
+create table webhook_events_4 partition of webhook_events for values from (4) to (5);
+create table webhook_events_5 partition of webhook_events for values from (5) to (6);
+create table webhook_events_6 partition of webhook_events for values from (6) to (7);
+create table webhook_events_7 partition of webhook_events for values from (7) to (8);
+create table webhook_events_8 partition of webhook_events for values from (8) to (9);
+create table webhook_events_9 partition of webhook_events for values from (9) to (10);
+create table webhook_events_10 partition of webhook_events for values from (10) to (11);
+create table webhook_events_11 partition of webhook_events for values from (11) to (12);
+create table webhook_events_12 partition of webhook_events for values from (12) to (13);
 
 create trigger update_updated_at_trigger
-before update on webhook_payloads
+before update on webhook_events
 for each row
 execute function update_updated_at_column();
 
-create index on webhook_payloads (app_id);
-create index on webhook_payloads (webhook_id);
-create index on webhook_payloads (created_at) where status = 'pending';
-create index on webhook_payloads (app_id, created_at) where status = 'pending';
-create index on webhook_payloads (updated_at) where status = 'processing';
+create index on webhook_events (app_id);
+create index on webhook_events (webhook_id);
+create index on webhook_events (created_at) where status = 'pending';
+create index on webhook_events (app_id, created_at) where status = 'pending';
+create index on webhook_events (updated_at) where status = 'processing';
 
 
--- Claims pending webhook_payloads, claiming up to 10 per app for up to 10 apps
+-- Claims pending webhook_events, claiming up to 10 per app for up to 10 apps
 -- (configurable with optional 2nd and 3rd arguments).
 -- Uses SKIP LOCKED so concurrent workers don't collide.
 -- Updates status to 'processing' and records machine_id.
 -- Restricts the scan to the current and previous partition_bucket.
-create or replace function claim_webhook_payloads(
+create or replace function claim_webhook_events(
   p_machine_id uuid,
   p_max_apps int default 10,
   p_max_per_app int default 10
 )
-returns setof webhook_payloads
+returns setof webhook_events
 language plpgsql as $$
 declare
-  r webhook_payloads;
+  r webhook_events;
   picked_app uuid;
   seen uuid[] := array[]::uuid[];
   current_bucket int := ((extract(epoch from now())::bigint / 86400 / 30) % 13)::int;
@@ -98,7 +98,7 @@ begin
     picked_app := null;
     for r in
       with next_app as (
-        select app_id from webhook_payloads
+        select app_id from webhook_events
         where status = 'pending'
           and partition_bucket = any(buckets)
           and app_id <> all(seen)
@@ -109,7 +109,7 @@ begin
       locked as (
         select p.id, p.partition_bucket from next_app n
         cross join lateral (
-          select id, partition_bucket from webhook_payloads
+          select id, partition_bucket from webhook_events
           where app_id = n.app_id
             and partition_bucket = any(buckets)
             and status = 'pending'
@@ -118,13 +118,13 @@ begin
           for update skip locked
         ) p
       )
-      update webhook_payloads
+      update webhook_events
       set status = 'processing',
           machine_id = p_machine_id
       from locked
-      where webhook_payloads.id = locked.id
-        and webhook_payloads.partition_bucket = locked.partition_bucket
-      returning webhook_payloads.*
+      where webhook_events.id = locked.id
+        and webhook_events.partition_bucket = locked.partition_bucket
+      returning webhook_events.*
     loop
       return next r;
       picked_app := r.app_id;
@@ -136,9 +136,9 @@ begin
 end;
 $$;
 
--- Mirrors claim_webhook_payloads but EXPLAIN ANALYZE's the combined query
+-- Mirrors claim_webhook_events but EXPLAIN ANALYZE's the combined query
 -- and rolls back the work, outputs a series of explains.
-create or replace function explain_claim_webhook_payloads(
+create or replace function explain_claim_webhook_events(
   p_max_apps int default 10,
   p_max_per_app int default 10
 )
@@ -160,7 +160,7 @@ begin
       for plan_line in
         execute 'explain (analyze, buffers, verbose)
                  with next_app as (
-                   select app_id from webhook_payloads
+                   select app_id from webhook_events
                    where status = ''pending''
                      and partition_bucket = any($4)
                      and app_id <> all($1)
@@ -171,7 +171,7 @@ begin
                  locked as (
                    select p.id, p.partition_bucket from next_app n
                    cross join lateral (
-                     select id, partition_bucket from webhook_payloads
+                     select id, partition_bucket from webhook_events
                      where app_id = n.app_id
                        and partition_bucket = any($4)
                        and status = ''pending''
@@ -180,13 +180,13 @@ begin
                      for update skip locked
                    ) p
                  )
-                 update webhook_payloads
+                 update webhook_events
                  set status = ''processing'',
                      machine_id = $3
                  from locked
-                 where webhook_payloads.id = locked.id
-                   and webhook_payloads.partition_bucket = locked.partition_bucket
-                 returning webhook_payloads.*'
+                 where webhook_events.id = locked.id
+                   and webhook_events.partition_bucket = locked.partition_bucket
+                 returning webhook_events.*'
         using seen, p_max_per_app, fake_machine_id, buckets
       loop
         accumulated := accumulated || plan_line;
@@ -195,7 +195,7 @@ begin
       -- Find which app the EXPLAIN just marked processing. Only rows touched
       -- by this explain run can match the disposable machine_id.
       select distinct app_id into picked_app
-      from webhook_payloads
+      from webhook_events
       where machine_id = fake_machine_id
         and app_id <> all(seen)
       limit 1;
