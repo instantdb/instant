@@ -10,22 +10,10 @@ import {
   waitForAuthToken,
 } from '../lib/login.ts';
 import { promptOk } from '../lib/ui.ts';
+import { isHeadlessEnvironment } from '../util/isHeadlessEnvironment.ts';
 
-const isHeadLessEnvironment = (opts: OptsFromCommand<typeof loginDef>) => {
-  const noBrowserMode = Boolean(
-    process.env.INSTANT_CLI_NO_BROWSER || process.env.CI || opts?.headless,
-  );
-
-  // Check for common headless environment indicators
-  return (
-    noBrowserMode ||
-    process.env.TERM === 'dumb' ||
-    process.env.SSH_CONNECTION !== undefined ||
-    process.env.SSH_CLIENT !== undefined ||
-    (!process.env.DISPLAY && process.platform === 'linux') ||
-    process.env.WSL_DISTRO_NAME !== undefined
-  );
-};
+const loginUrlMessage = (url: string) =>
+  `Open this URL in a browser to log in:\n ${url}\n`;
 
 export const loginCommand = Effect.fn(function* (
   opts: OptsFromCommand<typeof loginDef>,
@@ -35,12 +23,10 @@ export const loginCommand = Effect.fn(function* (
   const loginInfo = yield* getLoginTicketAndSecret;
   const { secret, ticket } = loginInfo;
   const dashOrigin = yield* getDashUrl;
+  const loginUrl = `${dashOrigin}/dash?ticket=${ticket}`;
   yield* Effect.log();
-  // TODO: flip these so rejecting the prompt prints url
-  if (isHeadLessEnvironment(opts)) {
-    yield* Effect.log(
-      `Open this URL in a browser to log in:\n ${dashOrigin}/dash?ticket=${ticket}\n`,
-    );
+  if (isHeadlessEnvironment(opts)) {
+    yield* Effect.log(loginUrlMessage(loginUrl));
   } else {
     const ok = yield* promptOk(
       {
@@ -52,8 +38,8 @@ export const loginCommand = Effect.fn(function* (
     if (!ok) {
       process.exit(0);
     }
-    yield* Effect.tryPromise(() =>
-      openInBrowser(`${dashOrigin}/dash?ticket=${ticket}`),
+    yield* Effect.tryPromise(() => openInBrowser(loginUrl)).pipe(
+      Effect.catchAll(() => Effect.log(loginUrlMessage(loginUrl))),
     );
   }
 
