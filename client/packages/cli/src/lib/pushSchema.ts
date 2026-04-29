@@ -211,7 +211,15 @@ const confirmSchemaChanges = (steps: SuperMigrationTx[], currentAttrs: any[]) =>
     const globalOpts = yield* GlobalOpts;
     if (globalOpts.yes) {
       console.log('Applying schema changes...');
-      console.log(lines.join('\n'));
+      console.log(
+        boxen(lines.join('\n'), {
+          dimBorder: true,
+          padding: {
+            left: 1,
+            right: 1,
+          },
+        }),
+      );
 
       return;
     }

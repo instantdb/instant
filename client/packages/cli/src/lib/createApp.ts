@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { Data, Effect, Schema } from 'effect';
 import { InstantHttpAuthed } from './http.ts';
 import { HttpClientRequest, HttpClientResponse } from '@effect/platform';

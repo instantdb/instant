@@ -1,5 +1,5 @@
 import { HttpClientRequest, HttpClientResponse } from '@effect/platform';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { Context, Data, Effect, Layer, Runtime, Schema, Option } from 'effect';
 import { UI } from '../ui/index.ts';
 import { handleEnv } from '../lib/handleEnv.ts';

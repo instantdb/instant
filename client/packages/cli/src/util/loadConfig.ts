@@ -1,8 +1,17 @@
 import { loadConfig as _loadConfig } from 'unconfig';
-import type { LoadConfigOptions, LoadConfigResult } from 'unconfig';
-import { createRequire } from 'module';
-import path from 'path';
+import type {
+  LoadConfigOptions,
+  LoadConfigResult,
+  LoadConfigSource,
+} from 'unconfig';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { findProjectDir } from './projectDir.ts';
+
+type Arrayable<T> = T | T[];
+
+const toArray = <T>(value: Arrayable<T>): T[] =>
+  Array.isArray(value) ? value : [value];
 
 /**
  * Resolve @instantdb packages from CLI's dependency tree.
@@ -29,6 +38,39 @@ function getInstantAliases(): Record<string, string> | null {
   }
 }
 
+function withDenoAliases<T>(
+  opts: LoadConfigOptions<T>,
+  alias: Record<string, string>,
+): LoadConfigOptions<T> {
+  return {
+    ...opts,
+    sources: toArray(opts.sources).map((source): LoadConfigSource<T> => {
+      if (source.parser === 'json' || typeof source.parser === 'function') {
+        return source;
+      }
+
+      return {
+        ...source,
+        parser: async (filepath) => {
+          const localRequire = createRequire(import.meta.url);
+          const unconfigRequire = createRequire(
+            localRequire.resolve('unconfig/package.json'),
+          );
+          const { createJiti } = unconfigRequire('jiti');
+          const jiti = createJiti(import.meta.url, {
+            fsCache: false,
+            moduleCache: false,
+            interopDefault: true,
+            alias,
+          });
+
+          return jiti.import(filepath, { default: true });
+        },
+      };
+    }),
+  };
+}
+
 export async function loadConfig<T>(
   opts: LoadConfigOptions<T>,
 ): Promise<LoadConfigResult<T>> {
@@ -40,19 +82,7 @@ export async function loadConfig<T>(
   let res;
   if (isDeno) {
     const alias = getInstantAliases();
-    res = await _loadConfig({
-      ...opts,
-      importx: {
-        ...opts.importx,
-        loaderOptions: {
-          ...opts.importx?.loaderOptions,
-          jiti: {
-            ...opts.importx?.loaderOptions?.jiti,
-            alias,
-          },
-        },
-      },
-    });
+    res = await _loadConfig(alias ? withDenoAliases(opts, alias) : opts);
   } else {
     res = await _loadConfig(opts);
   }

@@ -1,7 +1,7 @@
 import { FileSystem } from '@effect/platform';
 import { Config, Context, Effect, Layer, Option, Ref, Schema } from 'effect';
 import envPaths from 'env-paths';
-import { join } from 'path';
+import { join } from 'node:path';
 import { loginCommand } from '../commands/login.ts';
 import { program } from '../program.ts';
 

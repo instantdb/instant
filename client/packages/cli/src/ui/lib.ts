@@ -1,7 +1,7 @@
-import { ReadStream, WriteStream } from 'tty';
+import { ReadStream, WriteStream } from 'node:tty';
 import { cursor, erase } from 'sisteransi';
 import throttle from 'lodash.throttle';
-import readline from 'readline';
+import readline from 'node:readline';
 
 const isWindows = process.platform === 'win32';
 

@@ -1,5 +1,5 @@
 import envPaths from 'env-paths';
-import { join } from 'path';
+import { join } from 'node:path';
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 

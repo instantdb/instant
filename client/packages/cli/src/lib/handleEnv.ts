@@ -9,6 +9,7 @@ import chalk from 'chalk';
 import { getDashUrl } from './http.ts';
 import { promptOk } from './ui.ts';
 import { link } from '../logging.ts';
+import boxen from 'boxen';
 
 export const handleEnv = Effect.fn(function* (app: CurrentAppInfo) {
   const opts = yield* GlobalOpts;
@@ -23,20 +24,24 @@ export const handleEnv = Effect.fn(function* (app: CurrentAppInfo) {
   if (hasEnvFile) {
     return printDotEnvInfo(envType, app.appId, dashOrigin);
   }
-  yield* Effect.log(
-    `\nLooks like you don't have a ${chalk.green(`\`${envFile}\``)} file yet.`,
-  );
-  yield* Effect.log(
-    `If we set ${chalk.green(envName)} & ${chalk.green('INSTANT_APP_ADMIN_TOKEN')}, we can remember the app that you chose for all future commands.`,
-  );
   const saveExtraInfo =
     envFile !== '.env' ? chalk.green('  (will create `' + envFile + '`)') : '';
+  const promptText = [
+    `Looks like you don't have a ${chalk.green(`\`${envFile}\``)} file yet.`,
+    `If we set ${chalk.green(envName)} & ${chalk.green('INSTANT_APP_ADMIN_TOKEN')}, we can remember the app that you chose for all`,
+    'future commands.',
+    'Want us to create this env file for you?' + saveExtraInfo,
+  ].join('\n');
 
   const ok = yield* promptOk(
     {
       inline: true,
-      promptText: 'Want us to create this env file for you?' + saveExtraInfo,
-      modifyOutput: (a) => a,
+      promptText,
+      modifyOutput: (a) =>
+        boxen(a, {
+          dimBorder: true,
+          padding: { left: 1, right: 1 },
+        }),
     },
     true,
   );
