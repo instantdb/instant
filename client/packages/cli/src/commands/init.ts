@@ -21,7 +21,7 @@ export const initCommand = (_options: OptsFromCommand<typeof initDef>) =>
           Effect.gen(function* () {
             const doSchemaPush = yield* promptOk(
               {
-                promptText: 'Found local schema. Push it to the new app?',
+                promptText: '\nFound local schema. Push it to the new app?',
                 defaultValue: false,
                 inline: true,
               },
@@ -45,7 +45,7 @@ export const initCommand = (_options: OptsFromCommand<typeof initDef>) =>
           Effect.gen(function* () {
             const doPermsPush = yield* promptOk(
               {
-                promptText: 'Found local perms. Push it to the new app?',
+                promptText: '\nFound local perms. Push it to the new app?',
                 defaultValue: false,
                 inline: true,
               },
