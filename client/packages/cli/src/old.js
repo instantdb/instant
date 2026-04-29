@@ -1,8 +1,8 @@
 import boxen from 'boxen';
 import chalk from 'chalk';
 import { program } from '@commander-js/extra-typings';
-import { readFile } from 'fs/promises';
-import path from 'path';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { UI } from './ui/index.ts';
 import { deferred, renderUnwrap } from './ui/lib.ts';
 import {

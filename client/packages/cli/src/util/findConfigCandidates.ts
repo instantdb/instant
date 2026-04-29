@@ -1,5 +1,5 @@
-import { existsSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import chalk from 'chalk';
 
 type ConfigCandidate = {

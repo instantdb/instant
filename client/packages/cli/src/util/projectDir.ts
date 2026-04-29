@@ -1,6 +1,6 @@
 import { packageDirectory } from 'package-directory';
 import { findUp } from 'find-up-simple';
-import path from 'path';
+import path from 'node:path';
 
 export type ProjectType = 'node' | 'deno';
 
