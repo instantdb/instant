@@ -6,7 +6,7 @@
    [instant.util.exception :as ex])
   (:import
    (com.google.crypto.tink PublicKeySign PublicKeySign PublicKeyVerify)
-   (com.nimbusds.jose JOSEObjectType JWSAlgorithm JWSHeader JWSHeader$Builder JWSSigner JWSVerifier)
+   (com.nimbusds.jose JOSEObjectType JWSAlgorithm JWSHeader$Builder JWSSigner JWSVerifier)
    (com.nimbusds.jose.jca JCAContext)
    (com.nimbusds.jose.util Base64URL)
    (com.nimbusds.jwt JWTClaimNames JWTClaimsSet$Builder SignedJWT)
