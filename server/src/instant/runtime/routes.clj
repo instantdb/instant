@@ -14,6 +14,7 @@
    [instant.model.app :as app-model]
    [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
    [instant.model.app-oauth-client :as app-oauth-client-model]
+   [instant.model.app-oauth-service-provider :as app-oauth-service-provider-model]
    [instant.model.shared-oauth-client :refer [assert-shared-credentials-allowed!]]
    [instant.model.app-oauth-code :as app-oauth-code-model]
    [instant.model.app-oauth-redirect :as app-oauth-redirect-model]
@@ -663,7 +664,17 @@
         extra-fields (get-in req [:body :extra_fields])
         client (app-oauth-client-model/get-by-client-name! {:app-id app-id
                                                             :client-name client-name})
+        provider (app-oauth-service-provider-model/get-by-id!
+                  {:app-id app-id
+                   :id (:provider_id client)})
         oauth-client (app-oauth-client-model/->OAuthClient client)
+        ;; Clerk and Firebase use tenant/project-specific discovery issuers.
+        ;; Clerk's getToken returns a Clerk session JWT, not an OAuth ID token
+        ;; minted for an Instant-configured client id. Firebase's issuer
+        ;; includes the project id. In both cases the configured issuer/JWKS is
+        ;; the app binding, so ignoring audience does not create the Google-style
+        ;; cross-client issue where every client shares https://accounts.google.com.
+        ignore-audience? (#{"clerk" "firebase"} (:provider_name provider))
         _ (when-let [origin (get-in req [:headers "origin"])]
             (assert-authorized-request-origin! client origin))
 
@@ -675,7 +686,7 @@
                                         {:allow-unverified-email? (-> oauth-client
                                                                       :meta
                                                                       (get "allowUnverifiedEmail"))
-                                         :ignore-audience? true}))
+                                         :ignore-audience? ignore-audience?}))
         email (email/coerce email)
 
         current-refresh-token (when current-refresh-token-id
