@@ -6,7 +6,7 @@ async function fetchStarCount() {
   const { init } = await import('@instantdb/admin');
   const db = init({
     appId:
-      // process.env.NEXT_PUBLIC_FEEDBACK_APP_ID ||
+      process.env.NEXT_PUBLIC_FEEDBACK_APP_ID ||
       '5d9c6277-e6ac-42d6-8e51-2354b4870c05',
   }).asUser({ guest: true });
   const { instantRepo } = await import('./lib/config.ts');
@@ -171,11 +171,9 @@ async function fetchFonts() {
 }
 
 module.exports = async () => {
-  const isSelfHosted = process.env.NEXT_PUBLIC_SELF_HOSTED === 'true';
-
   await fetchFonts();
-  const starCount = isSelfHosted ? null : await fetchStarCount();
-  if (!isSelfHosted && starCount) {
+  const starCount = await fetchStarCount();
+  if (starCount) {
     nextConfig.env = {
       ...nextConfig.env,
       NEXT_PUBLIC_FALLBACK_STAR_COUNT: starCount,
