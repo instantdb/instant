@@ -247,16 +247,14 @@
 
 (def get-verify-primitive (safe-memoize get-verify-primitive*))
 
-
 (defn signature-sign [^KeysetHandle k ^bytes ba]
   (let [^PublicKeySign primitive (get-sign-primitive k)
-        ^bytes sig (.sign primitive ba)
-        kid (-> (ByteBuffer/wrap sig 1 4)
-                (.getInt)
-                (Integer/toUnsignedLong)
-                str)]
-    {:kid kid
-     :signature (bytes->hex-string (Arrays/copyOfRange sig 5 69))}))
+        ^bytes sig (.sign primitive ba)]
+    {:kid (-> k
+              (.getKeysetInfo)
+              (.getPrimaryKeyId)
+              str)
+     :signature (bytes->hex-string sig)}))
 
 ;; Utilities for bootstrap
 
@@ -287,5 +285,5 @@
 (defn generate-webhook-signing-key
   "Generates a ED25519 key for signing webhook payloads."
   ^String []
-  (-> (KeysetHandle/generateNew PredefinedSignatureParameters/ED25519)
+  (-> (KeysetHandle/generateNew PredefinedSignatureParameters/ED25519WithRawOutput)
       (TinkJsonProtoKeysetFormat/serializeKeyset (InsecureSecretKeyAccess/get))))
