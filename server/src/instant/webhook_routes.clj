@@ -8,6 +8,8 @@
    [instant.model.webhook :as webhook-model]
    [instant.util.crypt :as crypt]
    [instant.util.exception :as ex]
+   [instant.util.http :as http-util]
+   [instant.util.token :as token-util]
    [instant.util.uuid :as uuid-util]
    [instant.webhook-jwt :as webhook-jwt]
    [ring.util.http-response :as response]))
@@ -23,20 +25,11 @@
   [req]
   (let [webhook-id-untrusted (ex/get-param! req [:params :webhook_id] uuid-util/coerce)
         isn-untrusted (ex/get-param! req [:params :isn] (fn [x]
-                                                          (isn/of-string x)))]
-    (if-let [{:keys [app-id]} (try
-                                (admin-routes/req->app-id-authed! req :data/read)
-                                (catch Exception _ nil))]
-      {:app-id app-id
-       :isn isn-untrusted
-       :webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id app-id
-                                                              :webhook-id webhook-id-untrusted})}
-      (let [app-id-untrusted (ex/get-param! req [:params :app_id] uuid-util/coerce)
-            jwt (ex/get-param! req [:headers "authorization"] (fn [t]
-                                                                (-> t
-                                                                    (clojure.string/split #"Bearer")
-                                                                    last
-                                                                    clojure.string/trim)))
+                                                          (isn/of-string x)))
+        app-id-untrusted (ex/get-param! req [:params :app_id] uuid-util/coerce)
+        token (http-util/req->bearer-token! req)]
+    (if (token-util/is-jwt? token)
+      (let [jwt (token-util/jwt-token-value token)
             {:keys [app-id webhook-id isn]} (webhook-jwt/verify-webhook-payload-jwt
                                              jwt
                                              {:app-id app-id-untrusted
@@ -45,7 +38,13 @@
         {:app-id app-id
          :isn isn
          :webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id app-id
-                                                                :webhook-id webhook-id})}))))
+                                                                :webhook-id webhook-id})})
+
+      (let [{:keys [app-id]} (admin-routes/req->app-id-authed! req :data/read)]
+        {:app-id app-id
+         :isn isn-untrusted
+         :webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id app-id
+                                                                :webhook-id webhook-id-untrusted})}))))
 
 (defn get-payload [req]
   (let [{:keys [app-id webhook isn]} (req->app-id-and-webhook-authed! req)
