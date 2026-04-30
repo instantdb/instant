@@ -77,7 +77,8 @@
       ;; n.b. Add the table to the `add-tables` setting in
       ;;      create-replication-stream or else we will never be notified
       ;;      about it.
-      "attrs" (attr-model/evict-app-id-from-cache (get-app-id wal-record))
+      "attrs" (do (attr-model/evict-app-id-from-cache (get-app-id wal-record))
+                  (webhook-model/evict-webhooks-for-attr-id (get-id wal-record)))
       "rules" (rule-model/evict-app-id-from-cache (get-app-id wal-record))
       "apps" (let [app-id (get-id wal-record)]
                (app-model/evict-app-id-from-cache app-id)

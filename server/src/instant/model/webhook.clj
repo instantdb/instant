@@ -14,12 +14,14 @@
    [instant.util.hsql :as uhsql]
    [instant.util.uuid :as uuid-util])
   (:import
+   (com.github.benmanes.caffeine.cache Cache)
    (instant.isn ISN)
    (java.nio ByteBuffer)
    (java.nio.charset StandardCharsets)
    (java.security MessageDigest)
    (java.time Instant)
-   (java.util UUID)))
+   (java.util Set UUID)
+   (java.util.concurrent ConcurrentHashMap)))
 
 (def ^{:tag 'bytes} period-bytes (.getBytes "." StandardCharsets/UTF_8))
 
@@ -39,12 +41,41 @@
     (assoc (crypt-util/signature-sign (config/webhook-signing-key) (.array buf))
            :t t)))
 
-(def webhook-with-etypes-cache
-  (cache/make {:max-size 2048}))
+;; Map of attr-id -> webhook-ids, used to invalidate the webhook
+;; cache if the underlying attrs change.
+(def ^{:tag 'ConcurrentHashMap} attr-listeners (ConcurrentHashMap.))
+
+(defn add-attr-listener [webhook]
+  (doseq [attr-id (:id_attr_ids webhook)]
+    (.compute attr-listeners attr-id (fn [_k webhook-ids]
+                                       (tool/def-locals)
+                                       (let [^Set s (or webhook-ids
+                                                        (ConcurrentHashMap/newKeySet))]
+                                         (.add s {:app-id (:app_id webhook)
+                                                  :webhook-id (:id webhook)})
+                                         s)))))
+
+(defn remove-attr-listener [webhook]
+  (doseq [attr-id (:id_attr_ids webhook)]
+    (.compute attr-listeners attr-id (fn [_k ^Set webhook-ids]
+                                       (when webhook-ids
+                                         (.remove webhook-ids {:app-id (:app_id webhook)
+                                                               :webhook-id (:id webhook)})
+                                         (when-not (.isEmpty webhook-ids)
+                                           webhook-ids))))))
+
+(def ^{:tag 'Cache} webhook-with-etypes-cache
+  (cache/make {:max-size 2048
+               :on-remove (fn [_k webhook _]
+                            (remove-attr-listener webhook))}))
 
 (defn evict-webhook-from-cache [{:keys [app-id webhook-id]}]
   (cache/invalidate webhook-with-etypes-cache {:app-id app-id
                                                :webhook-id webhook-id}))
+
+(defn evict-webhooks-for-attr-id [attr-id]
+  (doseq [params (.get attr-listeners attr-id)]
+    (evict-webhook-from-cache params)))
 
 (def get-by-app-id-and-webhook-id-q
   (uhsql/preformat {:select [:* [{:select [[[:array_agg :etype]]]
@@ -71,7 +102,16 @@
 
 (defn get-by-app-id-and-webhook-id!
   ([params]
-   (cache/get webhook-with-etypes-cache params get-by-app-id-and-webhook-id!*))
+   ;; Use this approach so that we can invalidate the webhook if the
+   ;; attrs changes, since we rely on the attrs to get the etype
+   ;; https://github.com/ben-manes/caffeine/wiki/Compute
+   (->  webhook-with-etypes-cache
+        (.asMap)
+        (.computeIfAbsent params (fn [params]
+                                   (let [res (get-by-app-id-and-webhook-id!* params)]
+                                     (add-attr-listener res)
+                                     res)))))
+
   ([conn params]
    (if (= conn (aurora/conn-pool :read))
      (get-by-app-id-and-webhook-id! params)
