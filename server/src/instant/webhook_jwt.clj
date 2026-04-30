@@ -64,7 +64,7 @@
                    (.issuer config/server-origin)
                    (.subject (str app-id))
                    ;; 1 hour
-                   (.expirationTime (Date/from (.plusSeconds (Instant/now) 3600))) ; xxx
+                   (.expirationTime (Date/from (.plusSeconds (Instant/now) 3600)))
                    (.claim "webhook-id" (str webhook-id))
                    (.claim "app-id" (str app-id))
                    (.claim "isn" (str isn))

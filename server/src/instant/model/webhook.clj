@@ -48,7 +48,6 @@
 (defn add-attr-listener [webhook]
   (doseq [attr-id (:id_attr_ids webhook)]
     (.compute attr-listeners attr-id (fn [_k webhook-ids]
-                                       (tool/def-locals)
                                        (let [^Set s (or webhook-ids
                                                         (ConcurrentHashMap/newKeySet))]
                                          (.add s {:app-id (:app_id webhook)

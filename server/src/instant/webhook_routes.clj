@@ -24,8 +24,8 @@
    3. Payload JWT that we send with the webhook"
   [req]
   (let [webhook-id-untrusted (ex/get-param! req [:params :webhook_id] uuid-util/coerce)
-        isn-untrusted (ex/get-param! req [:params :isn] (fn [x]
-                                                          (isn/of-string x)))
+        isn-untrusted (ex/get-param! req [:params :*] (fn [x]
+                                                        (isn/of-string x)))
         app-id-untrusted (ex/get-param! req [:params :app_id] uuid-util/coerce)
         token (http-util/req->bearer-token! req)]
     (if (token-util/is-jwt? token)
@@ -57,4 +57,5 @@
 
 (defroutes routes
   (GET "/.well-known/webhooks/jwks.json" [] get-signing-keys)
-  (GET "/webhooks/payload/:app_id/:webhook_id/:isn{[0-9a-f]+/[0-9A-F]+/[0-9A-F]+}" [] get-payload))
+  ;; The * matches the isn, which will look something like 0/328/48953748
+  (GET "/webhooks/payload/:app_id/:webhook_id/*" [] get-payload))
