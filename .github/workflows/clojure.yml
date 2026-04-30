@@ -123,7 +123,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: 'corretto'
-        java-version: '22'
+        java-version: '26'
 
     - name: Prepare database
       env:
@@ -233,7 +233,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: 'corretto'
-        java-version: '22'
+        java-version: '26'
 
     - name: Install clojure tools
       uses: DeLaGuardo/setup-clojure@13.1
@@ -271,7 +271,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: 'corretto'
-        java-version: '22'
+        java-version: '26'
 
     - name: Install clojure tools
       uses: DeLaGuardo/setup-clojure@13.1

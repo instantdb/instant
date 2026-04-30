@@ -121,6 +121,7 @@
                               virgil/virgil {:mvn/version "0.5.0"}}
                  :jvm-opts ["-XX:+UseZGC"
                             "-enableassertions"
+                            "-Djdk.tracePinnedThreads=full"
 
                             ;; force locale
                             "-Duser.language=en"
