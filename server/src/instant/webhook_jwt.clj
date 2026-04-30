@@ -12,6 +12,7 @@
    (com.nimbusds.jwt JWTClaimNames JWTClaimsSet$Builder SignedJWT)
    (com.nimbusds.jwt.proc BadJWTException DefaultJWTClaimsVerifier)
    (java.security GeneralSecurityException)
+   (java.text ParseException)
    (java.time Instant)
    (java.util Collections Date HashSet)))
 
@@ -80,9 +81,12 @@
    the given claims.
    Returns {:app-id, :webhook-id, :isn}"
   [^String token-string {:keys [app-id webhook-id isn] :as _claims}]
-  (let [^SignedJWT parsed-jwt (SignedJWT/parse token-string)]
+  (let [^SignedJWT parsed-jwt (try
+                                (SignedJWT/parse token-string)
+                                (catch ParseException _
+                                  (ex/throw-validation-err! :jwt "<redacted token>" [{:message "Invalid JWT."}])))]
     (if-not (.verify parsed-jwt tink-verifier)
-      (ex/throw-validation-err! :jwt token-string [{:message "Invalid JWT."}])
+      (ex/throw-validation-err! :jwt "<redacted token>" [{:message "Invalid JWT."}])
       (let [claims-verifier (DefaultJWTClaimsVerifier. (-> (JWTClaimsSet$Builder.)
                                                            (.issuer config/server-origin)
                                                            (.subject (str app-id))
@@ -98,4 +102,4 @@
            :webhook-id (parse-uuid (.getStringClaim claims "webhook-id"))
            :isn (isn/of-string (.getStringClaim claims "isn"))}
           (catch BadJWTException e
-            (ex/throw-validation-err! :jwt token-string [{:message (.getMessage e)}])))))))
+            (ex/throw-validation-err! :jwt "<redacted token>" [{:message (.getMessage e)}])))))))

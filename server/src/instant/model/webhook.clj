@@ -83,7 +83,7 @@
   ([conn machine-id]
    (sql/execute! ::claim-batch!
                  conn
-                 ["select * from claim_webhook_payloads(?)" machine-id])))
+                 ["select * from claim_webhook_events(?)" machine-id])))
 
 (defn uuids->labels [attrs ent]
   (persistent!
