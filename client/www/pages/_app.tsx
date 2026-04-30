@@ -20,7 +20,6 @@ import { SWRConfig } from 'swr';
 import { localStorageProvider } from '@/lib/swrCache';
 import posthog from '@/lib/posthog';
 import { PostHogProvider } from 'posthog-js/react';
-import { DeploymentConfigProvider } from '@/lib/hooks/useDeploymentConfig';
 
 declare global {
   function __getAppId(): any;
@@ -55,21 +54,19 @@ function App({ Component, pageProps }: AppPropsWithLayout) {
 
   return (
     <PostHogProvider client={posthog}>
-      <DeploymentConfigProvider>
-        <AppHead />
-        <PostHogIdentify />
-        <ErrorBoundary renderError={() => <Oops />}>
-          <SWRConfig
-            value={{
-              provider: localStorageProvider,
-            }}
-          >
-            <NuqsAdapter>{mainEl}</NuqsAdapter>
-          </SWRConfig>
-        </ErrorBoundary>
-        {isDev ? null : <GoogleScripts />}
-        {isDev ? <Dev /> : null}
-      </DeploymentConfigProvider>
+      <AppHead />
+      <PostHogIdentify />
+      <ErrorBoundary renderError={() => <Oops />}>
+        <SWRConfig
+          value={{
+            provider: localStorageProvider,
+          }}
+        >
+          <NuqsAdapter>{mainEl}</NuqsAdapter>
+        </SWRConfig>
+      </ErrorBoundary>
+      {isDev ? null : <GoogleScripts />}
+      {isDev ? <Dev /> : null}
     </PostHogProvider>
   );
 }

@@ -84,6 +84,7 @@ services:
     environment:
       WAL_HISTORY_STORAGE: pg
       DATABASE_URL: "postgresql://${POSTGRES_USER:-instant}:${POSTGRES_PASSWORD:-pass}@postgres:5432/${POSTGRES_DB:-instant}?sslmode=disable"
+      INSTANT_BACKEND_URL: ${INSTANT_BACKEND_URL:-http://localhost:8888}
       INSTANT_DASHBOARD_URL: ${INSTANT_DASHBOARD_URL:-http://localhost:3000}
       STRIPE_API_KEY: ${STRIPE_API_KEY:-}
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
