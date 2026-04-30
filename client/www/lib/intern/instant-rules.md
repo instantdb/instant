@@ -262,11 +262,11 @@ const { data } = db.useQuery({ posts: { image: {} } });
 
 CRITICAL: Hooks for presence and topics live on `db.rooms` and take the room as the first arg. The room object itself has no `usePresence` or `publishPresence` methods.
 
-Rooms host two ephemeral primitives: presence (synced state) and topics (fire-and-forget broadcasts).
+Rooms host two ephemeral primitives: presence (cursor positions, who's online) and topics (live reactions). Use them only for data that should NOT persist. Persisted data via `transact` already syncs in real-time to all subscribed clients, so reach for rooms only when the data is intentionally ephemeral.
 
-## Presence (synced state)
+## Presence
 
-Use presence for state that should sync across peers in a room but doesn't need to persist (cursor position, who's online, current selection).
+Each peer publishes a presence object readable by all other peers in the room. Retained for the connection and cleaned up automatically on disconnect.
 
 ```tsx
 const room = db.room('chat', 'main');
@@ -277,9 +277,9 @@ const { user, peers, publishPresence } = db.rooms.usePresence(room, {
 publishPresence({ x: 50, y: 50 });
 ```
 
-## Topics (fire-and-forget broadcasts)
+## Topics
 
-Use topics for ephemeral signals you don't need persisted, like live reactions. Unlike presence, topic payloads aren't retained. Peers only see events fired while they're listening.
+Topic payloads aren't retained. Peers only see events fired while they're listening.
 
 ```tsx
 const room = db.room('chat', 'main');
