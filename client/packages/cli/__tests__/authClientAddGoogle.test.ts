@@ -264,10 +264,11 @@ describe('web: dev credentials', () => {
     const output = logs.join('\n');
     expect(output).toContain('Credentials: Instant dev credentials');
     expect(output).toContain('No Google Console setup required');
+    expect(output).toContain('Ready for production? Run:');
+    expect(output).not.toContain('For production');
     expect(output).toContain(
-      'For production, use your own Google OAuth credentials.',
+      'instant-cli auth client update --name google-web',
     );
-    expect(output).not.toContain('instant-cli auth client update');
     expect(output).not.toContain('Add this redirect URI in Google Console');
   });
 
@@ -287,9 +288,8 @@ describe('web: dev credentials', () => {
     expect(output).toContain('Credentials: Instant dev credentials');
     expect(output).toContain('No Google Console setup required');
     expect(output).toContain(
-      'For production, use your own Google OAuth credentials.',
+      'instant-cli auth client update --name google-web',
     );
-    expect(output).not.toContain('instant-cli auth client update');
     expect(output).not.toContain('Add this redirect URI in Google Console');
   });
 
