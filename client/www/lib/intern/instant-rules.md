@@ -13,6 +13,8 @@ Instant provides client-side JS SDKs and an admin SDK:
 - `@instantdb/core` --- vanilla JS
 - `@instantdb/react` --- React
 - `@instantdb/react-native` --- React Native / Expo
+- `@instantdb/solidjs` --- SolidJS
+- `@instantdb/svelte` --- Svelte
 - `@instantdb/admin` --- backend scripts / servers
 
 When installing, always check what package manager the project uses (npm, pnpm,
