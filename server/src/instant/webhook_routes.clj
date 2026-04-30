@@ -51,9 +51,14 @@
         data (webhook-model/webhook-data-for-isn {:app-id app-id
                                                   :isn isn
                                                   :webhook webhook})]
-    (response/ok {:data data
-                  :idempotency-key (webhook-model/payload-idempotency-key {:webhook-id (:id webhook)
-                                                                           :isn isn})})))
+    (-> (response/ok {:data data
+                      :idempotency-key (webhook-model/payload-idempotency-key
+                                        {:webhook-id (:id webhook)
+                                         :isn isn})})
+        (assoc :headers {"Cache-Control" "no-store, private"
+                         "Pragma" "no-cache"
+                         "Expires" "0"
+                         "Vary" "Authorization"}))))
 
 (defroutes routes
   (GET "/.well-known/webhooks/jwks.json" [] get-signing-keys)
