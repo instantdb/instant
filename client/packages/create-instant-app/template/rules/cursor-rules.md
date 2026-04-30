@@ -19,6 +19,8 @@ Instant provides client-side JS SDKs and an admin SDK:
 - `@instantdb/core` --- vanilla JS
 - `@instantdb/react` --- React
 - `@instantdb/react-native` --- React Native / Expo
+- `@instantdb/solidjs` --- SolidJS
+- `@instantdb/svelte` --- Svelte
 - `@instantdb/admin` --- backend scripts / servers
 
 When installing, always check what package manager the project uses (npm, pnpm,
@@ -260,6 +262,40 @@ db.transact(
 // Query through the relationship to get the URL
 const { data } = db.useQuery({ posts: { image: {} } });
 <img src={post.image.url} />
+```
+
+# CRITICAL Rooms Guidelines
+
+CRITICAL: Hooks for presence and topics live on `db.rooms` and take the room as the first arg. The room object itself has no `usePresence` or `publishPresence` methods.
+
+Rooms host two ephemeral primitives: presence (synced state) and topics (fire-and-forget broadcasts).
+
+## Presence (synced state)
+
+Use presence for state that should sync across peers in a room but doesn't need to persist (cursor position, who's online, current selection).
+
+```tsx
+const room = db.room('chat', 'main');
+const { user, peers, publishPresence } = db.rooms.usePresence(room, {
+  initialPresence: { x: 0, y: 0 },
+});
+// peers is keyed by peerId, not an array. Use Object.values(peers) to iterate
+publishPresence({ x: 50, y: 50 });
+```
+
+## Topics (fire-and-forget broadcasts)
+
+Use topics for ephemeral signals you don't need persisted, like live reactions. Unlike presence, topic payloads aren't retained. Peers only see events fired while they're listening.
+
+```tsx
+const room = db.room('chat', 'main');
+
+const publishEmoji = db.rooms.usePublishTopic(room, 'emoji');
+publishEmoji({ name: 'fire' });
+
+db.rooms.useTopicEffect(room, 'emoji', (payload) => {
+  animateEmoji(payload.name);
+});
 ```
 
 # Best Practices
