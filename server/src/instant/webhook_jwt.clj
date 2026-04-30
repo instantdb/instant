@@ -94,7 +94,7 @@
                                                            (.claim "app-id" (str app-id))
                                                            (.claim "isn" (str isn))
                                                            (.build))
-                                                       nil)
+                                                       required-claims)
             claims (.getJWTClaimsSet parsed-jwt)]
         (try
           (.verify claims-verifier claims nil)
