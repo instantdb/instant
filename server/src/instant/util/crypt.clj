@@ -3,10 +3,9 @@
             [instant.util.memoize :refer [safe-memoize]]
             [instant.util.uuid :as uuid-util])
   (:import
-   (java.nio ByteBuffer)
    (java.security KeyPair KeyFactory KeyPairGenerator MessageDigest PrivateKey)
    (java.security.spec PKCS8EncodedKeySpec)
-   (java.util Arrays Base64 UUID)
+   (java.util Base64 UUID)
    (javax.crypto Mac)
    (javax.crypto.spec SecretKeySpec)
    (com.google.crypto.tink Aead JsonKeysetReader TinkJsonProtoKeysetFormat
