@@ -46,7 +46,12 @@ export const OAuthClient = Schema.Struct({
   discovery_endpoint: NullableString,
   redirect_to: NullableString,
   meta: Schema.Any.pipe(Schema.optional),
+  use_shared_credentials: Schema.Union(Schema.Boolean, Schema.Null).pipe(
+    Schema.optional,
+  ),
 });
+
+export type OAuthClientType = Schema.Schema.Type<typeof OAuthClient>;
 
 export const AddOAuthProviderResponse = Schema.Struct({
   provider: OAuthServiceProvider,
@@ -111,6 +116,7 @@ export const addOAuthClient = Effect.fn(function* (params: {
   discoveryEndpoint?: string;
   redirectTo?: string;
   meta?: unknown;
+  useSharedCredentials?: boolean;
 }) {
   const http = (yield* InstantHttpAuthed).pipe(withCommand('auth'));
   const targetAppId = params.appId ?? (yield* CurrentApp).appId;
@@ -127,7 +133,32 @@ export const addOAuthClient = Effect.fn(function* (params: {
         discovery_endpoint: params.discoveryEndpoint,
         redirect_to: params.redirectTo,
         meta: params.meta,
+        use_shared_credentials: params.useSharedCredentials,
       }),
+    })
+    .pipe(
+      Effect.flatMap(HttpClientResponse.schemaBodyJson(AddOAuthClientResponse)),
+    );
+});
+
+export const updateOAuthClient = Effect.fn(function* (params: {
+  appId?: string;
+  oauthClientId: string;
+  body: {
+    client_id?: string;
+    client_secret?: string;
+    redirect_to?: string;
+    discovery_endpoint?: string;
+    meta?: unknown;
+    use_shared_credentials?: boolean;
+  };
+}) {
+  const http = (yield* InstantHttpAuthed).pipe(withCommand('auth'));
+  const targetAppId = params.appId ?? (yield* CurrentApp).appId;
+
+  return yield* http
+    .post(`/dash/apps/${targetAppId}/oauth_clients/${params.oauthClientId}`, {
+      body: HttpBody.unsafeJson(params.body),
     })
     .pipe(
       Effect.flatMap(HttpClientResponse.schemaBodyJson(AddOAuthClientResponse)),
@@ -234,6 +265,38 @@ export const getClientNameAndProvider = Effect.fn(function* (
     });
   }
   return { provider, clientName };
+});
+
+export const findClientByIdOrName = Effect.fn(function* (params: {
+  id?: string;
+  name?: string;
+}) {
+  if (params.id && params.name) {
+    return yield* BadArgsError.make({
+      message: 'Cannot specify both --id and --name',
+    });
+  }
+  if (!params.id && !params.name) {
+    return yield* BadArgsError.make({
+      message: 'Must specify --id or --name',
+    });
+  }
+
+  const auth = yield* getAppsAuth();
+  const clients = auth.oauth_clients ?? [];
+
+  const client = params.id
+    ? clients.find((c) => c.id === params.id)
+    : clients.find((c) => c.client_name === params.name);
+
+  if (!client) {
+    const lookup = params.id ? `id ${params.id}` : `name ${params.name}`;
+    return yield* BadArgsError.make({
+      message: `OAuth client not found: ${lookup}`,
+    });
+  }
+
+  return { client, auth };
 });
 
 export const removeAuthorizedOrigin = Effect.fn(function* (originId: string) {

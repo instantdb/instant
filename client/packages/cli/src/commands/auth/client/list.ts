@@ -36,6 +36,9 @@ export const authClientListCmd = Effect.fn(function* (
     );
     yield* Effect.log(`  ID: ${client.id}`);
     yield* Effect.log(`  Client id: ${formatValue(client.client_id)}`);
+    if (client.use_shared_credentials) {
+      yield* Effect.log(`  Mode: shared dev credentials`);
+    }
     yield* Effect.log(`  Redirect URL: ${formatValue(client.redirect_to)}`);
   }
 });

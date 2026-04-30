@@ -96,10 +96,90 @@ const selectGoogleAppType = (value: unknown) =>
     );
   });
 
+type GoogleAppType = typeof GoogleAppTypeSchema.Type;
+
+const isFlagSet = (opts: Record<string, unknown>, ...keys: string[]) =>
+  keys.some((k) => opts[k] !== undefined && opts[k] !== null && opts[k] !== '');
+
+const selectGoogleCredentialMode = Effect.fn(function* (
+  opts: Record<string, unknown>,
+  appType: GoogleAppType,
+) {
+  // Shared credentials are only supported for Google web flows.
+  if (appType !== 'web') {
+    if (isFlagSet(opts, 'use-shared-credentials', 'useSharedCredentials')) {
+      return yield* BadArgsError.make({
+        message:
+          '--use-shared-credentials is only supported for Google web flows.',
+      });
+    }
+    return 'custom' as const;
+  }
+
+  const sharedFlag = isFlagSet(
+    opts,
+    'use-shared-credentials',
+    'useSharedCredentials',
+  );
+  const customFlags = isFlagSet(
+    opts,
+    'client-id',
+    'clientId',
+    'client-secret',
+    'clientSecret',
+    'custom-redirect-uri',
+    'customRedirectUri',
+  );
+
+  if (sharedFlag && customFlags) {
+    return yield* BadArgsError.make({
+      message:
+        '--use-shared-credentials is mutually exclusive with --client-id, --client-secret, and --custom-redirect-uri.',
+    });
+  }
+
+  if (sharedFlag) return 'shared' as const;
+  if (customFlags) return 'custom' as const;
+
+  const { yes } = yield* GlobalOpts;
+  if (yes) {
+    yield* Effect.log(chalk.bold("Using Instant's shared dev credentials."));
+    return 'shared' as const;
+  }
+
+  const picked = yield* runUIEffect(
+    new UI.Select({
+      options: [
+        {
+          label:
+            "Use Instant's shared dev credentials" +
+            chalk.dim(' (recommended for development)'),
+          value: 'shared',
+        },
+        { label: 'Use my own', value: 'custom' },
+      ],
+      promptText: 'How do you want to set up credentials?',
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+      defaultValue: 'shared',
+    }),
+  ).pipe(
+    Effect.catchTag('UIError', (e) =>
+      BadArgsError.make({ message: `UI error: ${e.message}` }),
+    ),
+  );
+
+  return picked === 'shared' ? ('shared' as const) : ('custom' as const);
+});
+
 const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
   // This one requires special logic for getting client name
   // because the suggested name includes the app type
   const appType = yield* selectGoogleAppType(opts['app-type']);
+  const credentialMode = yield* selectGoogleCredentialMode(opts, appType);
+
   const { auth, provider } = yield* getOrCreateProvider('google');
   const usedClientNames = new Set(
     (auth.oauth_clients ?? []).map((client) => client.client_name),
@@ -123,6 +203,42 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     return yield* BadArgsError.make({
       message: `The unique name '${clientName}' is already in use.`,
     });
+  }
+
+  if (!clientName) {
+    return yield* BadArgsError.make({ message: 'Client name is required.' }); // Should never reach this
+  }
+
+  if (credentialMode === 'shared') {
+    const response = yield* addOAuthClient({
+      providerId: provider.id,
+      clientName,
+      authorizationEndpoint: GOOGLE_AUTHORIZATION_ENDPOINT,
+      tokenEndpoint: GOOGLE_TOKEN_ENDPOINT,
+      discoveryEndpoint: GOOGLE_DISCOVERY_ENDPOINT,
+      useSharedCredentials: true,
+      meta: {
+        appType,
+        skipNonceChecks: true,
+      },
+    });
+
+    yield* Effect.log(
+      boxen(
+        [
+          `Google OAuth client created: ${response.client.client_name}`,
+          `App type: ${appType}   Mode: shared dev credentials`,
+          `ID: ${response.client.id}`,
+          '',
+          'Redirect origins enabled: http://localhost, https://localhost, exp://',
+          chalk.dim(
+            'Capped at 100 sign-ups. Run `instant-cli auth client update` with --client-id and --client-secret before going to production.',
+          ),
+        ].join('\n'),
+        { dimBorder: true, padding: { right: 1, left: 1 } },
+      ),
+    );
+    return;
   }
 
   const clientId = yield* optOrPrompt(opts['client-id'], {
@@ -179,9 +295,6 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
     skipMessage: 'Provided custom redirect URI when not using web app type.',
   });
 
-  if (!clientName) {
-    return yield* BadArgsError.make({ message: 'Client name is required.' }); // Should never reach this
-  }
   const redirectUri = customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
 
   const response = yield* addOAuthClient({

@@ -660,6 +660,7 @@
         redirect-to (-> req :body :redirect_to string-util/coerce-non-blank-str)
         client-id (ex/get-optional-param! req [:body :client_id] string-util/coerce-non-blank-str)
         client-secret (ex/get-optional-param! req [:body :client_secret] string-util/coerce-non-blank-str)
+        discovery-endpoint (ex/get-optional-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str)
         _ (when redirect-to
             (ex/assert-valid!
              :redirect_to
@@ -680,11 +681,12 @@
                  (contains? (:body req) :redirect_to) (assoc :redirect-to redirect-to)
                  client-id (assoc :client-id client-id)
                  client-secret (assoc :client-secret client-secret)
+                 discovery-endpoint (assoc :discovery-endpoint discovery-endpoint)
                  (some? use-shared-credentials?) (assoc :use-shared-credentials? use-shared-credentials?))
         client (app-oauth-client-model/update! params)]
     (response/ok {:client (select-keys client [:id :provider_id :client_name
                                                :client_id :created_at :meta :discovery_endpoint
-                                               :use_shared_credentials])})))
+                                               :redirect_to :use_shared_credentials])})))
 
 (defn oauth-clients-delete [req]
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/write req)

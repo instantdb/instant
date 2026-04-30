@@ -65,6 +65,21 @@
 (defn update!
   ([params] (update! (aurora/conn-pool :write) params))
   ([conn {:keys [id app-id] :as params}]
+   (when-let [discovery-endpoint (:discovery-endpoint params)]
+     (try
+       (when-not (-> (oauth/fetch-discovery discovery-endpoint)
+                     :data
+                     :issuer
+                     string?)
+         (ex/throw-validation-err!
+          :discovery-endpoint
+          discovery-endpoint
+          [{:message "Could not validate discovery endpoint."}]))
+       (catch Exception _e
+         (ex/throw-validation-err!
+          :discovery-endpoint
+          discovery-endpoint
+          [{:message "Could not validate discovery endpoint."}]))))
    (update-op
     conn
     {:app-id app-id
@@ -81,6 +96,9 @@
                            [[:add-triple id (resolve-id :encryptedClientSecret)
                              (crypt-util/aead-encrypt-hex (:client-secret params)
                                                           (uuid-util/->bytes id))]])
+                         (when (contains? params :discovery-endpoint)
+                           [[:add-triple id (resolve-id :discoveryEndpoint)
+                             (:discovery-endpoint params)]])
                          (when (contains? params :use-shared-credentials?)
                            [[:add-triple id (resolve-id :useSharedCredentials)
                              (boolean (:use-shared-credentials? params))]])))

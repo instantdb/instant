@@ -29,6 +29,7 @@ import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.ts';
 import { authClientAddCmd } from './commands/auth/client/add.ts';
 import { authClientListCmd } from './commands/auth/client/list.ts';
 import { authClientDeleteCmd } from './commands/auth/client/delete.ts';
+import { authClientUpdateCmd } from './commands/auth/client/update.ts';
 import { authOriginListCmd } from './commands/auth/origin/list.ts';
 import { authOriginDeleteCmd } from './commands/auth/origin/delete.ts';
 import { authOriginAddCmd } from './commands/auth/origin/add.ts';
@@ -104,14 +105,19 @@ export const authClientAddDef = authClient
     '-a --app <app-id>',
     'App ID to modify. Defaults to *_INSTANT_APP_ID in .env',
   )
+  .option(
+    '--use-shared-credentials',
+    "Use Instant's shared dev credentials (Google web only)",
+  )
   .addHelpText(
     'after',
     `
 Provider Specific Options:
   Google:
-   --app-type       web|ios|android|button-for-web
-   --client-id
-   --client-secret                      (web only)
+   --app-type                 web|ios|android|button-for-web
+   --use-shared-credentials   (web only, skips client-id/secret/redirect)
+   --client-id                (omit when using shared credentials)
+   --client-secret            (web only, omit when using shared credentials)
    --custom-redirect-uri      (optional, web only)
   GitHub:
    --client-id
@@ -170,6 +176,60 @@ export const authClientListDef = authClient
             allowAdminToken: true,
             // Silence "searching for instant sdk.. logs for json output"
           }).pipe(Layer.annotateLogs('silent', !!opts.json)),
+        ),
+      ),
+    );
+  });
+
+export const authClientUpdateDef = authClient
+  .command('update')
+  .allowExcessArguments(true)
+  .allowUnknownOption(true)
+  .option('--id <client-id>', 'Client ID to update')
+  .option('--name <client-name>', 'Client name to update')
+  .option(
+    '-a --app <app-id>',
+    'App ID to modify. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .addHelpText(
+    'after',
+    `
+Provider Specific Options:
+  Google:
+   --client-id
+   --client-secret
+   --use-shared-credentials   (switch to Instant's shared dev credentials)
+   --custom-redirect-uri
+  GitHub / LinkedIn:
+   --client-id
+   --client-secret
+   --custom-redirect-uri
+  Apple:
+   --services-id
+   --private-key-file
+   --team-id
+   --key-id
+   --custom-redirect-uri
+  Clerk:
+   --publishable-key
+  Firebase:
+   --project-id
+`,
+  )
+  .action((opts) => {
+    opts = {
+      ...opts,
+      ...minimist(process.argv),
+    };
+    return runCommandEffect(
+      authClientUpdateCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
         ),
       ),
     );

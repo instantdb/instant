@@ -242,6 +242,92 @@ describe('web: success', () => {
 
 // -- ios: forbidden flags and success --
 
+describe('shared dev credentials', () => {
+  const sharedFlags = new Map([
+    ['type', 'google'],
+    ['app-type', 'web'],
+    ['name', 'google-web'],
+  ]);
+
+  test('--yes with no creds and web app-type → auto-defaults to shared', async () => {
+    await run(sharedFlags, { yes: true });
+    expect(addedClients).toHaveLength(1);
+    expect(addedClients[0]).toMatchObject({
+      clientName: 'google-web',
+      useSharedCredentials: true,
+    });
+    expect(addedClients[0].clientId).toBeUndefined();
+    expect(addedClients[0].clientSecret).toBeUndefined();
+    expect(addedClients[0].redirectTo).toBeUndefined();
+    const output = logs.join('\n');
+    expect(output).toContain("Using Instant's shared dev credentials");
+    expect(output).toContain('Mode: shared dev credentials');
+    expect(output).toContain('http://localhost');
+    expect(output).toContain('Capped at 100 sign-ups');
+    expect(output).not.toContain('Add this redirect URI in Google Console');
+  });
+
+  test('--use-shared-credentials → creates shared client', async () => {
+    await run(withEntry(sharedFlags, 'use-shared-credentials', 'true'), {
+      yes: true,
+    });
+    expect(addedClients).toHaveLength(1);
+    expect(addedClients[0]).toMatchObject({
+      useSharedCredentials: true,
+    });
+  });
+
+  test('--use-shared-credentials + --client-id → mutually-exclusive error', async () => {
+    await run(
+      withEntry(
+        withEntry(sharedFlags, 'use-shared-credentials', 'true'),
+        'client-id',
+        'foo',
+      ),
+      { yes: true },
+    );
+    expect(logs.join('\n')).toContain('mutually exclusive');
+    expect(addedClients).toHaveLength(0);
+  });
+
+  test('--use-shared-credentials with ios app-type → error', async () => {
+    await run(
+      withEntry(
+        new Map([
+          ['type', 'google'],
+          ['app-type', 'ios'],
+          ['name', 'google-ios'],
+        ]),
+        'use-shared-credentials',
+        'true',
+      ),
+      { yes: true },
+    );
+    expect(logs.join('\n')).toContain('only supported for Google web flows');
+    expect(addedClients).toHaveLength(0);
+  });
+
+  test('--client-id keeps custom mode (no auto-default)', async () => {
+    await run(webFlags, { yes: true });
+    expect(addedClients[0]).toMatchObject({
+      clientId: '123456.apps.googleusercontent.com',
+    });
+    expect(addedClients[0].useSharedCredentials).toBeUndefined();
+  });
+
+  test('interactive without creds → prompts credential-mode selector', async () => {
+    mockPromptReturn = 'shared';
+    await run(sharedFlags, { yes: false });
+    const modePrompt = prompts.find(
+      (p: any) =>
+        p?.params?.promptText === 'How do you want to set up credentials?',
+    );
+    expect(modePrompt).toBeDefined();
+    expect(addedClients).toHaveLength(1);
+    expect(addedClients[0]).toMatchObject({ useSharedCredentials: true });
+  });
+});
+
 describe('ios', () => {
   test('--client-secret → error (not supported)', async () => {
     await run(withEntry(iosFlags, 'client-secret', 'secret'), { yes: true });
