@@ -36,6 +36,10 @@ const NullableString = Schema.Union(Schema.String, Schema.Null).pipe(
   Schema.optional,
 );
 
+const NullableBoolean = Schema.Union(Schema.Boolean, Schema.Null).pipe(
+  Schema.optional,
+);
+
 export const OAuthClient = Schema.Struct({
   id: Schema.String,
   client_name: Schema.String,
@@ -46,7 +50,10 @@ export const OAuthClient = Schema.Struct({
   discovery_endpoint: NullableString,
   redirect_to: NullableString,
   meta: Schema.Any.pipe(Schema.optional),
+  use_shared_credentials: NullableBoolean,
 });
+
+export type OAuthClient = Schema.Schema.Type<typeof OAuthClient>;
 
 export const AddOAuthProviderResponse = Schema.Struct({
   provider: OAuthServiceProvider,
@@ -111,6 +118,7 @@ export const addOAuthClient = Effect.fn(function* (params: {
   discoveryEndpoint?: string;
   redirectTo?: string;
   meta?: unknown;
+  useSharedCredentials?: boolean;
 }) {
   const http = (yield* InstantHttpAuthed).pipe(withCommand('auth'));
   const targetAppId = params.appId ?? (yield* CurrentApp).appId;
@@ -127,6 +135,7 @@ export const addOAuthClient = Effect.fn(function* (params: {
         discovery_endpoint: params.discoveryEndpoint,
         redirect_to: params.redirectTo,
         meta: params.meta,
+        use_shared_credentials: params.useSharedCredentials,
       }),
     })
     .pipe(

@@ -4,6 +4,11 @@ import type { authClientListDef, OptsFromCommand } from '../../../index.ts';
 import { getAppsAuth } from '../../../lib/oauth.ts';
 
 const formatValue = (value: string | null | undefined) => value ?? 'n/a';
+const appType = (meta: unknown) => {
+  if (!meta || typeof meta !== 'object') return undefined;
+  const value = (meta as Record<string, unknown>).appType;
+  return typeof value === 'string' ? value : undefined;
+};
 
 export const authClientListCmd = Effect.fn(function* (
   _opts: OptsFromCommand<typeof authClientListDef>,
@@ -34,8 +39,27 @@ export const authClientListCmd = Effect.fn(function* (
     yield* Effect.log(
       `  Provider: ${provider?.provider_name ?? client.provider_id}`,
     );
+    const clientAppType = appType(client.meta);
+    if (clientAppType) {
+      yield* Effect.log(`  App type: ${clientAppType}`);
+    }
+    yield* Effect.log(
+      `  Credentials: ${client.use_shared_credentials ? 'Instant dev credentials' : 'custom'}`,
+    );
     yield* Effect.log(`  ID: ${client.id}`);
-    yield* Effect.log(`  Client id: ${formatValue(client.client_id)}`);
-    yield* Effect.log(`  Redirect URL: ${formatValue(client.redirect_to)}`);
+    yield* Effect.log(
+      `  Client id: ${
+        client.use_shared_credentials
+          ? 'managed by Instant'
+          : formatValue(client.client_id)
+      }`,
+    );
+    yield* Effect.log(
+      `  Redirect URL: ${
+        client.use_shared_credentials
+          ? 'localhost and Expo allowed automatically'
+          : formatValue(client.redirect_to)
+      }`,
+    );
   }
 });
