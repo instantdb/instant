@@ -17,7 +17,7 @@ The easiest way to get started is to run `make docker-compose`. That command wil
 
 If you want to run Instant locally, first install dependencies:
 
-1. Install Java 22 for [mac](https://docs.aws.amazon.com/corretto/latest/corretto-22-ug/macos-install.html), [linux](https://docs.aws.amazon.com/corretto/latest/corretto-22-ug/generic-linux-install.html), or [windows](https://docs.aws.amazon.com/corretto/latest/corretto-22-ug/windows-install.html).
+1. Install Java 26 for [mac](https://docs.aws.amazon.com/corretto/latest/corretto-26-ug/macos-install.html), [linux](https://docs.aws.amazon.com/corretto/latest/corretto-26-ug/generic-linux-install.html), or [windows](https://docs.aws.amazon.com/corretto/latest/corretto-26-ug/windows-install.html).
 
 2. Install Clojure [https://clojure.org/guides/install_clojure](https://clojure.org/guides/install_clojure).
 
