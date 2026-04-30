@@ -64,7 +64,7 @@
                                          (when-not (.isEmpty webhook-ids)
                                            webhook-ids))))))
 
-(def ^{:tag 'Cache} webhook-with-etypes-cache
+(def ^{:tag Cache} webhook-with-etypes-cache
   (cache/make {:max-size 2048
                :on-remove (fn [_k webhook _]
                             (remove-attr-listener webhook))}))
