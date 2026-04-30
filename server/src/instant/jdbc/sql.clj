@@ -93,6 +93,7 @@
       "bytea[][]" (.setArray s i (create-2d-pg-array s "bytea" byte-class v))
       "isn[]" (.setArray s i (create-pg-array s "isn" String (map isn->composite-str v)))
       "history_storage[]" (.setArray s i (create-pg-array s "history_storage" String v))
+      "webhook_action[]" (.setArray s i (create-pg-array s "webhook_action" String v))
       (.setObject s i (doto (PGobject.)
                         (.setType pgtype)
                         (.setValue (->json v)))))))
