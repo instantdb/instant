@@ -130,7 +130,7 @@ export const stripeCustomerPortalURI = isDev
   ? stripeDevCustomerPortalURI
   : stripeProdCustomerPortalURI;
 
-export function getLocal(k: string) {
+export function getLocal<T = any>(k: string): T | null {
   if (!isBrowser) {
     return null;
   }
@@ -144,7 +144,7 @@ export function getLocal(k: string) {
   }
 }
 
-export function setLocal(k: string, v: any) {
+export function setLocal<T = any>(k: string, v: T) {
   if (!isBrowser) {
     return;
   }
