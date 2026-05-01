@@ -15,7 +15,8 @@ import {
   findName,
   getClientNameAndProvider,
   getOrCreateProvider,
-  type OAuthClient,
+  GoogleAppTypeSchema,
+  OAuthClient,
 } from '../../../lib/oauth.ts';
 import {
   DEFAULT_OAUTH_CALLBACK_URL,
@@ -43,14 +44,8 @@ export const ClientTypeSchema = Schema.Literal(
   'firebase',
 );
 
-const GoogleAppTypeSchema = Schema.Literal(
-  'web',
-  'ios',
-  'android',
-  'button-for-web',
-);
-
 const isTrueFlag = (value: unknown) => value === true || value === 'true';
+const hasFlag = (opts: Record<string, unknown>, flag: string) => flag in opts;
 
 const selectGoogleAppType = (value: unknown) =>
   Effect.gen(function* () {
@@ -133,16 +128,16 @@ const selectGoogleCredentialMode = Effect.fn(function* () {
 const resolveGoogleCredentialMode = Effect.fn(function* ({
   appType,
   opts,
-  yes,
 }: {
   appType: typeof GoogleAppTypeSchema.Type;
   opts: Record<string, unknown>;
-  yes: boolean;
-}) {
+}): Effect.fn.Return<'custom' | 'dev', BadArgsError, GlobalOpts> {
+  const { yes } = yield* GlobalOpts;
   const devCredentialsFlag = isTrueFlag(opts['dev-credentials']);
-  const hasProvidedSomeCustomCredentials = Boolean(
-    opts['client-id'] || opts['client-secret'] || opts['custom-redirect-uri'],
-  );
+  const hasProvidedSomeCustomCredentials =
+    hasFlag(opts, 'client-id') ||
+    hasFlag(opts, 'client-secret') ||
+    hasFlag(opts, 'custom-redirect-uri');
 
   if (devCredentialsFlag && appType !== 'web') {
     return yield* BadArgsError.make({
@@ -182,7 +177,7 @@ const printGoogleDevCredentialsClient = Effect.fn(function* ({
   client,
 }: {
   appType: typeof GoogleAppTypeSchema.Type;
-  client: OAuthClient;
+  client: typeof OAuthClient.Type;
 }) {
   yield* Effect.log(
     boxen(
@@ -195,7 +190,7 @@ const printGoogleDevCredentialsClient = Effect.fn(function* ({
         'No Google Console setup required.',
         'Works on localhost and Expo during development.',
         '',
-        'For production, use your own Google OAuth credentials.',
+        chalk.bold('For production, use your own Google OAuth credentials.'),
       ].join('\n'),
       { dimBorder: true, padding: { right: 1, left: 1 } },
     ),
@@ -210,7 +205,7 @@ const printGoogleCustomCredentialsClient = Effect.fn(function* ({
   redirectUri,
 }: {
   appType: typeof GoogleAppTypeSchema.Type;
-  client: OAuthClient;
+  client: typeof OAuthClient.Type;
   clientId: string | undefined;
   customRedirectUri: string | undefined;
   redirectUri: string | undefined;
@@ -218,12 +213,13 @@ const printGoogleCustomCredentialsClient = Effect.fn(function* ({
   const redirectMessages: string[] = [];
   if (appType === 'web' && redirectUri) {
     redirectMessages.push(
-      chalk.bold(
-        `\nAdd this redirect URI in Google Console:\n${redirectUri}\n`,
-      ),
+      '',
+      chalk.bold('Add this redirect URI in Google Console:'),
+      chalk.bold(redirectUri),
     );
     if (customRedirectUri) {
       redirectMessages.push(
+        '',
         `Your custom redirect must forward to ${chalk.bold(DEFAULT_OAUTH_CALLBACK_URL)} with all query parameters preserved.`,
       );
       redirectMessages.push(
@@ -250,11 +246,9 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
   // This one requires special logic for getting client name
   // because the suggested name includes the app type
   const appType = yield* selectGoogleAppType(opts['app-type']);
-  const { yes } = yield* GlobalOpts;
   const credentialMode = yield* resolveGoogleCredentialMode({
     appType,
     opts,
-    yes,
   });
   const useSharedCredentials = credentialMode === 'dev';
 

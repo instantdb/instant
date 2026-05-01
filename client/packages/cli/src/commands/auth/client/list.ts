@@ -4,11 +4,6 @@ import type { authClientListDef, OptsFromCommand } from '../../../index.ts';
 import { getAppsAuth } from '../../../lib/oauth.ts';
 
 const formatValue = (value: string | null | undefined) => value ?? 'n/a';
-const appType = (meta: unknown) => {
-  if (!meta || typeof meta !== 'object') return undefined;
-  const value = (meta as Record<string, unknown>).appType;
-  return typeof value === 'string' ? value : undefined;
-};
 
 export const authClientListCmd = Effect.fn(function* (
   _opts: OptsFromCommand<typeof authClientListDef>,
@@ -39,7 +34,7 @@ export const authClientListCmd = Effect.fn(function* (
     yield* Effect.log(
       `  Provider: ${provider?.provider_name ?? client.provider_id}`,
     );
-    const clientAppType = appType(client.meta);
+    const clientAppType = client.meta?.appType;
     if (clientAppType) {
       yield* Effect.log(`  App type: ${clientAppType}`);
     }

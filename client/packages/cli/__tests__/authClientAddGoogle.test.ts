@@ -249,6 +249,28 @@ const webDevFlags = new Map([
 ]);
 
 describe('web: dev credentials', () => {
+  test('--dev-credentials → creates dev credentials client', async () => {
+    await run(withEntry(webDevFlags, 'dev-credentials', 'true'), { yes: true });
+    expect(addedClients).toHaveLength(1);
+    expect(addedClients[0]).toMatchObject({
+      clientName: 'google-web',
+      useSharedCredentials: true,
+      discoveryEndpoint:
+        'https://accounts.google.com/.well-known/openid-configuration',
+    });
+    expect(addedClients[0].clientId).toBeUndefined();
+    expect(addedClients[0].clientSecret).toBeUndefined();
+    expect(addedClients[0].redirectTo).toBeUndefined();
+    const output = logs.join('\n');
+    expect(output).toContain('Credentials: Instant dev credentials');
+    expect(output).toContain('No Google Console setup required');
+    expect(output).toContain(
+      'For production, use your own Google OAuth credentials.',
+    );
+    expect(output).not.toContain('instant-cli auth client update');
+    expect(output).not.toContain('Add this redirect URI in Google Console');
+  });
+
   test('--yes with no Google credentials → creates dev credentials client', async () => {
     await run(webDevFlags, { yes: true });
     expect(addedClients).toHaveLength(1);
@@ -273,11 +295,7 @@ describe('web: dev credentials', () => {
 
   test('--dev-credentials with custom credential flags → error', async () => {
     await run(
-      new Map([
-        ...webDevFlags,
-        ['dev-credentials', 'true'],
-        ['client-id', '123456.apps.googleusercontent.com'],
-      ]),
+      new Map([...webDevFlags, ['dev-credentials', 'true'], ['client-id', '']]),
       { yes: true },
     );
     expect(logs.join('\n')).toContain(

@@ -32,12 +32,28 @@ export const OAuthServiceProvider = Schema.Struct({
   provider_name: Schema.String,
 });
 
+export const GoogleAppTypeSchema = Schema.Literal(
+  'web',
+  'ios',
+  'android',
+  'button-for-web',
+);
+
 const NullableString = Schema.Union(Schema.String, Schema.Null).pipe(
   Schema.optional,
 );
 
 const NullableBoolean = Schema.Union(Schema.Boolean, Schema.Null).pipe(
   Schema.optional,
+);
+
+const OAuthClientMeta = Schema.Struct({
+  // Currently the CLI only reads Google app type from meta. Other providers store
+  // different meta shapes, so keep the rest open until we have a clean
+  // top-level discriminator for a full provider-specific union.
+  appType: GoogleAppTypeSchema.pipe(Schema.optional),
+}).pipe(
+  Schema.extend(Schema.Record({ key: Schema.String, value: Schema.Any })),
 );
 
 export const OAuthClient = Schema.Struct({
@@ -49,11 +65,9 @@ export const OAuthClient = Schema.Struct({
   token_endpoint: NullableString,
   discovery_endpoint: NullableString,
   redirect_to: NullableString,
-  meta: Schema.Any.pipe(Schema.optional),
+  meta: Schema.Union(OAuthClientMeta, Schema.Null).pipe(Schema.optional),
   use_shared_credentials: NullableBoolean,
 });
-
-export type OAuthClient = Schema.Schema.Type<typeof OAuthClient>;
 
 export const AddOAuthProviderResponse = Schema.Struct({
   provider: OAuthServiceProvider,
