@@ -44,6 +44,9 @@
 
 (defn test? [] (= :test (get-env)))
 
+(defn self-hosted? []
+  (= "true" (System/getenv "INSTANT_SELF_HOSTED")))
+
 (defn aws-env? []
   (contains? #{:prod :staging} (get-env)))
 

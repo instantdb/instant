@@ -89,6 +89,7 @@ services:
       dockerfile: Dockerfile.self-hosted
     environment:
       WAL_HISTORY_STORAGE: pg
+      INSTANT_SELF_HOSTED: "true"
       DATABASE_URL: "postgresql://${POSTGRES_USER:-instant}:${POSTGRES_PASSWORD:-pass}@postgres:5432/${POSTGRES_DB:-instant}?sslmode=disable"
       INSTANT_BACKEND_URL: ${INSTANT_BACKEND_URL:-http://localhost:8888}
       INSTANT_DASHBOARD_URL: ${INSTANT_DASHBOARD_URL:-http://localhost:3000}

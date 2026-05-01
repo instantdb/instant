@@ -172,28 +172,30 @@
 ;; Outreach
 
 (defn ping-for-outreach [user-id]
-  (let [{user-id :id email :email} (instant-user-model/get-by-id! {:id user-id})
-        outreach (outreach-model/get-by-user-id {:user-id user-id})
-        turn (rand-nth ["Stopa" "Joe"])]
-    (if outreach
-      (log/infof "ignoring outreach for user = %s" user-id)
-      (do
-        (outreach-model/create! {:user-id user-id})
-        (discord/send!
-         config/discord-signups-channel-id
-         (str "🎉 A new user signed up! Say hi to " "`" email "`"))
-        (postmark/send!
-         {:from "Instant Assistant <hello@pm.instantdb.com>"
-          :to "founders@instantdb.com"
-          :reply-to email
-          :subject (str "New sign up! " email " -- turn: " turn)
-          :html
-          (str
-           "<div>
-              <p>Hey hey! We just got a new sign up</p>
-              <p>Email: <a href=\"mailto:" email "\">" email "</a></p>
-              <p>" turn ", it's on you to send the ping :). Research and let's find out why they're peeking at Instant!</p>
-            </div>")})))))
+  (if (config/self-hosted?)
+    (log/infof "skipping signup outreach in self-hosted mode for user = %s" user-id)
+    (let [{user-id :id email :email} (instant-user-model/get-by-id! {:id user-id})
+          outreach (outreach-model/get-by-user-id {:user-id user-id})
+          turn (rand-nth ["Stopa" "Joe"])]
+      (if outreach
+        (log/infof "ignoring outreach for user = %s" user-id)
+        (do
+          (outreach-model/create! {:user-id user-id})
+          (discord/send!
+           config/discord-signups-channel-id
+           (str "🎉 A new user signed up! Say hi to " "`" email "`"))
+          (postmark/send!
+           {:from "Instant Assistant <hello@pm.instantdb.com>"
+            :to "founders@instantdb.com"
+            :reply-to email
+            :subject (str "New sign up! " email " -- turn: " turn)
+            :html
+            (str
+             "<div>
+                <p>Hey hey! We just got a new sign up</p>
+                <p>Email: <a href=\"mailto:" email "\">" email "</a></p>
+                <p>" turn ", it's on you to send the ping :). Research and let's find out why they're peeking at Instant!</p>
+              </div>")}))))))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
