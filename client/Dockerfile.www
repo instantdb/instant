@@ -33,7 +33,7 @@ RUN pnpm turbo prune instant-www --docker
 
 FROM node:${NODE_VERSION} AS builder
 WORKDIR /monorepo
-ARG NEXT_PUBLIC_SELF_HOSTED=false
+ARG NEXT_PUBLIC_SELF_HOSTED=true
 ENV NEXT_PUBLIC_SELF_HOSTED=${NEXT_PUBLIC_SELF_HOSTED}
 COPY --from=pruner /monorepo/out/json/ .
 RUN corepack enable pnpm
@@ -54,7 +54,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV INSTANT_API_URI=
 ENV INSTANT_BACKEND_URL=
-ARG NEXT_PUBLIC_SELF_HOSTED=false
+ARG NEXT_PUBLIC_SELF_HOSTED=true
 ENV NEXT_PUBLIC_SELF_HOSTED=${NEXT_PUBLIC_SELF_HOSTED}
 
 RUN addgroup --system --gid 1001 nodejs && \
