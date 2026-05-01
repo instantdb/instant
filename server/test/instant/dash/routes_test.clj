@@ -1240,3 +1240,36 @@
                   decrypted (app-oauth-client-model/decrypted-client-secret row)]
               (is (= "new-id" (:client_id row)))
               (is (= "new-secret" (crypt-util/secret-value decrypted))))))))))
+
+(deftest update-oauth-client-clears-custom-credentials-when-switching-to-shared
+  (with-user
+    (fn [u]
+      (with-empty-app (:id u)
+        (fn [app]
+          (let [fake-shared [{:provider_name "github"
+                              :client_id "shared-github"
+                              :client_secret (crypt-util/obfuscate "fake")}]]
+            (with-redefs [config/shared-oauth-clients (constantly fake-shared)]
+              (let [provider (create-provider! app u "github")
+                    create-resp (post-oauth-client app u {:provider_id (:id provider)
+                                                          :client_name "github-web"
+                                                          :client_id "old-id"
+                                                          :client_secret "old-secret"
+                                                          :redirect_to "https://example.com/callback"})
+                    _ (is (= 200 (:status create-resp)))
+                    client-id (-> create-resp :body :client :id)
+                    update-resp (post-oauth-client-update app u client-id
+                                                          {:client_id nil
+                                                           :client_secret nil
+                                                           :redirect_to nil
+                                                           :use_shared_credentials true})]
+                (is (= 200 (:status update-resp)))
+                (is (nil? (-> update-resp :body :client :client_id)))
+                (is (nil? (-> update-resp :body :client :redirect_to)))
+                (is (true? (-> update-resp :body :client :use_shared_credentials)))
+                (let [row (app-oauth-client-model/get-by-id {:app-id (:id app)
+                                                             :id (java.util.UUID/fromString client-id)})]
+                  (is (nil? (:client_id row)))
+                  (is (nil? (:client_secret row)))
+                  (is (nil? (:redirect_to row)))
+                  (is (true? (:use_shared_credentials row))))))))))))
