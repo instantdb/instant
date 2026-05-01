@@ -45,7 +45,6 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_BROWSER: "on"
       MINIO_SKIP_CLIENT_CERT_VALIDATION: "on"
-      MINIO_ANONYMOUS_POLICY: "download"
     command: server /data --console-address ":9001" --address ":9000"
     volumes:
       - minio_data:/data
@@ -67,8 +66,7 @@ services:
     entrypoint: >
       /bin/sh -c "
       /usr/bin/mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD;
-      /usr/bin/mc mb local/$$S3_BUCKET;
-      /usr/bin/mc policy set public local/$$S3_BUCKET;
+      /usr/bin/mc mb --ignore-existing local/$$S3_BUCKET;
       exit"
 
   server:

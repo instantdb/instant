@@ -62,6 +62,8 @@ STORAGE_DOMAIN=files.myinstant.com
 
 The _DOMAIN variables are only used by the Caddy reverse proxy so if you are bringing your own reverse proxy, you can ignore them.
 
+The MinIO bucket is private by default. Files are accessed through Instant-generated signed URLs, not anonymous bucket reads.
+
 ### DNS 
 Before running Instant, make sure that you have pointed the subdomain DNS records to the IP address of the server so that when the Caddy reverse proxy starts, it is able to setup TLS certificates automatically.
 
