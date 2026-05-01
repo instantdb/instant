@@ -173,7 +173,7 @@
          (mapcat #(delete-objects s3-client bucket-name (vec %))))))
 
 (defn generate-presigned-url-get
-  [{:keys [access-key secret-key region] :as _signer-creds}
+  [{:keys [access-key secret-key region endpoint path-style?] :as _signer-creds}
    {:keys [app-id
            method
            bucket-name
@@ -198,6 +198,8 @@
      {:access-key access-key
       :secret-key secret-key
       :region region
+      :endpoint endpoint
+      :path-style? path-style?
       :method method
       :bucket bucket-name
       :signing-instant signing-instant
@@ -205,7 +207,7 @@
       :path key})))
 
 (defn generate-presigned-url-put
-  [{:keys [access-key secret-key region] :as _signer-creds}
+  [{:keys [access-key secret-key region endpoint path-style?] :as _signer-creds}
    {:keys [method bucket-name key ^Instant signing-instant ^Duration duration]}]
   (assert (= :put method)
           "put presigned urls are only implemented for :put requests")
@@ -213,6 +215,8 @@
    {:access-key access-key
     :secret-key secret-key
     :region region
+    :endpoint endpoint
+    :path-style? path-style?
     :method method
     :bucket bucket-name
     :signing-instant signing-instant

@@ -44,6 +44,9 @@
 
 (defn test? [] (= :test (get-env)))
 
+(defn self-hosted? []
+  (= "true" (System/getenv "INSTANT_SELF_HOSTED")))
+
 (defn aws-env? []
   (contains? #{:prod :staging} (get-env)))
 
@@ -92,6 +95,20 @@
 
 (defn s3-storage-secret-key []
   (some-> @config-map :s3-storage-secret-key crypt-util/secret-value))
+
+(defn s3-endpoint []
+  (or (System/getenv "S3_ENDPOINT")
+      (some-> @config-map :s3-endpoint)))
+
+(defn s3-public-endpoint []
+  (or (System/getenv "S3_PUBLIC_ENDPOINT")
+      (some-> @config-map :s3-public-endpoint)
+      (s3-endpoint)))
+
+(defn s3-region []
+  (or (System/getenv "AWS_REGION")
+      (some-> @config-map :s3-region)
+      "us-east-1"))
 
 (defn postmark-token []
   (some-> @config-map :postmark-token crypt-util/secret-value))
@@ -197,10 +214,11 @@
 (defn dashboard-origin
   ([] (dashboard-origin {:env (get-env)}))
   ([{:keys [env]}]
-   (case env
-     :prod "https://www.instantdb.com"
-     :staging "https://staging.instantdb.com"
-     "http://localhost:3000")))
+   (or (System/getenv "INSTANT_DASHBOARD_URL")
+       (case env
+         :prod "https://www.instantdb.com"
+         :staging "https://staging.instantdb.com"
+         "http://localhost:3000"))))
 
 ;; ---
 ;; Stripe
@@ -262,10 +280,11 @@
   (-> @config-map :shared-oauth-clients))
 
 (def s3-bucket-name
-  (case (get-env)
-    :prod "instant-storage"
-    :staging "instant-storage-staging"
-    "instantdb-test-bucket"))
+  (or (System/getenv "S3_BUCKET")
+      (case (get-env)
+        :prod "instant-storage"
+        :staging "instant-storage-staging"
+        "instantdb-test-bucket")))
 
 (def s3-wal-history-bucket-name
   (when-not (= "pg" (System/getenv "WAL_HISTORY_STORAGE"))
@@ -319,10 +338,11 @@
         8887)))
 
 (def server-origin
-  (case (get-env)
-    :prod "https://api.instantdb.com"
-    :staging "https://api-staging.instantdb.com"
-    (str "http://localhost:" (get-server-port))))
+  (or (System/getenv "INSTANT_BACKEND_URL")
+      (case (get-env)
+        :prod "https://api.instantdb.com"
+        :staging "https://api-staging.instantdb.com"
+        (str "http://localhost:" (get-server-port)))))
 
 (defn get-nrepl-port []
   (or (env-integer "NREPL_PORT") 6005))

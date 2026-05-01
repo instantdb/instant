@@ -15,7 +15,7 @@
    [clojure.string :as str]
    [instant.util.crypt :as crypt-util])
   (:import
-   (java.net URLEncoder)
+   (java.net URI URLEncoder)
    (java.time ZonedDateTime ZoneId Instant Duration)
    (java.time.format DateTimeFormatter)))
 
@@ -271,6 +271,16 @@
        (if (= region "us-east-1") "s3" (str "s3-" region))
        ".amazonaws.com"))
 
+(defn- uri-port [^URI uri]
+  (let [port (.getPort uri)]
+    (when-not (= -1 port)
+      port)))
+
+(defn- uri-host-header [^URI uri]
+  (if-let [port (uri-port uri)]
+    (str (.getHost uri) ":" port)
+    (.getHost uri)))
+
 (defn amz-credential [{:keys [access-key signing-instant region service]}]
   (str access-key "/"
        (instant->amz-short-date signing-instant) "/" region "/" service "/aws4_request"))
@@ -283,14 +293,21 @@
 
                               method
                               region
+                              endpoint
+                              path-style?
                               bucket
                               ^String path]}]
 
   (let [signing-instant (or signing-instant (Instant/now))
-        host (s3-host region bucket)
         path-with-slash (if (.startsWith path "/")
                           path
                           (str "/" path))
+        endpoint-uri (when endpoint (URI/create endpoint))
+        scheme (if endpoint-uri (.getScheme endpoint-uri) "https")
+        host (if endpoint-uri (uri-host-header endpoint-uri) (s3-host region bucket))
+        url-path (if path-style?
+                   (str "/" bucket path-with-slash)
+                   path-with-slash)
         amz-expires (str (.getSeconds expires-duration))
         query {"X-Amz-Algorithm" sig-algorithm
                "X-Amz-Credential" (amz-credential {:access-key access-key
@@ -309,7 +326,7 @@
                                          :method method
                                          :region region
                                          :service "s3"
-                                         :path path-with-slash
+                                         :path url-path
 
                                          :signing-instant signing-instant
                                          :query query
@@ -317,5 +334,4 @@
                                          :payload unsigned-payload})
         signature (->signature sig-request)
         all-query-params (assoc query "X-Amz-Signature" signature)]
-    (str "https://" host path-with-slash "?" (->canonical-query-str all-query-params))))
-
+    (str scheme "://" host url-path "?" (->canonical-query-str all-query-params))))

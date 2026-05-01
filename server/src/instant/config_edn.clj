@@ -41,6 +41,10 @@
 (s/def ::cloudfront-signing-key (s/keys :req-un [::key-id ::private-key]))
 (s/def ::s3-storage-access-key ::config-value)
 (s/def ::s3-storage-secret-key ::config-value)
+(s/def ::s3-endpoint string?)
+(s/def ::s3-public-endpoint string?)
+(s/def ::s3-region string?)
+(s/def ::s3-bucket-name string?)
 (s/def ::postmark-token ::config-value)
 (s/def ::sendgrid-token ::config-value)
 (s/def ::postmark-account-token ::config-value)
@@ -76,6 +80,10 @@
                                  ::cloudfront-signing-key
                                  ::s3-storage-access-key
                                  ::s3-storage-secret-key
+                                 ::s3-endpoint
+                                 ::s3-public-endpoint
+                                 ::s3-region
+                                 ::s3-bucket-name
                                  ::database-url
                                  ::next-database-cluster-id
                                  ::postmark-token

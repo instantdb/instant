@@ -48,6 +48,7 @@ export default function Document() {
         />
       </Head>
       <body>
+        <script src="/environment.js" />
         <Main />
         <NextScript />
       </body>

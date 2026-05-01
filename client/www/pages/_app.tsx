@@ -1,7 +1,7 @@
 import '../styles/globals.css';
 import '../styles/docs/tailwind.css';
 
-import type { AppProps } from 'next/app';
+import type { AppContext, AppInitialProps, AppProps } from 'next/app';
 import Script from 'next/script';
 import { NuqsAdapter } from 'nuqs/adapters/next/pages';
 import Head from 'next/head';

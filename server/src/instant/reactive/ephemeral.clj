@@ -5,7 +5,7 @@
    [clojure.java.jmx :as jmx]
    [datascript.core :as ds]
    [editscript.core :as editscript]
-   [instant.config :as config]
+   [instant.config :as config :refer [aws-env?]]
    [instant.gauges :as gauges]
    [instant.rate-limit :as rate-limit]
    [instant.reactive.receive-queue :as receive-queue]
@@ -18,22 +18,19 @@
    [instant.util.uuid :as uuid-util]
    [medley.core :as medley])
   (:import
+   (com.hazelcast.cluster Cluster InitialMembershipListener Member)
    (com.hazelcast.config Config)
    (com.hazelcast.core Hazelcast HazelcastInstance)
-   (com.hazelcast.cluster Cluster Member InitialMembershipListener)
    (com.hazelcast.map IMap)
    (com.hazelcast.map.impl DataAwareEntryEvent)
-   (com.hazelcast.map.listener EntryAddedListener
-                               EntryRemovedListener
-                               EntryUpdatedListener)
+   (com.hazelcast.map.listener EntryAddedListener EntryRemovedListener EntryUpdatedListener)
    (com.hazelcast.spi.properties ClusterProperty HazelcastProperty)
-   (com.hazelcast.topic ITopic MessageListener Message)
-
+   (com.hazelcast.topic ITopic Message MessageListener)
    (io.github.bucket4j.grid.hazelcast HazelcastProxyManager)
    (java.time Duration Instant)
    (java.util Map Map$Entry)
+   (java.util.concurrent ConcurrentHashMap Future)
    (java.util.function BiFunction)
-   (java.util.concurrent Future ConcurrentHashMap)
    (javax.management ObjectName)))
 
 ;; ------
@@ -152,8 +149,8 @@
     (.setMemberAttributeConfig config member-attribute-config)
     (.setInstanceName config instance-name)
     (.setEnabled (.getMulticastConfig join-config) false)
-    (case env
-      (:prod :staging)
+    (cond
+      (aws-env?)
       (let [ip (aws-util/get-instance-ip)]
         (.setPublicAddress network-config ip)
         (.setPort network-config (config/get-hz-port))
@@ -164,13 +161,7 @@
           (.setProperty "tag-value" (aws-util/get-environment-tag)))
         (.setEnabled metrics-config true))
 
-      :dev
-      (do
-        (.setEnabled tcp-ip-config true)
-        (.setMembers tcp-ip-config (list "127.0.0.1"))
-        (.setEnabled metrics-config true))
-
-      :test
+      (env = :test)
       (do
         (.setEnabled (.getAutoDetectionConfig join-config) false)
         (.setEnabled aws-config false)
@@ -182,7 +173,13 @@
         (.setEnabled tcp-ip-config false)
         (.setPort network-config 0)
         (.setPortAutoIncrement network-config false)
-        (.setEnabled metrics-config false)))
+        (.setEnabled metrics-config false))
+
+      :else
+      (do
+        (.setEnabled tcp-ip-config true)
+        (.setMembers tcp-ip-config (list "127.0.0.1"))
+        (.setEnabled metrics-config true)))
 
     (.setClusterName config cluster-name)
 

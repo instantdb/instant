@@ -24,6 +24,9 @@ async function fetchStarCount() {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  ...(process.env.NEXT_PUBLIC_SELF_HOSTED === 'true'
+    ? { output: 'standalone' }
+    : {}),
   reactStrictMode: true,
   pageExtensions: ['js', 'jsx', 'ts', 'tsx', 'md'],
   transpilePackages: ['@instantdb/components'],

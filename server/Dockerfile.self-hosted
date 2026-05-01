@@ -1,0 +1,70 @@
+FROM amazoncorretto:26 AS builder
+
+WORKDIR /app
+
+RUN yum -y install tar gzip git unzip
+
+RUN curl -L -O https://github.com/clojure/brew-install/releases/download/1.11.3.1463/linux-install.sh
+
+RUN echo '0c41063a2fefb53a31bc1bc236899955f759c5103dc0495489cdd74bf8f114bb  linux-install.sh' |  sha256sum -c
+
+RUN chmod +x linux-install.sh
+RUN ./linux-install.sh
+
+COPY deps.edn .
+
+RUN clojure -P
+
+COPY . .
+
+RUN clojure -X:deps tree
+
+RUN clojure -T:build uber
+
+FROM amazoncorretto:26
+
+WORKDIR /app
+
+# Install dependencies and golang-migrate
+RUN yum -y install tar gzip && \
+    curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz && \
+    mv migrate /usr/local/bin/migrate && \
+    yum clean all
+
+COPY --from=builder /app/target/instant-standalone.jar ./target/instant-standalone.jar
+COPY --from=builder /app/resources/migrations ./resources/migrations
+RUN mkdir -p /app/resources/config
+
+# Startup script that bootstraps OSS config/migrations then starts the server
+COPY <<'EOF' /app/start.sh
+#!/bin/bash
+set -e
+
+JAVA_FLAGS="${JAVA_OPTS} \
+    --add-modules java.se \
+    --add-exports java.base/jdk.internal.ref=ALL-UNNAMED \
+    --add-opens java.base/java.lang=ALL-UNNAMED \
+    --add-opens java.base/sun.nio.ch=ALL-UNNAMED \
+    --add-opens java.management/sun.management=ALL-UNNAMED \
+    --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED \
+    -Djava.awt.headless=true \
+    -server"
+
+echo "Bootstrapping self-hosted server..."
+java ${JAVA_FLAGS} \
+    -cp resources:target/instant-standalone.jar \
+    clojure.main \
+    -e "(require 'tasks) (tasks/bootstrap-for-oss nil)"
+
+echo "Starting server..."
+exec java ${JAVA_FLAGS} \
+    -cp resources:target/instant-standalone.jar \
+    instant.core
+EOF
+
+RUN chmod +x /app/start.sh
+
+EXPOSE 8888
+EXPOSE 6005
+
+CMD ["/app/start.sh"]
