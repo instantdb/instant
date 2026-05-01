@@ -240,6 +240,98 @@ describe('web: success', () => {
   });
 });
 
+// -- web: dev credentials --
+
+const webDevFlags = new Map([
+  ['type', 'google'],
+  ['app-type', 'web'],
+  ['name', 'google-web'],
+]);
+
+describe('web: dev credentials', () => {
+  test('--dev-credentials → creates dev credentials client', async () => {
+    await run(withEntry(webDevFlags, 'dev-credentials', 'true'), { yes: true });
+    expect(addedClients).toHaveLength(1);
+    expect(addedClients[0]).toMatchObject({
+      clientName: 'google-web',
+      useSharedCredentials: true,
+      discoveryEndpoint:
+        'https://accounts.google.com/.well-known/openid-configuration',
+    });
+    expect(addedClients[0].clientId).toBeUndefined();
+    expect(addedClients[0].clientSecret).toBeUndefined();
+    expect(addedClients[0].redirectTo).toBeUndefined();
+    const output = logs.join('\n');
+    expect(output).toContain('Credentials: Instant dev credentials');
+    expect(output).toContain('No Google Console setup required');
+    expect(output).toContain(
+      'For production, use your own Google OAuth credentials.',
+    );
+    expect(output).not.toContain('instant-cli auth client update');
+    expect(output).not.toContain('Add this redirect URI in Google Console');
+  });
+
+  test('--yes with no Google credentials → creates dev credentials client', async () => {
+    await run(webDevFlags, { yes: true });
+    expect(addedClients).toHaveLength(1);
+    expect(addedClients[0]).toMatchObject({
+      clientName: 'google-web',
+      useSharedCredentials: true,
+      discoveryEndpoint:
+        'https://accounts.google.com/.well-known/openid-configuration',
+    });
+    expect(addedClients[0].clientId).toBeUndefined();
+    expect(addedClients[0].clientSecret).toBeUndefined();
+    expect(addedClients[0].redirectTo).toBeUndefined();
+    const output = logs.join('\n');
+    expect(output).toContain('Credentials: Instant dev credentials');
+    expect(output).toContain('No Google Console setup required');
+    expect(output).toContain(
+      'For production, use your own Google OAuth credentials.',
+    );
+    expect(output).not.toContain('instant-cli auth client update');
+    expect(output).not.toContain('Add this redirect URI in Google Console');
+  });
+
+  test('--dev-credentials with custom credential flags → error', async () => {
+    await run(
+      new Map([...webDevFlags, ['dev-credentials', 'true'], ['client-id', '']]),
+      { yes: true },
+    );
+    expect(logs.join('\n')).toContain(
+      '--dev-credentials cannot be combined with --client-id',
+    );
+    expect(addedClients).toHaveLength(0);
+  });
+
+  test('--dev-credentials with native app type → error', async () => {
+    await run(
+      new Map([
+        ['type', 'google'],
+        ['app-type', 'ios'],
+        ['name', 'google-ios'],
+        ['dev-credentials', 'true'],
+      ]),
+      { yes: true },
+    );
+    expect(logs.join('\n')).toContain(
+      '--dev-credentials is only supported for --app-type web',
+    );
+    expect(addedClients).toHaveLength(0);
+  });
+
+  test('interactive with no Google credentials → prompts for credential mode', async () => {
+    mockPromptReturn = 'dev';
+    await run(webDevFlags, { yes: false });
+    expect(prompts).toHaveLength(1);
+    expect((prompts[0] as any).params.promptText).toBe(
+      'Select Google credential mode:',
+    );
+    expect(addedClients).toHaveLength(1);
+    expect(addedClients[0].useSharedCredentials).toBe(true);
+  });
+});
+
 // -- ios: forbidden flags and success --
 
 describe('ios', () => {
