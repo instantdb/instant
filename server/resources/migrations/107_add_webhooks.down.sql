@@ -1,6 +1,7 @@
 drop function explain_claim_webhook_events(int, int);
 drop function claim_webhook_events(uuid, int, int);
 drop table webhook_events;
+drop function check_webhook_events_refs();
 drop type webhook_event_status;
 drop type webhook_attempt;
 drop table webhooks;
