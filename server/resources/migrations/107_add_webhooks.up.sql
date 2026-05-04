@@ -11,7 +11,6 @@ create table webhooks(
   -- in the future (that's why this is nullable)
   id_attr_ids uuid[],
   actions webhook_action[] not null,
-  processed_isn isn not null,
   status webhook_status not null default 'active',
   disabled_reason text,
   -- Will just be {"url": "some-url"} for now, but could be something else later
@@ -28,25 +27,36 @@ execute function update_updated_at_column();
 create index on webhooks (app_id);
 
 create type webhook_event_status as enum ('pending', 'processing', 'success', 'error', 'failed');
+create type webhook_attempt as (
+  attempt_at timestamp with time zone,
+  duration_ms int,
+  success boolean,
+  status_code int,
+  response_text text,
+  error_type text,
+  error_message text
+);
 
 create table webhook_events(
-  id uuid not null,
-  app_id uuid not null references apps (id) on delete cascade,
-  webhook_id uuid not null references webhooks (id) on delete cascade,
+  -- We intentionally leave off the foreign key constraint so that deletes
+  -- only happen through truncate
+  webhook_id uuid not null,
   isn isn not null,
+  -- We intentionally leave off the foreign key constraint so that deletes
+  -- only happen through truncate
+  app_id uuid not null,
   status webhook_event_status not null,
   machine_id uuid,
-  status_code int,
-  response text,
-  attempts int not null default 0,
+  -- Tracks metadata about each attempt
+  attempts webhook_attempt[],
   -- Each bucket spans 30 days. 13 buckets cycle every 390 days, giving ≥360
   -- days of retention. Truncate the next-to-be-reused bucket before writes
   -- wrap around.
   partition_bucket int not null,
+  next_attempt_after timestamp with time zone,
   created_at timestamp with time zone not null default now(),
-  next_attempt_after timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
-  primary key (id, partition_bucket)
+  primary key (webhook_id, isn, partition_bucket)
 ) partition by range (partition_bucket);
 
 create table webhook_events_0 partition of webhook_events for values from (0) to (1);
@@ -68,11 +78,36 @@ before update on webhook_events
 for each row
 execute function update_updated_at_column();
 
-create index on webhook_events (app_id);
-create index on webhook_events (webhook_id);
-create index on webhook_events (created_at) where status = 'pending';
-create index on webhook_events (app_id, created_at) where status = 'pending';
-create index on webhook_events (updated_at) where status = 'processing';
+-- Acts in place of the foreign keys we deliberately omitted on
+-- webhook_events.webhook_id and webhook_events.app_id: rejects inserts whose
+-- (webhook_id, app_id) pair doesn't match an existing webhook. Skipping the
+-- FKs lets us reclaim space via partition truncate without cascade work.
+create or replace function check_webhook_events_refs() returns trigger
+language plpgsql as $$
+begin
+  if not exists (
+    select 1 from webhooks
+    where id = new.webhook_id
+      and app_id = new.app_id
+  ) then
+    raise exception 'webhook_events: no webhook with id=% for app_id=%',
+      new.webhook_id, new.app_id
+      using errcode = 'foreign_key_violation';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger check_refs_insert_trigger
+before insert on webhook_events
+for each row
+execute function check_webhook_events_refs();
+
+create index on webhook_events (app_id, webhook_id, created_at desc);
+create index on webhook_events (partition_bucket, created_at, status) where status = 'pending';
+create index on webhook_events (partition_bucket, app_id, created_at, status) where status = 'pending';
+create index on webhook_events (updated_at, status) where status = 'processing';
+create index on webhook_events (next_attempt_after, partition_bucket, status) where status = 'error';
 
 
 -- Claims pending webhook_events, claiming up to 10 per app for up to 10 apps
@@ -107,9 +142,9 @@ begin
         for update skip locked
       ),
       locked as (
-        select p.id, p.partition_bucket from next_app n
+        select p.ctid, p.tableoid, p.partition_bucket from next_app n
         cross join lateral (
-          select id, partition_bucket from webhook_events
+          select ctid, tableoid, partition_bucket from webhook_events
           where app_id = n.app_id
             and partition_bucket = any(buckets)
             and status = 'pending'
@@ -122,7 +157,8 @@ begin
       set status = 'processing',
           machine_id = p_machine_id
       from locked
-      where webhook_events.id = locked.id
+      where webhook_events.ctid = locked.ctid
+        and webhook_events.tableoid = locked.tableoid
         and webhook_events.partition_bucket = locked.partition_bucket
       returning webhook_events.*
     loop
@@ -169,9 +205,9 @@ begin
                    for update skip locked
                  ),
                  locked as (
-                   select p.id, p.partition_bucket from next_app n
+                   select p.ctid, p.tableoid, p.partition_bucket from next_app n
                    cross join lateral (
-                     select id, partition_bucket from webhook_events
+                     select ctid, tableoid, partition_bucket from webhook_events
                      where app_id = n.app_id
                        and partition_bucket = any($4)
                        and status = ''pending''
@@ -184,7 +220,8 @@ begin
                  set status = ''processing'',
                      machine_id = $3
                  from locked
-                 where webhook_events.id = locked.id
+                 where webhook_events.ctid = locked.ctid
+                   and webhook_events.tableoid = locked.tableoid
                    and webhook_events.partition_bucket = locked.partition_bucket
                  returning webhook_events.*'
         using seen, p_max_per_app, fake_machine_id, buckets

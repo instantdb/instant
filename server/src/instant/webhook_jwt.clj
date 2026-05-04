@@ -59,14 +59,14 @@
 (defn webhook-payload-jwt
   "Generates a jwt that the webhook receiver can use to fetch the webhook
    payload."
-  ^String [{:keys [app-id webhook-id isn]}]
+  ^String [app-id webhook-id isn]
   (let [claims (-> (JWTClaimsSet$Builder.)
                    (.issuer config/server-origin)
                    (.subject (str app-id))
                    ;; 1 hour
                    (.expirationTime (Date/from (.plusSeconds (Instant/now) 3600)))
-                   (.claim "webhook-id" (str webhook-id))
                    (.claim "app-id" (str app-id))
+                   (.claim "webhook-id" (str webhook-id))
                    (.claim "isn" (str isn))
                    (.build))
         ^SignedJWT signed-jwt (SignedJWT. @header claims)]

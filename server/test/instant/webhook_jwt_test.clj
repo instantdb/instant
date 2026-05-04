@@ -10,10 +10,9 @@
   (let [app-id (random-uuid)
         webhook-id (random-uuid)
         isn (isn/test-isn 1)
-        token (webhook-jwt/webhook-payload-jwt
-               {:app-id app-id
-                :webhook-id webhook-id
-                :isn isn})]
+        token (webhook-jwt/webhook-payload-jwt app-id
+                                               webhook-id
+                                               isn)]
     (is (= {:app-id app-id
             :webhook-id webhook-id
             :isn isn}
@@ -27,10 +26,9 @@
   (let [app-id (random-uuid)
         webhook-id (random-uuid)
         isn (isn/test-isn 1)
-        token (webhook-jwt/webhook-payload-jwt
-               {:app-id app-id
-                :webhook-id webhook-id
-                :isn isn})]
+        token (webhook-jwt/webhook-payload-jwt app-id
+                                               webhook-id
+                                               isn)]
     (is (= ::ex/validation-failed
            (-> (test-util/instant-ex-data
                 (webhook-jwt/verify-webhook-payload-jwt
@@ -70,11 +68,16 @@
   (let [claims {:app-id (random-uuid)
                 :webhook-id (random-uuid)
                 :isn (isn/test-isn 1)}
-        token (webhook-jwt/webhook-payload-jwt claims)
-        ;; Flip the last character of the signature segment to break verification.
-        last-char (.charAt token (dec (count token)))
-        replacement (if (= last-char \A) \B \A)
-        tampered (str (subs token 0 (dec (count token))) replacement)]
+        token (webhook-jwt/webhook-payload-jwt (:app-id claims)
+                                               (:webhook-id claims)
+                                               (:isn claims))
+        ;; Flip the first character of the signature.
+        sig-start (inc (.lastIndexOf token (int \.)))
+        c (.charAt token sig-start)
+        replacement (if (= c \A) \B \A)
+        tampered (str (subs token 0 sig-start)
+                      replacement
+                      (subs token (inc sig-start)))]
     (is (= ::ex/validation-failed
            (-> (test-util/instant-ex-data
                 (webhook-jwt/verify-webhook-payload-jwt tampered claims))

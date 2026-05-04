@@ -125,12 +125,13 @@
   next)
 
 (defn fwd-ident-name
-  "Returns forward etype and label for an attr"
+  "Returns forward etype and label for an attr, e.g. [\"posts\" \"body\"] "
   [attr]
   (-> attr :forward-identity ident-name))
 
 (defn rev-ident-name
-  "Returns reverse etype and label for an attr. Note: Reverse identity may not exist"
+  "Returns reverse etype and label for an attr, e.g. [\"posts\" \"author\"].
+   Note: Reverse identity may not exist"
   [attr]
   (-> attr :reverse-identity ident-name))
 
@@ -1059,10 +1060,14 @@
 (defn etype-by-id [id ^Attrs attrs]
   (fwd-etype (seek-by-id id attrs)))
 
-(defn seek-by-fwd-ident-name [fwd-ident ^Attrs attrs]
+(defn seek-by-fwd-ident-name
+  "Find an attr by the fwd name, e.g. [\"posts\" \"body\"]"
+  [fwd-ident ^Attrs attrs]
   (get @(.-by-fwd-ident-cache attrs) fwd-ident))
 
-(defn seek-by-rev-ident-name [rev-ident ^Attrs attrs]
+(defn seek-by-rev-ident-name
+  "Find an attr by the reverse ident name, e.g. [\"posts\" \"author\"]"
+  [rev-ident ^Attrs attrs]
   (get @(.-by-rev-ident-cache attrs) rev-ident))
 
 (defn attr-ids-for-etype [etype ^Attrs attrs]
