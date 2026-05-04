@@ -6,7 +6,6 @@
    [instant.webhook-sender :as webhook-sender])
   (:import
    (java.math BigInteger)
-   (java.net UnknownHostException)
    (java.nio.charset StandardCharsets)
    (java.security KeyFactory PublicKey Signature)
    (java.security.spec EdECPoint EdECPublicKeySpec NamedParameterSpec)
