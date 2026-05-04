@@ -63,15 +63,25 @@
           0
           (:triple-changes wal-record)))
 
+(def partition-bucket-count 13)
+(defn partition-bucket-for-time [^Instant t]
+  (-> ^Instant t
+      (.getEpochSecond)
+      (quot 86400) ; 1 day
+      (quot 30)
+      (mod partition-bucket-count)
+      int))
+
 (defn partition-bucket-of-wal-record
   "Extract the partition from the tx-created-at. Each bucket spans 30 days, with
    13 total buckets. That allows us to store up to 1 year of history."
   [^WalRecord wal-record]
-  (-> ^Instant (:tx-created-at wal-record)
-      (.getEpochSecond)
-      (quot 86400) ; 1 day
-      (quot 30)
-      (mod 13)
+  (partition-bucket-for-time (:tx-created-at wal-record)))
+
+(defn previous-partition-bucket [bucket-idx]
+  (-> bucket-idx
+      dec
+      (mod partition-bucket-count)
       int))
 
 (def push-q (uhsql/preformat {:insert-into :history
@@ -211,17 +221,27 @@
 
 (def push-batch-q
   (uhsql/preformat
-   {:insert-into [[:history [:isn :app-id :topics :storage :content :partition-bucket]]
-                  {:select [[[:cast [:composite :slot-num :lsn] :isn]]
-                            :app-id :topics :storage :content :partition-bucket]
-                   :from [[[:unnest :?isn :?app-id :?topics :?storage :?content :?partition-bucket]
-                           [:t [:composite :slot-num :lsn :app-id :topics :storage :content :partition-bucket]]]]}]
-    :on-conflict [:isn :partition-bucket]
-    :do-nothing true}))
+   {:with [[:history-inserts {:insert-into [[:history [:isn :app-id :topics :storage :content :partition-bucket]]
+                                            {:select [[[:cast [:composite :slot-num :lsn] :isn]]
+                                                      :app-id :topics :storage :content :partition-bucket]
+                                             :from [[[:unnest :?isn :?app-id :?topics :?storage :?content :?partition-bucket]
+                                                     [:t [:composite :slot-num :lsn :app-id :topics :storage :content :partition-bucket]]]]}]
+                              :on-conflict [:isn :partition-bucket]
+                              :do-nothing true
+                              :returning [:app-id :isn :topics]}]
+           [:webhook-candidates {:select [:webhooks.id :webhooks.id-attr-ids :webhooks.actions :history-inserts.isn]
+                                 :from :webhooks
+                                 :join [:history-inserts [:and
+                                                          [:= :webhooks.app-id :history-inserts.app-id]
+                                                          [:= :webhooks.status [:cast [:inline "active"] :webhook_status]]
+                                                          [:<> [:& :history-inserts.topics :webhooks.topics] :0]]]}]]
+    :select :*
+    :from :webhook-candidates}))
 
 (defn push-batch!
   "Saves a batch of wal records in the history table, pushing the content to s3 (or
-   the database if s3 is disabled)."
+   the database if s3 is disabled).
+   Returns any webhooks that might need "
   ([wal-records] (push-batch! (aurora/conn-pool :write) wal-records))
   ([conn wal-records]
    (let [upload-results (if (store-to-s3?)

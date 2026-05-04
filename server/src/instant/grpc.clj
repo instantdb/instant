@@ -53,6 +53,8 @@
 
 (defrecord-once InvalidatorSubscribe [^UUID machine-id ^Integer process-id])
 
+(defrecord-once WebhookEvents [event-primary-keys])
+
 (def stream-error-map
   {:unknown -1
    :rate-limit 1

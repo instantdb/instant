@@ -59,6 +59,7 @@
    [instant.util.tracer :as tracer]
    [instant.hard-deletion-sweeper :as hard-deletion-sweeper]
    [instant.webhook-routes :as webhook-routes]
+   [instant.webhook-processor :as webhook-processor]
    [ring.middleware.cookies :refer [CookieDateTime]]
    [ring.middleware.cors :refer [wrap-cors preflight?]]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
@@ -268,7 +269,9 @@
         (tracer/with-span! {:name "stop-invalidator"}
           (inv/stop-global))
         (tracer/with-span! {:name "stop-grpc"}
-          (grpc-server/stop-global)))
+          (grpc-server/stop-global))
+        (tracer/with-span! {:name "stop-webhook-processor"}
+          (webhook-processor/stop-global)))
       (future
         (tracer/with-span! {:name "stop-indexing-jobs"}
           (indexing-jobs/stop)))
@@ -350,6 +353,8 @@
         (stripe/init))
       (with-log-init :session
         (session/start))
+      (with-log-init :webhook-processor
+        (webhook-processor/start-global))
       (with-log-init :invalidator
         (inv/start-global))
       (with-log-init :wal
