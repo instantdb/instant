@@ -4,11 +4,7 @@ import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
 import chalk from 'chalk';
 import { BadArgsError } from '../../../errors.ts';
 import { link } from '../../../logging.ts';
-import {
-  optOrPrompt,
-  stripFirstBlankLine,
-  validateRequired,
-} from '../../../lib/ui.ts';
+import { stripFirstBlankLine, validateRequired } from '../../../lib/ui.ts';
 import { UI } from '../../../ui/index.ts';
 
 type EmptyPromptArgs = Record<string, never>;
@@ -30,26 +26,6 @@ export const getMetaString = (meta: unknown, key: string) => {
   const value = (meta as Record<string, unknown>)[key];
   return typeof value === 'string' ? value : undefined;
 };
-
-export const optOrPromptIf = (
-  opts: Record<string, unknown>,
-  flag: string,
-  params: {
-    promptIf: boolean;
-    required?: boolean;
-    prompt: UI.TextInputProps;
-  },
-) =>
-  Effect.gen(function* () {
-    const value = getFlag(opts, flag);
-    if (value === undefined && !params.promptIf) return undefined;
-    return yield* optOrPrompt(value, {
-      simpleName: `--${flag}`,
-      required: params.required ?? params.promptIf,
-      skipIf: false,
-      prompt: params.prompt,
-    });
-  });
 
 export const clientIdPrompt = ({ providerUrl }: { providerUrl: string }) => ({
   prompt: `Client ID: ${chalk.dim(`(from ${link(providerUrl)})`)}`,
