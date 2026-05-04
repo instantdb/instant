@@ -29,7 +29,11 @@ import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.ts';
 import { authClientAddCmd } from './commands/auth/client/add.ts';
 import { authClientListCmd } from './commands/auth/client/list.ts';
 import { authClientDeleteCmd } from './commands/auth/client/delete.ts';
-import { authClientUpdateCmd } from './commands/auth/client/update.ts';
+import {
+  authClientUpdateCmd,
+  authClientUpdateDemoCmd,
+  getAuthClientUpdateDemoName,
+} from './commands/auth/client/update.ts';
 import { authOriginListCmd } from './commands/auth/origin/list.ts';
 import { authOriginDeleteCmd } from './commands/auth/origin/delete.ts';
 import { authOriginAddCmd } from './commands/auth/origin/add.ts';
@@ -244,6 +248,12 @@ Provider Specific Options:
       ...opts,
       ...minimist(process.argv),
     };
+
+    const demoName = getAuthClientUpdateDemoName(opts);
+    if (demoName) {
+      return runCommandEffect(authClientUpdateDemoCmd(demoName));
+    }
+
     return runCommandEffect(
       authClientUpdateCmd(opts).pipe(
         Effect.provide(
