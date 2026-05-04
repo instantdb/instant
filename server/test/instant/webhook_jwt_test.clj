@@ -1,10 +1,15 @@
 (ns instant.webhook-jwt-test
   (:require
    [clojure.test :refer [deftest is]]
+   [instant.config :as config]
    [instant.isn :as isn]
    [instant.util.exception :as ex]
    [instant.util.test :as test-util]
-   [instant.webhook-jwt :as webhook-jwt]))
+   [instant.webhook-jwt :as webhook-jwt])
+  (:import
+   (com.nimbusds.jwt JWTClaimsSet$Builder SignedJWT)
+   (java.time Instant)
+   (java.util Date)))
 
 (deftest webhook-payload-jwt-round-trips
   (let [app-id (random-uuid)
@@ -63,6 +68,30 @@
                 :webhook-id (random-uuid)
                 :isn (isn/test-isn 1)}))
              ::ex/type))))
+
+(deftest webhook-payload-jwt-rejects-expired-token
+  (let [app-id (random-uuid)
+        webhook-id (random-uuid)
+        isn (isn/test-isn 1)
+        expired-claims (-> (JWTClaimsSet$Builder.)
+                           (.issuer config/server-origin)
+                           (.subject (str app-id))
+                           (.expirationTime (Date/from (.minusSeconds (Instant/now) 3600)))
+                           (.claim "app-id" (str app-id))
+                           (.claim "webhook-id" (str webhook-id))
+                           (.claim "isn" (str isn))
+                           (.build))
+        signed-jwt (SignedJWT. @webhook-jwt/header expired-claims)
+        _ (.sign signed-jwt webhook-jwt/tink-signer)
+        token (.serialize signed-jwt)]
+    (is (= ::ex/validation-failed
+           (-> (test-util/instant-ex-data
+                (webhook-jwt/verify-webhook-payload-jwt
+                 token
+                 {:app-id app-id
+                  :webhook-id webhook-id
+                  :isn isn}))
+               ::ex/type)))))
 
 (deftest webhook-payload-jwt-rejects-tampered-token
   (let [claims {:app-id (random-uuid)
