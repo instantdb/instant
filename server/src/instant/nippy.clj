@@ -4,7 +4,7 @@
    [instant.isn]
    [taoensso.nippy :as nippy])
   (:import
-   (instant.grpc InvalidatorSubscribe PackedWalRecord SlotDisconnect StreamAborted StreamComplete StreamContent StreamError StreamFile StreamInit StreamRequest WalRecord)
+   (instant.grpc InvalidatorSubscribe PackedWalRecord SlotDisconnect StreamAborted StreamComplete StreamContent StreamError StreamFile StreamInit StreamRequest WalRecord WebhookEvents)
    (instant.isn ISN)
    (instant.jdbc WalColumn WalEntry)
    (java.io DataInput DataOutput)
@@ -274,3 +274,21 @@
 (nippy/extend-thaw 15 [data-input]
   (instant.grpc/->InvalidatorSubscribe (read-uuid data-input)
                                        (nippy/thaw-from-in! data-input)))
+
+;; 16 is our custom identifier for WebhookEvents, no other type can use it and
+;; it must be the same across all machines.
+(nippy/extend-freeze WebhookEvents 16 [^WebhookEvents {:keys [event-primary-keys]}
+                                       data-output]
+  (nippy/freeze-to-out! data-output (count event-primary-keys))
+  (doseq [{:keys [webhook_id isn partition_bucket]} event-primary-keys]
+    (write-uuid data-output webhook_id)
+    (write-isn isn data-output)
+    (nippy/freeze-to-out! data-output partition_bucket)))
+
+(nippy/extend-thaw 16 [data-input]
+  (let [key-count (nippy/thaw-from-in! data-input)]
+    (instant.grpc/->WebhookEvents (mapv (fn [_]
+                                          {:webhook_id (read-uuid data-input)
+                                           :isn (read-isn data-input)
+                                           :partition_bucket (nippy/thaw-from-in! data-input)})
+                                        (range key-count)))))

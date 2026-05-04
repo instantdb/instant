@@ -358,6 +358,12 @@
 (def free-teams-cutoff (-> (ZonedDateTime/of 2026 3 1 0 0 0 0 (ZoneId/of "Etc/GMT+12"))
                            (.toInstant)))
 
+(defn pg-lock-ns
+  "Creates a unique namespace for a pg advisory lock."
+  [k]
+  (int (case k
+         :webhook 1)))
+
 (defn init []
   ;; instantiate the config-map so we can fail early if it's not
   ;; valid
