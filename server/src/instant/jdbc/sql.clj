@@ -11,6 +11,7 @@
    [instant.util.io :as io]
    [instant.util.json :refer [->json <-json]]
    [instant.util.tracer :as tracer]
+   [instant.webhook-sender :as webhook-sender]
    [next.jdbc :as next-jdbc]
    [next.jdbc.connection :as connection]
    [next.jdbc.prepare :as p]
@@ -20,8 +21,9 @@
    (clojure.lang IPersistentList IPersistentMap IPersistentSet IPersistentVector ISeq)
    (com.zaxxer.hikari HikariDataSource)
    (instant.isn ISN)
+   (instant.webhook_sender WebhookAttempt)
    (java.sql Array Connection PreparedStatement ResultSet ResultSetMetaData)
-   (java.time Instant LocalDate LocalDateTime)
+   (java.time Instant LocalDate LocalDateTime OffsetDateTime)
    (javax.sql DataSource)
    (org.postgresql.util PGobject PSQLException)
    (org.postgresql.replication LogSequenceNumber)))
@@ -38,6 +40,82 @@
     (ISN. (Integer/parseInt slot-str)
           (LogSequenceNumber/valueOf lsn-str))))
 
+(defn- parse-pg-composite-fields
+  "Splits a Postgres composite literal '(f1,f2,...)' into a vector of
+   field strings. Empty unquoted fields are returned as nil (NULL),
+   empty quoted fields as the empty string. Quoted fields are
+   unescaped per the composite output format: '\"\"' -> '\"' and '\\\\'
+   -> '\\'. Backslash-escaped characters are also accepted."
+  [^String value]
+  (let [end (dec (count value))
+        sb (StringBuilder.)
+        out (transient [])
+        finish! (fn [quoted?]
+                  (let [s (.toString sb)]
+                    (.setLength sb 0)
+                    (conj! out (if (and (not quoted?) (zero? (.length s)))
+                                 nil
+                                 s))))]
+    (loop [i 1
+           in-quotes? false
+           quoted? false]
+      (if (= i end)
+        (do (finish! quoted?) (persistent! out))
+        (let [c (.charAt value i)]
+          (cond
+            in-quotes?
+            (cond
+              (= c \\)
+              (do (.append sb (.charAt value (inc i)))
+                  (recur (+ i 2) true quoted?))
+
+              (= c \")
+              (if (and (< (inc i) end) (= (.charAt value (inc i)) \"))
+                (do (.append sb \") (recur (+ i 2) true quoted?))
+                (recur (inc i) false quoted?))
+
+              :else
+              (do (.append sb c) (recur (inc i) true quoted?)))
+
+            (= c \,)
+            (do (finish! quoted?) (recur (inc i) false false))
+
+            (= c \")
+            (recur (inc i) true true)
+
+            :else
+            (do (.append sb c) (recur (inc i) false quoted?))))))))
+
+(defn- parse-pg-timestamptz
+  "Postgres timestamptz output looks like '2026-05-04 04:38:53.045857+00'
+   (offset can also be +HH:MM or +HH:MM:SS). Normalize to ISO-8601 then
+   parse via OffsetDateTime."
+  ^Instant [^String s]
+  (let [t-form (.replace s \space \T)
+        len (.length t-form)
+        sign-idx (- len 3)
+        short-offset? (and (pos? sign-idx)
+                           (let [c (.charAt t-form sign-idx)]
+                             (or (= c \+) (= c \-)))
+                           (Character/isDigit (.charAt t-form (- len 2)))
+                           (Character/isDigit (.charAt t-form (- len 1))))
+        normalized (if short-offset? (str t-form ":00") t-form)]
+    (.toInstant (OffsetDateTime/parse normalized))))
+
+(defn parse-webhook-attempt
+  "Parses the value that we get from postgres into a WebhookAttempt.
+   We get something that looks like (\"2026-05-04 04:38:53.045857+00\",568,t,200,\"\",,)"
+  ^WebhookAttempt [^String value]
+  (let [[at-s dur-s succ-s code-s resp err-type err] (parse-pg-composite-fields value)]
+    (webhook-sender/->WebhookAttempt
+     (when at-s (parse-pg-timestamptz at-s))
+     (when dur-s (Integer/parseInt dur-s))
+     (when succ-s (= "t" succ-s))
+     (when code-s (Integer/parseInt code-s))
+     resp
+     err-type
+     err)))
+
 (defn <-pgobject
   "Transform PGobject containing `json` or `jsonb` value to Clojure data"
   [^PGobject v]
@@ -49,6 +127,7 @@
         "bit" (Long/parseLong value 2)
         "pg_lsn" (LogSequenceNumber/valueOf value)
         "isn" (parse-isn value)
+        "webhook_attempt" (parse-webhook-attempt value)
         value))))
 
 (defn <-array [^Array a]
@@ -57,6 +136,7 @@
     (case type
       ("json" "jsonb") (mapv <-json vs)
       "isn" (mapv <-pgobject vs)
+      "webhook_attempt" (mapv <-pgobject vs)
       (vec vs))))
 
 (defn- create-pg-array [^PreparedStatement s pgtype clazz vs]
@@ -71,6 +151,31 @@
 
 (defn isn->composite-str ^String [^ISN isn]
   (str "(" (.slotNum isn) "," (.asString ^LogSequenceNumber (.-lsn isn)) ")"))
+
+(defn- pg-composite-quote-text ^String [^String s]
+  (str "\""
+       (-> s
+           (.replace "\\" "\\\\")
+           (.replace "\"" "\\\""))
+       "\""))
+
+(defn webhook-attempt->composite-str ^String [^WebhookAttempt a]
+  (let [{:keys [attempt-at duration-ms success? status-code response-text error-type error-message]} a]
+    (str "("
+         (when attempt-at (.toString ^Instant attempt-at))
+         ","
+         (when duration-ms duration-ms)
+         ","
+         (when (some? success?) (if success? "t" "f"))
+         ","
+         (when status-code status-code)
+         ","
+         (when response-text (pg-composite-quote-text response-text))
+         ","
+         (when error-type (pg-composite-quote-text error-type))
+         ","
+         (when error-message (pg-composite-quote-text error-message))
+         ")")))
 
 (defn set-param
   "Transform PGobject containing `json` or `jsonb` value to Clojure data"
@@ -94,6 +199,8 @@
       "isn[]" (.setArray s i (create-pg-array s "isn" String (map isn->composite-str v)))
       "history_storage[]" (.setArray s i (create-pg-array s "history_storage" String v))
       "webhook_action[]" (.setArray s i (create-pg-array s "webhook_action" String v))
+      "webhook_event_status[]" (.setArray s i (create-pg-array s "webhook_event_status" String v))
+      "webhook_attempt[]" (.setArray s i (create-pg-array s "webhook_attempt" String (map webhook-attempt->composite-str v)))
       (.setObject s i (doto (PGobject.)
                         (.setType pgtype)
                         (.setValue (->json v)))))))
@@ -131,6 +238,12 @@
     (.setObject ps i (doto (PGobject.)
                        (.setType "isn")
                        (.setValue (isn->composite-str v)))))
+
+  WebhookAttempt
+  (set-parameter [^WebhookAttempt v ^PreparedStatement ps ^long i]
+    (.setObject ps i (doto (PGobject.)
+                       (.setType "webhook_attempt")
+                       (.setValue (webhook-attempt->composite-str v)))))
 
   IPersistentMap
   (set-parameter [m ^PreparedStatement s i]

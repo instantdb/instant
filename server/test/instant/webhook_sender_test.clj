@@ -44,11 +44,26 @@
 
 ;; Tests against nip.io, which will return the IP we put before the hostname
 (deftest dns-resolver-filters-bad-ips
-  (is (thrown? UnknownHostException
-               (webhook-sender/send-webhook "https://127.0.0.1.nip.io" "{\"hello\": \"world\"}")))
+  (is (= {:success? false
+          :error-type "dns"
+          :error-message "Could not resolve hostname."}
+         (select-keys (webhook-sender/send-webhook "https://127.0.0.1.nip.io"
+                                                   (random-uuid)
+                                                   (.getBytes "{\"hello\": \"world\"}" "UTF-8"))
+                      [:error-type :error-message :success?])))
 
-  (is (thrown? UnknownHostException
-               (webhook-sender/send-webhook "https://10.0.0.1.nip.io" "{\"hello\": \"world\"}")))
+  (is (= {:success? false
+          :error-type "dns"
+          :error-message "Could not resolve hostname."}
+         (select-keys (webhook-sender/send-webhook "https://10.0.0.1.nip.io"
+                                                   (random-uuid)
+                                                   (.getBytes "{\"hello\": \"world\"}" "UTF-8"))
+                      [:error-type :error-message :success?])))
 
-  (is (thrown? UnknownHostException
-               (webhook-sender/send-webhook "https://169.254.169.254.nip.io" "{\"hello\": \"world\"}"))))
+  (is (= {:success? false
+          :error-type "dns"
+          :error-message "Could not resolve hostname."}
+         (select-keys (webhook-sender/send-webhook "https://169.254.169.254.nip.io"
+                                                   (random-uuid)
+                                                   (.getBytes "{\"hello\": \"world\"}" "UTF-8"))
+                      [:error-type :error-message :success?]))))
