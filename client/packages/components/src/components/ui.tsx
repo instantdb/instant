@@ -1646,10 +1646,13 @@ export function Fence({
             ...style,
             ..._style,
             ...(copyable ? { position: 'relative' } : {}),
+            marginTop: 0,
+            marginBottom: 0,
+            border: 'none',
           }}
         >
           {copyable ? (
-            <div className="absolute top-0 right-0 flex items-center px-2">
+            <div className="absolute top-0 right-0 flex items-center">
               <button
                 onClick={(e) => {
                   copy(code);
@@ -1660,7 +1663,7 @@ export function Fence({
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 text-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-800 dark:ring-neutral-700"
+                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 text-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-800 dark:ring-neutral-700 dark:hover:bg-neutral-700"
               >
                 <ClipboardDocumentIcon
                   className="-ml-0.5 h-4 w-4"
