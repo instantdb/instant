@@ -109,28 +109,29 @@ export const authClientAddDef = authClient
     `
 Provider Specific Options:
   Google:
-   --app-type       web|ios|android|button-for-web
-   --client-id
-   --client-secret                      (web only)
-   --custom-redirect-uri      (optional, web only)
+   --app-type             web|ios|android|button-for-web
+   --dev-credentials      (optional, web only)
+   --client-id            (required unless using dev credentials)
+   --client-secret        (web only, unless using dev credentials)
+   --custom-redirect-uri  (optional, web only)
   GitHub:
    --client-id
    --client-secret
-   --custom-redirect-uri      (optional)
+   --custom-redirect-uri  (optional)
   Apple:
-   --services-id              (Services ID from ${link('https://developer.apple.com', 'developer.apple.com')})
-   --team-id                  (optional, required for web redirect flow)
-   --key-id                   (optional, required for web redirect flow)
-   --private-key-file         (optional, path to .p8 PEM; required for web redirect flow)
-   --custom-redirect-uri      (optional, web redirect flow only)
+   --services-id          (Services ID from ${link('https://developer.apple.com', 'developer.apple.com')})
+   --team-id              (optional, required for web redirect flow)
+   --key-id               (optional, required for web redirect flow)
+   --private-key-file     (optional, path to .p8 PEM; required for web redirect flow)
+   --custom-redirect-uri  (optional, web redirect flow only)
   LinkedIn:
    --client-id
    --client-secret
-   --custom-redirect-uri      (optional)
+   --custom-redirect-uri  (optional)
   Clerk:
-   --publishable-key    (Publishable Key from ${link('https://dashboard.clerk.com', 'dashboard.clerk.com')})
+   --publishable-key      (Publishable Key from ${link('https://dashboard.clerk.com', 'dashboard.clerk.com')})
   Firebase:
-   --project-id         (Project ID from ${link('https://console.firebase.google.com', 'console.firebase.google.com')})
+   --project-id           (Project ID from ${link('https://console.firebase.google.com', 'console.firebase.google.com')})
 `,
   )
   .action((opts) => {

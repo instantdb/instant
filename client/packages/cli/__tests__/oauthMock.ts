@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 import { optOrPrompt, validateRequired } from '../src/lib/ui.ts';
 import { UI } from '../src/ui/index.ts';
 import { BadArgsError } from '../src/errors.ts';
@@ -17,6 +17,13 @@ export const makeOAuthMock = (mocks: {
       if (!used.has(c)) return c;
     }
   };
+
+  const GoogleAppTypeSchema = Schema.Literal(
+    'web',
+    'ios',
+    'android',
+    'button-for-web',
+  );
 
   const getOrCreateProvider = Effect.fn(function* (type: string) {
     const auth: any = yield* mocks.getAppsAuth();
@@ -62,6 +69,7 @@ export const makeOAuthMock = (mocks: {
 
   return {
     ...mocks,
+    GoogleAppTypeSchema,
     findName,
     getOrCreateProvider,
     getClientNameAndProvider,
