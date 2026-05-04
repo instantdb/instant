@@ -81,10 +81,9 @@
                 (is (= {:id (str user-id) :name "alice"} after)))))
 
           (testing "JWT bearer returns the payload"
-            (let [jwt (webhook-jwt/webhook-payload-jwt
-                       {:app-id (:id app)
-                        :webhook-id webhook-id
-                        :isn isn})
+            (let [jwt (webhook-jwt/webhook-payload-jwt (:id app)
+                                                       webhook-id
+                                                       isn)
                   resp (request {:method :get
                                  :url url
                                  :headers {"authorization" (str "Bearer " jwt)}})]
@@ -107,10 +106,9 @@
                                                       "authorization" (str "Bearer " (:admin-token app))}}))))
 
           (testing "JWT with mismatched isn is rejected"
-            (let [jwt (webhook-jwt/webhook-payload-jwt
-                       {:app-id (:id app)
-                        :webhook-id webhook-id
-                        :isn (isn/test-isn 99)})]
+            (let [jwt (webhook-jwt/webhook-payload-jwt (:id app)
+                                                       webhook-id
+                                                       (isn/test-isn 99))]
               (is (thrown-with-msg? ExceptionInfo #"status 400"
                                     (request {:method :get
                                               :url url

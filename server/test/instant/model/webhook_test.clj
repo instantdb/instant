@@ -59,7 +59,6 @@
               :topics [:inline 0]
               :id-attr-ids :?id-attr-ids
               :actions :?actions
-              :processed-isn :?processed-isn
               :sink [:cast :?sink :jsonb]}]}))
 
 (defn insert-webhook! [{:keys [app-id webhook-id id-attr-ids actions]}]
@@ -70,7 +69,6 @@
                    :app-id app-id
                    :id-attr-ids (with-meta (vec id-attr-ids) {:pgtype "uuid[]"})
                    :actions (with-meta (vec actions) {:pgtype "webhook_action[]"})
-                   :processed-isn (isn/test-isn 0)
                    :sink (json/->json {:url "http://example.com"})})))
 
 (defn triple-cols [app-id eid aid value]
