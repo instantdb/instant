@@ -88,12 +88,16 @@ export namespace UI {
     }
   };
 
+  export type SelectOption<T> = {
+    value: T;
+    label: string;
+    secondary?: boolean;
+    disabled?: boolean;
+    disabledReason?: string;
+  };
+
   type SelectProps<T> = {
-    options: {
-      value: T;
-      label: string;
-      secondary?: boolean;
-    }[];
+    options: SelectOption<T>[];
     promptText: string;
     modifyOutput?: ModifyOutputFn;
     defaultValue?: T;
@@ -113,12 +117,9 @@ export namespace UI {
       this.on('attach', (terminal) => terminal.toggleCursor('hide'));
       this.on('input', (input) => {
         if (input === 'j') {
-          this.data.selectedIdx =
-            (this.data.selectedIdx + 1) % this.options.length;
+          this.data.move(1);
         } else if (input === 'k') {
-          this.data.selectedIdx =
-            (this.data.selectedIdx - 1 + this.options.length) %
-            this.options.length;
+          this.data.move(-1);
         }
         this.requestLayout();
       });
@@ -127,8 +128,12 @@ export namespace UI {
       });
       this.options = params.options;
       this.params = params;
+      if (params.options.every((option) => option.disabled)) {
+        throw new Error('UI.Select requires at least one enabled option.');
+      }
       this.data = new SelectState<T>(
         params.options.map((option) => option.value),
+        (_item, idx) => !params.options[idx]?.disabled,
       );
 
       // Set initial selected index based on defaultValue if provided
@@ -136,7 +141,7 @@ export namespace UI {
         const defaultIndex = params.options.findIndex(
           (option) => option.value === params.defaultValue,
         );
-        if (defaultIndex !== -1) {
+        if (defaultIndex !== -1 && !params.options[defaultIndex]?.disabled) {
           this.data.selectedIdx = defaultIndex;
         }
       }
@@ -148,36 +153,43 @@ export namespace UI {
       return this.data.items[this.data.selectedIdx]!;
     }
 
+    private label(option: SelectOption<T>): string {
+      return (
+        option.label +
+        (option.disabled && option.disabledReason
+          ? ` (${option.disabledReason})`
+          : '')
+      );
+    }
+
+    private renderOption(option: SelectOption<T>, idx: number): string {
+      const isSelected = idx === this.data.selectedIdx;
+      const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
+      const label =
+        isSelected && !option.disabled
+          ? chalk.bold(this.label(option))
+          : chalk.dim(this.label(option));
+
+      return `${cursor} ${label}`;
+    }
+
     render(status: 'idle' | 'submitted' | 'aborted'): string {
       if (status === 'submitted') {
+        const selectedOption = this.params.options[this.data.selectedIdx];
         return `${this.params.promptText}
-${chalk.hex('#EA570B').bold('●')} ${this.params.options[this.data.selectedIdx]?.label}`;
+${chalk.hex('#EA570B').bold('●')} ${selectedOption ? this.label(selectedOption) : ''}`;
       }
 
       const mainOptionsList = this.options
         .filter((option) => !option.secondary)
-        .map((option, idx) => {
-          const isSelected = idx === this.data.selectedIdx;
-          const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
-          const label = isSelected
-            ? chalk.bold(option.label)
-            : chalk.dim(option.label);
-
-          return `${cursor} ${label}`;
-        })
+        .map((option, idx) => this.renderOption(option, idx))
         .join('\n');
 
       const secondaryOptionsList = this.options
         .filter((option) => option.secondary)
         .map((option, idx) => {
           const realIdx = idx + this.options.filter((o) => !o.secondary).length;
-          const isSelected = realIdx === this.data.selectedIdx;
-          const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
-          const label = isSelected
-            ? chalk.bold(option.label)
-            : chalk.dim(option.label);
-
-          return `${cursor} ${label}`;
+          return this.renderOption(option, realIdx);
         })
         .join('\n');
 

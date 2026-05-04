@@ -101,7 +101,13 @@ export abstract class Prompt<RESULT> {
 
 export class SelectState<T> {
   public selectedIdx = 0;
-  constructor(public readonly items: T[]) {}
+  constructor(
+    public readonly items: T[],
+    private readonly isSelectable: (item: T, idx: number) => boolean = () =>
+      true,
+  ) {
+    this.selectedIdx = this.firstSelectableIndex();
+  }
 
   bind(prompt: Prompt<any>) {
     prompt.on('input', (str, key) => {
@@ -110,19 +116,38 @@ export class SelectState<T> {
     });
   }
 
+  move(delta: 1 | -1): boolean {
+    if (this.items.length === 0) return false;
+
+    let nextIdx = this.selectedIdx;
+    for (let i = 0; i < this.items.length; i++) {
+      nextIdx = (nextIdx + delta + this.items.length) % this.items.length;
+      if (this.isSelectable(this.items[nextIdx]!, nextIdx)) {
+        if (nextIdx === this.selectedIdx) return false;
+        this.selectedIdx = nextIdx;
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private firstSelectableIndex(): number {
+    const idx = this.items.findIndex((item, idx) =>
+      this.isSelectable(item, idx),
+    );
+    return idx === -1 ? 0 : idx;
+  }
+
   private consume(str: string | undefined, key: AnyKey): boolean {
     if (!key) return false;
 
     if (key.name === 'down') {
-      this.selectedIdx = (this.selectedIdx + 1) % this.items.length;
-      return true;
+      return this.move(1);
     }
 
     if (key.name === 'up') {
-      this.selectedIdx -= 1;
-      this.selectedIdx =
-        this.selectedIdx < 0 ? this.items.length - 1 : this.selectedIdx;
-      return true;
+      return this.move(-1);
     }
 
     return false;

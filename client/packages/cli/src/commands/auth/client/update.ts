@@ -2,7 +2,7 @@ import { Effect, Match } from 'effect';
 import type { authClientUpdateDef, OptsFromCommand } from '../../../index.ts';
 import { BadArgsError } from '../../../errors.ts';
 import { GlobalOpts } from '../../../context/globalOpts.ts';
-import { getOptionalStringFlag, runUIEffect } from '../../../lib/ui.ts';
+import { runUIEffect } from '../../../lib/ui.ts';
 import {
   findClientByIdOrName,
   getAppsAuth,
@@ -54,8 +54,9 @@ const googleConsoleUrl =
 const resolveClient = Effect.fn(function* (params: {
   id?: string;
   name?: string;
-  yes: boolean;
 }) {
+  const { yes } = yield* GlobalOpts;
+
   if (params.id || params.name) {
     return yield* findClientByIdOrName({
       id: params.id,
@@ -63,7 +64,7 @@ const resolveClient = Effect.fn(function* (params: {
     });
   }
 
-  if (params.yes) {
+  if (yes) {
     return yield* BadArgsError.make({ message: 'Must specify --id or --name' });
   }
 
@@ -88,7 +89,7 @@ const resolveClient = Effect.fn(function* (params: {
         value: client,
       })),
       promptText: 'Select a client to update:',
-      modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
+      modifyOutput: UI.modifiers.dimOnComplete,
     }),
   ).pipe(
     Effect.catchTag('UIError', (e) =>
@@ -99,13 +100,13 @@ const resolveClient = Effect.fn(function* (params: {
 });
 
 const selectUpdateAction = Effect.fn(function* <T extends string>(
-  options: { label: string; value: T }[],
+  options: UI.SelectOption<T>[],
 ) {
   return yield* runUIEffect(
     new UI.Select({
       options,
       promptText: 'What do you want to update?',
-      modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
+      modifyOutput: UI.modifiers.dimOnComplete,
     }),
   ).pipe(
     Effect.catchTag('UIError', (e) =>
@@ -154,14 +155,40 @@ const hasGoogleUpdateFlags = (opts: Record<string, unknown>) =>
 
 const selectGoogleUpdateMode = Effect.fn(function* ({
   isWeb,
+  switchingFromShared,
 }: {
   isWeb: boolean;
+  switchingFromShared: boolean;
 }) {
-  const options: { label: string; value: GoogleUpdateMode }[] = [
-    { label: 'Rotate credentials', value: 'custom' },
-  ];
+  const disabledInDevMode = "can't do this in dev mode";
+  const options: UI.SelectOption<GoogleUpdateMode>[] = switchingFromShared
+    ? [
+        { label: 'Switch to custom Google credentials', value: 'custom' },
+        {
+          label: 'Rotate credentials',
+          value: 'custom',
+          disabled: true,
+          disabledReason: disabledInDevMode,
+        },
+      ]
+    : [{ label: 'Rotate credentials', value: 'custom' }];
 
-  if (isWeb) {
+  if (isWeb && switchingFromShared) {
+    options.push(
+      {
+        label: 'Update redirect URI',
+        value: 'redirect',
+        disabled: true,
+        disabledReason: disabledInDevMode,
+      },
+      {
+        label: 'Switch to Instant dev credentials',
+        value: 'dev',
+        disabled: true,
+        disabledReason: 'already using',
+      },
+    );
+  } else if (isWeb) {
     options.push(
       {
         label:
@@ -180,13 +207,12 @@ const resolveGoogleUpdateMode = Effect.fn(function* ({
   opts,
   isWeb,
   switchingFromShared,
-  yes,
 }: {
   opts: Record<string, unknown>;
   isWeb: boolean;
   switchingFromShared: boolean;
-  yes: boolean;
 }) {
+  const { yes } = yield* GlobalOpts;
   const devCredentialsFlag = isTrueFlag(getFlag(opts, 'dev-credentials'));
   const hasProvidedSomeCustomCredentials = hasGoogleCustomCredentialFlags(opts);
 
@@ -226,11 +252,11 @@ const resolveGoogleUpdateMode = Effect.fn(function* ({
     });
   }
 
-  if (hasAnyUpdateFlag || switchingFromShared) {
+  if (hasAnyUpdateFlag) {
     return 'custom';
   }
 
-  return yield* selectGoogleUpdateMode({ isWeb });
+  return yield* selectGoogleUpdateMode({ isWeb, switchingFromShared });
 });
 
 const updateGoogleRedirect = Effect.fn(function* ({
@@ -374,7 +400,6 @@ const handleGoogleUpdate = Effect.fn(function* (
     opts,
     isWeb,
     switchingFromShared,
-    yes,
   });
 
   if (updateMode === 'dev') {
@@ -722,13 +747,9 @@ export const authClientUpdateCmd = Effect.fn(
   function* (
     opts: OptsFromCommand<typeof authClientUpdateDef> & Record<string, unknown>,
   ) {
-    const { yes } = yield* GlobalOpts;
-    const id = yield* getOptionalStringFlag(getFlag(opts, 'id'), '--id');
-    const name = yield* getOptionalStringFlag(getFlag(opts, 'name'), '--name');
     const { auth, client: resolvedClient } = yield* resolveClient({
-      id,
-      name,
-      yes,
+      id: opts.id,
+      name: opts.name,
     });
     const provider = (auth.oauth_service_providers ?? []).find(
       (entry: ProviderRow) => entry.id === resolvedClient.provider_id,

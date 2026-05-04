@@ -158,7 +158,6 @@ export const addOAuthClient = Effect.fn(function* (params: {
 });
 
 export const updateOAuthClient = Effect.fn(function* (params: {
-  appId?: string;
   oauthClientId: string;
   clientId?: string | null;
   clientSecret?: string | null;
@@ -168,7 +167,7 @@ export const updateOAuthClient = Effect.fn(function* (params: {
   useSharedCredentials?: boolean | null;
 }) {
   const http = (yield* InstantHttpAuthed).pipe(withCommand('auth'));
-  const targetAppId = params.appId ?? (yield* CurrentApp).appId;
+  const targetAppId = (yield* CurrentApp).appId;
 
   return yield* http
     .post(`/dash/apps/${targetAppId}/oauth_clients/${params.oauthClientId}`, {

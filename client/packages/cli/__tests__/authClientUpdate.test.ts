@@ -277,6 +277,47 @@ describe('google', () => {
     });
   });
 
+  test('interactive shared Google web update shows disabled dev-mode actions', async () => {
+    mockPromptReturn = ['custom', 'new-google-id', 'new-google-secret', ''];
+    await run({ name: 'google-shared' }, { yes: false });
+
+    expect(prompts).toHaveLength(4);
+    expect((prompts[0] as any).params.promptText).toBe(
+      'What do you want to update?',
+    );
+    expect((prompts[0] as any).params.options).toMatchObject([
+      {
+        label: 'Switch to custom Google credentials',
+        value: 'custom',
+      },
+      {
+        label: 'Rotate credentials',
+        value: 'custom',
+        disabled: true,
+        disabledReason: "can't do this in dev mode",
+      },
+      {
+        label: 'Update redirect URI',
+        value: 'redirect',
+        disabled: true,
+        disabledReason: "can't do this in dev mode",
+      },
+      {
+        label: 'Switch to Instant dev credentials',
+        value: 'dev',
+        disabled: true,
+        disabledReason: 'already using',
+      },
+    ]);
+    expect(updatedClients[0]).toMatchObject({
+      oauthClientId: 'google-shared',
+      clientId: 'new-google-id',
+      clientSecret: 'new-google-secret',
+      redirectTo: 'https://api.instantdb.com/runtime/oauth/callback',
+      useSharedCredentials: false,
+    });
+  });
+
   test('rejects dev credentials for native Google clients', async () => {
     await run(
       {
