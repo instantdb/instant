@@ -44,15 +44,7 @@ type ProviderRow = {
   provider_name: string;
 };
 
-type UpdateDemoName =
-  | 'demo-1'
-  | 'demo-2'
-  | 'demo-3'
-  | 'demo-4'
-  | 'demo-5'
-  | 'demo-6'
-  | 'demo-7'
-  | 'demo-8';
+type UpdateDemoName = 'demo-1' | 'demo-2' | 'demo-3' | 'demo-4' | 'demo-5';
 
 const redirectPrompt = redirectUriPrompt({
   heading: 'Custom redirect URI (optional):',
@@ -67,9 +59,6 @@ const updateDemoNames: UpdateDemoName[] = [
   'demo-3',
   'demo-4',
   'demo-5',
-  'demo-6',
-  'demo-7',
-  'demo-8',
 ];
 
 export const getAuthClientUpdateDemoName = (
@@ -214,54 +203,6 @@ export const authClientUpdateDemoCmd = Effect.fn(function* (
             '',
             demoCurrentMode,
             '',
-            'Other actions are available after switching to custom credentials:',
-            ...demoUnavailableActions.map((action) => `  ${action}`),
-          ].join('\n'),
-        );
-        yield* runDemoSelect('What do you want to update?', [
-          { label: demoAction, value: 'custom' },
-        ]);
-      }),
-    ),
-    Match.when('demo-3', () =>
-      Effect.gen(function* () {
-        yield* Effect.log(
-          [
-            '',
-            demoCurrentMode,
-            '',
-            'Unavailable in dev mode:',
-            ...[
-              ...demoUnavailableActions,
-              'Switch to Instant dev credentials',
-            ].map((action) => `  ${action}`),
-          ].join('\n'),
-        );
-        yield* runDemoSelect('What do you want to update?', [
-          { label: demoAction, value: 'custom' },
-        ]);
-      }),
-    ),
-    Match.when('demo-4', () =>
-      Effect.gen(function* () {
-        yield* Effect.log(`\n${demoCurrentMode}`);
-        yield* runDemoSelect('What do you want to do?', [
-          { label: 'Set up custom Google credentials', value: 'custom' },
-        ]);
-        yield* Effect.log(
-          chalk.dim(
-            '\nAfter setup, you can rotate credentials or update the redirect URI.',
-          ),
-        );
-      }),
-    ),
-    Match.when('demo-5', () =>
-      Effect.gen(function* () {
-        yield* Effect.log(
-          [
-            '',
-            demoCurrentMode,
-            '',
             'This client is using Instant dev credentials.',
             'The next step is to switch to custom Google credentials.',
           ].join('\n'),
@@ -287,7 +228,7 @@ export const authClientUpdateDemoCmd = Effect.fn(function* (
         );
       }),
     ),
-    Match.when('demo-6', () =>
+    Match.when('demo-3', () =>
       Effect.gen(function* () {
         yield* Effect.log(`\n${demoCurrentMode}`);
         const mode = yield* runUIEffect(
@@ -317,7 +258,7 @@ export const authClientUpdateDemoCmd = Effect.fn(function* (
         );
       }),
     ),
-    Match.when('demo-7', () =>
+    Match.when('demo-4', () =>
       Effect.gen(function* () {
         yield* Effect.log(
           [
@@ -344,7 +285,7 @@ export const authClientUpdateDemoCmd = Effect.fn(function* (
         );
       }),
     ),
-    Match.when('demo-8', () =>
+    Match.when('demo-5', () =>
       Effect.gen(function* () {
         yield* Effect.log(
           [
