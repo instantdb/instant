@@ -277,36 +277,22 @@ describe('google', () => {
     });
   });
 
-  test('interactive shared Google web update shows disabled dev-mode actions', async () => {
+  test('interactive shared Google web update can switch credential mode', async () => {
     mockPromptReturn = ['custom', 'new-google-id', 'new-google-secret', ''];
     await run({ name: 'google-shared' }, { yes: false });
 
     expect(prompts).toHaveLength(4);
     expect((prompts[0] as any).params.promptText).toBe(
-      'What do you want to update?',
+      'Choose credential mode:',
     );
     expect((prompts[0] as any).params.options).toMatchObject([
       {
-        label: 'Switch to custom Google credentials',
+        label: 'Custom Google credentials',
         value: 'custom',
       },
       {
-        label: 'Rotate credentials',
-        value: 'custom',
-        disabled: true,
-        disabledReason: "can't do this in dev mode",
-      },
-      {
-        label: 'Update redirect URI',
-        value: 'redirect',
-        disabled: true,
-        disabledReason: "can't do this in dev mode",
-      },
-      {
-        label: 'Switch to Instant dev credentials',
-        value: 'dev',
-        disabled: true,
-        disabledReason: 'already using',
+        label: expect.stringContaining('Instant dev credentials'),
+        value: 'none',
       },
     ]);
     expect(updatedClients[0]).toMatchObject({
@@ -316,6 +302,18 @@ describe('google', () => {
       redirectTo: 'https://api.instantdb.com/runtime/oauth/callback',
       useSharedCredentials: false,
     });
+  });
+
+  test('interactive shared Google web update can keep dev credentials', async () => {
+    mockPromptReturn = 'none';
+    await run({ name: 'google-shared' }, { yes: false });
+
+    expect(prompts).toHaveLength(1);
+    expect((prompts[0] as any).params.promptText).toBe(
+      'Choose credential mode:',
+    );
+    expect(updatedClients).toHaveLength(0);
+    expect(logs.join('\n')).toContain('No changes made.');
   });
 
   test('rejects dev credentials for native Google clients', async () => {

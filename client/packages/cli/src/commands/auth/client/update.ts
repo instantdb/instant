@@ -44,33 +44,12 @@ type ProviderRow = {
   provider_name: string;
 };
 
-type UpdateDemoName = 'demo-1' | 'demo-2' | 'demo-3' | 'demo-4' | 'demo-5';
-
 const redirectPrompt = redirectUriPrompt({
   heading: 'Custom redirect URI (optional):',
 });
 const newRedirectPrompt = redirectUriPrompt({ heading: 'New redirect URI:' });
 const googleConsoleUrl =
   'https://console.developers.google.com/apis/credentials';
-
-const updateDemoNames: UpdateDemoName[] = [
-  'demo-1',
-  'demo-2',
-  'demo-3',
-  'demo-4',
-  'demo-5',
-];
-
-export const getAuthClientUpdateDemoName = (
-  opts: Record<string, unknown>,
-): UpdateDemoName | undefined => {
-  const args = Array.isArray(opts._) ? opts._ : [];
-  return args.find(
-    (arg): arg is UpdateDemoName =>
-      typeof arg === 'string' &&
-      updateDemoNames.includes(arg as UpdateDemoName),
-  );
-};
 
 const resolveClient = Effect.fn(function* (params: {
   id?: string;
@@ -121,7 +100,7 @@ const resolveClient = Effect.fn(function* (params: {
 });
 
 const selectUpdateAction = Effect.fn(function* <T extends string>(
-  options: UI.SelectOption<T>[],
+  options: { label: string; value: T; secondary?: boolean }[],
 ) {
   return yield* runUIEffect(
     new UI.Select({
@@ -133,178 +112,6 @@ const selectUpdateAction = Effect.fn(function* <T extends string>(
     Effect.catchTag('UIError', (e) =>
       BadArgsError.make({ message: `UI error: ${e.message}` }),
     ),
-  );
-});
-
-const demoCurrentMode = 'Current mode: Instant dev credentials';
-const demoAction = 'Switch to custom Google credentials';
-const demoUnavailableActions = ['Rotate credentials', 'Update redirect URI'];
-
-const runDemoSelect = Effect.fn(function* (
-  promptText: string,
-  options: UI.SelectOption<'custom'>[],
-) {
-  const action = yield* runUIEffect(
-    new UI.Select({
-      options,
-      promptText,
-      modifyOutput: UI.modifiers.dimOnComplete,
-    }),
-  ).pipe(
-    Effect.catchTag('UIError', (e) =>
-      BadArgsError.make({ message: `UI error: ${e.message}` }),
-    ),
-  );
-
-  if (action === 'custom') {
-    yield* Effect.log(
-      chalk.dim(
-        '\nDemo only: the next prompts would ask for a Google Client ID and Client Secret.',
-      ),
-    );
-  }
-});
-
-export const authClientUpdateDemoCmd = Effect.fn(function* (
-  demoName: UpdateDemoName,
-) {
-  yield* Match.value(demoName).pipe(
-    Match.withReturnType<Effect.Effect<void, any, any>>(),
-    Match.when('demo-1', () =>
-      Effect.gen(function* () {
-        yield* Effect.log(`\n${demoCurrentMode}`);
-        yield* runDemoSelect('What do you want to update?', [
-          { label: demoAction, value: 'custom' },
-          {
-            label: 'Rotate credentials',
-            value: 'custom',
-            disabled: true,
-            disabledReason: "can't do this in dev mode",
-          },
-          {
-            label: 'Update redirect URI',
-            value: 'custom',
-            disabled: true,
-            disabledReason: "can't do this in dev mode",
-          },
-          {
-            label: 'Switch to Instant dev credentials',
-            value: 'custom',
-            disabled: true,
-            disabledReason: 'already using',
-          },
-        ]);
-      }),
-    ),
-    Match.when('demo-2', () =>
-      Effect.gen(function* () {
-        yield* Effect.log(
-          [
-            '',
-            demoCurrentMode,
-            '',
-            'This client is using Instant dev credentials.',
-            'The next step is to switch to custom Google credentials.',
-          ].join('\n'),
-        );
-        const shouldSwitch = yield* runUIEffect(
-          new UI.Confirmation({
-            promptText: 'Switch now?',
-            defaultValue: true,
-            modifyOutput: UI.modifiers.dimOnComplete,
-          }),
-        ).pipe(
-          Effect.catchTag('UIError', (e) =>
-            BadArgsError.make({ message: `UI error: ${e.message}` }),
-          ),
-        );
-
-        yield* Effect.log(
-          shouldSwitch
-            ? chalk.dim(
-                '\nDemo only: the next prompts would ask for a Google Client ID and Client Secret.',
-              )
-            : chalk.dim('\nDemo only: no changes would be made.'),
-        );
-      }),
-    ),
-    Match.when('demo-3', () =>
-      Effect.gen(function* () {
-        yield* Effect.log(`\n${demoCurrentMode}`);
-        const mode = yield* runUIEffect(
-          new UI.Select({
-            options: [
-              { label: 'Custom Google credentials', value: 'custom' },
-              {
-                label: 'Instant dev credentials' + chalk.dim(' (current)'),
-                value: 'dev',
-              },
-            ],
-            promptText: 'Choose credential mode:',
-            modifyOutput: UI.modifiers.dimOnComplete,
-          }),
-        ).pipe(
-          Effect.catchTag('UIError', (e) =>
-            BadArgsError.make({ message: `UI error: ${e.message}` }),
-          ),
-        );
-
-        yield* Effect.log(
-          mode === 'custom'
-            ? chalk.dim(
-                '\nDemo only: the next prompts would ask for a Google Client ID and Client Secret.',
-              )
-            : chalk.dim('\nDemo only: no changes would be made.'),
-        );
-      }),
-    ),
-    Match.when('demo-4', () =>
-      Effect.gen(function* () {
-        yield* Effect.log(
-          [
-            '',
-            'This client uses Instant dev credentials.',
-            '',
-            'The next step is to switch to custom Google credentials.',
-          ].join('\n'),
-        );
-        yield* runUIEffect(
-          new UI.TextInput({
-            prompt: 'Press Enter to continue, or Ctrl+C to cancel.',
-            modifyOutput: UI.modifiers.dimOnComplete,
-          }),
-        ).pipe(
-          Effect.catchTag('UIError', (e) =>
-            BadArgsError.make({ message: `UI error: ${e.message}` }),
-          ),
-        );
-        yield* Effect.log(
-          chalk.dim(
-            '\nDemo only: the next prompts would ask for a Google Client ID and Client Secret.',
-          ),
-        );
-      }),
-    ),
-    Match.when('demo-5', () =>
-      Effect.gen(function* () {
-        yield* Effect.log(
-          [
-            '',
-            demoCurrentMode,
-            '',
-            'Available now:',
-            `  ${demoAction}`,
-            '',
-            'Available after switching:',
-            ...demoUnavailableActions.map((action) => `  ${action}`),
-          ].join('\n'),
-        );
-        yield* runDemoSelect('What do you want to update?', [
-          { label: demoAction, value: 'custom' },
-        ]);
-      }),
-    ),
-    Match.exhaustive,
   );
 });
 
@@ -337,7 +144,7 @@ const updateGoogleToDevCredentials = Effect.fn(function* (
   );
 });
 
-type GoogleUpdateMode = 'dev' | 'custom' | 'redirect';
+type GoogleUpdateMode = 'dev' | 'custom' | 'redirect' | 'none';
 
 const hasGoogleCustomCredentialFlags = (opts: Record<string, unknown>) =>
   hasAnyFlag(opts, ['client-id', 'client-secret', 'custom-redirect-uri']);
@@ -353,35 +160,31 @@ const selectGoogleUpdateMode = Effect.fn(function* ({
   isWeb: boolean;
   switchingFromShared: boolean;
 }) {
-  const disabledInDevMode = "can't do this in dev mode";
-  const options: UI.SelectOption<GoogleUpdateMode>[] = switchingFromShared
-    ? [
-        { label: 'Switch to custom Google credentials', value: 'custom' },
-        {
-          label: 'Rotate credentials',
-          value: 'custom',
-          disabled: true,
-          disabledReason: disabledInDevMode,
-        },
-      ]
-    : [{ label: 'Rotate credentials', value: 'custom' }];
-
-  if (isWeb && switchingFromShared) {
-    options.push(
-      {
-        label: 'Update redirect URI',
-        value: 'redirect',
-        disabled: true,
-        disabledReason: disabledInDevMode,
-      },
-      {
-        label: 'Switch to Instant dev credentials',
-        value: 'dev',
-        disabled: true,
-        disabledReason: 'already using',
-      },
+  if (switchingFromShared) {
+    return yield* runUIEffect(
+      new UI.Select({
+        options: [
+          { label: 'Custom Google credentials', value: 'custom' },
+          {
+            label: 'Instant dev credentials' + chalk.dim(' (current)'),
+            value: 'none',
+          },
+        ],
+        promptText: 'Choose credential mode:',
+        modifyOutput: UI.modifiers.dimOnComplete,
+      }),
+    ).pipe(
+      Effect.catchTag('UIError', (e) =>
+        BadArgsError.make({ message: `UI error: ${e.message}` }),
+      ),
     );
-  } else if (isWeb) {
+  }
+
+  const options: { label: string; value: GoogleUpdateMode }[] = [
+    { label: 'Rotate credentials', value: 'custom' },
+  ];
+
+  if (isWeb) {
     options.push(
       {
         label:
@@ -597,6 +400,11 @@ const handleGoogleUpdate = Effect.fn(function* (
 
   if (updateMode === 'dev') {
     return yield* updateGoogleToDevCredentials(client);
+  }
+
+  if (updateMode === 'none') {
+    yield* Effect.log(chalk.dim('No changes made.'));
+    return;
   }
 
   if (updateMode === 'redirect') {
@@ -940,11 +748,6 @@ export const authClientUpdateCmd = Effect.fn(
   function* (
     opts: OptsFromCommand<typeof authClientUpdateDef> & Record<string, unknown>,
   ) {
-    const demoName = getAuthClientUpdateDemoName(opts);
-    if (demoName) {
-      return yield* authClientUpdateDemoCmd(demoName);
-    }
-
     const { auth, client: resolvedClient } = yield* resolveClient({
       id: opts.id,
       name: opts.name,
