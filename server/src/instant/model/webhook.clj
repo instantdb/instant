@@ -113,8 +113,7 @@
     (webhook-sender/validate-url url-string)))
 
 (defn maximum-active-webhooks []
-  (flags/flag :maximum-active-webhooks 2;100
-              ))
+  (flags/flag :maximum-active-webhooks 100))
 
 (defn app-id->lock-key ^long [^UUID app-id]
   (let [mac (doto (Mac/getInstance "HmacSHA256")
