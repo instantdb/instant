@@ -1639,20 +1639,41 @@ export function Fence({
           : rosePineDawnTheme
       }
     >
-      {({ className, style, tokens, getTokenProps }) => (
-        <pre
-          className={clsx(className, _className)}
-          style={{
-            ...style,
-            ..._style,
-            ...(copyable ? { position: 'relative' } : {}),
-            marginTop: 0,
-            marginBottom: 0,
-            border: 'none',
-          }}
-        >
-          {copyable ? (
-            <div className="absolute top-0 right-0 flex items-center">
+      {({ className, style, tokens, getTokenProps }) => {
+        const codeBlock = (
+          <pre
+            className={clsx(className, _className)}
+            style={{
+              ...style,
+              ..._style,
+              marginTop: 0,
+              marginBottom: 0,
+              border: 'none',
+            }}
+          >
+            <code>
+              {tokens.map((line, lineIndex) => (
+                <Fragment key={lineIndex}>
+                  {line
+                    .filter((token) => !token.empty)
+                    .map((token, tokenIndex) => {
+                      const { key, ...props } = getTokenProps({ token });
+                      return <span key={key || tokenIndex} {...props} />;
+                    })}
+                  {'\n'}
+                </Fragment>
+              ))}
+            </code>
+          </pre>
+        );
+
+        if (!copyable) {
+          return codeBlock;
+        }
+
+        return (
+          <div className="relative">
+            <div className="absolute top-0 right-0 z-10 flex items-center">
               <button
                 onClick={(e) => {
                   copy(code);
@@ -1672,22 +1693,10 @@ export function Fence({
                 {copyLabel}
               </button>
             </div>
-          ) : null}
-          <code>
-            {tokens.map((line, lineIndex) => (
-              <Fragment key={lineIndex}>
-                {line
-                  .filter((token) => !token.empty)
-                  .map((token, tokenIndex) => {
-                    const { key, ...props } = getTokenProps({ token });
-                    return <span key={key || tokenIndex} {...props} />;
-                  })}
-                {'\n'}
-              </Fragment>
-            ))}
-          </code>
-        </pre>
-      )}
+            {codeBlock}
+          </div>
+        );
+      }}
     </Highlight>
   );
 }
