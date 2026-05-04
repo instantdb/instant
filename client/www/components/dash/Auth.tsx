@@ -46,8 +46,9 @@ function CodeStep(props: {
     >
       <ScreenHeading>Enter your code</ScreenHeading>
       <Content>
-        We sent an email to <strong>{props.sentEmail}</strong>. Check your
-        email, and paste the code you see.
+        We sent an email to{' '}
+        <strong className="dark:text-white">{props.sentEmail}</strong>. Check
+        your email, and paste the code you see.
       </Content>
       <TextInput
         autoFocus
