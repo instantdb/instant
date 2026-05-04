@@ -196,6 +196,22 @@ describe('google', () => {
     );
   });
 
+  test('rejects partial shared Google web credential updates with --yes', async () => {
+    await run(
+      {
+        name: 'google-shared',
+        'client-id': 'new-google-id',
+      },
+      { yes: true },
+    );
+
+    expect(prompts).toHaveLength(0);
+    expect(logs.join('\n')).toContain(
+      'Must specify both --client-id and --client-secret when switching from Instant dev credentials to custom credentials with --yes.',
+    );
+    expect(updatedClients).toHaveLength(0);
+  });
+
   test('switches custom Google web client back to dev credentials', async () => {
     await run(
       {

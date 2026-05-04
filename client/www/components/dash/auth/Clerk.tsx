@@ -1,4 +1,5 @@
 import { FormEventHandler, useContext, useState } from 'react';
+import { clerkDomainFromPublishableKey } from '@instantdb/platform';
 import { errorToast } from '@/lib/toast';
 import { TokenContext } from '@/lib/contexts';
 import {
@@ -81,31 +82,6 @@ export function AddClerkProviderForm({
       </Button>
     </div>
   );
-}
-
-// Base64 decode, switching to url-safe decode if we hit an error
-// Can't be sure which method Clerk uses because you can't generate
-// `+` or `/` with characters that go in a normal host. Urls with
-// chinese characters exist, they might encode to `+` or `/`, and
-// Clerk might support them, so we'll be safe and do both.
-function base64Decode(s: string) {
-  try {
-    return Buffer.from(s, 'base64').toString('utf-8');
-  } catch (e) {
-    return Buffer.from(s, 'base64url').toString('utf-8');
-  }
-}
-
-function domainFromClerkKey(key: string): string | null {
-  try {
-    const parts = key.split('_');
-    const domainPartB64 = parts[parts.length - 1];
-    const domainPart = base64Decode(domainPartB64);
-    return domainPart.replace('$', '');
-  } catch (e) {
-    console.error('Error getting domain from clerk key', e);
-    return null;
-  }
 }
 
 function clerkExampleCode({
@@ -251,7 +227,7 @@ export function ClerkClient({
   const allowUnverifiedEmail = client.meta?.allowUnverifiedEmail;
 
   const domain = clerkPublishableKey
-    ? domainFromClerkKey(clerkPublishableKey)
+    ? clerkDomainFromPublishableKey(clerkPublishableKey)
     : null;
 
   const exampleCode = clerkExampleCode({
@@ -478,7 +454,7 @@ export function AddClerkClientForm({
       errorToast(err, { autoClose: 5000 });
       return;
     }
-    const domain = domainFromClerkKey(publishableKey);
+    const domain = clerkDomainFromPublishableKey(publishableKey);
     if (!domain) {
       errorToast(
         'Could not determine Clerk domain from key. Ping us in Discord for help.',

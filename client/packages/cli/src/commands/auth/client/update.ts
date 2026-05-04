@@ -267,6 +267,18 @@ const resolveGoogleUpdateMode = Effect.fn(function* ({
     });
   }
 
+  if (
+    yes &&
+    isWeb &&
+    switchingFromShared &&
+    (!hasFlag(opts, 'client-id') || !hasFlag(opts, 'client-secret'))
+  ) {
+    return yield* BadArgsError.make({
+      message:
+        'Must specify both --client-id and --client-secret when switching from Instant dev credentials to custom credentials with --yes.',
+    });
+  }
+
   if (hasAnyUpdateFlag) {
     return 'custom';
   }
