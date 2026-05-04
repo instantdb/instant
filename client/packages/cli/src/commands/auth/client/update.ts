@@ -44,7 +44,15 @@ type ProviderRow = {
   provider_name: string;
 };
 
-type UpdateDemoName = 'demo-1' | 'demo-2' | 'demo-3' | 'demo-4' | 'demo-5';
+type UpdateDemoName =
+  | 'demo-1'
+  | 'demo-2'
+  | 'demo-3'
+  | 'demo-4'
+  | 'demo-5'
+  | 'demo-6'
+  | 'demo-7'
+  | 'demo-8';
 
 const redirectPrompt = redirectUriPrompt({
   heading: 'Custom redirect URI (optional):',
@@ -59,6 +67,9 @@ const updateDemoNames: UpdateDemoName[] = [
   'demo-3',
   'demo-4',
   'demo-5',
+  'demo-6',
+  'demo-7',
+  'demo-8',
 ];
 
 export const getAuthClientUpdateDemoName = (
@@ -274,6 +285,82 @@ export const authClientUpdateDemoCmd = Effect.fn(function* (
               )
             : chalk.dim('\nDemo only: no changes would be made.'),
         );
+      }),
+    ),
+    Match.when('demo-6', () =>
+      Effect.gen(function* () {
+        yield* Effect.log(`\n${demoCurrentMode}`);
+        const mode = yield* runUIEffect(
+          new UI.Select({
+            options: [
+              { label: 'Custom Google credentials', value: 'custom' },
+              {
+                label: 'Instant dev credentials' + chalk.dim(' (current)'),
+                value: 'dev',
+              },
+            ],
+            promptText: 'Choose credential mode:',
+            modifyOutput: UI.modifiers.dimOnComplete,
+          }),
+        ).pipe(
+          Effect.catchTag('UIError', (e) =>
+            BadArgsError.make({ message: `UI error: ${e.message}` }),
+          ),
+        );
+
+        yield* Effect.log(
+          mode === 'custom'
+            ? chalk.dim(
+                '\nDemo only: the next prompts would ask for a Google Client ID and Client Secret.',
+              )
+            : chalk.dim('\nDemo only: no changes would be made.'),
+        );
+      }),
+    ),
+    Match.when('demo-7', () =>
+      Effect.gen(function* () {
+        yield* Effect.log(
+          [
+            '',
+            'This client uses Instant dev credentials.',
+            '',
+            'The next step is to switch to custom Google credentials.',
+          ].join('\n'),
+        );
+        yield* runUIEffect(
+          new UI.TextInput({
+            prompt: 'Press Enter to continue, or Ctrl+C to cancel.',
+            modifyOutput: UI.modifiers.dimOnComplete,
+          }),
+        ).pipe(
+          Effect.catchTag('UIError', (e) =>
+            BadArgsError.make({ message: `UI error: ${e.message}` }),
+          ),
+        );
+        yield* Effect.log(
+          chalk.dim(
+            '\nDemo only: the next prompts would ask for a Google Client ID and Client Secret.',
+          ),
+        );
+      }),
+    ),
+    Match.when('demo-8', () =>
+      Effect.gen(function* () {
+        yield* Effect.log(
+          [
+            '',
+            demoCurrentMode,
+            '',
+            'Available now:',
+            `  ${demoAction}`,
+            '',
+            'Available after switching:',
+            ...demoUnavailableActions.map((action) => `  ${action}`),
+          ].join('\n'),
+        );
+        yield* runDemoSelect('What do you want to update?', [
+          { label: demoAction, value: 'custom' },
+        ]);
       }),
     ),
     Match.exhaustive,
