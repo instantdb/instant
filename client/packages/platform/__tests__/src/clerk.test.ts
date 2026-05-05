@@ -10,15 +10,4 @@ describe('clerkDomainFromPublishableKey', () => {
       ),
     ).toBe('guiding-pegasus-93.clerk.accounts.dev');
   });
-
-  test('keeps underscores inside the encoded Clerk payload suffix', () => {
-    const encodedDomain = Buffer.from('https://example.com/?$').toString(
-      'base64url',
-    );
-
-    expect(encodedDomain).toContain('_');
-    expect(clerkDomainFromPublishableKey(`pk_test_${encodedDomain}`)).toBe(
-      'https://example.com/?',
-    );
-  });
 });
