@@ -1,9 +1,6 @@
 import { FileSystem } from '@effect/platform';
 import { Effect } from 'effect';
-import {
-  clerkDomainFromPublishableKey,
-  DEFAULT_OAUTH_CALLBACK_URL,
-} from '@instantdb/platform';
+import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
 import chalk from 'chalk';
 import { BadArgsError } from '../../../errors.ts';
 import { link } from '../../../logging.ts';
@@ -180,8 +177,6 @@ export const readPrivateKeyFile = Effect.fn('readPrivateKeyFile')(function* (
   }
   return trimmed;
 });
-
-export const domainFromClerkKey = clerkDomainFromPublishableKey;
 
 export function validateFirebaseProjectId(value: string) {
   const projectIdRegex = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/;

@@ -24,6 +24,7 @@ import {
   APPLE_AUTHORIZATION_ENDPOINT,
   APPLE_DISCOVERY_ENDPOINT,
   APPLE_TOKEN_ENDPOINT,
+  clerkDomainFromPublishableKey,
   LINKEDIN_AUTHORIZATION_ENDPOINT,
   LINKEDIN_DISCOVERY_ENDPOINT,
   LINKEDIN_TOKEN_ENDPOINT,
@@ -40,7 +41,6 @@ import {
   clerkPublishableKeyPrompt,
   clientIdPrompt,
   clientSecretPrompt,
-  domainFromClerkKey,
   firebaseDiscoveryEndpoint,
   firebaseProjectIdPrompt,
   getFlag,
@@ -644,7 +644,7 @@ const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
     });
   }
 
-  const domain = domainFromClerkKey(publishableKey);
+  const domain = clerkDomainFromPublishableKey(publishableKey);
   if (!domain) {
     return yield* BadArgsError.make({
       message: 'Invalid publishable key. Could not extract domain.',

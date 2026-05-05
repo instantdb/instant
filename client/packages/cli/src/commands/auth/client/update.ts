@@ -10,7 +10,10 @@ import {
   updateOAuthClient,
 } from '../../../lib/oauth.ts';
 import { UI } from '../../../ui/index.ts';
-import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
+import {
+  clerkDomainFromPublishableKey,
+  DEFAULT_OAUTH_CALLBACK_URL,
+} from '@instantdb/platform';
 import chalk from 'chalk';
 import boxen from 'boxen';
 import {
@@ -21,7 +24,6 @@ import {
   clerkPublishableKeyPrompt,
   clientIdPrompt,
   clientSecretPrompt,
-  domainFromClerkKey,
   firebaseDiscoveryEndpoint,
   firebaseProjectIdPrompt,
   getFlag,
@@ -729,7 +731,7 @@ const handleClerkUpdate = Effect.fn(function* (
     });
   }
 
-  const domain = domainFromClerkKey(publishableKey);
+  const domain = clerkDomainFromPublishableKey(publishableKey);
   if (!domain) {
     return yield* BadArgsError.make({
       message: 'Invalid publishable key. Could not extract domain.',
