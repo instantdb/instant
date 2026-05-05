@@ -202,7 +202,7 @@ const selectGoogleUpdateMode = Effect.fn(function* ({
   }
 
   const options: { label: string; value: GoogleUpdateMode }[] = [
-    { label: 'Rotate credentials', value: 'custom' },
+    { label: 'Update Client ID and Client Secret', value: 'custom' },
   ];
 
   if (isWeb) {
@@ -478,7 +478,7 @@ const handleClientIdSecretUpdate = Effect.fn(function* (params: {
 
   if (!hasAnyUpdateFlag && !yes) {
     const action = yield* selectUpdateAction([
-      { label: 'Rotate credentials', value: 'rotate' },
+      { label: 'Update Client ID and Client Secret', value: 'rotate' },
       { label: 'Update redirect URI', value: 'redirect' },
     ]);
     promptCredentials = action === 'rotate';
