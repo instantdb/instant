@@ -23,9 +23,12 @@
    (instant.isn ISN)
    (instant.webhook_sender WebhookAttempt)
    (java.sql Array Connection PreparedStatement ResultSet ResultSetMetaData)
-   (java.time Instant LocalDate LocalDateTime OffsetDateTime)
+   (java.time Instant LocalDate LocalDateTime ZoneOffset)
+   (java.util TimeZone)
    (javax.sql DataSource)
-   (org.postgresql.util PGobject PSQLException)
+   (org.postgresql.core Provider)
+   (org.postgresql.jdbc TimestampUtils)
+   (org.postgresql.util PGobject PGtokenizer PSQLException)
    (org.postgresql.replication LogSequenceNumber)))
 
 (set! *warn-on-reflection* true)
@@ -40,67 +43,52 @@
     (ISN. (Integer/parseInt slot-str)
           (LogSequenceNumber/valueOf lsn-str))))
 
-(defn- parse-pg-composite-fields
+(defn parse-pg-composite-fields
   "Splits a Postgres composite literal '(f1,f2,...)' into a vector of
    field strings. Empty unquoted fields are returned as nil (NULL),
    empty quoted fields as the empty string. Quoted fields are
    unescaped per the composite output format: '\"\"' -> '\"' and '\\\\'
    -> '\\'. Backslash-escaped characters are also accepted."
   [^String value]
-  (let [end (dec (count value))
-        sb (StringBuilder.)
-        out (transient [])
-        finish! (fn [quoted?]
-                  (let [s (.toString sb)]
-                    (.setLength sb 0)
-                    (conj! out (if (and (not quoted?) (zero? (.length s)))
-                                 nil
-                                 s))))]
-    (loop [i 1
-           in-quotes? false
-           quoted? false]
-      (if (= i end)
-        (do (finish! quoted?) (persistent! out))
-        (let [c (.charAt value i)]
+  (let [tokenizer (PGtokenizer. (PGtokenizer/removePara value) \,)]
+    (mapv (fn [i]
+            (let [res (.getToken tokenizer i)]
+              (when-not (string/blank? res)
+                res)))
+          (range (.getSize tokenizer)))))
+
+(def ^{:tag TimestampUtils} pg-ts-util (TimestampUtils. false (reify Provider
+                                                                (get [_] (TimeZone/getDefault)))))
+
+(defn parse-pg-timestamptz ^Instant [^String s]
+  (.toInstant (.toOffsetDateTime pg-ts-util s)))
+
+(defn unquote-token [^String token]
+  (let [stripped (if (and (>= (.length token) 2)
+                          (.startsWith token "\"")
+                          (.endsWith token "\""))
+                   (.substring token 1 (dec (.length token)))
+                   token)]
+    (loop [i 0
+           out (StringBuilder.)]
+      (if (>= i (.length stripped))
+        (.toString out)
+        (let [ch (.charAt stripped i)
+              next-i (inc i)]
           (cond
-            in-quotes?
-            (cond
-              (= c \\)
-              (do (.append sb (.charAt value (inc i)))
-                  (recur (+ i 2) true quoted?))
+            ;; Postgres composite text output escapes embedded quotes as "".
+            (and (= ch \")
+                 (< next-i (.length stripped))
+                 (= (.charAt stripped next-i) \"))
+            (recur (+ i 2) (.append out ch))
 
-              (= c \")
-              (if (and (< (inc i) end) (= (.charAt value (inc i)) \"))
-                (do (.append sb \") (recur (+ i 2) true quoted?))
-                (recur (inc i) false quoted?))
-
-              :else
-              (do (.append sb c) (recur (inc i) true quoted?)))
-
-            (= c \,)
-            (do (finish! quoted?) (recur (inc i) false false))
-
-            (= c \")
-            (recur (inc i) true true)
+            ;; Accept backslash-escaped characters too.
+            (and (= ch \\)
+                 (< next-i (.length stripped)))
+            (recur (+ i 2) (.append out (.charAt stripped next-i)))
 
             :else
-            (do (.append sb c) (recur (inc i) false quoted?))))))))
-
-(defn- parse-pg-timestamptz
-  "Postgres timestamptz output looks like '2026-05-04 04:38:53.045857+00'
-   (offset can also be +HH:MM or +HH:MM:SS). Normalize to ISO-8601 then
-   parse via OffsetDateTime."
-  ^Instant [^String s]
-  (let [t-form (.replace s \space \T)
-        len (.length t-form)
-        sign-idx (- len 3)
-        short-offset? (and (pos? sign-idx)
-                           (let [c (.charAt t-form sign-idx)]
-                             (or (= c \+) (= c \-)))
-                           (Character/isDigit (.charAt t-form (- len 2)))
-                           (Character/isDigit (.charAt t-form (- len 1))))
-        normalized (if short-offset? (str t-form ":00") t-form)]
-    (.toInstant (OffsetDateTime/parse normalized))))
+            (recur next-i (.append out ch))))))))
 
 (defn parse-webhook-attempt
   "Parses the value that we get from postgres into a WebhookAttempt.
@@ -108,13 +96,13 @@
   ^WebhookAttempt [^String value]
   (let [[at-s dur-s succ-s code-s resp err-type err] (parse-pg-composite-fields value)]
     (webhook-sender/->WebhookAttempt
-     (when at-s (parse-pg-timestamptz at-s))
+     (when at-s (parse-pg-timestamptz (unquote-token at-s)))
      (when dur-s (Integer/parseInt dur-s))
      (when succ-s (= "t" succ-s))
      (when code-s (Integer/parseInt code-s))
-     resp
-     err-type
-     err)))
+     (when resp (unquote-token resp))
+     (when err-type (unquote-token err-type))
+     (when err (unquote-token err)))))
 
 (defn <-pgobject
   "Transform PGobject containing `json` or `jsonb` value to Clojure data"
@@ -160,21 +148,16 @@
        "\""))
 
 (defn webhook-attempt->composite-str ^String [^WebhookAttempt a]
-  (let [{:keys [attempt-at duration-ms success? status-code response-text error-type error-message]} a]
+  (let [{:keys [^Instant attempt-at duration-ms success? status-code response-text error-type error-message]} a]
     (str "("
-         (when attempt-at (.toString ^Instant attempt-at))
-         ","
-         (when duration-ms duration-ms)
-         ","
-         (when (some? success?) (if success? "t" "f"))
-         ","
-         (when status-code status-code)
-         ","
-         (when response-text (pg-composite-quote-text response-text))
-         ","
-         (when error-type (pg-composite-quote-text error-type))
-         ","
-         (when error-message (pg-composite-quote-text error-message))
+         (string/join "," [(when attempt-at (.toString pg-ts-util (.atOffset attempt-at ZoneOffset/UTC)))
+                           (when duration-ms duration-ms)
+                           (when (some? success?) (if success? "t" "f"))
+                           (when status-code status-code)
+                           (when response-text (pg-composite-quote-text response-text))
+                           (when error-type (pg-composite-quote-text error-type))
+                           (when error-message (pg-composite-quote-text error-message))])
+
          ")")))
 
 (defn set-param

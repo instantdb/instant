@@ -1,18 +1,19 @@
 (ns instant.jdbc.sql-test
   (:require
+   [clojure.set]
+   [clojure.test :refer [deftest is testing]]
    [honey.sql :as hsql]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.util.test :refer [wait-for]]
-   [instant.webhook-sender :as webhook-sender]
-   [clojure.test :refer [deftest testing is]])
+   [instant.webhook-sender :as webhook-sender])
   (:import
    (clojure.lang ExceptionInfo)
    (instant.isn ISN)
    (instant.webhook_sender WebhookAttempt)
+   (java.sql Timestamp)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
-   (java.sql Timestamp)
    (org.postgresql.replication LogSequenceNumber)))
 
 (deftest in-progress-stmts
@@ -234,18 +235,49 @@
       (is (= "timeout" (:error-type a)))
       (is (= "connect timeout" (:error-message a)))))
 
+  (testing "literal from postgres with doubled quotes and backslashes"
+    (let [a (sql/parse-webhook-attempt
+             "(\"2026-05-04 04:38:53+00\",1200,f,500,\"boom: \"\"oops\"\", \\\\backslash\",,)")]
+      (is (= 500 (:status-code a)))
+      (is (= "boom: \"oops\", \\backslash" (:response-text a)))))
+
   (testing "roundtrip with webhook-attempt->composite-str"
-    (let [now (-> (Instant/parse "2026-05-04T04:38:53.045857Z"))
+    (let [now (Instant/now)
           attempts [(webhook-sender/->WebhookAttempt now 1 true 200 "ok" nil nil)
                     (webhook-sender/->WebhookAttempt now 5 false 502 nil "upstream" "upstream down")
                     (webhook-sender/->WebhookAttempt now 9 false 500
                                                      "{\"err\":\"x\\\"y\"}"
                                                      "exception"
                                                      "boom, with (parens), \"quotes\" and \\backslash")
+                    (webhook-sender/->WebhookAttempt now 8 false 500
+                                                     "slash-quote: \\\"x\\\""
+                                                     nil
+                                                     nil)
                     (webhook-sender/->WebhookAttempt now 0 true 204 "" nil nil)]]
       (doseq [^WebhookAttempt a attempts]
         (is (= a (sql/parse-webhook-attempt
-                  (sql/webhook-attempt->composite-str a))))))))
+                  (sql/webhook-attempt->composite-str a))))
+        (is (= (-> (into {} a)
+                   (update :attempt-at #(Instant/.truncatedTo % ChronoUnit/SECONDS)))
+               (-> (sql/select-one (aurora/conn-pool :read)
+                                       (hsql/format {:with [[:x {:select [[[:lift a] :a]]}]]
+                                                     :select [[[:. [:nest :a] :attempt_at]]
+                                                              [[:. [:nest :a] :duration_ms]]
+                                                              [[:. [:nest :a] :success]]
+                                                              [[:. [:nest :a] :status_code]]
+                                                              [[:. [:nest :a] :response_text]]
+                                                              [[:. [:nest :a] :error_type]]
+                                                              [[:. [:nest :a] :error_message]]]
+                                                     :from [:x]}))
+                       (clojure.set/rename-keys {:attempt_at :attempt-at
+                                                 :duration_ms :duration-ms
+                                                 :success :success?
+                                                 :status_code :status-code
+                                                 :response_text :response-text
+                                                 :error_type :error-type
+                                                 :error_message :error-message})
+                       (update :attempt-at #(.truncatedTo (Timestamp/.toInstant %)
+                                                          ChronoUnit/SECONDS)))))))))
 
 (deftest format-test
   (testing "static"
