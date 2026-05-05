@@ -58,7 +58,56 @@ There are three main steps:
 
 Let's dive deeper in each step:
 
+{% conditional
+   param="method"
+   value=["web-redirect", "rn-web"] %}
+
+## Quick start: dev credentials
+
+If you're just testing Google sign-in, you can skip Google Console entirely. Instant provides shared dev credentials for web flows so you can get going in seconds.
+
+From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
+
+- Click "Set up Google"
+- Toggle "Use dev credentials"
+- Give your client a name (e.g. `google-web`)
+- Click "Add Client"
+
+`localhost` and `exp://` are allowed as redirect origins automatically, so you can jump straight to **Step 3** below and start coding.
+
+{% callout type="note" %}
+
+Dev credentials are for development only:
+
+- Capped at 100 sign-ups per app
+- Web flows only (not the Google Button, not native iOS/Android)
+- Consent screen reads "Instant Shared Dev Credentials" instead of your app name
+
+When you're ready for production, return to "Set up Google" on the dashboard and click "Set custom credentials" to switch over.
+
+{% /callout %}
+
+Prefer the terminal? Run:
+
+```shell
+npx instant-cli@latest auth client add --type google --app-type web --name google-web --dev-credentials
+```
+
+{% /conditional %}
+
 ## 1. Set up your consent screen and create an Oauth client
+
+{% conditional
+   param="method"
+   value=["web-redirect", "rn-web"] %}
+
+{% callout type="note" %}
+
+Already using dev credentials from the quick start? You can skip this step until you're ready for production.
+
+{% /callout %}
+
+{% /conditional %}
 
 Head on over to {% blank-link href="https://console.cloud.google.com/apis/credentials" label="Google Console" /%}. You should be in the "Credentials" section.
 
