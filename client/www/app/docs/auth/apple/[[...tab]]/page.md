@@ -83,22 +83,61 @@ This step is not needed for Expo.
 
 {% conditional param="method" value="web-redirect" %}
 
-- Go to the Instant dashboard and select _Auth_ tab.
-- Select _Add Apple Client_
-- Select unique _clientName_ (`apple` by default, will be used in `db.auth` calls)
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the Instant dashboard, select the _Auth_ tab and:
+
+- Click _Add Apple Client_
+- Select a unique _clientName_ (`apple` by default, used in `db.auth` calls)
 - Fill in _Services ID_ from Step 2
 - Fill in _Team ID_ from [Membership details](https://developer.apple.com/account#MembershipDetailsCard)
 - Fill in _Key ID_ from Step 3.5
 - Fill in _Private Key_ by copying file content from Step 3.5
 - Click `Add Apple Client`
 
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth client add \
+  --type apple --name apple \
+  --services-id <services-id> \
+  --team-id <team-id> --key-id <key-id> \
+  --private-key-file <path-to-key.p8>
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
+
 {% else %}
 
-- Go to the Instant dashboard and select _Auth_ tab.
-- Select _Add Apple Client_
-- Select unique _clientName_ (`apple` by default, will be used in `db.auth` calls)
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the Instant dashboard, select the _Auth_ tab and:
+
+- Click _Add Apple Client_
+- Select a unique _clientName_ (`apple` by default, used in `db.auth` calls)
 - Fill in _Services ID_ from Step 2
 - Click `Add Apple Client`
+
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth client add \
+  --type apple --name apple --services-id <services-id>
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
 
 {% /else %}
 {% /conditional %}
@@ -107,8 +146,26 @@ This step is not needed for Expo.
 
 ## Step 4.5: Whitelist your domain in Instant (Web Redirect flow only)
 
-- In Instant Dashboard, Click _Redirect Origins_ → _Add an origin_
-- Add your app’s domain (e.g. `myapp.com`)
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the Instant dashboard's _Auth_ tab:
+
+- Click _Redirect Origins_ → _Add an origin_
+- Add your app's domain (e.g. `myapp.com`)
+
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth origin add --type website --url myapp.com
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
 
 {% /conditional %}
 
@@ -207,9 +264,28 @@ Update `app.json` by adding:
 }
 ```
 
-Go to Instant dashboard → Auth tab → Redirect Origins → Add an origin.
+Add `exp://` as a redirect origin for development with Expo:
 
-Add `exp://` for development with Expo.
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the Instant dashboard's _Auth_ tab:
+
+- Click _Redirect Origins_ → _Add an origin_
+- Add `exp://`
+
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth origin add --type custom-scheme --scheme exp://
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
 
 Authenticate with Apple and then pass identityToken to Instant along with `clientName` from Step 4:
 

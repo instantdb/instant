@@ -68,12 +68,29 @@ If you're testing Google sign-in locally, we have a fast option for you. Instant
 
 You don't need to go the Google Cloud Console, and you can log in within minutes. 
 
-Go to the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard and create your client:
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
 
 - Click "Set up Google"
 - Toggle "Use dev credentials"
 - Give your client a name (e.g. `google-web`)
 - Click "Add Client"
+
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth client add \
+  --type google --app-type web --name google-web --dev-credentials
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
 
 **And you're done. You can go [**straight to code**](#3-add-some-code)**.
 
@@ -155,9 +172,13 @@ Save your Client IDs -- you'll need it for the next step!
    param="method"
    value=["web-google-button", "web-redirect", "rn-web"] %}
 
-Go to the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Instant dashboard" /%} and select the `Auth` tab for your app.
-
 **Add your Oauth Client on Instant**
+
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
 
 - Click "Set up Google"
 - Enter your "Client ID"
@@ -165,7 +186,19 @@ Go to the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="In
 - Check "I added the redirect to Google" (make sure you actually did this!)
 - Click "Add Client"
 
-And voila, you are connected!
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth client add \
+  --type google --app-type web --name google-web \
+  --client-id <id> --client-secret <secret>
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
 
 {% /conditional %}
 
@@ -175,9 +208,25 @@ And voila, you are connected!
 
 **Register your website with Instant**
 
-In the `Auth` tab, add the url of the websites where you are using Instant to the Redirect Origins.
-If you're testing from localhost, add `http://localhost:3000`, replacing `3000` with the port you use.
-For production, add your website's domain.
+If you're testing from localhost, add `http://localhost:3000` (replacing `3000` with the port you use). For production, add your website's domain.
+
+{% setup-paths %}
+
+{% dashboard-path %}
+
+In the `Auth` tab, add your URL to the **Redirect Origins** list.
+
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth origin add --type website --url example.com
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
 
 {% /conditional %}
 
@@ -185,13 +234,34 @@ For production, add your website's domain.
    param="method"
    value=["rn-native"] %}
 
-Go to the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Instant dashboard" /%} and select the `Auth` tab for your app. For each Oauth Client you created, add it to Instant:
+**Add your Oauth Client on Instant**
+
+For each Oauth Client you created, add it to Instant:
+
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
 
 - Click "Set up Google"
 - Enter your "Client ID"
 - Click "Add Client"
 
-And voila, you are connected!
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth client add \
+  --type google --app-type ios --name google-ios --client-id <ios-id>
+npx instant-cli@latest auth client add \
+  --type google --app-type android --name google-android --client-id <android-id>
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
 
 {% /conditional %}
 
@@ -391,11 +461,28 @@ Update your app.json with your scheme:
 
 **Register your app with Instant**
 
-Now that you have you App Scheme, it's time to tell Instant about it.
+Now that you have your App Scheme, it's time to tell Instant about it. For development with expo, add `exp://` and your scheme (e.g. `mycoolredirect://`) as redirect origins.
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add a redirect origin of type "App scheme". For development with expo add `exp://` and your scheme, e.g. `mycoolredirect://`.
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add a redirect origin of type "App scheme".
 
 {% screenshot src="/img/docs/rn-web-redirect-origins.png" /%}
+
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth origin add --type custom-scheme --scheme exp://
+npx instant-cli@latest auth origin add --type custom-scheme --scheme mycoolredirect://
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
 
 **Use AuthSession to log in with Google!**
 

@@ -15,7 +15,24 @@ On the [Firebase dashboard](https://console.firebase.google.com/), open your pro
 
 **Step 2: Register your Firebase Project ID with your instant app**
 
-Go to the Instant dashboard, navigate to the `Auth` tab and add a new firebase auth app with the Project ID you copied.
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the Instant dashboard's `Auth` tab, add a new Firebase client with the Project ID you copied.
+
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth client add \
+  --type firebase --name firebase --project-id <project-id>
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
 
 ## Usage
 

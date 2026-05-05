@@ -32,7 +32,24 @@ On the Clerk dashboard, navigate to [`API keys`](https://dashboard.clerk.com/las
 
 **Step 3: Register your Clerk Publishable key with your instant app**
 
-Go to the Instant dashboard, navigate to the `Auth` tab and add a new clerk app with the publishable key you copied.
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the Instant dashboard's `Auth` tab, add a new Clerk client with the publishable key you copied.
+
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth client add \
+  --type clerk --name clerk --publishable-key pk_...
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
 
 ## Usage
 
