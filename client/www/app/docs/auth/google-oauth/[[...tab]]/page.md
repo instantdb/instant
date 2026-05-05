@@ -72,7 +72,7 @@ You don't need to go the Google Cloud Console, and you can log in within minutes
 
 {% dashboard-path %}
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
+From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
 
 - Click "Set up Google"
 - Toggle "Use dev credentials"
@@ -92,7 +92,7 @@ npx instant-cli@latest auth client add \
 
 {% /setup-paths %}
 
-**And you're done. You can go [**straight to code**](#3-add-some-code)**.
+**And you're done. You can go [straight to code](#3-add-some-code).**
 
 {% callout type="note" %}
 
@@ -177,7 +177,7 @@ Save your Client IDs -- you'll need it for the next step!
 
 {% dashboard-path %}
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
+From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
 
 - Click "Set up Google"
 - Enter your "Client ID"
@@ -213,7 +213,7 @@ If you're testing from localhost, add `http://localhost:3000` (replacing `3000` 
 
 {% dashboard-path %}
 
-In the `Auth` tab, add your URL to the **Redirect Origins** list.
+From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add your URL to the **Redirect Origins** list.
 
 {% /dashboard-path %}
 
@@ -241,7 +241,7 @@ For each Oauth Client you created, add it to Instant:
 
 {% dashboard-path %}
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
+From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
 
 - Click "Set up Google"
 - Enter your "Client ID"
@@ -466,7 +466,7 @@ Now that you have your App Scheme, it's time to tell Instant about it. For devel
 
 {% dashboard-path %}
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add a redirect origin of type "App scheme".
+From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add a redirect origin of type "App scheme".
 
 {% screenshot src="/img/docs/rn-web-redirect-origins.png" /%}
 

@@ -70,7 +70,7 @@ Save your Client ID and your Client Secret -- you'll need it for the next step!
 
 {% dashboard-path %}
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
+From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
 
 - Click "Set up LinkedIn"
 - Enter a unique name for your client (e.g., "linkedin-web")
@@ -102,7 +102,7 @@ If you're testing from localhost, add `http://localhost:3000` (replacing `3000` 
 
 {% dashboard-path %}
 
-In the `Auth` tab, add your URL to the **Redirect Origins** list.
+From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add your URL to the **Redirect Origins** list.
 
 {% /dashboard-path %}
 
@@ -215,7 +215,7 @@ Now that you have your App Scheme, it's time to tell Instant about it. For devel
 
 {% dashboard-path %}
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add a redirect origin of type "App scheme".
+From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add a redirect origin of type "App scheme".
 
 {% screenshot src="/img/docs/rn-web-redirect-origins.png" /%}
 

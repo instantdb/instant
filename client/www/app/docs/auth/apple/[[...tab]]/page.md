@@ -87,7 +87,7 @@ This step is not needed for Expo.
 
 {% dashboard-path %}
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
+From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
 
 - Click _Add Apple Client_
 - Select a unique _clientName_ (`apple` by default, used in `db.auth` calls)
@@ -119,7 +119,7 @@ npx instant-cli@latest auth client add \
 
 {% dashboard-path %}
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
+From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
 
 - Click _Add Apple Client_
 - Select a unique _clientName_ (`apple` by default, used in `db.auth` calls)
@@ -150,7 +150,7 @@ npx instant-cli@latest auth client add \
 
 {% dashboard-path %}
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
+From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
 
 - Click _Redirect Origins_ → _Add an origin_
 - Add your app's domain (e.g. `myapp.com`)
@@ -270,7 +270,7 @@ Add `exp://` as a redirect origin for development with Expo:
 
 {% dashboard-path %}
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
+From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
 
 - Click _Redirect Origins_ → _Add an origin_
 - Add `exp://`
