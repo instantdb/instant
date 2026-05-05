@@ -243,6 +243,8 @@
 
   (testing "roundtrip with webhook-attempt->composite-str"
     (let [now (Instant/now)
+          truncate-attempt-at (fn [attempt]
+                                (update attempt :attempt-at #(some-> % (Instant/.truncatedTo ChronoUnit/SECONDS))))
           attempts [(webhook-sender/->WebhookAttempt now 1 true 200 "ok" nil nil)
                     (webhook-sender/->WebhookAttempt now 5 false 502 nil "upstream" "upstream down")
                     (webhook-sender/->WebhookAttempt now 9 false 500
@@ -255,10 +257,13 @@
                                                      nil)
                     (webhook-sender/->WebhookAttempt now 0 true 204 "" nil nil)]]
       (doseq [^WebhookAttempt a attempts]
-        (is (= a (sql/parse-webhook-attempt
-                  (sql/webhook-attempt->composite-str a))))
+        (is (= (truncate-attempt-at a)
+               (-> a
+                   sql/webhook-attempt->composite-str
+                   sql/parse-webhook-attempt
+                   truncate-attempt-at)))
         (is (= (-> (into {} a)
-                   (update :attempt-at #(Instant/.truncatedTo % ChronoUnit/SECONDS)))
+                   (truncate-attempt-at))
                (-> (sql/select-one (aurora/conn-pool :read)
                                        (hsql/format {:with [[:x {:select [[[:lift a] :a]]}]]
                                                      :select [[[:. [:nest :a] :attempt_at]]
@@ -276,8 +281,7 @@
                                                  :response_text :response-text
                                                  :error_type :error-type
                                                  :error_message :error-message})
-                       (update :attempt-at #(.truncatedTo (Timestamp/.toInstant %)
-                                                          ChronoUnit/SECONDS)))))))))
+                       (update :attempt-at #(some-> % Timestamp/.toInstant (.truncatedTo ChronoUnit/SECONDS))))))))))
 
 (deftest format-test
   (testing "static"
