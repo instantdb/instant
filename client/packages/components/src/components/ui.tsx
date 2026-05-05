@@ -1673,7 +1673,7 @@ export function Fence({
 
         return (
           <div className="relative">
-            <div className="absolute top-0 right-0 z-10 flex items-center">
+            <div className="absolute top-1 right-1 z-10 flex items-center">
               <button
                 onClick={(e) => {
                   copy(code);
