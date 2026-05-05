@@ -19,7 +19,7 @@ On the [Firebase dashboard](https://console.firebase.google.com/), open your pro
 
 {% dashboard-path %}
 
-From the {% blank-link href="https://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add a new Firebase client with the Project ID you copied.
+From the {% blank-link href="/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add a new Firebase client with the Project ID you copied.
 
 {% /dashboard-path %}
 
