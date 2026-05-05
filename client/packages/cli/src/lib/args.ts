@@ -251,11 +251,10 @@ function mapActive<A, B, E, R, E2, R2, CanBeInactive extends boolean>(
 }
 
 /**
- * Allows an arg only when a mode or earlier choice makes it valid.
+ * Gates an arg behind a mode or earlier choice.
  *
- * When condition is false, a supplied flag fails as incompatible. An omitted
- * flag is ignored, even if the pipeline later calls required(), because that
- * flag does not apply in this mode.
+ * If the condition is false and the user supplied the flag, this returns an
+ * error.
  *
  * @example
  * const clientSecret = yield* Args.text(opts, 'client-secret').pipe(
