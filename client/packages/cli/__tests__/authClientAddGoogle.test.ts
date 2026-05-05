@@ -115,7 +115,7 @@ const iosFlags = new Map([
 
 // -- web: build-up with --yes --
 
-describe('web: --yes errors on each missing required flag', () => {
+describe('web: --yes handles missing values', () => {
   test('missing --type', async () => {
     await run(without(webFlags, 'type'), { yes: true });
     expect(logs.join('\n')).toContain('Missing required value for --type');
@@ -128,10 +128,11 @@ describe('web: --yes errors on each missing required flag', () => {
     expect(addedClients).toHaveLength(0);
   });
 
-  test('missing --name', async () => {
+  test('missing --name uses suggested default', async () => {
     await run(without(webFlags, 'name'), { yes: true });
-    expect(logs.join('\n')).toContain('Missing required value for --name');
-    expect(addedClients).toHaveLength(0);
+    expect(prompts).toHaveLength(0);
+    expect(addedClients).toHaveLength(1);
+    expect(addedClients[0].clientName).toBe('google-web');
   });
 
   test('missing --client-id', async () => {

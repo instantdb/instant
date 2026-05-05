@@ -42,6 +42,18 @@ type ArgState<A, E, R, CanBeInactive extends boolean> =
   | ActiveArg<A, E, R>
   | (CanBeInactive extends true ? InactiveArg : never);
 
+/**
+ * A parsed CLI arg that can be composed with Args helpers.
+ *
+ * Commands usually create one with text() or bool(), then finish with
+ * required() or optional().
+ *
+ * @example
+ * const name = yield* Args.text(opts, 'name').pipe(
+ *   Args.prompt({ prompt: 'Client Name:' }),
+ *   Args.required(),
+ * );
+ */
 export interface Arg<
   A,
   E = never,
@@ -53,6 +65,14 @@ export interface Arg<
 }
 
 export type ArgOptions = {
+  /**
+   * Use when the opts key is not the user-facing flag name.
+   *
+   * @example
+   * Args.text(opts, 'customRedirectUri', {
+   *   simpleName: '--custom-redirect-uri',
+   * })
+   */
   simpleName?: string;
 };
 
@@ -87,23 +107,65 @@ type UnavailableOptions = {
   message?: string;
 };
 
+/**
+ * Reads a value directly from opts. Prefer text/bool for values that will be
+ * validated or used in an Args pipeline.
+ *
+ * @example
+ * const rawType = Args.raw(opts, 'type');
+ */
 function raw(opts: Record<string, unknown>, key: string) {
   return opts[key];
 }
 
+/**
+ * Checks whether a flag key was supplied, even if the supplied value is empty.
+ *
+ * @example
+ * if (Args.has(opts, 'custom-redirect-uri')) {
+ *   // The user explicitly passed --custom-redirect-uri.
+ * }
+ */
 function has(opts: Record<string, unknown>, key: string) {
   return Object.prototype.hasOwnProperty.call(opts, key);
 }
 
+/**
+ * Checks whether any flag in a group was supplied. Useful when one flag should
+ * opt into a mode that unlocks related flags.
+ *
+ * @example
+ * const configureWeb = Args.hasAny(opts, [
+ *   'team-id',
+ *   'key-id',
+ *   'private-key-file',
+ * ]);
+ */
 function hasAny(opts: Record<string, unknown>, keys: string[]) {
   return keys.some((key) => has(opts, key));
 }
 
+/**
+ * Returns true only for boolean true or the string "true".
+ *
+ * @example
+ * const useDevCredentials = Args.isTrue(opts, 'dev-credentials');
+ */
 function isTrue(opts: Record<string, unknown>, key: string) {
   const value = raw(opts, key);
   return value === true || value === 'true';
 }
 
+/**
+ * Starts a string arg pipeline. Strings are trimmed, numbers are stringified,
+ * empty values become missing values, and other types produce BadArgsError.
+ *
+ * @example
+ * const clientId = yield* Args.text(opts, 'client-id').pipe(
+ *   Args.prompt(clientIdPrompt({ providerUrl })),
+ *   Args.required(),
+ * );
+ */
 function text(
   opts: Record<string, unknown>,
   key: string,
@@ -133,6 +195,16 @@ function readTextValue(value: unknown, flag: string) {
   });
 }
 
+/**
+ * Starts a boolean arg pipeline. Accepts booleans and the strings "true" or
+ * "false"; other supplied values produce BadArgsError.
+ *
+ * @example
+ * const configureWeb = yield* Args.bool(opts, 'configure-web').pipe(
+ *   Args.confirm({ promptText: 'Configure web redirect flow?' }),
+ *   Args.required(),
+ * );
+ */
 function bool(
   opts: Record<string, unknown>,
   key: string,
@@ -183,6 +255,20 @@ function mapActive<A, B, E, R, E2, R2, CanBeInactive extends boolean>(
   );
 }
 
+/**
+ * Gates an arg behind a mode or earlier choice.
+ *
+ * If the condition is false and the user supplied the flag, this returns an
+ * error. If the condition is false and the flag was omitted, the arg becomes
+ * inactive, so required() resolves to undefined instead of erroring.
+ *
+ * @example
+ * const clientSecret = yield* Args.text(opts, 'client-secret').pipe(
+ *   Args.availableWhen(appType === 'web'),
+ *   Args.prompt(clientSecretPrompt({ providerUrl })),
+ *   Args.required(),
+ * );
+ */
 function availableWhen(condition: boolean, options?: UnavailableOptions) {
   return function availableWhenArg<A, E, R, CanBeInactive extends boolean>(
     arg: Arg<A, E, R, CanBeInactive>,
@@ -205,6 +291,21 @@ function availableWhen(condition: boolean, options?: UnavailableOptions) {
   };
 }
 
+/**
+ * Prompts for a missing text value.
+ *
+ * With --yes, the prompt is skipped. If inputProps.defaultValue is set, that
+ * value is used. Otherwise the value stays missing.
+ *
+ * @example
+ * const clientName = yield* Args.text(opts, 'name').pipe(
+ *   Args.prompt({
+ *     prompt: 'Client Name:',
+ *     defaultValue: suggestedClientName,
+ *   }),
+ *   Args.required(),
+ * );
+ */
 function prompt(inputProps: UI.TextInputProps) {
   return function promptArg<E, R, CanBeInactive extends boolean>(
     arg: Arg<string, E, R, CanBeInactive>,
@@ -215,11 +316,13 @@ function prompt(inputProps: UI.TextInputProps) {
         if (value !== undefined) return value;
 
         const { yes } = yield* GlobalOpts;
-        if (yes) return undefined;
+        const result = yes
+          ? inputProps.defaultValue
+          : yield* runUIEffect(new UI.TextInput(inputProps)).pipe(
+              Effect.catchTag('UIError', uiErrorToBadArgs),
+            );
+        if (result === undefined) return undefined;
 
-        const result = yield* runUIEffect(new UI.TextInput(inputProps)).pipe(
-          Effect.catchTag('UIError', uiErrorToBadArgs),
-        );
         const trimmed = result.trim();
         return trimmed.length > 0 ? trimmed : undefined;
       }),
@@ -227,6 +330,20 @@ function prompt(inputProps: UI.TextInputProps) {
   };
 }
 
+/**
+ * Prompts for a missing boolean value.
+ *
+ * With --yes, the prompt is skipped and confirmationProps.defaultValue is used.
+ *
+ * @example
+ * const configureWeb = yield* Args.bool(opts, 'configure-web').pipe(
+ *   Args.confirm({
+ *     promptText: 'Configure web redirect flow?',
+ *     defaultValue: false,
+ *   }),
+ *   Args.required(),
+ * );
+ */
 function confirm(confirmationProps: UI.ConfirmationProps) {
   return function confirmArg<E, R, CanBeInactive extends boolean>(
     arg: Arg<boolean, E, R, CanBeInactive>,
@@ -247,6 +364,17 @@ function confirm(confirmationProps: UI.ConfirmationProps) {
   };
 }
 
+/**
+ * Validates a present value. Return an error message to fail, or undefined to
+ * accept the value. Missing and inactive args pass through unchanged.
+ *
+ * @example
+ * const projectId = yield* Args.text(opts, 'project-id').pipe(
+ *   Args.prompt(firebaseProjectIdPrompt({})),
+ *   Args.validate(validateFirebaseProjectId),
+ *   Args.required(),
+ * );
+ */
 function validate<A>(validator: (value: A) => string | undefined) {
   return function validateArg<E, R, CanBeInactive extends boolean>(
     arg: Arg<A, E, R, CanBeInactive>,
@@ -265,6 +393,18 @@ function validate<A>(validator: (value: A) => string | undefined) {
   };
 }
 
+/**
+ * Finishes a pipeline with a required value.
+ *
+ * Missing active args produce BadArgsError. Inactive args return undefined, so
+ * callers can skip downstream work for unavailable flags.
+ *
+ * @example
+ * const clientId = yield* Args.text(opts, 'client-id').pipe(
+ *   Args.prompt(clientIdPrompt({ providerUrl })),
+ *   Args.required(),
+ * );
+ */
 function required(options?: MissingOptions) {
   return function requiredArg<A, E, R, CanBeInactive extends boolean>(
     arg: Arg<A, E, R, CanBeInactive>,
@@ -291,6 +431,17 @@ function required(options?: MissingOptions) {
   };
 }
 
+/**
+ * Finishes a pipeline with an optional value.
+ *
+ * Missing and inactive args return undefined.
+ *
+ * @example
+ * const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
+ *   Args.prompt(optionalRedirectPrompt),
+ *   Args.optional(),
+ * );
+ */
 function optional() {
   return function optionalArg<A, E, R, CanBeInactive extends boolean>(
     arg: Arg<A, E, R, CanBeInactive>,

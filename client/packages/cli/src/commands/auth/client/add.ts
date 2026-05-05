@@ -480,6 +480,7 @@ const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     'team-id',
     'key-id',
     'private-key-file',
+    'custom-redirect-uri',
   ]);
 
   const configureWeb = anyWebFlagProvided

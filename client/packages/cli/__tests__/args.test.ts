@@ -145,6 +145,18 @@ describe('non-interactive', () => {
     expect(err.message).toBe('Missing required value for --client-id');
   });
 
+  test('required missing value with prompt default -> default value', async () => {
+    const result = await run(
+      Args.text({}, 'name').pipe(
+        Args.prompt({ prompt: 'Client Name:', defaultValue: 'github' }),
+        Args.required(),
+      ),
+      true,
+    );
+
+    expect(result).toBe('github');
+  });
+
   test('number value -> stringified', async () => {
     const result = await run(
       Args.text({ 'client-id': 42 }, 'client-id').pipe(Args.required()),
