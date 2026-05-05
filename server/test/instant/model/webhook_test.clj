@@ -1,7 +1,10 @@
 (ns instant.model.webhook-test
   (:require
-   [clojure.test :refer [deftest is]]
+   [clojure.test :refer [deftest is testing]]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-empty-app]]
+   [instant.flags :as flags]
    [instant.grpc :as grpc]
    [instant.isn :as isn]
    [instant.jdbc.aurora :as aurora]
@@ -10,7 +13,8 @@
    [instant.model.webhook :as webhook]
    [instant.util.hsql :as uhsql]
    [instant.util.json :as json]
-   [instant.util.test :as test-util])
+   [instant.util.test :as test-util]
+   [instant.webhook-sender :as webhook-sender])
   (:import
    (instant.jdbc WalColumn WalEntry)
    (java.time Instant)))
@@ -374,6 +378,8 @@
                    (summarize (fetch-data users-all-id))))))))))
 
 (deftest attnums-are-correct
+  ;; We look up the attr-id and pg-size by index. This test makes sure that
+  ;; we don't make any changes that would affect the index of those fields.
   (let [columns
         (sql/select (aurora/conn-pool :read)
                     ["select attname AS column_name
@@ -387,3 +393,345 @@
         "The attr_id column should be the third column in the triples table")
     (is (= "pg_size" (:column_name (nth columns webhook/pg-size-column-idx)))
         "The pg_size column should be the 12th column in the triples table")))
+
+(deftest cant-create-more-than-max-webhooks
+  (with-redefs [webhook/maximum-active-webhooks (constantly 10)
+                webhook-sender/validate-url (constantly nil)]
+    (with-empty-app
+      (fn [app]
+        (test-util/make-attrs (:id app) [[:users/id :unique? :index?]])
+        (let [params {:app-id (:id app)
+                      :etypes ["users"]
+                      :actions ["create"]
+                      :url "https://example.com/hook"}
+              start-promise (promise)
+              ;; Race to create a bunch of webhooks
+              tasks (mapv (fn [_]
+                            (future
+                              (try
+                                @start-promise
+                                [:ok (webhook/create! params)]
+                                (catch Exception e [:err e]))))
+                          (range 20))
+              _ (deliver start-promise true)
+              results (mapv deref tasks)
+              {oks :ok errs :err} (group-by first results)]
+          (is (= 10 (count oks)))
+          (is (= 10 (count errs)))
+          (doseq [[_ e] errs]
+            (is (re-find #"may not have more than 10 active webhooks"
+                         (.getMessage ^Exception e))))
+          ;; Disabled webhooks don't count against the limit.
+          (let [{disabled-id :id} (sql/select-one (aurora/conn-pool :read)
+                                                  ["select id from webhooks where app_id = ? limit 1" (:id app)])]
+            (webhook/disable! {:app-id (:id app)
+                               :webhook-id disabled-id
+                               :reason "test"})
+            (is (webhook/create! params))))))))
+
+(deftest retries-only-max-attempts-times
+  (with-empty-app
+    (fn [app]
+      (let [attrs (test-util/make-attrs (:id app) [[:users/id :unique? :index?]])
+            id-aid (:users/id attrs)
+            webhook-id (random-uuid)
+            isn (isn/test-isn 100)
+            partition-bucket (history/partition-bucket-for-time (Instant/now))
+            machine-id (random-uuid)
+            failed-attempt (webhook-sender/->WebhookAttempt
+                            (Instant/now) 100 false 500 "fail" "network" "Network error.")]
+        (insert-webhook! {:app-id (:id app)
+                          :webhook-id webhook-id
+                          :id-attr-ids [id-aid]
+                          :actions ["create"]})
+        (sql/do-execute! (aurora/conn-pool :write)
+                         ["insert into webhook_events
+                            (webhook_id, isn, app_id, status, machine_id, partition_bucket)
+                            values (?, ?, ?, 'processing'::webhook_event_status, ?, ?)"
+                          webhook-id isn (:id app) machine-id partition-bucket])
+        (try
+          (dotimes [n webhook/max-attempts]
+            (let [event (sql/select-one
+                         (aurora/conn-pool :read)
+                         ["select webhook_id, app_id, isn, partition_bucket,
+                                  coalesce(cardinality(attempts), 0) as attempt_count
+                            from webhook_events
+                            where webhook_id = ? and isn = ? and partition_bucket = ?"
+                          webhook-id isn partition-bucket])]
+              (webhook/record-attempt! (aurora/conn-pool :write) event failed-attempt machine-id)
+              (let [{:keys [status next_attempt_after]}
+                    (sql/select-one (aurora/conn-pool :read)
+                                    ["select status, next_attempt_after from webhook_events
+                                       where webhook_id = ? and isn = ? and partition_bucket = ?"
+                                     webhook-id isn partition-bucket])
+                    last? (= (inc n) webhook/max-attempts)]
+                (if last?
+                  (do (is (= "failed" status))
+                      (is (nil? next_attempt_after)))
+                  (do (is (= "error" status))
+                      (is (some? next_attempt_after))
+                      ;; simulate the retry-claim re-locking the row for the next pass
+                      (sql/do-execute!
+                       (aurora/conn-pool :write)
+                       ["update webhook_events
+                            set status = 'processing'::webhook_event_status,
+                                machine_id = ?
+                          where webhook_id = ? and isn = ? and partition_bucket = ?"
+                        machine-id webhook-id isn partition-bucket]))))))
+          (let [attempts (:attempts (sql/select-one (aurora/conn-pool :read)
+                                                    ["select * from webhook_events where webhook_id = ? and isn = ?"
+                                                     webhook-id isn]))]
+            (is (= (count attempts) webhook/max-attempts))
+            (is (every? #(false? (:success? %)) attempts)))
+
+          (finally
+            (sql/do-execute! (aurora/conn-pool :write)
+                             ["delete from webhook_events
+                                where webhook_id = ? and isn = ? and partition_bucket = ?"
+                              webhook-id isn partition-bucket])))))))
+
+(deftest a-410-disables-the-webhook
+  (with-empty-app
+    (fn [app]
+      (let [attrs (test-util/make-attrs (:id app) [[:users/id :unique? :index?]])
+            id-aid (:users/id attrs)
+            webhook-id (random-uuid)
+            isn (isn/test-isn 200)
+            partition-bucket (history/partition-bucket-for-time (Instant/now))
+            machine-id (random-uuid)
+            gone-attempt (webhook-sender/->WebhookAttempt
+                          (Instant/now) 100 false 410 "Gone" nil nil)]
+        (insert-webhook! {:app-id (:id app)
+                          :webhook-id webhook-id
+                          :id-attr-ids [id-aid]
+                          :actions ["create"]})
+        (sql/do-execute! (aurora/conn-pool :write)
+                         ["insert into webhook_events
+                            (webhook_id, isn, app_id, status, machine_id, partition_bucket)
+                            values (?, ?, ?, 'processing'::webhook_event_status, ?, ?)"
+                          webhook-id isn (:id app) machine-id partition-bucket])
+        (try
+          (let [event (sql/select-one
+                       (aurora/conn-pool :read)
+                       ["select webhook_id, app_id, isn, partition_bucket,
+                                coalesce(cardinality(attempts), 0) as attempt_count
+                          from webhook_events
+                          where webhook_id = ? and isn = ? and partition_bucket = ?"
+                        webhook-id isn partition-bucket])]
+            (webhook/record-attempt! (aurora/conn-pool :write) event gone-attempt machine-id))
+          (let [{wh-status :status :keys [disabled_reason]}
+                (sql/select-one (aurora/conn-pool :read)
+                                ["select status, disabled_reason from webhooks where id = ?"
+                                 webhook-id])
+                {ev-status :status}
+                (sql/select-one (aurora/conn-pool :read)
+                                ["select status from webhook_events
+                                   where webhook_id = ? and isn = ? and partition_bucket = ?"
+                                 webhook-id isn partition-bucket])]
+            (is (= "disabled" wh-status))
+            (is (= "Endpoint returned 410 status code." disabled_reason))
+            (is (= "error" ev-status)))
+          (finally
+            (sql/do-execute! (aurora/conn-pool :write)
+                             ["delete from webhook_events
+                                where webhook_id = ? and isn = ? and partition_bucket = ?"
+                              webhook-id isn partition-bucket])))))))
+
+(deftest webhook-matches?-test
+  (with-empty-app
+    (fn [app]
+      (let [enable-wal-entity-log? (var-get #'flags/enable-wal-entity-log?)]
+        (with-redefs [flags/enable-wal-entity-log?
+                      (fn [aid]
+                        (or (= aid (:id app)) (enable-wal-entity-log? aid)))
+                      flags/log-to-wal-log-table?
+                      (constantly true)]
+          (let [attr->id (test-util/make-attrs (:id app)
+                                               [[:users/id :unique? :index?]
+                                                [:users/name]])
+                attrs (attr-model/get-by-app-id (:id app))
+                id-aid (:users/id attr->id)
+                name-aid (:users/name attr->id)
+                user-id (test-util/stuid "ua")
+                other-aid (random-uuid)
+                for-app (fn [recs] (filter #(= (:id app) (:app-id %)) recs))]
+            (test-util/with-test-replication-slot [records]
+              ;; Tx 1: insert a user (id + name triples)
+              (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                            [[:add-triple user-id id-aid (str user-id)]
+                             [:add-triple user-id name-aid "alice"]])
+              ;; Tx 2: update name
+              (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                            [[:add-triple user-id name-aid "bob"]])
+              ;; Tx 3: delete the user
+              (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                            [[:delete-entity user-id "users"]])
+              (test-util/wait-for #(<= 3 (count (for-app @records))) 5000)
+              (let [[insert-rec update-rec delete-rec] (vec (for-app @records))]
+                (testing "create"
+                  (let [hook {:webhooks/id_attr_ids [id-aid]
+                              :webhooks/actions ["create"]}]
+                    (testing "matches insert that touched id-aid"
+                      (is (boolean (webhook/webhook-matches? insert-rec hook))))
+                    (testing "does not match update wal"
+                      (is (nil? (webhook/webhook-matches? update-rec hook))))
+                    (testing "does not match delete wal"
+                      (is (nil? (webhook/webhook-matches? delete-rec hook)))))
+                  (testing "does not match insert when id_attr_ids excludes touched attrs"
+                    (is (nil? (webhook/webhook-matches?
+                               insert-rec
+                               {:webhooks/id_attr_ids [other-aid]
+                                :webhooks/actions ["create"]})))))
+
+                (testing "update"
+                  (let [hook {:webhooks/id_attr_ids [name-aid]
+                              :webhooks/actions ["update"]}]
+                    (testing "matches update that touched name-aid"
+                      (is (boolean (webhook/webhook-matches? update-rec hook))))
+                    (testing "does not match insert wal"
+                      (is (nil? (webhook/webhook-matches? insert-rec hook))))
+                    (testing "does not match delete wal"
+                      (is (nil? (webhook/webhook-matches? delete-rec hook)))))
+                  (testing "does not match update when id_attr_ids excludes touched attrs"
+                    (is (nil? (webhook/webhook-matches?
+                               update-rec
+                               {:webhooks/id_attr_ids [other-aid]
+                                :webhooks/actions ["update"]}))))
+                  (testing "does not match update when id_attr_ids only references untouched attrs"
+                    ;; tx 2 only updated name-aid; id-aid wasn't part of the update.
+                    (is (nil? (webhook/webhook-matches?
+                               update-rec
+                               {:webhooks/id_attr_ids [id-aid]
+                                :webhooks/actions ["update"]})))))
+
+                (testing "delete"
+                  (let [hook {:webhooks/id_attr_ids [id-aid]
+                              :webhooks/actions ["delete"]}]
+                    (testing "matches delete that touched id-aid"
+                      (is (boolean (webhook/webhook-matches? delete-rec hook))))
+                    (testing "does not match insert wal"
+                      (is (nil? (webhook/webhook-matches? insert-rec hook))))
+                    (testing "does not match update wal"
+                      (is (nil? (webhook/webhook-matches? update-rec hook)))))
+                  (testing "does not match delete when id_attr_ids excludes touched attrs"
+                    (is (nil? (webhook/webhook-matches?
+                               delete-rec
+                               {:webhooks/id_attr_ids [other-aid]
+                                :webhooks/actions ["delete"]})))))
+
+                (testing "webhook-data-for-wal-record"
+                  (let [hook {:etypes ["users"]
+                              :actions ["create" "update" "delete"]}]
+                    (testing "insert produces a create record"
+                      (let [data (webhook/webhook-data-for-wal-record hook insert-rec)]
+                        (is (= 1 (count data)))
+                        (let [{:keys [etype action id before after]} (first data)]
+                          (is (= "users" etype))
+                          (is (= "create" action))
+                          (is (= user-id id))
+                          (is (nil? before))
+                          (is (= {"id" (str user-id) "name" "alice"} after)))))
+                    (testing "update produces an update record"
+                      (let [data (webhook/webhook-data-for-wal-record hook update-rec)]
+                        (is (= 1 (count data)))
+                        (let [{:keys [etype action id before after]} (first data)]
+                          (is (= "users" etype))
+                          (is (= "update" action))
+                          (is (= user-id id))
+                          (is (= {"id" (str user-id) "name" "alice"} before))
+                          (is (= {"id" (str user-id) "name" "bob"} after)))))
+                    (testing "delete produces a delete record"
+                      (let [data (webhook/webhook-data-for-wal-record hook delete-rec)]
+                        (is (= 1 (count data)))
+                        (let [{:keys [etype action id before after]} (first data)]
+                          (is (= "users" etype))
+                          (is (= "delete" action))
+                          (is (= user-id id))
+                          (is (= {"id" (str user-id) "name" "bob"} before))
+                          (is (nil? after))))))
+                  (testing "non-matching etype returns no records"
+                    (let [hook {:etypes ["books"]
+                                :actions ["create" "update" "delete"]}]
+                      (is (empty? (webhook/webhook-data-for-wal-record hook insert-rec)))
+                      (is (empty? (webhook/webhook-data-for-wal-record hook update-rec)))
+                      (is (empty? (webhook/webhook-data-for-wal-record hook delete-rec)))))
+                  (testing "non-matching action returns no records"
+                    (let [hook {:etypes ["users"]
+                                :actions ["delete"]}]
+                      (is (empty? (webhook/webhook-data-for-wal-record hook insert-rec)))
+                      (is (empty? (webhook/webhook-data-for-wal-record hook update-rec))))))))))))))
+
+;; We don't support links yet
+(deftest webhook-matches?-doesn't-match-for-links
+  (with-empty-app
+    (fn [app]
+      (let [attr->id (test-util/make-attrs (:id app)
+                                           [[:users/id :unique? :index?]
+                                            [:books/id :unique? :index?]
+                                            [[:users/favorite :books/favoritedBy] :unique?]])
+            attrs (attr-model/get-by-app-id (:id app))
+            users-id-aid (:users/id attr->id)
+            books-id-aid (:books/id attr->id)
+            ref-aid (:users/favorite attr->id)
+            u1 (test-util/stuid "u")
+            b1 (test-util/stuid "b")
+            b2 (test-util/stuid "ba")
+            for-app (fn [recs] (filter #(= (:id app) (:app-id %)) recs))
+            enable-wal-entity-log? (var-get #'flags/enable-wal-entity-log?)]
+        (with-redefs [flags/enable-wal-entity-log?
+                      (fn [aid]
+                        (or (= aid (:id app)) (enable-wal-entity-log? aid)))
+                      flags/log-to-wal-log-table?
+                      (constantly true)]
+          (test-util/with-test-replication-slot [records]
+            ;; Tx 1: setup users + books
+            (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                          [[:add-triple u1 users-id-aid (str u1)]
+                           [:add-triple b1 books-id-aid (str b1)]
+                           [:add-triple b2 books-id-aid (str b2)]])
+            ;; Tx 2: add link u1.favorite = b1
+            (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                          [[:add-triple u1 ref-aid (str b1)]])
+            ;; Tx 3: change link to b2
+            (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                          [[:add-triple u1 ref-aid (str b2)]])
+            ;; Tx 4: remove link
+            (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                          [[:retract-triple u1 ref-aid (str b2)]])
+            (test-util/wait-for #(<= 4 (count (for-app @records))) 5000)
+            (let [[_setup add-link change-link remove-link] (vec (for-app @records))]
+              (testing "add link doesn't trigger"
+                (testing "users-side"
+                  (is (not (boolean (webhook/webhook-matches?
+                                     add-link
+                                     {:webhooks/id_attr_ids [users-id-aid]
+                                      :webhooks/actions ["create" "update"]})))))
+                (testing "books-side"
+                  (is (not (boolean (webhook/webhook-matches?
+                                     add-link
+                                     {:webhooks/id_attr_ids [books-id-aid]
+                                      :webhooks/actions ["create" "update"]}))))))
+
+              (testing "change link doesn't trigger"
+                (testing "users-side"
+                  (is (not (boolean (webhook/webhook-matches?
+                                     change-link
+                                     {:webhooks/id_attr_ids [users-id-aid]
+                                      :webhooks/actions ["update"]})))))
+                (testing "books-side"
+                  (is (not (boolean (webhook/webhook-matches?
+                                     change-link
+                                     {:webhooks/id_attr_ids [books-id-aid]
+                                      :webhooks/actions ["update"]}))))))
+
+              (testing "remove link doesn't trigger"
+                (testing "users-side"
+                  (is (not (boolean (webhook/webhook-matches?
+                                     remove-link
+                                     {:webhooks/id_attr_ids [users-id-aid]
+                                      :webhooks/actions ["update" "delete"]})))))
+                (testing "books-side"
+                  (is (not (boolean (webhook/webhook-matches?
+                                     remove-link
+                                     {:webhooks/id_attr_ids [books-id-aid]
+                                      :webhooks/actions ["update" "delete"]})))))))))))))

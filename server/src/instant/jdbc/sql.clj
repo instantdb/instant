@@ -45,10 +45,7 @@
 
 (defn parse-pg-composite-fields
   "Splits a Postgres composite literal '(f1,f2,...)' into a vector of
-   field strings. Empty unquoted fields are returned as nil (NULL),
-   empty quoted fields as the empty string. Quoted fields are
-   unescaped per the composite output format: '\"\"' -> '\"' and '\\\\'
-   -> '\\'. Backslash-escaped characters are also accepted."
+   strings. String values still need to be escaped."
   [^String value]
   (let [tokenizer (PGtokenizer. (PGtokenizer/removePara value) \,)]
     (mapv (fn [i]
@@ -63,7 +60,9 @@
 (defn parse-pg-timestamptz ^Instant [^String s]
   (.toInstant (.toOffsetDateTime pg-ts-util s)))
 
-(defn unquote-token [^String token]
+(defn unquote-token
+  "Unescapes composite string, unescaping quotes and backslashes."
+  [^String token]
   (let [stripped (if (and (>= (.length token) 2)
                           (.startsWith token "\"")
                           (.endsWith token "\""))

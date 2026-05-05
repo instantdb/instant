@@ -411,14 +411,14 @@
                              item (.take q)]
                         (.add batch item)
                         ;; Grab up to 100 items from the queue
-                        (.drainTo q batch 99)
+                        (.drainTo q batch (dec (flags/flag :history-batch-size 99)))
                         (let [quit? (identical? shutdown-sentinel (.get batch (dec (.size batch))))]
                           (when quit?
                             (.remove batch (dec (.size batch))))
                           (when-not (.isEmpty batch)
                             ;; We create the history entries and the webhook events before flushing the
                             ;; lsn so that we never miss a wal entry. We may handle the same entry twice,
-                            ;; `push-batch` and `create-events!` are idempotent functions
+                            ;; but `push-batch` and `create-events!` are idempotent functions
                             (let [webhook-matches (history-model/push-batch! batch)
                                   events (webhook-model/create-events! batch webhook-matches)]
                               (when (seq events)
@@ -467,6 +467,8 @@
                                       previous-isn-atom]}]
   (tracer/record-info! {:name "invalidator/singleton-worker-start"})
   (let [notify-webhook-events (fn [event-primary-keys]
+                                ;; Notify a random machine that they should check for new webhook
+                                ;; events. Prevents a thundering herd.
                                 (let [observers (get-remote-observers)
                                       i (rand-int (inc (count observers)))
                                       observer (nth observers i ::self)]

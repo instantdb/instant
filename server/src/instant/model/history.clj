@@ -221,27 +221,29 @@
 
 (def push-batch-q
   (uhsql/preformat
-   {:with [[:history-inserts {:insert-into [[:history [:isn :app-id :topics :storage :content :partition-bucket]]
-                                            {:select [[[:cast [:composite :slot-num :lsn] :isn]]
-                                                      :app-id :topics :storage :content :partition-bucket]
-                                             :from [[[:unnest :?isn :?app-id :?topics :?storage :?content :?partition-bucket]
-                                                     [:t [:composite :slot-num :lsn :app-id :topics :storage :content :partition-bucket]]]]}]
-                              :on-conflict [:isn :partition-bucket]
-                              :do-nothing true
-                              :returning [:app-id :isn :topics]}]
-           [:webhook-candidates {:select [:webhooks.id :webhooks.id-attr-ids :webhooks.actions :history-inserts.isn]
-                                 :from :webhooks
-                                 :join [:history-inserts [:and
-                                                          [:= :webhooks.app-id :history-inserts.app-id]
-                                                          [:= :webhooks.status [:cast [:inline "active"] :webhook_status]]
-                                                          [:<> [:& :history-inserts.topics :webhooks.topics] :0]]]}]]
-    :select :*
-    :from :webhook-candidates}))
+   {:with [[:inputs {:select [[[:cast [:composite :slot-num :lsn] :isn] :isn]
+                              :app-id :topics :storage :content :partition-bucket]
+                     :from [[[:unnest :?isn :?app-id :?topics :?storage :?content :?partition-bucket]
+                             [:t [:composite :slot-num :lsn :app-id :topics :storage :content :partition-bucket]]]]}]
+           [:history-inserts
+            {:insert-into [[:history [:isn :app-id :topics :storage :content :partition-bucket]]
+                           {:select :* :from :inputs}]
+             :on-conflict [:isn :partition-bucket]
+             :do-nothing true}]]
+    :select [[:webhooks.id :webhook-id]
+             [:webhooks.id-attr-ids :id-attr-ids]
+             [:webhooks.actions :actions]
+             :isn]
+    :from :webhooks
+    :join [:inputs [:and
+                    [:= :webhooks.app-id :inputs.app-id]
+                    [:= :webhooks.status [:cast [:inline "active"] :webhook_status]]
+                    [:<> [:& :inputs.topics :webhooks.topics] :0]]]}))
 
 (defn push-batch!
   "Saves a batch of wal records in the history table, pushing the content to s3 (or
    the database if s3 is disabled).
-   Returns any webhooks that might need "
+   Returns webhooks that may need to be triggered based on the input wal-records."
   ([wal-records] (push-batch! (aurora/conn-pool :write) wal-records))
   ([conn wal-records]
    (let [upload-results (if (store-to-s3?)
@@ -253,9 +255,9 @@
                                    :wal-record wal-record})
                                 wal-records))
          params (collect-push-batch-params upload-results)]
-     (sql/do-execute! ::push-batch!
-                      conn
-                      (uhsql/formatp push-batch-q params)))))
+     (sql/execute! ::push-batch!
+                   conn
+                   (uhsql/formatp push-batch-q params)))))
 
 (def get-by-app-id-and-isn-q
   (uhsql/preformat

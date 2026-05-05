@@ -130,9 +130,10 @@
             nil)
           (recur (.getCause t))))))
 
-(defn send-webhook [^String url idempotency-key ^bytes body-bytes]
+(defn send-webhook [^String url idempotency-key queue-latency-ms ^bytes body-bytes]
   (tracer/with-span! {:name "send-webhook"
-                      :attributes {:url url}}
+                      :attributes {:url url
+                                   :queue-latency-ms queue-latency-ms}}
     (let [sig (sign-webhook body-bytes)
           start (Instant/now)
           request (.. (Request$Builder.)
@@ -173,7 +174,8 @@
               (catch Exception _
                 (ex/throw-validation-err! :webhook {:url url} [{:message "Invalid URL."}])))]
     (try
-      (dorun (.lookup (.dns client)
-                      (HttpUrl/.host url)))
+      (when (empty? (.lookup (.dns client)
+                             (HttpUrl/.host url)))
+        (throw (Exception. "Could not resolve URL.")))
       (catch Exception _
         (ex/throw-validation-err! :webhook {:url url} [{:message "Could not resolve URL."}])))))

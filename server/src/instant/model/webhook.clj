@@ -115,7 +115,10 @@
 (defn maximum-active-webhooks []
   (flags/flag :maximum-active-webhooks 100))
 
-(defn app-id->lock-key ^long [^UUID app-id]
+(defn app-id->lock-key
+  "Generates a hash that fits in an int4 for use as the second lock key in a
+   pg advisoy lock."
+  ^long [^UUID app-id]
   (let [mac (doto (Mac/getInstance "HmacSHA256")
               (.init @config/rate-limit-hmac-secret))
         digest (.doFinal mac (uuid-util/->bytes app-id))]
@@ -155,17 +158,18 @@
                                                    max-webhooks)}]))))
 
 (def create-q
-  (uhsql/preformat
-   {:with [[:insert {:insert-into :webhooks
-                     :values [{:id :?id
-                               :app-id :?app-id
-                               :topics :?topics
-                               :id-attr-ids :?id-attr-ids
-                               :actions :?actions
-                               :status [:inline [:cast [:inline "active"] :webhook_status]]
-                               :sink :?sink}]}]]}))
+  (uhsql/preformat {:insert-into :webhooks
+                    :values [{:id :?id
+                              :app-id :?app-id
+                              :topics :?topics
+                              :id-attr-ids :?id-attr-ids
+                              :actions :?actions
+                              :status [:inline [:cast [:inline "active"] :webhook_status]]
+                              :sink :?sink}]}))
 
 (defn create!
+  "Creates a new webhook, validating that the etypes are valid, the webhook url is valid,
+   and that the app has not exceeded the maximum number of webhooks."
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id etypes actions url]}]
    (assert-valid-url! url)
@@ -239,10 +243,9 @@
 (def attr-id-column-idx 2)
 (def pg-size-column-idx 12)
 
-(defn webhook-matches? [wal-record {:keys [webhooks/id_attr_ids
-                                           webhooks/actions]}]
+(defn webhook-matches? [wal-record {:keys [id_attr_ids
+                                           actions]}]
   (let [triple-groups (group-by :action (:triple-changes wal-record))]
-    (tool/def-locals)
     (reduce (fn [_ action]
               (case action
                 ;; To do a create, you had to insert a triple with the id attr
@@ -328,10 +331,10 @@
   ([conn wal-records matches]
    (let [get-wal-record (vmemoize (fn [isn]
                                     (ucoll/seek #(:= isn (:isn %)) wal-records)))
-         events (ucoll/reduce-tr (fn [acc {:keys [history/isn] :as match}]
+         events (ucoll/reduce-tr (fn [acc {:keys [isn] :as match}]
                                    (let [wal-record (get-wal-record isn)]
                                      (if (webhook-matches? wal-record match)
-                                       (conj! acc {:webhook-id (:webhooks/id match)
+                                       (conj! acc {:webhook-id (:webhook_id match)
                                                    :isn isn
                                                    :app-id (:app-id wal-record)
                                                    :status "pending"
@@ -351,6 +354,7 @@
                              :isn
                              :partition-bucket
                              :app-id
+                             :created-at
                              [[:coalesce [:cardinality :attempts] :0] :attempt-count]]
                     :from [[[:claim_webhook_events :?machine-id [:cast :?max-apps :int] [:cast :?max-per-app :int]]]]}))
 
@@ -389,6 +393,7 @@
                                 :webhook-events.isn
                                 :webhook-events.partition-bucket
                                 :webhook-events.app-id
+                                :webhook-events.next-attempt-after
                                 [[:coalesce [:cardinality :attempts] :0] :attempt-count]]}))
 
 (defn claim-retry-events!
@@ -406,7 +411,6 @@
                  :max-events max-events
                  :attempt-after attempt-after
                  :buckets buckets}]
-     (tool/def-locals)
      (sql/execute! ::claim-retry-events!
                    conn
                    (uhsql/formatp claim-retry-events-q params)))))
@@ -440,17 +444,19 @@
     (Duration/ofHours 12)))
 
 (defn record-attempt!
-  ([event attempt] (record-attempt! (aurora/conn-pool :write) event attempt config/machine-id))
+  "Updates the webhook event status and adds the attempt to the attempts array on the row."
+  ([event attempt] (record-attempt! (aurora/conn-pool :write)
+                                    event
+                                    attempt
+                                    config/machine-id))
   ([conn
     {:keys [app_id webhook_id isn partition_bucket attempt_count]}
     attempt
     machine-id]
-   (tool/def-locals)
    (let [status (cond (:success? attempt)
                       "success"
 
-                      ;; XXX: Did I get the math right here?
-                      (>= attempt_count max-attempts)
+                      (>= (inc attempt_count) max-attempts)
                       "failed"
 
                       :else "error")
@@ -469,7 +475,7 @@
                                           params))]
      ;; Allows servers to turn off the spigot by returning a 410 if someone
      ;; typos a domain or tries to attack one
-     (when (= 410 (:code attempt))
+     (when (= 410 (:status-code attempt))
        (disable! conn {:app-id app_id
                        :webhook-id webhook_id
                        :reason "Endpoint returned 410 status code."}))
@@ -493,12 +499,12 @@
 (defn uuids->labels [attrs ent]
   (persistent!
    (reduce-kv (fn [acc attr-id v]
-                (if-let [label (-> attr-id
-                                   parse-uuid
-                                   (attr-model/seek-by-id attrs)
-                                   (attr-model/fwd-label))]
-                  (assoc! acc label v)
-                  acc))
+                (let [attr (-> attr-id
+                               parse-uuid
+                               (attr-model/seek-by-id attrs))]
+                  (if (= :blob (:value-type attr))
+                    (assoc! acc (attr-model/fwd-label attr) v)
+                    acc)))
               (transient {})
               ent)))
 
@@ -524,6 +530,61 @@
     (.update digest (isn/->bytes isn))
     (uuid-util/<-bytes (.digest digest))))
 
+(defn webhook-data-for-wal-record
+  "Returns a list of records:
+   [{etype: <etype>
+     id: <uuid>
+     action: <create|update|delete>}
+     before: <?ent>
+     after: <?ent>]"
+  [webhook wal-record]
+  (let [attrs (attr-model/get-by-app-id (:app-id wal-record))
+        ents-after (topics/extract-entities-after wal-record)
+        ents-before (topics/extract-entities-before attrs
+                                                    ents-after
+                                                    wal-record)
+        etypes (fn [etype]
+                 (not (nil? (ucoll/index-of etype (:etypes webhook)))))
+        actions (fn [action]
+                  (not (nil? (ucoll/index-of action (:actions webhook)))))]
+    (concat (for [[etype ents] ents-after
+                  [id ent] ents
+                  :let [ent-before (get-in ents-before [etype id])
+                        action (if ent-before "update" "create")]
+                  :when (and (etypes etype)
+                             (actions action))
+                  :let [id (parse-uuid id)
+                        before (when (= action "update")
+                                 (uuids->labels attrs ent-before))
+                        after (uuids->labels attrs ent)]
+                  ;; Filters out the updates where we only add or remove a link,
+                  ;; we currently don't support webhooks for linking
+                  :when (not= before after)]
+              {:etype etype
+               :action action
+               :id id
+               :before before
+               :after after
+               :idempotency-key (record-idempotency-key {:etype etype
+                                                         :action action
+                                                         :id id
+                                                         :isn (:isn wal-record)})})
+            (for [[etype ents] ents-before
+                  [id ent] ents
+                  :when (and (not (get-in ents-after [etype id]))
+                             (etypes etype)
+                             (actions "delete"))
+                  :let [id (parse-uuid id)]]
+              {:etype etype
+               :action "delete"
+               :id id
+               :before (uuids->labels attrs ent)
+               :after nil
+               :idempotency-key (record-idempotency-key {:etype etype
+                                                         :action "delete"
+                                                         :id id
+                                                         :isn (:isn wal-record)})}))))
+
 (defn webhook-data-for-isn
   "Returns a list of records:
    [{etype: <etype>
@@ -535,44 +596,4 @@
   ([conn {:keys [app-id isn webhook]}]
    (when-let [{:keys [wal-record]} (history/get-by-app-id-and-isn conn {:isn isn
                                                                         :app-id app-id})]
-     (let [attrs (attr-model/get-by-app-id app-id)
-           ents-after (topics/extract-entities-after wal-record)
-           ents-before (topics/extract-entities-before attrs
-                                                       ents-after
-                                                       wal-record)
-           etypes (fn [etype]
-                    (not (nil? (ucoll/index-of etype (:etypes webhook)))))
-           actions (fn [action]
-                     (not (nil? (ucoll/index-of action (:actions webhook)))))]
-       (concat (for [[etype ents] ents-after
-                     [id ent] ents
-                     :let [ent-before (get-in ents-before [etype id])
-                           action (if ent-before "update" "create")]
-                     :when (and (etypes etype)
-                                (actions action))
-                     :let [id (parse-uuid id)]]
-                 {:etype etype
-                  :action action
-                  :id id
-                  :before (when (= action "update")
-                            (uuids->labels attrs ent-before))
-                  :after (uuids->labels attrs ent)
-                  :idempotency-key (record-idempotency-key {:etype etype
-                                                            :action action
-                                                            :id id
-                                                            :isn isn})})
-               (for [[etype ents] ents-before
-                     [id ent] ents
-                     :when (and (not (get-in ents-after [etype id]))
-                                (etypes etype)
-                                (actions "delete"))
-                     :let [id (parse-uuid id)]]
-                 {:etype etype
-                  :action "delete"
-                  :id id
-                  :before (uuids->labels attrs ent)
-                  :after nil
-                  :idempotency-key (record-idempotency-key {:etype etype
-                                                            :action "delete"
-                                                            :id id
-                                                            :isn isn})}))))))
+     (webhook-data-for-wal-record webhook wal-record))))

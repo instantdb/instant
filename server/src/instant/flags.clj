@@ -52,7 +52,7 @@
                (try
                  (InetAddress/getByName v)
                  (catch Exception e
-                   (log/error e "Error parsing UUID" v))))
+                   (log/error e "Error parsing IP" v))))
              vs)))
 
 (defn transform-query-result

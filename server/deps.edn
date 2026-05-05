@@ -122,7 +122,8 @@
                               io.github.tonsky/clj-reload   {:mvn/version "0.9.8"}
                               ;; https://github.com/kkinnear/zprint/pull/351
                               io.github.tonsky/zprint       {:mvn/version "1.2.10"}
-                              virgil/virgil {:mvn/version "0.5.0"}}
+                              virgil/virgil {:mvn/version "0.5.0"}
+                              com.squareup.okhttp3/mockwebserver3 {:mvn/version "5.3.2"}}
                  :jvm-opts ["-XX:+UseZGC"
                             "-enableassertions"
                             "-Djdk.tracePinnedThreads=full"
@@ -159,7 +160,8 @@
                    :ns-default build}
            :test {:extra-paths ["test" "dev-resources"]
                   :extra-deps {io.github.tonsky/clj-reload {:mvn/version "0.9.4"}
-                               zprint/zprint               {:mvn/version "1.2.9"}}
+                               zprint/zprint               {:mvn/version "1.2.9"}
+                               com.squareup.okhttp3/mockwebserver3 {:mvn/version "5.3.2"}}
                   :main-opts ["-m" "instant.test-core"]
                   :jvm-opts ["-Dinstant.env=test"
                              "-XX:+UseZGC"

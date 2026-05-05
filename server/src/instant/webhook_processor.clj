@@ -2,6 +2,7 @@
   (:require
    [chime.core :as chime-core]
    [instant.config :as config]
+   [instant.flags :as flags]
    [instant.model.webhook :as webhook-model]
    [instant.util.async :as ua]
    [instant.util.json :as json]
@@ -9,13 +10,15 @@
    [instant.webhook-jwt :as webhook-jwt]
    [instant.webhook-sender :as webhook-sender])
   (:import
+   (java.sql Timestamp)
    (java.io ByteArrayOutputStream)
    (java.time Duration Instant)
    (java.util.concurrent ArrayBlockingQueue TimeUnit)))
 
 (defonce process (atom nil))
 
-(def worker-count 10)
+(def default-worker-count 10)
+(def default-retry-worker-count 10)
 
 (def stop-signal ::stop)
 
@@ -40,17 +43,19 @@
     (.close gen)
     (.toByteArray out)))
 
-;; XXX: Test that broken webhooks get picked up eventually
-(defn handle-event! [event]
+(defn handle-event!
+  "Takes an event and the base-time that we should use to calculate latency."
+  [event ^Instant base-time]
   (let [webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id (:app_id event)
-                                                              :webhook-id (:webhook_id event)})
-        idempotency-key (webhook-model/payload-idempotency-key {:webhook-id (:webhook_id event)
-                                                                :isn (:isn event)})
-        body (webhook-body event)
-        url (-> webhook :sink (get "url"))
-
-        attempt (webhook-sender/send-webhook url idempotency-key body)]
-    (webhook-model/record-attempt! event attempt)))
+                                                              :webhook-id (:webhook_id event)})]
+    (when (= (:status webhook) "active")
+      (let [idempotency-key (webhook-model/payload-idempotency-key {:webhook-id (:webhook_id event)
+                                                                    :isn (:isn event)})
+            body (webhook-body event)
+            url (-> webhook :sink (get "url"))
+            latency-ms (.toMillis (Duration/between base-time (Instant/now)))
+            attempt (webhook-sender/send-webhook url idempotency-key latency-ms body)]
+        (webhook-model/record-attempt! event attempt)))))
 
 (defn should-repeat?
   "Returns true if we hit max-apps or max-per-app, indicating that
@@ -75,7 +80,8 @@
           events (webhook-model/claim-events! {:max-apps max-apps
                                                :max-per-app max-per-app})
           futs (mapv (fn [event]
-                       (ua/vfuture (handle-event! event)))
+                       (ua/vfuture (handle-event! event (Timestamp/.toInstant
+                                                         (:created_at event)))))
                      events)]
       (mapv deref futs)
       (when (should-repeat? events max-apps max-per-app)
@@ -100,7 +106,8 @@
           events (webhook-model/claim-retry-events! {:max-events max-events
                                                      :attempt-after (Instant/now)})
           futs (mapv (fn [event]
-                       (ua/vfuture (handle-event! event)))
+                       (ua/vfuture (handle-event! event (Timestamp/.toInstant
+                                                         (:next_attempt_after event)))))
                      events)]
       (mapv deref futs)
       (when (= max-events (count events))
@@ -122,67 +129,71 @@
              (notify-retry))
            (recur (.take q)))))))
 
-;; XXX: Maybe we should use a flag to determine number of processes and
-;;      add a listener that will restart the queue with new processes?
 (defn start []
-  (let [q (ArrayBlockingQueue. worker-count)
-        executor (ua/make-virtual-thread-executor)
-        notify-ready (fn []
-                       (.offer q 0))
-        workers (mapv (fn [i]
-                        (start-worker executor q i notify-ready))
-                      (range worker-count))
+  (let [worker-count (flags/flag :webhook-worker-count default-worker-count)
+        retry-worker-count (flags/flag :webhook-retry-worker-count
+                                       default-retry-worker-count)]
+    (tracer/with-span! {:name "webhook-processor/start"
+                        :attributes {:worker-count worker-count
+                                     :retry-worker-count retry-worker-count}}
+      (let [q (ArrayBlockingQueue. worker-count)
+            executor (ua/make-virtual-thread-executor)
+            notify-ready (fn []
+                           (.offer q 0))
+            workers (mapv (fn [i]
+                            (start-worker executor q i notify-ready))
+                          (range worker-count))
 
-        retry-q (ArrayBlockingQueue. worker-count)
-        notify-retry (fn []
-                       (.offer retry-q 0))
-        retry-workers (mapv (fn [i]
-                              (start-retry-worker executor retry-q i notify-retry))
-                            (range worker-count))
-        ;; XXX: Add a process that checks for retries
-        shutdown? (atom false)
-        kicker (chime-core/chime-at (chime-core/periodic-seq (Instant/now)
-                                                             (Duration/ofMinutes (if (config/dev?)
-                                                                                   10
-                                                                                   2)))
-                                    (fn [_]
-                                      (when-not @shutdown?
-                                        (webhook-model/free-stuck-events!)
-                                        (notify-ready)
-                                        (notify-retry))))
-        shutdown (fn []
-                   (tracer/with-span! {:name "webhook-processor/shutdown"}
-                     (reset! shutdown? true)
-                     (.clear q)
-                     (dotimes [_ worker-count]
-                       (.offer q stop-signal 10 TimeUnit/SECONDS))
-                     (.clear retry-q)
-                     (dotimes [_ worker-count]
-                       (.offer retry-q stop-signal 10 TimeUnit/SECONDS))
-                     (doseq [worker workers]
-                       (try
-                         (when (= ::timeout (deref worker 10000 ::timeout))
-                           (future-cancel worker))
-                         (catch Throwable t
-                           (tracer/record-exception-span! t {:name "webhook-processor/shutdown-error"}))))
-                     (doseq [worker retry-workers]
-                       (try
-                         (when (= ::timeout (deref worker 10000 ::timeout))
-                           (future-cancel worker))
-                         (catch Throwable t
-                           (tracer/record-exception-span! t {:name "webhook-processor/shutdown-error"}))))
-                     (.shutdownNow executor)
-                     (.close kicker)))]
-    {:q q
-     :retry-q retry-q
-     :worker-count worker-count
-     :workers workers
-     :retry-workers retry-workers
-     :shutdown? (fn []
-                  @shutdown?)
-     :shutdown shutdown
-     :notify-ready notify-ready
-     :notify-retry notify-retry}))
+            retry-q (ArrayBlockingQueue. retry-worker-count)
+            notify-retry (fn []
+                           (.offer retry-q 0))
+            retry-workers (mapv (fn [i]
+                                  (start-retry-worker executor retry-q i notify-retry))
+                                (range retry-worker-count))
+            shutdown? (atom false)
+            kicker (chime-core/chime-at (chime-core/periodic-seq (Instant/now)
+                                                                 (Duration/ofMinutes (if (config/dev?)
+                                                                                       10
+                                                                                       2)))
+                                        (fn [_]
+                                          (when-not @shutdown?
+                                            (webhook-model/free-stuck-events!)
+                                            (notify-ready)
+                                            (notify-retry))))
+            shutdown (fn []
+                       (tracer/with-span! {:name "webhook-processor/shutdown"}
+                         (reset! shutdown? true)
+                         (.clear q)
+                         (dotimes [_ worker-count]
+                           (.offer q stop-signal 10 TimeUnit/SECONDS))
+                         (.clear retry-q)
+                         (dotimes [_ retry-worker-count]
+                           (.offer retry-q stop-signal 10 TimeUnit/SECONDS))
+                         (doseq [worker workers]
+                           (try
+                             (when (= ::timeout (deref worker 10000 ::timeout))
+                               (future-cancel worker))
+                             (catch Throwable t
+                               (tracer/record-exception-span! t {:name "webhook-processor/shutdown-error"}))))
+                         (doseq [worker retry-workers]
+                           (try
+                             (when (= ::timeout (deref worker 10000 ::timeout))
+                               (future-cancel worker))
+                             (catch Throwable t
+                               (tracer/record-exception-span! t {:name "webhook-processor/shutdown-error"}))))
+                         (.shutdownNow executor)
+                         (.close kicker)))]
+        {:q q
+         :retry-q retry-q
+         :worker-count worker-count
+         :retry-worker-count retry-worker-count
+         :workers workers
+         :retry-workers retry-workers
+         :shutdown? (fn []
+                      @shutdown?)
+         :shutdown shutdown
+         :notify-ready notify-ready
+         :notify-retry notify-retry}))))
 
 (defn stop [process]
   ((:shutdown process)))
@@ -198,3 +209,15 @@
 (defn restart []
   (stop-global)
   (start-global))
+
+;; Allows us to modify the number of workers at runtime if necessary
+(defonce _watch-worker-count-change
+  [(flags/add-flag-listener :webhook-worker-count
+                            (fn [_path _old-value new-value]
+                              (when (not= new-value (:worker-count @process))
+                                (restart))))
+   (flags/add-flag-listener :webhook-retry-worker-count
+                            (fn [_path _old-value new-value]
+                              (tool/def-locals)
+                              (when (not= new-value (:retry-worker-count @process))
+                                (restart))))])
