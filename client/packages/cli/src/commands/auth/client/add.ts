@@ -2,12 +2,8 @@ import { Effect, Match, Option, Schema } from 'effect';
 import type { authClientAddDef, OptsFromCommand } from '../../../index.ts';
 import { BadArgsError } from '../../../errors.ts';
 import { GlobalOpts } from '../../../context/globalOpts.ts';
-import {
-  optOrPrompt,
-  optOrPromptBoolean,
-  runUIEffect,
-  validateRequired,
-} from '../../../lib/ui.ts';
+import { Args } from '../../../lib/args.ts';
+import { runUIEffect, validateRequired } from '../../../lib/ui.ts';
 import {
   addOAuthClient,
   findName,
@@ -43,9 +39,6 @@ import {
   clientSecretPrompt,
   firebaseDiscoveryEndpoint,
   firebaseProjectIdPrompt,
-  getFlag,
-  hasAnyFlag,
-  isTrueFlag,
   readPrivateKeyFile,
   redirectSetupMessages,
   redirectUriPrompt,
@@ -155,8 +148,8 @@ const resolveGoogleCredentialMode = Effect.fn(function* ({
   opts: Record<string, unknown>;
 }): Effect.fn.Return<'custom' | 'dev', BadArgsError, GlobalOpts> {
   const { yes } = yield* GlobalOpts;
-  const devCredentialsFlag = isTrueFlag(getFlag(opts, 'dev-credentials'));
-  const hasProvidedSomeCustomCredentials = hasAnyFlag(opts, [
+  const devCredentialsFlag = Args.isTrue(opts, 'dev-credentials');
+  const hasProvidedSomeCustomCredentials = Args.hasAny(opts, [
     'client-id',
     'client-secret',
     'custom-redirect-uri',
@@ -275,11 +268,8 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
   );
   const suggestedClientName = findName(`google-${appType}`, usedClientNames);
 
-  const clientName = yield* optOrPrompt(opts.name, {
-    simpleName: '--name',
-    required: true,
-    skipIf: false,
-    prompt: {
+  const clientName = yield* Args.text(opts, 'name').pipe(
+    Args.prompt({
       prompt: 'Client Name:',
       defaultValue: suggestedClientName,
       placeholder: suggestedClientName,
@@ -288,48 +278,46 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
       ]),
-    },
-  });
+    }),
+    Args.required(),
+  );
 
-  if (usedClientNames.has(clientName || '')) {
+  if (usedClientNames.has(clientName)) {
     return yield* BadArgsError.make({
       message: `The unique name '${clientName}' is already in use.`,
     });
   }
 
-  const clientId = yield* optOrPrompt(opts['client-id'], {
-    simpleName: '--client-id',
-    required: !useSharedCredentials,
-    skipIf: useSharedCredentials,
-    skipMessage:
-      '--client-id is not compatible with --dev-credentials. Drop one or the other.',
-    prompt: clientIdPrompt({ providerUrl: googleConsoleUrl }),
-  });
+  const clientId = yield* Args.text(opts, 'client-id').pipe(
+    Args.availableWhen(!useSharedCredentials, {
+      message:
+        '--client-id is not compatible with --dev-credentials. Drop one or the other.',
+    }),
+    Args.prompt(clientIdPrompt({ providerUrl: googleConsoleUrl })),
+    Args.required(),
+  );
 
   const usesCustomWebCredentials = !useSharedCredentials && appType === 'web';
-  const clientSecret = yield* optOrPrompt(opts['client-secret'], {
-    required: usesCustomWebCredentials,
-    skipIf: !usesCustomWebCredentials,
-    simpleName: '--client-secret',
-    skipMessage: useSharedCredentials
-      ? '--client-secret is not compatible with --dev-credentials. Drop one or the other.'
-      : undefined,
-    prompt: clientSecretPrompt({ providerUrl: googleConsoleUrl }),
-  });
+  const clientSecret = yield* Args.text(opts, 'client-secret').pipe(
+    Args.availableWhen(usesCustomWebCredentials, {
+      message: useSharedCredentials
+        ? '--client-secret is not compatible with --dev-credentials. Drop one or the other.'
+        : undefined,
+    }),
+    Args.prompt(clientSecretPrompt({ providerUrl: googleConsoleUrl })),
+    Args.required(),
+  );
 
-  const customRedirectUri = yield* optOrPrompt(opts['custom-redirect-uri'], {
-    required: false,
-    prompt: optionalRedirectPrompt,
-    simpleName: '--custom-redirect-uri',
-    skipIf: !usesCustomWebCredentials,
-    skipMessage: useSharedCredentials
-      ? '--custom-redirect-uri is not compatible with --dev-credentials.'
-      : 'Provided custom redirect URI when not using web app type.',
-  });
+  const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
+    Args.availableWhen(usesCustomWebCredentials, {
+      message: useSharedCredentials
+        ? '--custom-redirect-uri is not compatible with --dev-credentials.'
+        : 'Provided custom redirect URI when not using web app type.',
+    }),
+    Args.prompt(optionalRedirectPrompt),
+    Args.optional(),
+  );
 
-  if (!clientName) {
-    return yield* BadArgsError.make({ message: 'Client name is required.' }); // Should never reach this
-  }
   const redirectUri = useSharedCredentials
     ? undefined
     : customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
@@ -373,30 +361,20 @@ const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
     opts,
   );
 
-  const clientId = yield* optOrPrompt(opts['client-id'], {
-    simpleName: '--client-id',
-    required: true,
-    skipIf: false,
-    prompt: clientIdPrompt({ providerUrl: githubDeveloperUrl }),
-  });
+  const clientId = yield* Args.text(opts, 'client-id').pipe(
+    Args.prompt(clientIdPrompt({ providerUrl: githubDeveloperUrl })),
+    Args.required(),
+  );
 
-  const clientSecret = yield* optOrPrompt(opts['client-secret'], {
-    required: true,
-    skipIf: false,
-    simpleName: '--client-secret',
-    prompt: clientSecretPrompt({ providerUrl: githubDeveloperUrl }),
-  });
+  const clientSecret = yield* Args.text(opts, 'client-secret').pipe(
+    Args.prompt(clientSecretPrompt({ providerUrl: githubDeveloperUrl })),
+    Args.required(),
+  );
 
-  const customRedirectUri = yield* optOrPrompt(opts['custom-redirect-uri'], {
-    required: false,
-    simpleName: '--custom-redirect-uri',
-    skipIf: false,
-    prompt: optionalRedirectPrompt,
-  });
-
-  if (!clientName) {
-    return yield* BadArgsError.make({ message: 'Client name is required.' });
-  }
+  const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
+    Args.prompt(optionalRedirectPrompt),
+    Args.optional(),
+  );
 
   const redirectUri = customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
 
@@ -438,30 +416,20 @@ const handleLinkedInClient = Effect.fn(function* (
     opts,
   );
 
-  const clientId = yield* optOrPrompt(opts['client-id'], {
-    simpleName: '--client-id',
-    required: true,
-    skipIf: false,
-    prompt: clientIdPrompt({ providerUrl: linkedinDeveloperUrl }),
-  });
+  const clientId = yield* Args.text(opts, 'client-id').pipe(
+    Args.prompt(clientIdPrompt({ providerUrl: linkedinDeveloperUrl })),
+    Args.required(),
+  );
 
-  const clientSecret = yield* optOrPrompt(opts['client-secret'], {
-    required: true,
-    skipIf: false,
-    simpleName: '--client-secret',
-    prompt: clientSecretPrompt({ providerUrl: linkedinDeveloperUrl }),
-  });
+  const clientSecret = yield* Args.text(opts, 'client-secret').pipe(
+    Args.prompt(clientSecretPrompt({ providerUrl: linkedinDeveloperUrl })),
+    Args.required(),
+  );
 
-  const customRedirectUri = yield* optOrPrompt(opts['custom-redirect-uri'], {
-    required: false,
-    simpleName: '--custom-redirect-uri',
-    skipIf: false,
-    prompt: optionalRedirectPrompt,
-  });
-
-  if (!clientName) {
-    return yield* BadArgsError.make({ message: 'Client name is required.' });
-  }
+  const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
+    Args.prompt(optionalRedirectPrompt),
+    Args.optional(),
+  );
 
   const redirectUri = customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
 
@@ -496,86 +464,74 @@ const handleLinkedInClient = Effect.fn(function* (
 });
 
 const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
-  const { yes } = yield* GlobalOpts;
   const { clientName, provider } = yield* getClientNameAndProvider(
     'apple',
     opts,
   );
 
-  const servicesId = yield* optOrPrompt(opts['services-id'], {
-    simpleName: '--services-id',
-    required: true,
-    skipIf: false,
-    prompt: appleServicesIdPrompt({}),
-  });
+  const servicesId = yield* Args.text(opts, 'services-id').pipe(
+    Args.prompt(appleServicesIdPrompt({})),
+    Args.required(),
+  );
 
   // If any web-flow flag is provided, enable web flow; otherwise ask
   // (non-interactively with --yes we default to native-only).
-  const anyWebFlagProvided = Boolean(
-    opts['team-id'] || opts['key-id'] || opts['private-key-file'],
-  );
+  const anyWebFlagProvided = Args.hasAny(opts, [
+    'team-id',
+    'key-id',
+    'private-key-file',
+    'custom-redirect-uri',
+  ]);
 
   const configureWeb = anyWebFlagProvided
     ? true
-    : yes
-      ? false
-      : yield* optOrPromptBoolean(undefined, {
-          simpleName: '--configure-web',
-          required: false,
-          skipIf: false,
-          prompt: {
-            promptText:
-              'Configure web redirect flow? ' +
-              chalk.dim(
-                '(requires Team ID, Key ID, and a .p8 private key from Apple)',
-              ),
-            defaultValue: false,
-          },
-        });
+    : yield* Args.bool(opts, 'configure-web').pipe(
+        Args.confirm({
+          promptText:
+            'Configure web redirect flow? ' +
+            chalk.dim(
+              '(requires Team ID, Key ID, and a .p8 private key from Apple)',
+            ),
+          defaultValue: false,
+        }),
+        Args.required(),
+      );
 
   const skipWeb = !configureWeb;
   const webSkipMessage =
     'requires configuring the web redirect flow (also provide --team-id, --key-id, and --private-key-file).';
 
-  const teamId = yield* optOrPrompt(opts['team-id'], {
-    simpleName: '--team-id',
-    required: true,
-    skipIf: skipWeb,
-    skipMessage: `--team-id ${webSkipMessage}`,
-    prompt: appleTeamIdPrompt({}),
-  });
+  const teamId = yield* Args.text(opts, 'team-id').pipe(
+    Args.availableWhen(!skipWeb, { message: `--team-id ${webSkipMessage}` }),
+    Args.prompt(appleTeamIdPrompt({})),
+    Args.required(),
+  );
 
-  const keyId = yield* optOrPrompt(opts['key-id'], {
-    simpleName: '--key-id',
-    required: true,
-    skipIf: skipWeb,
-    skipMessage: `--key-id ${webSkipMessage}`,
-    prompt: appleKeyIdPrompt({}),
-  });
+  const keyId = yield* Args.text(opts, 'key-id').pipe(
+    Args.availableWhen(!skipWeb, { message: `--key-id ${webSkipMessage}` }),
+    Args.prompt(appleKeyIdPrompt({})),
+    Args.required(),
+  );
 
-  const privateKeyPath = yield* optOrPrompt(opts['private-key-file'], {
-    simpleName: '--private-key-file',
-    required: true,
-    skipIf: skipWeb,
-    skipMessage: `--private-key-file ${webSkipMessage}`,
-    prompt: applePrivateKeyFilePrompt({}),
-  });
+  const privateKeyPath = yield* Args.text(opts, 'private-key-file').pipe(
+    Args.availableWhen(!skipWeb, {
+      message: `--private-key-file ${webSkipMessage}`,
+    }),
+    Args.prompt(applePrivateKeyFilePrompt({})),
+    Args.required(),
+  );
 
   const privateKey = privateKeyPath
     ? yield* readPrivateKeyFile(privateKeyPath)
     : undefined;
 
-  const customRedirectUri = yield* optOrPrompt(opts['custom-redirect-uri'], {
-    required: false,
-    simpleName: '--custom-redirect-uri',
-    skipIf: skipWeb,
-    skipMessage: `--custom-redirect-uri ${webSkipMessage}`,
-    prompt: optionalRedirectPrompt,
-  });
-
-  if (!clientName) {
-    return yield* BadArgsError.make({ message: 'Client name is required.' });
-  }
+  const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
+    Args.availableWhen(!skipWeb, {
+      message: `--custom-redirect-uri ${webSkipMessage}`,
+    }),
+    Args.prompt(optionalRedirectPrompt),
+    Args.optional(),
+  );
 
   const redirectUri = privateKey
     ? customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL
@@ -628,21 +584,10 @@ const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
     opts,
   );
 
-  const publishableKey = yield* optOrPrompt(opts['publishable-key'], {
-    simpleName: '--publishable-key',
-    required: true,
-    skipIf: false,
-    prompt: clerkPublishableKeyPrompt({}),
-  });
-
-  if (!clientName) {
-    return yield* BadArgsError.make({ message: 'Client name is required.' });
-  }
-  if (!publishableKey) {
-    return yield* BadArgsError.make({
-      message: 'Publishable key is required.',
-    });
-  }
+  const publishableKey = yield* Args.text(opts, 'publishable-key').pipe(
+    Args.prompt(clerkPublishableKeyPrompt({})),
+    Args.required(),
+  );
 
   const domain = clerkDomainFromPublishableKey(publishableKey);
   if (!domain) {
@@ -695,22 +640,11 @@ const handleFirebaseClient = Effect.fn(function* (
     opts,
   );
 
-  const projectId = yield* optOrPrompt(opts['project-id'], {
-    simpleName: '--project-id',
-    required: true,
-    skipIf: false,
-    prompt: firebaseProjectIdPrompt({}),
-  });
-  // typeguard
-  if (!clientName || !projectId) {
-    return yield* BadArgsError.make({
-      message: 'Missing required arguments',
-    });
-  }
-  const validationError = validateFirebaseProjectId(projectId);
-  if (validationError) {
-    return yield* BadArgsError.make({ message: validationError });
-  }
+  const projectId = yield* Args.text(opts, 'project-id').pipe(
+    Args.prompt(firebaseProjectIdPrompt({})),
+    Args.validate(validateFirebaseProjectId),
+    Args.required(),
+  );
   const response = yield* addOAuthClient({
     providerId: provider.id,
     clientName,

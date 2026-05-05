@@ -3,16 +3,12 @@ import { Effect, Schema } from 'effect';
 import { CurrentApp } from '../context/currentApp.ts';
 import { InstantHttpAuthed, withCommand } from './http.ts';
 import chalk from 'chalk';
-import {
-  optOrPrompt,
-  runUIEffect,
-  stripFirstBlankLine,
-  validateRequired,
-} from './ui.ts';
+import { runUIEffect, stripFirstBlankLine, validateRequired } from './ui.ts';
 import { UI } from '../ui/index.ts';
 import { BadArgsError } from '../errors.ts';
 import { link } from '../logging.ts';
 import type { ClientTypeSchema } from '../commands/auth/client/add.ts';
+import { Args } from './args.ts';
 
 export const AuthorizedOriginService = Schema.Literal(
   'generic',
@@ -263,11 +259,8 @@ export const getClientNameAndProvider = Effect.fn(function* (
   );
   const suggestedClientName = findName(providerType, usedClientNames);
 
-  const clientName = yield* optOrPrompt(opts.name, {
-    simpleName: '--name',
-    required: true,
-    skipIf: false,
-    prompt: {
+  const clientName = yield* Args.text(opts, 'name').pipe(
+    Args.prompt({
       prompt: 'Client Name:',
       defaultValue: suggestedClientName,
       placeholder: suggestedClientName,
@@ -276,10 +269,11 @@ export const getClientNameAndProvider = Effect.fn(function* (
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
       ]),
-    },
-  });
+    }),
+    Args.required(),
+  );
 
-  if (usedClientNames.has(clientName || '')) {
+  if (usedClientNames.has(clientName)) {
     return yield* BadArgsError.make({
       message: `The unique name '${clientName}' is already in use.`,
     });

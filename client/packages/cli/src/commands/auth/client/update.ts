@@ -2,7 +2,8 @@ import { Effect, Match } from 'effect';
 import type { authClientUpdateDef, OptsFromCommand } from '../../../index.ts';
 import { BadArgsError } from '../../../errors.ts';
 import { GlobalOpts } from '../../../context/globalOpts.ts';
-import { optOrPrompt, runUIEffect } from '../../../lib/ui.ts';
+import { Args } from '../../../lib/args.ts';
+import { runUIEffect } from '../../../lib/ui.ts';
 import {
   findClientByIdOrName,
   getAppsAuth,
@@ -26,11 +27,7 @@ import {
   clientSecretPrompt,
   firebaseDiscoveryEndpoint,
   firebaseProjectIdPrompt,
-  getFlag,
   getMetaString,
-  hasAnyFlag,
-  hasFlag,
-  isTrueFlag,
   readPrivateKeyFile,
   redirectSetupMessages,
   redirectUriPrompt,
@@ -148,31 +145,10 @@ const updateGoogleToDevCredentials = Effect.fn(function* (
 type GoogleUpdateMode = 'dev' | 'custom' | 'redirect' | 'none';
 
 const hasGoogleCustomCredentialFlags = (opts: Record<string, unknown>) =>
-  hasAnyFlag(opts, ['client-id', 'client-secret', 'custom-redirect-uri']);
+  Args.hasAny(opts, ['client-id', 'client-secret', 'custom-redirect-uri']);
 
 const hasGoogleUpdateFlags = (opts: Record<string, unknown>) =>
-  isTrueFlag(getFlag(opts, 'dev-credentials')) ||
-  hasGoogleCustomCredentialFlags(opts);
-
-const optOrPromptWhenNeeded = (
-  opts: Record<string, unknown>,
-  flag: string,
-  params: {
-    promptIf: boolean;
-    required?: boolean;
-    prompt: UI.TextInputProps;
-  },
-) =>
-  Effect.gen(function* () {
-    const value = getFlag(opts, flag);
-    if (value === undefined && !params.promptIf) return undefined;
-    return yield* optOrPrompt(value, {
-      simpleName: `--${flag}`,
-      required: params.required ?? params.promptIf,
-      skipIf: false,
-      prompt: params.prompt,
-    });
-  });
+  Args.isTrue(opts, 'dev-credentials') || hasGoogleCustomCredentialFlags(opts);
 
 const selectGoogleUpdateMode = Effect.fn(function* ({
   isWeb,
@@ -230,7 +206,7 @@ const resolveGoogleUpdateMode = Effect.fn(function* ({
   switchingFromShared: boolean;
 }) {
   const { yes } = yield* GlobalOpts;
-  const devCredentialsFlag = isTrueFlag(getFlag(opts, 'dev-credentials'));
+  const devCredentialsFlag = Args.isTrue(opts, 'dev-credentials');
   const hasProvidedSomeCustomCredentials = hasGoogleCustomCredentialFlags(opts);
 
   if (devCredentialsFlag && !isWeb) {
@@ -241,7 +217,7 @@ const resolveGoogleUpdateMode = Effect.fn(function* ({
 
   if (
     !isWeb &&
-    (hasFlag(opts, 'client-secret') || hasFlag(opts, 'custom-redirect-uri'))
+    (Args.has(opts, 'client-secret') || Args.has(opts, 'custom-redirect-uri'))
   ) {
     return yield* BadArgsError.make({
       message:
@@ -273,7 +249,7 @@ const resolveGoogleUpdateMode = Effect.fn(function* ({
     yes &&
     isWeb &&
     switchingFromShared &&
-    (!hasFlag(opts, 'client-id') || !hasFlag(opts, 'client-secret'))
+    (!Args.has(opts, 'client-id') || !Args.has(opts, 'client-secret'))
   ) {
     return yield* BadArgsError.make({
       message:
@@ -295,16 +271,11 @@ const updateGoogleRedirect = Effect.fn(function* ({
   opts: Record<string, unknown>;
   client: OAuthClientRow;
 }) {
-  const redirectTo = yield* optOrPromptWhenNeeded(opts, 'custom-redirect-uri', {
-    promptIf: true,
-    required: true,
-    prompt: newRedirectPrompt,
-  });
-  if (!redirectTo) {
-    return yield* BadArgsError.make({
-      message: 'Missing required value for --custom-redirect-uri',
-    });
-  }
+  const redirectTo = yield* Args.text(opts, 'custom-redirect-uri').pipe(
+    Args.prompt(newRedirectPrompt),
+    Args.required(),
+  );
+
   const response = yield* updateOAuthClient({
     oauthClientId: client.id,
     redirectTo,
@@ -339,31 +310,29 @@ const updateGoogleCustomCredentials = Effect.fn(function* ({
   promptCredentials: boolean;
 }) {
   const mustCollectCredentials = promptCredentials || switchingFromShared;
-  const shouldPromptClientId =
-    promptCredentials || (switchingFromShared && !hasFlag(opts, 'client-id'));
-  const shouldPromptClientSecret =
-    isWeb &&
-    (promptCredentials ||
-      (switchingFromShared && !hasFlag(opts, 'client-secret')));
   const shouldPromptRedirectUri =
     isWeb && switchingFromShared && promptCredentials;
 
-  const clientId = yield* optOrPromptWhenNeeded(opts, 'client-id', {
-    promptIf: shouldPromptClientId,
-    required: mustCollectCredentials,
-    prompt: clientIdPrompt({ providerUrl: googleConsoleUrl }),
-  });
-  const clientSecret = yield* optOrPromptWhenNeeded(opts, 'client-secret', {
-    promptIf: shouldPromptClientSecret,
-    required: isWeb && mustCollectCredentials,
-    prompt: clientSecretPrompt({ providerUrl: googleConsoleUrl }),
-  });
+  const clientId = yield* Args.text(opts, 'client-id').pipe(
+    Args.availableWhen(mustCollectCredentials || Args.has(opts, 'client-id')),
+    Args.prompt(clientIdPrompt({ providerUrl: googleConsoleUrl })),
+    Args.required(),
+  );
+  const clientSecret = yield* Args.text(opts, 'client-secret').pipe(
+    Args.availableWhen(
+      isWeb && (mustCollectCredentials || Args.has(opts, 'client-secret')),
+    ),
+    Args.prompt(clientSecretPrompt({ providerUrl: googleConsoleUrl })),
+    Args.required(),
+  );
   const customRedirectUri = isWeb
-    ? yield* optOrPromptWhenNeeded(opts, 'custom-redirect-uri', {
-        promptIf: shouldPromptRedirectUri,
-        required: false,
-        prompt: redirectPrompt,
-      })
+    ? yield* Args.text(opts, 'custom-redirect-uri').pipe(
+        Args.availableWhen(
+          shouldPromptRedirectUri || Args.has(opts, 'custom-redirect-uri'),
+        ),
+        Args.prompt(redirectPrompt),
+        Args.optional(),
+      )
     : undefined;
 
   const redirectTo = switchingFromShared
@@ -461,7 +430,7 @@ const handleClientIdSecretUpdate = Effect.fn(function* (params: {
   redirectSetupPrompt: string;
 }) {
   const { yes } = yield* GlobalOpts;
-  const hasAnyUpdateFlag = hasAnyFlag(params.opts, [
+  const hasAnyUpdateFlag = Args.hasAny(params.opts, [
     'client-id',
     'client-secret',
     'custom-redirect-uri',
@@ -485,28 +454,27 @@ const handleClientIdSecretUpdate = Effect.fn(function* (params: {
     promptRedirect = action === 'redirect';
   }
 
-  const clientId = yield* optOrPromptWhenNeeded(params.opts, 'client-id', {
-    promptIf: promptCredentials,
-    required: promptCredentials,
-    prompt: clientIdPrompt({ providerUrl: params.providerUrl }),
-  });
-  const clientSecret = yield* optOrPromptWhenNeeded(
-    params.opts,
-    'client-secret',
-    {
-      promptIf: promptCredentials,
-      required: promptCredentials,
-      prompt: clientSecretPrompt({ providerUrl: params.providerUrl }),
-    },
+  const clientId = yield* Args.text(params.opts, 'client-id').pipe(
+    Args.availableWhen(promptCredentials || Args.has(params.opts, 'client-id')),
+    Args.prompt(clientIdPrompt({ providerUrl: params.providerUrl })),
+    Args.required(),
   );
-  const customRedirectUri = yield* optOrPromptWhenNeeded(
+  const clientSecret = yield* Args.text(params.opts, 'client-secret').pipe(
+    Args.availableWhen(
+      promptCredentials || Args.has(params.opts, 'client-secret'),
+    ),
+    Args.prompt(clientSecretPrompt({ providerUrl: params.providerUrl })),
+    Args.required(),
+  );
+  const customRedirectUri = yield* Args.text(
     params.opts,
     'custom-redirect-uri',
-    {
-      promptIf: promptRedirect,
-      required: promptRedirect,
-      prompt: promptRedirect ? newRedirectPrompt : redirectPrompt,
-    },
+  ).pipe(
+    Args.availableWhen(
+      promptRedirect || Args.has(params.opts, 'custom-redirect-uri'),
+    ),
+    Args.prompt(promptRedirect ? newRedirectPrompt : redirectPrompt),
+    Args.required(),
   );
 
   const response = yield* updateOAuthClient({
@@ -548,10 +516,10 @@ const appleWebFlags = [
 const appleUpdateFlags = ['services-id', ...appleWebFlags];
 
 const hasAppleWebFlags = (opts: Record<string, unknown>) =>
-  hasAnyFlag(opts, appleWebFlags);
+  Args.hasAny(opts, appleWebFlags);
 
 const hasAppleUpdateFlags = (opts: Record<string, unknown>) =>
-  hasAnyFlag(opts, appleUpdateFlags);
+  Args.hasAny(opts, appleUpdateFlags);
 
 const appleClientHasWebConfig = (client: OAuthClientRow) =>
   Boolean(
@@ -617,36 +585,28 @@ const readAppleWebUpdate = Effect.fn(function* ({
   client: OAuthClientRow;
   promptAll: boolean;
 }) {
-  const teamId = yield* optOrPromptWhenNeeded(opts, 'team-id', {
-    promptIf: promptAll,
-    required: promptAll,
-    prompt: appleTeamIdPrompt({}),
-  });
-  const keyId = yield* optOrPromptWhenNeeded(opts, 'key-id', {
-    promptIf: promptAll,
-    required: promptAll,
-    prompt: appleKeyIdPrompt({}),
-  });
-  const privateKeyPath = yield* optOrPromptWhenNeeded(
-    opts,
-    'private-key-file',
-    {
-      promptIf: promptAll,
-      required: promptAll,
-      prompt: applePrivateKeyFilePrompt({}),
-    },
+  const teamId = yield* Args.text(opts, 'team-id').pipe(
+    Args.availableWhen(promptAll || Args.has(opts, 'team-id')),
+    Args.prompt(appleTeamIdPrompt({})),
+    Args.required(),
+  );
+  const keyId = yield* Args.text(opts, 'key-id').pipe(
+    Args.availableWhen(promptAll || Args.has(opts, 'key-id')),
+    Args.prompt(appleKeyIdPrompt({})),
+    Args.required(),
+  );
+  const privateKeyPath = yield* Args.text(opts, 'private-key-file').pipe(
+    Args.availableWhen(promptAll || Args.has(opts, 'private-key-file')),
+    Args.prompt(applePrivateKeyFilePrompt({})),
+    Args.required(),
   );
   const privateKey = privateKeyPath
     ? yield* readPrivateKeyFile(privateKeyPath)
     : undefined;
-  const customRedirectUri = yield* optOrPromptWhenNeeded(
-    opts,
-    'custom-redirect-uri',
-    {
-      promptIf: promptAll,
-      required: false,
-      prompt: redirectPrompt,
-    },
+  const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
+    Args.availableWhen(promptAll || Args.has(opts, 'custom-redirect-uri')),
+    Args.prompt(redirectPrompt),
+    Args.optional(),
   );
 
   const meta: Record<string, string> = {};
@@ -674,11 +634,11 @@ const handleAppleUpdate = Effect.fn(function* (
     yes,
   });
 
-  const servicesId = yield* optOrPromptWhenNeeded(opts, 'services-id', {
-    promptIf: promptAll,
-    required: promptAll,
-    prompt: appleServicesIdPrompt({}),
-  });
+  const servicesId = yield* Args.text(opts, 'services-id').pipe(
+    Args.availableWhen(promptAll || Args.has(opts, 'services-id')),
+    Args.prompt(appleServicesIdPrompt({})),
+    Args.required(),
+  );
   const webUpdate: AppleWebUpdate = configureWeb
     ? yield* readAppleWebUpdate({ opts, client, promptAll })
     : {};
@@ -718,18 +678,10 @@ const handleClerkUpdate = Effect.fn(function* (
   opts: Record<string, unknown>,
   client: OAuthClientRow,
 ) {
-  const { yes } = yield* GlobalOpts;
-  const publishableKey = yield* optOrPromptWhenNeeded(opts, 'publishable-key', {
-    promptIf: !yes && !hasFlag(opts, 'publishable-key'),
-    required: true,
-    prompt: clerkPublishableKeyPrompt({}),
-  });
-
-  if (!publishableKey) {
-    return yield* BadArgsError.make({
-      message: 'Missing required value for --publishable-key',
-    });
-  }
+  const publishableKey = yield* Args.text(opts, 'publishable-key').pipe(
+    Args.prompt(clerkPublishableKeyPrompt({})),
+    Args.required(),
+  );
 
   const domain = clerkDomainFromPublishableKey(publishableKey);
   if (!domain) {
@@ -760,21 +712,15 @@ const handleFirebaseUpdate = Effect.fn(function* (
   opts: Record<string, unknown>,
   client: OAuthClientRow,
 ) {
-  const { yes } = yield* GlobalOpts;
-  const projectId = yield* optOrPromptWhenNeeded(opts, 'project-id', {
-    promptIf: !yes && !hasFlag(opts, 'project-id'),
-    required: true,
-    prompt: firebaseProjectIdPrompt({}),
-  });
-
-  const validationError = validateFirebaseProjectId(projectId ?? '');
-  if (validationError) {
-    return yield* BadArgsError.make({ message: validationError });
-  }
+  const projectId = yield* Args.text(opts, 'project-id').pipe(
+    Args.prompt(firebaseProjectIdPrompt({})),
+    Args.validate(validateFirebaseProjectId),
+    Args.required(),
+  );
 
   const response = yield* updateOAuthClient({
     oauthClientId: client.id,
-    discoveryEndpoint: firebaseDiscoveryEndpoint(projectId!),
+    discoveryEndpoint: firebaseDiscoveryEndpoint(projectId),
   });
 
   yield* Effect.log(

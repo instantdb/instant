@@ -141,17 +141,18 @@ const webFlags = new Map([
 
 // -- native-only (no web flow): build-up with --yes --
 
-describe('native: --yes errors on each missing required flag', () => {
+describe('native: --yes handles missing values', () => {
   test('missing --type', async () => {
     await run(without(nativeFlags, 'type'), { yes: true });
     expect(logs.join('\n')).toContain('Missing required value for --type');
     expect(addedClients).toHaveLength(0);
   });
 
-  test('missing --name', async () => {
+  test('missing --name uses suggested default', async () => {
     await run(without(nativeFlags, 'name'), { yes: true });
-    expect(logs.join('\n')).toContain('Missing required value for --name');
-    expect(addedClients).toHaveLength(0);
+    expect(prompts).toHaveLength(0);
+    expect(addedClients).toHaveLength(1);
+    expect(addedClients[0].clientName).toBe('apple');
   });
 
   test('missing --services-id', async () => {
@@ -361,17 +362,15 @@ describe('private key file errors', () => {
   });
 });
 
-// -- native-only: stray web-only flag rejection --
+// -- web-flow flag detection --
 
-describe('native: web-only flags rejected when web flow not configured', () => {
-  test('--custom-redirect-uri without web flow → error', async () => {
+describe('web-flow flag detection', () => {
+  test('--custom-redirect-uri enables web flow and requires web credentials', async () => {
     await run(
       withEntry(nativeFlags, 'custom-redirect-uri', 'https://example.com'),
       { yes: true },
     );
-    expect(logs.join('\n')).toContain(
-      '--custom-redirect-uri requires configuring the web redirect flow',
-    );
+    expect(logs.join('\n')).toContain('Missing required value for --team-id');
     expect(addedClients).toHaveLength(0);
   });
 });
