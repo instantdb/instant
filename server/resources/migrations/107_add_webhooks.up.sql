@@ -24,7 +24,7 @@ before update on webhooks
 for each row
 execute function update_updated_at_column();
 
-create index on webhooks (app_id);
+create index on webhooks (app_id, status);
 
 create type webhook_event_status as enum ('pending', 'processing', 'success', 'error', 'failed');
 create type webhook_attempt as (
