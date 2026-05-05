@@ -18,13 +18,13 @@ Choose the option that sounds best to you, and the rest of the document will sho
 {% div className="grid grid-cols-2 md:grid-cols-1 md:grid-rows-2 flex-1 gap-4" %}
 {% nav-button
   title="Google Button"
-  description="Use Google's pre-styled button to sign in. Using this method you can render your custom app name in the consent screen"
+  description="Use Google's pre-styled button to sign in. This is what Google recommends."
   param="method"
   value="web-google-button"
   recommended=true /%}
 {% nav-button
   title="Web Redirect"
-  description="Easier to integrate, but doesn't let you render your custom app name."
+  description="Easier to integrate, but doesn't have the same bells and whistles as the Google Button."
   param="method"
   value="web-redirect" /%}
 {% /div %}
