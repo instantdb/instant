@@ -1,5 +1,6 @@
 import { Effect, Schema } from 'effect';
-import { optOrPrompt, validateRequired } from '../src/lib/ui.ts';
+import { Args } from '../src/lib/args.ts';
+import { validateRequired } from '../src/lib/ui.ts';
 import { UI } from '../src/ui/index.ts';
 import { BadArgsError } from '../src/errors.ts';
 
@@ -44,11 +45,8 @@ export const makeOAuthMock = (mocks: {
       (auth.oauth_clients ?? []).map((c: any) => c.client_name),
     );
     const suggested = findName(providerType, used);
-    const clientName = yield* optOrPrompt(opts.name, {
-      simpleName: '--name',
-      required: true,
-      skipIf: false,
-      prompt: {
+    const clientName = yield* Args.text(opts, 'name').pipe(
+      Args.prompt({
         prompt: 'Client Name:',
         defaultValue: suggested,
         placeholder: suggested,
@@ -57,9 +55,10 @@ export const makeOAuthMock = (mocks: {
           UI.modifiers.topPadding,
           UI.modifiers.dimOnComplete,
         ]),
-      },
-    });
-    if (used.has(clientName || '')) {
+      }),
+      Args.required(),
+    );
+    if (used.has(clientName)) {
       return yield* BadArgsError.make({
         message: `The unique name '${clientName}' is already in use.`,
       });

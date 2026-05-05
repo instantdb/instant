@@ -9,18 +9,6 @@ import { UI } from '../../../ui/index.ts';
 
 type EmptyPromptArgs = Record<string, never>;
 
-export const getFlag = (opts: Record<string, unknown>, flag: string) =>
-  opts[flag];
-
-export const hasFlag = (opts: Record<string, unknown>, flag: string) =>
-  flag in opts;
-
-export const hasAnyFlag = (opts: Record<string, unknown>, flags: string[]) =>
-  flags.some((flag) => hasFlag(opts, flag));
-
-export const isTrueFlag = (value: unknown) =>
-  value === true || value === 'true';
-
 export const getMetaString = (meta: unknown, key: string) => {
   if (!meta || typeof meta !== 'object') return undefined;
   const value = (meta as Record<string, unknown>)[key];
