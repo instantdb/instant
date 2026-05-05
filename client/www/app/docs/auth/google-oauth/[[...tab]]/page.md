@@ -220,7 +220,7 @@ In the `Auth` tab, add your URL to the **Redirect Origins** list.
 {% terminal-path %}
 
 ```shell
-npx instant-cli@latest auth origin add --type website --url example.com
+npx instant-cli@latest auth origin add --type website --url <your-domain>
 ```
 
 {% /terminal-path %}

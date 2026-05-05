@@ -242,7 +242,7 @@ npx instant-cli@latest auth client add --type github --name github-web --client-
 npx instant-cli@latest auth client update --name google-web --client-id <id> --client-secret <secret>
 
 # Add a redirect origin
-npx instant-cli@latest auth origin add --type website --url example.com
+npx instant-cli@latest auth origin add --type website --url <your-domain>
 ```
 
 Run `auth client --help` and `auth origin --help` to see the full set of available commands.

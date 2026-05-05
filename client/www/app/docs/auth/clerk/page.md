@@ -36,7 +36,7 @@ On the Clerk dashboard, navigate to [`API keys`](https://dashboard.clerk.com/las
 
 {% dashboard-path %}
 
-From the Instant dashboard's `Auth` tab, add a new Clerk client with the publishable key you copied.
+From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add a new Clerk client with the publishable key you copied.
 
 {% /dashboard-path %}
 
@@ -44,7 +44,7 @@ From the Instant dashboard's `Auth` tab, add a new Clerk client with the publish
 
 ```shell
 npx instant-cli@latest auth client add \
-  --type clerk --name clerk --publishable-key pk_...
+  --type clerk --name clerk --publishable-key <publishable-key>
 ```
 
 {% /terminal-path %}
