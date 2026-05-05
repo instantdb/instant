@@ -108,17 +108,6 @@ type UnavailableOptions = {
 };
 
 /**
- * Reads a value directly from opts. Prefer text/bool for values that will be
- * validated or used in an Args pipeline.
- *
- * @example
- * const rawType = Args.raw(opts, 'type');
- */
-function raw(opts: Record<string, unknown>, key: string) {
-  return opts[key];
-}
-
-/**
  * @example
  * if (Args.has(opts, 'custom-redirect-uri')) {
  *   // The user explicitly passed --custom-redirect-uri.
@@ -147,7 +136,7 @@ function hasAny(opts: Record<string, unknown>, keys: string[]) {
  * const useDevCredentials = Args.isTrue(opts, 'dev-credentials');
  */
 function isTrue(opts: Record<string, unknown>, key: string) {
-  const value = raw(opts, key);
+  const value = opts[key];
   return value === true || value === 'true';
 }
 
@@ -455,7 +444,6 @@ export const Args = {
   has,
   hasAny,
   isTrue,
-  raw,
   availableWhen,
   prompt,
   confirm,
