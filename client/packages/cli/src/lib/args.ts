@@ -119,8 +119,6 @@ function raw(opts: Record<string, unknown>, key: string) {
 }
 
 /**
- * Checks whether a flag key was supplied, even if the supplied value is empty.
- *
  * @example
  * if (Args.has(opts, 'custom-redirect-uri')) {
  *   // The user explicitly passed --custom-redirect-uri.
@@ -131,9 +129,6 @@ function has(opts: Record<string, unknown>, key: string) {
 }
 
 /**
- * Checks whether any flag in a group was supplied. Useful when one flag should
- * opt into a mode that unlocks related flags.
- *
  * @example
  * const configureWeb = Args.hasAny(opts, [
  *   'team-id',
@@ -256,11 +251,11 @@ function mapActive<A, B, E, R, E2, R2, CanBeInactive extends boolean>(
 }
 
 /**
- * Gates an arg behind a mode or earlier choice.
+ * Allows an arg only when a mode or earlier choice makes it valid.
  *
- * If the condition is false and the user supplied the flag, this returns an
- * error. If the condition is false and the flag was omitted, the arg becomes
- * inactive, so required() resolves to undefined instead of erroring.
+ * When condition is false, a supplied flag fails as incompatible. An omitted
+ * flag is ignored, even if the pipeline later calls required(), because that
+ * flag does not apply in this mode.
  *
  * @example
  * const clientSecret = yield* Args.text(opts, 'client-secret').pipe(
