@@ -63,7 +63,11 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
           stripFirstBlankLine(output)
         );
       }
-      return `\n${heading}\n${stripFirstBlankLine(output)}`;
+      const answer = stripFirstBlankLine(output);
+      if (status === 'submitted' && answer.trim() === '') {
+        return `\n${heading}\n(skipped)`;
+      }
+      return `\n${heading}\n${answer}`;
     },
     UI.modifiers.dimOnComplete,
   ]),
