@@ -62,52 +62,31 @@ Let's dive deeper in each step:
    param="method"
    value=["web-redirect", "rn-web"] %}
 
-## Quick start: dev credentials
+## Quick start: developer credentials
 
-If you're just testing Google sign-in, you can skip Google Console entirely. Instant provides shared dev credentials for web flows so you can get going in seconds.
+If you're testing Google sign-in locally, we have a fast option for you. Instant provides developer credentials that you can use for local development. 
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
+You don't need to go the Google Cloud Console, and you can log in within minutes. 
+
+Go to the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard and create your client:
 
 - Click "Set up Google"
 - Toggle "Use dev credentials"
 - Give your client a name (e.g. `google-web`)
 - Click "Add Client"
 
-`localhost` and `exp://` are allowed as redirect origins automatically, so you can jump straight to **Step 3** below and start coding.
+**And you're done. You can go [**straight to code**](#3-add-some-code)**.
 
 {% callout type="note" %}
 
-Dev credentials are for development only:
-
-- Capped at 100 sign-ups per app
-- Web flows only (not the Google Button, not native iOS/Android)
-- Consent screen reads "Instant Shared Dev Credentials" instead of your app name
-
-When you're ready for production, return to "Set up Google" on the dashboard and click "Set custom credentials" to switch over.
+Developer credentials are meant only for local development. You're limited to 100 sign-ups. Once you're ready for production, follow the steps below.
 
 {% /callout %}
 
-Prefer the terminal? Run:
-
-```shell
-npx instant-cli@latest auth client add --type google --app-type web --name google-web --dev-credentials
-```
 
 {% /conditional %}
 
 ## 1. Set up your consent screen and create an Oauth client
-
-{% conditional
-   param="method"
-   value=["web-redirect", "rn-web"] %}
-
-{% callout type="note" %}
-
-Already using dev credentials from the quick start? You can skip this step until you're ready for production.
-
-{% /callout %}
-
-{% /conditional %}
 
 Head on over to {% blank-link href="https://console.cloud.google.com/apis/credentials" label="Google Console" /%}. You should be in the "Credentials" section.
 
