@@ -371,7 +371,10 @@
                                                 :max-per-app max-per-app}))))
 
 (def claim-retry-events-q
-  (uhsql/preformat {:with [[:locked {:select [:ctid :tableoid :partition_bucket]
+  (uhsql/preformat {:with [[:locked {:select [:ctid
+                                              :tableoid
+                                              :partition_bucket
+                                              :next_attempt_after]
                                      :from :webhook-events
                                      :for [:update :skip-locked]
                                      :where [:and
@@ -393,7 +396,7 @@
                                 :webhook-events.isn
                                 :webhook-events.partition-bucket
                                 :webhook-events.app-id
-                                :webhook-events.next-attempt-after
+                                :locked.next-attempt-after
                                 [[:coalesce [:cardinality :attempts] :0] :attempt-count]]}))
 
 (defn claim-retry-events!
