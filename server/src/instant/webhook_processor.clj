@@ -218,6 +218,5 @@
                                 (restart))))
    (flags/add-flag-listener :webhook-retry-worker-count
                             (fn [_path _old-value new-value]
-                              (tool/def-locals)
                               (when (not= new-value (:retry-worker-count @process))
                                 (restart))))])
