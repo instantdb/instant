@@ -24,7 +24,7 @@ Choose the option that sounds best to you, and the rest of the document will sho
   recommended=true /%}
 {% nav-button
   title="Web Redirect"
-  description="Easier to integrate, but doesn't have the same bells and whistles as the Google Button."
+  description="Easier to integrate, but requires a redirect rule to render your custom app name."
   param="method"
   value="web-redirect" /%}
 {% /div %}
