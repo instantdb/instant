@@ -3,7 +3,9 @@ import stripAnsi from 'strip-ansi';
 import { redirectUriPrompt } from '../src/commands/auth/client/shared.ts';
 
 test('redirectUriPrompt shows skipped when submitted empty', () => {
-  const prompt = redirectUriPrompt({ heading: 'Custom redirect URI (optional):' });
+  const prompt = redirectUriPrompt({
+    heading: 'Custom redirect URI (optional):',
+  });
 
   const output = stripAnsi(prompt.modifyOutput!('\n', 'submitted'));
 
@@ -11,13 +13,12 @@ test('redirectUriPrompt shows skipped when submitted empty', () => {
 });
 
 test('redirectUriPrompt shows submitted custom redirect URI', () => {
-  const prompt = redirectUriPrompt({ heading: 'Custom redirect URI (optional):' });
+  const prompt = redirectUriPrompt({
+    heading: 'Custom redirect URI (optional):',
+  });
 
   const output = stripAnsi(
-    prompt.modifyOutput!(
-      '\nhttps://example.com/oauth/callback',
-      'submitted',
-    ),
+    prompt.modifyOutput!('\nhttps://example.com/oauth/callback', 'submitted'),
   );
 
   expect(output).toContain(
