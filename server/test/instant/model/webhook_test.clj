@@ -569,8 +569,8 @@
               (test-util/wait-for #(<= 3 (count (for-app @records))) 5000)
               (let [[insert-rec update-rec delete-rec] (vec (for-app @records))]
                 (testing "create"
-                  (let [hook {:webhooks/id_attr_ids [id-aid]
-                              :webhooks/actions ["create"]}]
+                  (let [hook {:id_attr_ids [id-aid]
+                              :actions ["create"]}]
                     (testing "matches insert that touched id-aid"
                       (is (boolean (webhook/webhook-matches? insert-rec hook))))
                     (testing "does not match update wal"
@@ -580,12 +580,12 @@
                   (testing "does not match insert when id_attr_ids excludes touched attrs"
                     (is (nil? (webhook/webhook-matches?
                                insert-rec
-                               {:webhooks/id_attr_ids [other-aid]
-                                :webhooks/actions ["create"]})))))
+                               {:id_attr_ids [other-aid]
+                                :actions ["create"]})))))
 
                 (testing "update"
-                  (let [hook {:webhooks/id_attr_ids [name-aid]
-                              :webhooks/actions ["update"]}]
+                  (let [hook {:id_attr_ids [name-aid]
+                              :actions ["update"]}]
                     (testing "matches update that touched name-aid"
                       (is (boolean (webhook/webhook-matches? update-rec hook))))
                     (testing "does not match insert wal"
@@ -595,18 +595,18 @@
                   (testing "does not match update when id_attr_ids excludes touched attrs"
                     (is (nil? (webhook/webhook-matches?
                                update-rec
-                               {:webhooks/id_attr_ids [other-aid]
-                                :webhooks/actions ["update"]}))))
+                               {:id_attr_ids [other-aid]
+                                :actions ["update"]}))))
                   (testing "does not match update when id_attr_ids only references untouched attrs"
                     ;; tx 2 only updated name-aid; id-aid wasn't part of the update.
                     (is (nil? (webhook/webhook-matches?
                                update-rec
-                               {:webhooks/id_attr_ids [id-aid]
-                                :webhooks/actions ["update"]})))))
+                               {:id_attr_ids [id-aid]
+                                :actions ["update"]})))))
 
                 (testing "delete"
-                  (let [hook {:webhooks/id_attr_ids [id-aid]
-                              :webhooks/actions ["delete"]}]
+                  (let [hook {:id_attr_ids [id-aid]
+                              :actions ["delete"]}]
                     (testing "matches delete that touched id-aid"
                       (is (boolean (webhook/webhook-matches? delete-rec hook))))
                     (testing "does not match insert wal"
@@ -616,8 +616,8 @@
                   (testing "does not match delete when id_attr_ids excludes touched attrs"
                     (is (nil? (webhook/webhook-matches?
                                delete-rec
-                               {:webhooks/id_attr_ids [other-aid]
-                                :webhooks/actions ["delete"]})))))
+                               {:id_attr_ids [other-aid]
+                                :actions ["delete"]})))))
 
                 (testing "webhook-data-for-wal-record"
                   (let [hook {:etypes ["users"]
@@ -704,34 +704,34 @@
                 (testing "users-side"
                   (is (not (boolean (webhook/webhook-matches?
                                      add-link
-                                     {:webhooks/id_attr_ids [users-id-aid]
-                                      :webhooks/actions ["create" "update"]})))))
+                                     {:id_attr_ids [users-id-aid]
+                                      :actions ["create" "update"]})))))
                 (testing "books-side"
                   (is (not (boolean (webhook/webhook-matches?
                                      add-link
-                                     {:webhooks/id_attr_ids [books-id-aid]
-                                      :webhooks/actions ["create" "update"]}))))))
+                                     {:id_attr_ids [books-id-aid]
+                                      :actions ["create" "update"]}))))))
 
               (testing "change link doesn't trigger"
                 (testing "users-side"
                   (is (not (boolean (webhook/webhook-matches?
                                      change-link
-                                     {:webhooks/id_attr_ids [users-id-aid]
-                                      :webhooks/actions ["update"]})))))
+                                     {:id_attr_ids [users-id-aid]
+                                      :actions ["update"]})))))
                 (testing "books-side"
                   (is (not (boolean (webhook/webhook-matches?
                                      change-link
-                                     {:webhooks/id_attr_ids [books-id-aid]
-                                      :webhooks/actions ["update"]}))))))
+                                     {:id_attr_ids [books-id-aid]
+                                      :actions ["update"]}))))))
 
               (testing "remove link doesn't trigger"
                 (testing "users-side"
                   (is (not (boolean (webhook/webhook-matches?
                                      remove-link
-                                     {:webhooks/id_attr_ids [users-id-aid]
-                                      :webhooks/actions ["update" "delete"]})))))
+                                     {:id_attr_ids [users-id-aid]
+                                      :actions ["update" "delete"]})))))
                 (testing "books-side"
                   (is (not (boolean (webhook/webhook-matches?
                                      remove-link
-                                     {:webhooks/id_attr_ids [books-id-aid]
-                                      :webhooks/actions ["update" "delete"]})))))))))))))
+                                     {:id_attr_ids [books-id-aid]
+                                      :actions ["update" "delete"]})))))))))))))
