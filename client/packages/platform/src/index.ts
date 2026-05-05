@@ -26,6 +26,7 @@ import version from './version.ts';
 import { ProgressPromise } from './ProgressPromise.ts';
 import { i, type InstantRules } from '@instantdb/core';
 import { exchangeCodeForToken, exchangeRefreshToken } from './serverOAuth.ts';
+import { clerkDomainFromPublishableKey } from './clerk.ts';
 
 export {
   type InstantAPIPlatformSchema,
@@ -49,6 +50,7 @@ export {
   ProgressPromise,
   exchangeCodeForToken,
   exchangeRefreshToken,
+  clerkDomainFromPublishableKey,
   i,
 };
 

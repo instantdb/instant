@@ -14,6 +14,23 @@
 
 (def etype "$oauthClients")
 
+(defn- validate-discovery-endpoint! [discovery-endpoint]
+  (when discovery-endpoint
+    (try
+      (when-not (-> (oauth/fetch-discovery discovery-endpoint)
+                    :data
+                    :issuer
+                    string?)
+        (ex/throw-validation-err!
+         :discovery-endpoint
+         discovery-endpoint
+         [{:message "Could not validate discovery endpoint."}]))
+      (catch Exception _e
+        (ex/throw-validation-err!
+         :discovery-endpoint
+         discovery-endpoint
+         [{:message "Could not validate discovery endpoint."}])))))
+
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id
@@ -26,21 +43,7 @@
                  redirect-to
                  use-shared-credentials?]}]
    ;; Only validate discovery endpoint if provided (OIDC providers)
-   (when discovery-endpoint
-     (try
-       (when-not (-> (oauth/fetch-discovery discovery-endpoint)
-                     :data
-                     :issuer
-                     string?)
-         (ex/throw-validation-err!
-          :discovery-endpoint
-          discovery-endpoint
-          [{:message "Could not validate discovery endpoint."}]))
-       (catch Exception _e
-         (ex/throw-validation-err!
-          :discovery-endpoint
-          discovery-endpoint
-          [{:message "Could not validate discovery endpoint."}]))))
+   (validate-discovery-endpoint! discovery-endpoint)
    (let [id (UUID/randomUUID)
          enc-client-secret-hex
          (when client-secret
@@ -65,6 +68,8 @@
 (defn update!
   ([params] (update! (aurora/conn-pool :write) params))
   ([conn {:keys [id app-id] :as params}]
+   (when (contains? params :discovery-endpoint)
+     (validate-discovery-endpoint! (:discovery-endpoint params)))
    (update-op
     conn
     {:app-id app-id
@@ -79,11 +84,15 @@
                            [[:add-triple id (resolve-id :clientId) (:client-id params)]])
                          (when (contains? params :client-secret)
                            [[:add-triple id (resolve-id :encryptedClientSecret)
-                             (crypt-util/aead-encrypt-hex (:client-secret params)
-                                                          (uuid-util/->bytes id))]])
+                             (when-some [client-secret (:client-secret params)]
+                               (crypt-util/aead-encrypt-hex client-secret
+                                                            (uuid-util/->bytes id)))]])
+                         (when (contains? params :discovery-endpoint)
+                           [[:add-triple id (resolve-id :discoveryEndpoint)
+                             (:discovery-endpoint params)]])
                          (when (contains? params :use-shared-credentials?)
                            [[:add-triple id (resolve-id :useSharedCredentials)
-                             (boolean (:use-shared-credentials? params))]])))
+                             (:use-shared-credentials? params)]])))
       (get-entity id)))))
 
 (defn get-by-id
