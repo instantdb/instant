@@ -42,7 +42,8 @@
   (testing "public IPv6 is not blocked"
     (is (not (bad-ip? "2001:4860:4860::8888"))) ;; Google DNS
     (is (not (bad-ip? "2606:4700:4700::1111"))) ;; Cloudflare DNS
-    (is (not (bad-ip? "64:ff9c::1"))))) ;; just outside NAT64 well-known prefix
+    (is (not (bad-ip? "64:ff9c::1"))) ;; just outside NAT64 well-known prefix
+    (is (not (bad-ip? "::ffff:8.8.8.8"))))) ;; IPv4-mapped public IP
 
 (deftest bad-ip?-blocks-cgnat
   ;; RFC 6598 carrier-grade NAT range. Smokescreen rejects this even with
@@ -87,4 +88,9 @@
 
   (testing "Teredo prefix (2001::/32) is blocked"
     (is (bad-ip? "2001:0:4136:e378:8000:63bf:3fff:fdd2"))
-    (is (bad-ip? "2001:0:1234:5678:9abc:def0:1234:5678"))))
+    (is (bad-ip? "2001:0:1234:5678:9abc:def0:1234:5678")))
+
+  (testing "IPv4-mapped addresses are blocked if the underlying IPv4 is bad"
+    (is (bad-ip? "::ffff:127.0.0.1"))
+    (is (bad-ip? "::ffff:10.0.0.1"))
+    (is (bad-ip? "::ffff:192.168.1.1"))))

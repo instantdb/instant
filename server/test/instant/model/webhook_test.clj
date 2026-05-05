@@ -530,7 +530,7 @@
                                  webhook-id isn partition-bucket])]
             (is (= "disabled" wh-status))
             (is (= "Endpoint returned 410 status code." disabled_reason))
-            (is (= "error" ev-status)))
+            (is (= "failed" ev-status)))
           (finally
             (sql/do-execute! (aurora/conn-pool :write)
                              ["delete from webhook_events

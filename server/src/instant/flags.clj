@@ -10,6 +10,7 @@
    [instant.util.json :as json]
    [instant.util.uuid :as uuid-util])
   (:import
+   (inet.ipaddr IPAddressString)
    (java.net InetAddress)))
 
 ;; Map of query to {:result {result-tree}
@@ -50,7 +51,12 @@
 (defn parse-ips-flag [vs]
   (set (keep (fn [v]
                (try
-                 (InetAddress/getByName v)
+                 (let [addr-str (IPAddressString. v)]
+                   (if (.isValid addr-str)
+                     (InetAddress/getByAddress
+                      (.getBytes (.toAddress addr-str)))
+                     (do (log/error "Invalid IP" v)
+                         nil)))
                  (catch Exception e
                    (log/error e "Error parsing IP" v))))
              vs)))

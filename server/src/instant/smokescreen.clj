@@ -13,6 +13,13 @@
     Inet4Address (IPv4Address. (.getAddress a))
     Inet6Address (IPv6Address. (.getAddress a))))
 
+(defn parse-literal-ip ^InetAddress [^String host]
+  (let [addr-str (IPAddressString. host)]
+    (when (and (.isValid addr-str)
+               (.isIPAddress addr-str))
+      (InetAddress/getByAddress
+       (.getBytes (.toAddress addr-str))))))
+
 ;; RFC 6598 CGNAT range (shouldn't be publically routable)
 (def ^{:tag IPAddress} cgnat-range (.toAddress (IPAddressString. "100.64.0.0/10")))
 ;; RFC 6052 NAT64 well-known prefix

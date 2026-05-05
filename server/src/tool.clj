@@ -317,10 +317,12 @@
                                                  (format "'%s'::isn[]" (->pg-isn-array v))
 
                                                  (webhook-attempt? v)
-                                                 (format "'%s'::webhook_attempt" (webhook-attempt->composite-str v))
+                                                 (format "'%s'::webhook_attempt"
+                                                         (.replace (webhook-attempt->composite-str v) "'" "''"))
 
                                                  (= "webhook_attempt[]" (-> v meta :pgtype))
-                                                 (format "'%s'::webhook_attempt[]" (->pg-webhook-attempt-array v))
+                                                 (format "'%s'::webhook_attempt[]"
+                                                         (.replace (->pg-webhook-attempt-array v) "'" "''"))
 
                                                  ;; Fallback to JSON
                                                  (set? v)

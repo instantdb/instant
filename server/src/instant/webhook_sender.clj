@@ -14,7 +14,7 @@
    (java.nio.charset StandardCharsets)
    (java.time Duration Instant)
    (java.util Collection)
-   (java.util.concurrent ExecutorService TimeUnit)
+   (java.util.concurrent Callable ExecutorService TimeUnit)
    (java.util.function Predicate)
    (javax.net.ssl SSLException)
    (okhttp3 ConnectionPool Dispatcher Dns HttpUrl MediaType OkHttpClient OkHttpClient$Builder Request$Builder RequestBody)
@@ -83,6 +83,8 @@
         pool (ConnectionPool.)
         dns (make-dns-resolver executor)]
     (.. (OkHttpClient$Builder.)
+        (followRedirects false)
+        (followSslRedirects false)
         (connectionPool pool)
         ;; Total time for the full request, including dns lookup
         (callTimeout 20 TimeUnit/SECONDS)
@@ -130,14 +132,21 @@
             nil)
           (recur (.getCause t))))))
 
+(defn ensure-safe-host! [^HttpUrl url]
+  (let [host (HttpUrl/.host url)]
+    (when-let [inet-ip (smokescreen/parse-literal-ip host)]
+      (when (smokescreen/bad-ip? inet-ip)
+        (throw (UnknownHostException. "Could not resolve hostname."))))))
+
 (defn send-webhook [^String url idempotency-key queue-latency-ms ^bytes body-bytes]
   (tracer/with-span! {:name "send-webhook"
                       :attributes {:url url
                                    :queue-latency-ms queue-latency-ms}}
     (let [sig (sign-webhook body-bytes)
           start (Instant/now)
+          parsed-url (HttpUrl/parse url)
           request (.. (Request$Builder.)
-                      (url url)
+                      (url parsed-url)
                       (header "User-Agent" "InstantDB Webhook Sender")
                       (header "Instant-Signature" (str "t=" (:t sig)
                                                        ",kid=" (:kid sig)
@@ -146,6 +155,7 @@
                       (post (RequestBody/create json-type body-bytes))
                       (build))]
       (try
+        (ensure-safe-host! parsed-url)
         (with-open [response (.. client
                                  (newCall request)
                                  (execute))]
@@ -174,6 +184,7 @@
               (catch Exception _
                 (ex/throw-validation-err! :webhook {:url url} [{:message "Invalid URL."}])))]
     (try
+      (ensure-safe-host! url)
       (when (empty? (.lookup (.dns client)
                              (HttpUrl/.host url)))
         (throw (Exception. "Could not resolve URL.")))

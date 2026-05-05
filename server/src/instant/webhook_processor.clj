@@ -48,7 +48,14 @@
   [event ^Instant base-time]
   (let [webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id (:app_id event)
                                                               :webhook-id (:webhook_id event)})]
-    (when (= (:status webhook) "active")
+    (if-not (= (:status webhook) "active")
+      (webhook-model/record-attempt! event (webhook-sender/->WebhookAttempt (Instant/now)
+                                                                            0
+                                                                            false
+                                                                            nil
+                                                                            nil
+                                                                            "disabled"
+                                                                            "Webhook is disabled."))
       (let [idempotency-key (webhook-model/payload-idempotency-key {:webhook-id (:webhook_id event)
                                                                     :isn (:isn event)})
             body (webhook-body event)
@@ -130,9 +137,9 @@
            (recur (.take q)))))))
 
 (defn start []
-  (let [worker-count (flags/flag :webhook-worker-count default-worker-count)
-        retry-worker-count (flags/flag :webhook-retry-worker-count
-                                       default-retry-worker-count)]
+  (let [worker-count (max 1 (flags/flag :webhook-worker-count default-worker-count))
+        retry-worker-count (max 1 (flags/flag :webhook-retry-worker-count
+                                              default-retry-worker-count))]
     (tracer/with-span! {:name "webhook-processor/start"
                         :attributes {:worker-count worker-count
                                      :retry-worker-count retry-worker-count}}

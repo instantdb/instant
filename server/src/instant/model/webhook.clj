@@ -222,7 +222,7 @@
                                               :reason reason}))))
 
 (def enable-q (uhsql/preformat {:update :webhooks
-                                :set {:status [:cast [:inline "enable"] :webhook_status]
+                                :set {:status [:cast [:inline "active"] :webhook_status]
                                       :disabled_reason nil}
                                 :where [:and
                                         [:= :app-id :?app-id]
@@ -456,10 +456,13 @@
     {:keys [app_id webhook_id isn partition_bucket attempt_count]}
     attempt
     machine-id]
-   (let [status (cond (:success? attempt)
+   (let [gone? (= 410 (:status-code attempt))
+         status (cond (:success? attempt)
                       "success"
 
-                      (>= (inc attempt_count) max-attempts)
+                      (or gone?
+                          (= "disabled" (:error-type attempt))
+                          (>= (inc attempt_count) max-attempts))
                       "failed"
 
                       :else "error")
@@ -478,7 +481,7 @@
                                           params))]
      ;; Allows servers to turn off the spigot by returning a 410 if someone
      ;; typos a domain or tries to attack one
-     (when (= 410 (:status-code attempt))
+     (when gone?
        (disable! conn {:app-id app_id
                        :webhook-id webhook_id
                        :reason "Endpoint returned 410 status code."}))

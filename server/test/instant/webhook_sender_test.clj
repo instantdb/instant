@@ -71,6 +71,42 @@
                                                    (random-uuid)
                                                    0
                                                    (.getBytes "{\"hello\": \"world\"}" "UTF-8"))
+                      [:error-type :error-message :success?])))
+
+  (is (= {:success? false
+          :error-type "dns"
+          :error-message "Could not resolve hostname."}
+         (select-keys (webhook-sender/send-webhook "https://127.0.0.1"
+                                                   (random-uuid)
+                                                   0
+                                                   (.getBytes "{\"hello\": \"world\"}" "UTF-8"))
+                      [:error-type :error-message :success?])))
+
+  (is (= {:success? false
+          :error-type "dns"
+          :error-message "Could not resolve hostname."}
+         (select-keys (webhook-sender/send-webhook "https://10.0.0.1"
+                                                   (random-uuid)
+                                                   0
+                                                   (.getBytes "{\"hello\": \"world\"}" "UTF-8"))
+                      [:error-type :error-message :success?])))
+
+  (is (= {:success? false
+          :error-type "dns"
+          :error-message "Could not resolve hostname."}
+         (select-keys (webhook-sender/send-webhook "https://169.254.169.254"
+                                                   (random-uuid)
+                                                   0
+                                                   (.getBytes "{\"hello\": \"world\"}" "UTF-8"))
+                      [:error-type :error-message :success?])))
+
+  (is (= {:success? false
+          :error-type "dns"
+          :error-message "Could not resolve hostname."}
+         (select-keys (webhook-sender/send-webhook "https://[::1]"
+                                                   (random-uuid)
+                                                   0
+                                                   (.getBytes "{\"hello\": \"world\"}" "UTF-8"))
                       [:error-type :error-message :success?]))))
 
 (deftest send-webhook-delivers-valid-signature
@@ -108,6 +144,28 @@
         (finally
           (.close server))))))
 
+(deftest send-webhook-does-not-follow-redirects
+  ;; Redirect responses should be surfaced to the caller as-is. Following them
+  ;; can change request semantics and opens a second outbound hop that needs
+  ;; its own policy.
+  (with-redefs [smokescreen/bad-ip? (constantly false)]
+    (let [server (doto (MockWebServer.) (.start))]
+      (try
+        (.enqueue server (.. (MockResponse$Builder.)
+                             (code 302)
+                             (addHeader "Location" "/hook-2")
+                             (build)))
+        (.enqueue server (.build (MockResponse$Builder.)))
+        (let [body-bytes (.getBytes "{\"event\":\"create\"}" StandardCharsets/UTF_8)
+              url (str "http://127.0.0.1.nip.io:" (.getPort server) "/hook")
+              attempt (webhook-sender/send-webhook url (random-uuid) 0 body-bytes)]
+          (is (= {:success? false
+                  :status-code 302}
+                 (select-keys attempt [:success? :status-code])))
+          (is (= 1 (.getRequestCount server))))
+        (finally
+          (.close server))))))
+
 (deftest validate-url-test
   (is (nil? (webhook-sender/validate-url "https://example.com/hook"))
       "valid public url succeeds")
@@ -126,6 +184,26 @@
                         #"Could not resolve URL"
                         (webhook-sender/validate-url "https://169.254.169.254.nip.io"))
       "ec2 metadata IP via nip.io is rejected")
+
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                        #"Could not resolve URL"
+                        (webhook-sender/validate-url "https://127.0.0.1"))
+      "loopback literal IPv4 host is rejected")
+
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                        #"Could not resolve URL"
+                        (webhook-sender/validate-url "https://10.0.0.1"))
+      "private literal IPv4 host is rejected")
+
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                        #"Could not resolve URL"
+                        (webhook-sender/validate-url "https://169.254.169.254"))
+      "metadata literal IPv4 host is rejected")
+
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                        #"Could not resolve URL"
+                        (webhook-sender/validate-url "https://[::1]"))
+      "loopback literal IPv6 host is rejected")
 
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
                         #"Could not resolve URL"
