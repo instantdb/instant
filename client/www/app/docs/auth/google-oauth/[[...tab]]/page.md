@@ -64,9 +64,9 @@ Let's dive deeper in each step:
 
 ## Quick start: developer credentials
 
-If you're testing Google sign-in locally, we have a fast option for you. Instant provides developer credentials that you can use for local development. 
+If you're testing Google sign-in locally, we have a fast option for you. Instant provides developer credentials that you can use for local development.
 
-You don't need to go the Google Cloud Console, and you can log in within minutes. 
+You don't need to go the Google Cloud Console, and you can log in within minutes.
 
 {% setup-paths %}
 
@@ -99,7 +99,6 @@ npx instant-cli@latest auth client add \
 Developer credentials are meant only for local development. You're limited to 100 sign-ups. Once you're ready for production, follow the steps below.
 
 {% /callout %}
-
 
 {% /conditional %}
 
