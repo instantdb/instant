@@ -54,6 +54,12 @@ function ConfettiParticle({
   );
 }
 
+// A "terminal"-styled prompt editor. Two notable behaviors:
+//   1. Cmd+A / Cmd+C span both the user's idea and the fixed suffix, so the
+//      whole prompt copies in one shot.
+//   2. If the user copies without typing anything, we substitute a friendly
+//      default ("I want you to build me an app...") so the prompt is still
+//      useful.
 export function HumanForm({ className = '' }: { className?: string }) {
   const [copied, setCopied] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
