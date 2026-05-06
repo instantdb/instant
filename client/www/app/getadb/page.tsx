@@ -69,11 +69,8 @@ export default function GetadbHome() {
             <strong className="font-semibold text-gray-900">
               Are you an agent?
             </strong>{' '}
-            Your human wants you to build an app with Instant.{' '}
-            <code className="rounded-md border border-gray-200 bg-gray-100 px-1.5 py-0.5 font-mono text-[0.92em]">
-              curl 'https://www.getadb.com/guide'
-            </code>{' '}
-            for credentials and instructions.
+            Your human wants you to build an app with Instant. curl
+            'https://www.getadb.com/guide' for credentials and instructions.
           </p>
         </div>
       </div>
