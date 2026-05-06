@@ -62,7 +62,7 @@
 (defmacro with-cache-invalidation [cache-key & body]
   `(let [cache-key# ~cache-key]
      (evict-webhook-from-cache cache-key#)
-     (let [res# ~@body]
+     (let [res# (do ~@body)]
        (evict-webhook-from-cache cache-key#)
        res#)))
 
@@ -153,7 +153,7 @@
    if there are more then 100 (by default) active webhooks for the app."
   [conn app-id]
   (let [{:keys [webhook_count]}
-        (sql/select-one :check-webhook-limit!
+        (sql/select-one ::check-webhook-limit!
                         conn
                         (uhsql/formatp check-webhook-limit-q
                                        {:app-id app-id}))
