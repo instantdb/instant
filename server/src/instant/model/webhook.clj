@@ -331,9 +331,6 @@
                     :do-nothing true
                     :returning [:webhook-id :isn :partition-bucket]}))
 
-;; XXX: When things fail, it doesn't seem to pick back up where it's supposed to
-;;      figure out what's going on there.
-
 (defn create-events!
   "Takes the wal-records and a list of potential webhooks.
    Creates webhook events for each match where there is a valid change."
