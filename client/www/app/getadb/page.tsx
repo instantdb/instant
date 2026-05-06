@@ -39,7 +39,7 @@ export default function GetadbHome() {
             <p>
               When your AI fetches{' '}
               <a
-                href="/getadb/guide"
+                href="https://www.getadb.com/guide"
                 className="underline underline-offset-4 hover:text-orange-600"
               >
                 getadb.com/guide
