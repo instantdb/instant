@@ -411,7 +411,7 @@
                              item (.take q)]
                         (.add batch item)
                         ;; Grab up to 100 items from the queue
-                        (.drainTo q batch (dec (flags/flag :history-batch-size 99)))
+                        (.drainTo q batch (dec (flags/flag :history-batch-size 100)))
                         (let [quit? (identical? shutdown-sentinel (.get batch (dec (.size batch))))]
                           (when quit?
                             (.remove batch (dec (.size batch))))

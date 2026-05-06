@@ -13,6 +13,7 @@
    [instant.util.exception :as ex]
    [instant.util.hsql :as uhsql]
    [instant.util.memoize :refer [vmemoize]]
+   [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [instant.webhook-sender :as webhook-sender]
    [lambdaisland.uri :as uri]
@@ -337,25 +338,30 @@
   ([wal-records matches]
    (create-events! (aurora/conn-pool :write) wal-records matches))
   ([conn wal-records matches]
-   (let [get-wal-record (vmemoize (fn [isn]
-                                    (ucoll/seek #(= isn (:isn %)) wal-records)))
-         events (ucoll/reduce-tr (fn [acc {:keys [isn] :as match}]
-                                   (let [wal-record (get-wal-record isn)]
-                                     (if (webhook-matches? wal-record match)
-                                       (conj! acc {:webhook-id (:webhook_id match)
-                                                   :isn isn
-                                                   :app-id (:app-id wal-record)
-                                                   :status "pending"
-                                                   :partition-bucket (history/partition-bucket-of-wal-record wal-record)})
-                                       acc)))
+   (tracer/with-span! {:name "webhook/create-events!"
+                       :attributes {:match-count (count matches)}}
+     (let [get-wal-record (vmemoize (fn [isn]
+                                      (ucoll/seek #(= isn (:isn %)) wal-records)))
+           events (ucoll/reduce-tr (fn [acc {:keys [isn] :as match}]
+                                     (let [wal-record (get-wal-record isn)]
+                                       (if (webhook-matches? wal-record match)
+                                         (conj! acc {:webhook-id (:webhook_id match)
+                                                     :isn isn
+                                                     :app-id (:app-id wal-record)
+                                                     :status "pending"
+                                                     :partition-bucket (history/partition-bucket-of-wal-record wal-record)})
+                                         acc)))
 
-                                 []
-                                 matches)]
-     (when (seq events)
-       (let [params (collect-create-event-params events)]
-         (sql/execute! ::create-events!
-                       conn
-                       (uhsql/formatp create-events-q params)))))))
+                                   []
+                                   matches)]
+       (tracer/add-data! {:attributes {:event-count (count events)
+                                       :false-positives (- (count matches)
+                                                           (count events))}})
+       (when (seq events)
+         (let [params (collect-create-event-params events)]
+           (sql/execute! ::create-events!
+                         conn
+                         (uhsql/formatp create-events-q params))))))))
 
 (def claim-events-q
   (uhsql/preformat {:select [:webhook-id
