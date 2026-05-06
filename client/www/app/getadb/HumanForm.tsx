@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/solid';
 import { AnimatePresence, motion } from 'motion/react';
+import CopyToClipboard from 'react-copy-to-clipboard';
 
 const PLACEHOLDER = '<your app idea here>';
 const SUFFIX = `Use InstantDB for your backend. For credentials and instructions, fetch http://www.getadb.com/guide and follow the steps.`;
@@ -54,12 +55,12 @@ function ConfettiParticle({
 
 export function HumanForm({ className = '' }: { className?: string }) {
   const [copied, setCopied] = useState(false);
+  const [ideaText, setIdeaText] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
   const ideaRef = useRef<HTMLDivElement>(null);
 
   function buildPromptText() {
-    const idea = (ideaRef.current?.innerText ?? '').trim();
-    return `${idea || PLACEHOLDER}\n\n${SUFFIX}`;
+    return `${ideaText.trim() || PLACEHOLDER}\n\n${SUFFIX}`;
   }
 
   useEffect(() => {
@@ -79,7 +80,11 @@ export function HumanForm({ className = '' }: { className?: string }) {
     const editor = editorRef.current;
     if (!editor) return;
     function handleNativeCopy(e: ClipboardEvent) {
-      e.clipboardData?.setData('text/plain', buildPromptText());
+      const idea = (ideaRef.current?.innerText ?? '').trim();
+      e.clipboardData?.setData(
+        'text/plain',
+        `${idea || PLACEHOLDER}\n\n${SUFFIX}`,
+      );
       e.preventDefault();
     }
     editor.addEventListener('copy', handleNativeCopy);
@@ -90,12 +95,7 @@ export function HumanForm({ className = '' }: { className?: string }) {
     const idea = ideaRef.current;
     if (!idea) return;
     if (idea.innerHTML === '<br>') idea.innerHTML = '';
-  }
-
-  async function handleCopy() {
-    await navigator.clipboard.writeText(buildPromptText());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setIdeaText(idea.innerText ?? '');
   }
 
   return (
@@ -144,52 +144,59 @@ export function HumanForm({ className = '' }: { className?: string }) {
           </div>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={handleCopy}
-        className="absolute -right-2 -bottom-3 inline-flex h-9 w-36 -rotate-3 items-center justify-center overflow-hidden rounded-lg border border-transparent bg-orange-600 text-sm font-medium text-white shadow-lg transition-transform hover:rotate-0 hover:bg-orange-700 sm:-right-3 sm:-bottom-4"
+      <CopyToClipboard
+        text={buildPromptText()}
+        onCopy={() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }}
       >
-        <AnimatePresence initial={false} custom={copied}>
-          <motion.span
-            key={copied ? 'copied' : 'copy'}
-            custom={copied}
-            className="absolute inset-0 flex items-center justify-center gap-2"
-            variants={{
-              enter: (isCopied: boolean) => ({ y: isCopied ? -24 : 24 }),
-              center: { y: 0 },
-              exit: (isCopied: boolean) => ({ y: isCopied ? 24 : -24 }),
-            }}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-          >
-            {copied ? (
-              <>
-                <CheckIcon className="h-4 w-4" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <ClipboardDocumentIcon className="h-4 w-4" />
-                Copy prompt
-              </>
-            )}
-          </motion.span>
-        </AnimatePresence>
-        {copied && (
-          <>
-            {confettiColors.map((color, i) => (
-              <ConfettiParticle
-                key={i}
-                delay={i * 0.03}
-                x={(i % 2 === 0 ? -1 : 1) * (12 + i * 6)}
-                color={color}
-              />
-            ))}
-          </>
-        )}
-      </button>
+        <button
+          type="button"
+          className="absolute -right-2 -bottom-3 inline-flex h-9 w-36 -rotate-3 items-center justify-center overflow-hidden rounded-lg border border-transparent bg-orange-600 text-sm font-medium text-white shadow-lg transition-transform hover:rotate-0 hover:bg-orange-700 sm:-right-3 sm:-bottom-4"
+        >
+          <AnimatePresence initial={false} custom={copied}>
+            <motion.span
+              key={copied ? 'copied' : 'copy'}
+              custom={copied}
+              className="absolute inset-0 flex items-center justify-center gap-2"
+              variants={{
+                enter: (isCopied: boolean) => ({ y: isCopied ? -24 : 24 }),
+                center: { y: 0 },
+                exit: (isCopied: boolean) => ({ y: isCopied ? 24 : -24 }),
+              }}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+            >
+              {copied ? (
+                <>
+                  <CheckIcon className="h-4 w-4" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <ClipboardDocumentIcon className="h-4 w-4" />
+                  Copy prompt
+                </>
+              )}
+            </motion.span>
+          </AnimatePresence>
+          {copied && (
+            <>
+              {confettiColors.map((color, i) => (
+                <ConfettiParticle
+                  key={i}
+                  delay={i * 0.03}
+                  x={(i % 2 === 0 ? -1 : 1) * (12 + i * 6)}
+                  color={color}
+                />
+              ))}
+            </>
+          )}
+        </button>
+      </CopyToClipboard>
     </div>
   );
 }
