@@ -1,0 +1,220 @@
+[
+ {:input "+infinity" :infinity :pos}
+ {:input "-infinity" :infinity :neg}
+ {:input "-infinity 01:01:01" :error true :msg "invalid input syntax for type timestamp with time zone: \"-infinity 01:01:01\""}
+ {:input "-infinity infinity" :error true :msg "invalid input syntax for type timestamp with time zone: \"-infinity infinity\""}
+ {:input "02-10-1997 17:32:01 PST" :usec 855624721000000}
+ {:input "12.27.2001 04:05:06.789+08" :usec 1009397106789000}
+ {:input "12.27.2001 04:05:06.789-08" :usec 1009454706789000}
+ {:input "12/27/2001 04:05:06.789-08" :usec 1009454706789000}
+ {:input "1902-01-01" :usec -2145916800000000}
+ {:input "1970-01-01 00:00:00+00" :usec 0}
+ {:input "1970-01-01 01:00:00+00" :usec 3600000000}
+ {:input "1973-07-15 08:15:55.33+02" :usec 111564955330000}
+ {:input "1980-01-06 00:00 GMT" :usec 315964800000000}
+ {:input "1995-08-06 -infinity" :error true :msg "invalid input syntax for type timestamp with time zone: \"1995-08-06 -infinity\""}
+ {:input "1995-08-06 12:12:12" :usec 807711132000000}
+ {:input "1995-08-06 epoch" :error true :msg "invalid input syntax for type timestamp with time zone: \"1995-08-06 epoch\""}
+ {:input "1995-08-06 infinity" :error true :msg "invalid input syntax for type timestamp with time zone: \"1995-08-06 infinity\""}
+ {:input "1996-03-01" :usec 825638400000000}
+ {:input "1996-08-06 12:12:12" :usec 839333532000000}
+ {:input "1997-01-02" :usec 852163200000000}
+ {:input "1997-01-02 03:04:05" :usec 852174245000000}
+ {:input "1997-02-10 17:32:01 -08:00" :usec 855624721000000}
+ {:input "1997-02-10 17:32:01 PST" :usec 855624721000000}
+ {:input "1997-02-10 17:32:01-08" :usec 855624721000000}
+ {:input "1997-02-10 17:32:01-0800" :usec 855624721000000}
+ {:input "1997-06-10 17:32:01 -07:00" :usec 865989121000000}
+ {:input "1997-06-10 18:32:01 PDT" :usec 865992721000000}
+ {:input "1997.041 17:32:01 UTC" :usec 855595921000000}
+ {:input "1997/02/10 17:32:01-0800" :usec 855624721000000}
+ {:input "19970210 173201 -0800" :usec 855624721000000}
+ {:input "19970210 173201 America/New_York" :usec 855613921000000}
+ {:input "19970210 173201 PST" :usec 855624721000000}
+ {:input "19970710 173201 America/Does_not_exist" :error true :msg "time zone \"america/does_not_exist\" not recognized"}
+ {:input "19970710 173201 America/New_York" :usec 868570321000000}
+ {:input "1999-03-01" :usec 920246400000000}
+ {:input "1999-12-01" :usec 944006400000000}
+ {:input "1999-12-23 19:59:04.224192 UTC" :usec 945979144224192}
+ {:input "1999-12-23 19:59:04.224193 UTC" :usec 945979144224193}
+ {:input "2000-01-01" :usec 946684800000000}
+ {:input "2000-03-01" :usec 951868800000000}
+ {:input "2000-03-15 02:14:05 MST+7:00" :usec 953111645000000}
+ {:input "2000-03-15 03:14:04 PST+8" :usec 953118844000000}
+ {:input "2000-03-15 08:14:01 GMT+8" :usec 953136841000000}
+ {:input "2000-03-15 12:14:03 GMT-2" :usec 953115243000000}
+ {:input "2000-03-15 13:14:02 GMT-1" :usec 953122442000000}
+ {:input "2000-11-26" :usec 975196800000000}
+ {:input "2000-11-27" :usec 975283200000000}
+ {:input "2000-11-27 12:00" :usec 975326400000000}
+ {:input "2000-11-28" :usec 975369600000000}
+ {:input "2000-11-30" :usec 975542400000000}
+ {:input "2001-01-01" :usec 978307200000000}
+ {:input "2001-01-01+00" :usec 978307200000000}
+ {:input "2001-01-01+11" :usec 978267600000000}
+ {:input "2001-02-16 20:38:40+00" :usec 982355920000000}
+ {:input "2001-09-22T18:19:20" :usec 1001182760000000}
+ {:input "2001-12-27 04:05:06.789 MET DST" :usec 1009418706789000}
+ {:input "2001-12-27 04:05:06.789-08" :usec 1009454706789000}
+ {:input "2001-12-27 allballs" :usec 1009411200000000}
+ {:input "2001.12.27 04:05:06.789-08" :usec 1009454706789000}
+ {:input "2001/12/27 04:05:06.789-08" :usec 1009454706789000}
+ {:input "20011227 040506+08" :usec 1009397106000000}
+ {:input "20011227 040506-08" :usec 1009454706000000}
+ {:input "20011227 040506.789+08" :usec 1009397106789000}
+ {:input "20011227 040506.789-08" :usec 1009454706789000}
+ {:input "20011227T040506+08" :usec 1009397106000000}
+ {:input "20011227T040506-08" :usec 1009454706000000}
+ {:input "20011227T040506.789+08" :usec 1009397106789000}
+ {:input "20011227T040506.789-08" :usec 1009454706789000}
+ {:input "2004-02-29 15:44:17.71393" :usec 1078069457713930}
+ {:input "2005-04-02 12:00-07" :usec 1112468400000000}
+ {:input "2005-04-03 12:00-06" :usec 1112551200000000}
+ {:input "2011-03-26 21:00:00 UTC" :usec 1301173200000000}
+ {:input "2011-03-26 22:00:00 UTC" :usec 1301176800000000}
+ {:input "2011-03-26 22:59:59 UTC" :usec 1301180399000000}
+ {:input "2011-03-26 23:00:00 UTC" :usec 1301180400000000}
+ {:input "2011-03-26 23:00:01 UTC" :usec 1301180401000000}
+ {:input "2011-03-26 23:59:59 UTC" :usec 1301183999000000}
+ {:input "2011-03-27 00:00:00 Europe/Moscow" :usec 1301173200000000}
+ {:input "2011-03-27 00:00:00 MSK" :usec 1301173200000000}
+ {:input "2011-03-27 00:00:00 UTC" :usec 1301184000000000}
+ {:input "2011-03-27 01:00:00 Europe/Moscow" :usec 1301176800000000}
+ {:input "2011-03-27 01:00:00 MSK" :usec 1301176800000000}
+ {:input "2011-03-27 01:59:59 Europe/Moscow" :usec 1301180399000000}
+ {:input "2011-03-27 01:59:59 MSK" :usec 1301180399000000}
+ {:input "2011-03-27 02:00:00 Europe/Moscow" :usec 1301180400000000}
+ {:input "2011-03-27 02:00:00 MSK" :usec 1301176800000000}
+ {:input "2011-03-27 02:00:01 Europe/Moscow" :usec 1301180401000000}
+ {:input "2011-03-27 02:00:01 MSK" :usec 1301176801000000}
+ {:input "2011-03-27 02:59:59 Europe/Moscow" :usec 1301183999000000}
+ {:input "2011-03-27 02:59:59 MSK" :usec 1301180399000000}
+ {:input "2011-03-27 03:00:00 Europe/Moscow" :usec 1301180400000000}
+ {:input "2011-03-27 03:00:00 MSK" :usec 1301180400000000}
+ {:input "2011-03-27 03:00:01 Europe/Moscow" :usec 1301180401000000}
+ {:input "2011-03-27 03:00:01 MSK" :usec 1301180401000000}
+ {:input "2011-03-27 04:00:00 Europe/Moscow" :usec 1301184000000000}
+ {:input "2011-03-27 04:00:00 MSK" :usec 1301184000000000}
+ {:input "2012-12-12 12:00" :usec 1355313600000000}
+ {:input "2012-12-12 12:00 America/New_York" :usec 1355331600000000}
+ {:input "2014-10-25 21:00:00 UTC" :usec 1414270800000000}
+ {:input "2014-10-25 21:59:59 UTC" :usec 1414274399000000}
+ {:input "2014-10-25 22:00:00 UTC" :usec 1414274400000000}
+ {:input "2014-10-25 22:00:01 UTC" :usec 1414274401000000}
+ {:input "2014-10-25 23:00:00 UTC" :usec 1414278000000000}
+ {:input "2014-10-26 00:00:00 Europe/Moscow" :usec 1414267200000000}
+ {:input "2014-10-26 00:00:00 MSK" :usec 1414267200000000}
+ {:input "2014-10-26 00:59:59 Europe/Moscow" :usec 1414270799000000}
+ {:input "2014-10-26 00:59:59 MSK" :usec 1414270799000000}
+ {:input "2014-10-26 01:00:00 Europe/Moscow" :usec 1414274400000000}
+ {:input "2014-10-26 01:00:00 MSK" :usec 1414274400000000}
+ {:input "2014-10-26 01:00:01 Europe/Moscow" :usec 1414274401000000}
+ {:input "2014-10-26 01:00:01 MSK" :usec 1414274401000000}
+ {:input "2014-10-26 02:00:00 Europe/Moscow" :usec 1414278000000000}
+ {:input "2014-10-26 02:00:00 MSK" :usec 1414278000000000}
+ {:input "2014-12-10 00:00:00 Europe/Prague" :usec 1418166000000000}
+ {:input "2018-11-02 12:34:56" :usec 1541162096000000}
+ {:input "2020-01-01 00:00" :usec 1577836800000000}
+ {:input "2020-01-02 03:00" :usec 1577934000000000}
+ {:input "2020-02-01 00:02:30+00" :usec 1580515350000000}
+ {:input "2020-02-01 01:01:01+00" :usec 1580518861000000}
+ {:input "2020-02-11 15:44:17.71393" :usec 1581435857713930}
+ {:input "2020-02-29 15:44:17.71393+00" :usec 1582991057713930}
+ {:input "2020-10-05" :usec 1601856000000000}
+ {:input "2020-12-31 23:00:00+00" :usec 1609455600000000}
+ {:input "2021-10-31 00:00:00+02" :usec 1635631200000000}
+ {:input "2021-12-31 23:00:00+00" :usec 1640991600000000}
+ {:input "2022-01-01 00:00" :usec 1640995200000000}
+ {:input "2022-10-30 00:00:00+01" :usec 1667084400000000}
+ {:input "2024-01-01" :usec 1704067200000000}
+ {:input "2024-02-01" :usec 1706745600000000}
+ {:input "2024-02-01 15:00:00" :usec 1706799600000000}
+ {:input "2024-02-01 17:00:00" :usec 1706806800000000}
+ {:input "2038-01-01" :usec 2145916800000000}
+ {:input "205000-01-10 17:32:01 Europe/Helsinki" :usec 6407008817521000000}
+ {:input "205000-07-10 17:32:01 Europe/Helsinki" :usec 6407024452321000000}
+ {:input "20500110 173201 Europe/Helsinki" :usec 2525441521000000}
+ {:input "20500710 173201 Europe/Helsinki" :usec 2541076321000000}
+ {:input "27.12.2001 04:05:06.789+08" :error true :msg "date/time field value out of range: \"27.12.2001 04:05:06.789+08\""}
+ {:input "27.12.2001 04:05:06.789-08" :error true :msg "date/time field value out of range: \"27.12.2001 04:05:06.789-08\""}
+ {:input "27/12/2001 04:05:06.789-08" :error true :msg "date/time field value out of range: \"27/12/2001 04:05:06.789-08\""}
+ {:input "294270-01-01 00:00:00+00" :usec 9224097091200000000}
+ {:input "294276-12-30" :usec 9224317843200000000}
+ {:input "294276-12-31 15:59:59-08" :usec 9224318015999000000}
+ {:input "294276-12-31 23:59:59 UTC" :usec 9224318015999000000}
+ {:input "294276-12-31 23:59:59+00" :usec 9224318015999000000}
+ {:input "294277-01-01 00:00:00+00" :error true :msg "timestamp out of range: \"294277-01-01 00:00:00+00\""}
+ {:input "294277-12-31 16:00:00-08" :error true :msg "timestamp out of range: \"294277-12-31 16:00:00-08\""}
+ {:input "4000-01-01 BC" :usec -188363404800000000}
+ {:input "4000-12-20 BC" :usec -188332905600000000}
+ {:input "4400-01-01 BC" :usec -200986185600000000}
+ {:input "4714-11-23 16:00:00-08 BC" :usec -210866803200000000}
+ {:input "4714-11-23 23:59:59+00 BC" :error true :msg "timestamp out of range: \"4714-11-23 23:59:59+00 BC\""}
+ {:input "4714-11-24 00:00:00+00 BC" :usec -210866803200000000}
+ {:input "5000-01-01 00:00:00+00" :usec 95617584000000000}
+ {:input "97/02/10 17:32:01 UTC" :error true :msg "date/time field value out of range: \"97/02/10 17:32:01 UTC\""}
+ {:input "97FEB10 5:32:01PM UTC" :error true :msg "invalid input syntax for type timestamp with time zone: \"97FEB10 5:32:01PM UTC\""}
+ {:input "Dec 30 17:32:01 1996" :usec 851967121000000}
+ {:input "Dec 30 17:32:01 1997" :usec 883503121000000}
+ {:input "Dec 31 17:32:01 1996" :usec 852053521000000}
+ {:input "Dec 31 17:32:01 1997" :usec 883589521000000}
+ {:input "Dec 31 17:32:01 1999" :usec 946661521000000}
+ {:input "Dec 31 17:32:01 2000" :usec 978283921000000}
+ {:input "Feb 10 17:32:01 1997" :usec 855595921000000}
+ {:input "Feb 10 17:32:01 1997 -0800" :usec 855624721000000}
+ {:input "Feb 10 5:32PM 1997" :usec 855595920000000}
+ {:input "Feb 11 17:32:01 1997" :usec 855682321000000}
+ {:input "Feb 12 17:32:01 1997" :usec 855768721000000}
+ {:input "Feb 13 17:32:01 1997" :usec 855855121000000}
+ {:input "Feb 14 17:32:01 1997" :usec 855941521000000}
+ {:input "Feb 15 17:32:01 1997" :usec 856027921000000}
+ {:input "Feb 16 17:32:01 -0097" :error true :msg "time zone displacement out of range: \"Feb 16 17:32:01 -0097\""}
+ {:input "Feb 16 17:32:01 0097" :usec -59102029679000000}
+ {:input "Feb 16 17:32:01 0097 BC" :usec -65192711279000000}
+ {:input "Feb 16 17:32:01 0597" :usec -43323575279000000}
+ {:input "Feb 16 17:32:01 1097" :usec -27545120879000000}
+ {:input "Feb 16 17:32:01 1697" :usec -8610906479000000}
+ {:input "Feb 16 17:32:01 1797" :usec -5455232879000000}
+ {:input "Feb 16 17:32:01 1897" :usec -2299559279000000}
+ {:input "Feb 16 17:32:01 1997" :usec 856114321000000}
+ {:input "Feb 16 17:32:01 2097" :usec 4011874321000000}
+ {:input "Feb 16 17:32:01 5097 BC" :error true :msg "timestamp out of range: \"Feb 16 17:32:01 5097 BC\""}
+ {:input "Feb 28 17:32:01 1996" :usec 825528721000000}
+ {:input "Feb 28 17:32:01 1997" :usec 857151121000000}
+ {:input "Feb 29 17:32:01 1996" :usec 825615121000000}
+ {:input "Feb 29 17:32:01 1997" :error true :msg "date/time field value out of range: \"Feb 29 17:32:01 1997\""}
+ {:input "Feb-10-1997 17:32:01 PST" :usec 855624721000000}
+ {:input "J2452271 04:05:06+08" :usec 1009397106000000}
+ {:input "J2452271 04:05:06-08" :usec 1009454706000000}
+ {:input "J2452271+08" :usec 1009382400000000}
+ {:input "J2452271-08" :usec 1009440000000000}
+ {:input "J2452271.5+08" :usec 1009425600000000}
+ {:input "J2452271.5-08" :usec 1009483200000000}
+ {:input "J2452271T040506+08" :usec 1009397106000000}
+ {:input "J2452271T040506-08" :usec 1009454706000000}
+ {:input "J2452271T040506.789+08" :usec 1009397106789000}
+ {:input "J2452271T040506.789-08" :usec 1009454706789000}
+ {:input "Jan 01 17:32:01 1997" :usec 852139921000000}
+ {:input "Jan 01 17:32:01 2000" :usec 946747921000000}
+ {:input "Jan 01 17:32:01 2001" :usec 978370321000000}
+ {:input "Mar 01 17:32:01 1996" :usec 825701521000000}
+ {:input "Mar 01 17:32:01 1997" :usec 857237521000000}
+ {:input "Mon Feb 10 17:32:01 1997 PST" :usec 855624721000000}
+ {:input "Mon Feb 10 17:32:01.000001 1997 PST" :usec 855624721000001}
+ {:input "Mon Feb 10 17:32:01.4 1997 PST" :usec 855624721400000}
+ {:input "Mon Feb 10 17:32:01.5 1997 PST" :usec 855624721500000}
+ {:input "Mon Feb 10 17:32:01.6 1997 PST" :usec 855624721600000}
+ {:input "Mon Feb 10 17:32:01.999999 1997 PST" :usec 855624721999999}
+ {:input "Sun Nov 23 16:00:00 4714 PST BC" :usec -210866803200000000}
+ {:input "Wed Jul 11 10:51:14 America/New_York 2001" :usec 994863074000000}
+ {:input "Wed Jul 11 10:51:14 GMT+4 2001" :usec 994863074000000}
+ {:input "Wed Jul 11 10:51:14 GMT-4 2001" :usec 994834274000000}
+ {:input "Wed Jul 11 10:51:14 PST+03:00 2001" :usec 994859474000000}
+ {:input "Wed Jul 11 10:51:14 PST-03:00 2001" :usec 994837874000000}
+ {:input "Y2001M12D27H04M05S06.789+08" :error true :msg "invalid input syntax for type timestamp with time zone: \"Y2001M12D27H04M05S06.789+08\""}
+ {:input "Y2001M12D27H04MM05S06.789-08" :error true :msg "invalid input syntax for type timestamp with time zone: \"Y2001M12D27H04MM05S06.789-08\""}
+ {:input "epoch" :usec 0}
+ {:input "epoch 01:01:01" :error true :msg "invalid input syntax for type timestamp with time zone: \"epoch 01:01:01\""}
+ {:input "infinity" :infinity :pos}
+ {:input "infinity 01:01:01" :error true :msg "invalid input syntax for type timestamp with time zone: \"infinity 01:01:01\""}
+]
