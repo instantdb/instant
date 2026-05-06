@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/solid';
 import { AnimatePresence, motion } from 'motion/react';
-import CopyToClipboard from 'react-copy-to-clipboard';
+import copy from 'copy-to-clipboard';
 
 const PLACEHOLDER = '<your app idea here>';
 const FRIENDLY_DEFAULT = `I want you to build me an app. Ask me for an app idea, then follow the instructions below.`;
@@ -56,69 +56,61 @@ function ConfettiParticle({
 
 export function HumanForm({ className = '' }: { className?: string }) {
   const [copied, setCopied] = useState(false);
-  const [ideaText, setIdeaText] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
   const ideaRef = useRef<HTMLDivElement>(null);
   const suffixRef = useRef<HTMLDivElement>(null);
 
   function buildPromptText() {
-    return `${ideaText.trim() || FRIENDLY_DEFAULT}\n\n${SUFFIX}`;
+    const idea = (ideaRef.current?.innerText ?? '').trim();
+    return `${idea || FRIENDLY_DEFAULT}\n\n${SUFFIX}`;
   }
 
   useEffect(() => {
-    const editor = editorRef.current;
-    const idea = ideaRef.current;
-    if (!editor || !idea) return;
-    const range = document.createRange();
-    range.setStart(idea, 0);
-    range.collapse(true);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-    editor.focus();
+    editorRef.current?.focus();
   }, []);
 
   useEffect(() => {
     const editor = editorRef.current;
-    if (!editor) return;
-    function handleBeforeInput(e: InputEvent) {
-      const suffix = suffixRef.current;
-      if (!suffix) return;
-      const ranges = e.getTargetRanges();
-      for (const range of ranges) {
+    const idea = ideaRef.current;
+    const suffix = suffixRef.current;
+    if (!editor || !idea || !suffix) return;
+
+    function onInput() {
+      if (idea!.innerHTML === '<br>') idea!.innerHTML = '';
+    }
+    function onBeforeInput(e: InputEvent) {
+      for (const range of e.getTargetRanges()) {
         if (
-          suffix.contains(range.startContainer) ||
-          suffix.contains(range.endContainer)
+          suffix!.contains(range.startContainer) ||
+          suffix!.contains(range.endContainer)
         ) {
           e.preventDefault();
           return;
         }
       }
     }
-    editor.addEventListener('beforeinput', handleBeforeInput);
-    return () => editor.removeEventListener('beforeinput', handleBeforeInput);
-  }, []);
-
-  useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    function handleCopy(e: ClipboardEvent) {
-      if (ideaText.trim()) return;
+    function onCopy(e: ClipboardEvent) {
+      if (idea!.innerText.trim()) return;
       const sel = window.getSelection();
-      if (!sel || !editor) return;
-      if (sel.toString().trim() !== editor.innerText.trim()) return;
+      if (!sel || sel.toString().trim() !== editor!.innerText.trim()) return;
       e.preventDefault();
       e.clipboardData?.setData('text/plain', buildPromptText());
     }
-    editor.addEventListener('copy', handleCopy);
-    return () => editor.removeEventListener('copy', handleCopy);
-  }, [ideaText]);
 
-  function handleInput() {
-    const idea = ideaRef.current;
-    if (!idea) return;
-    if (idea.innerHTML === '<br>') idea.innerHTML = '';
-    setIdeaText(idea.innerText ?? '');
+    editor.addEventListener('input', onInput);
+    editor.addEventListener('beforeinput', onBeforeInput);
+    editor.addEventListener('copy', onCopy);
+    return () => {
+      editor.removeEventListener('input', onInput);
+      editor.removeEventListener('beforeinput', onBeforeInput);
+      editor.removeEventListener('copy', onCopy);
+    };
+  }, []);
+
+  function handleCopyClick() {
+    copy(buildPromptText());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -152,7 +144,6 @@ export function HumanForm({ className = '' }: { className?: string }) {
             ref={editorRef}
             contentEditable
             suppressContentEditableWarning
-            onInput={handleInput}
             spellCheck={false}
             className="caret-white focus:outline-none"
           >
@@ -167,59 +158,52 @@ export function HumanForm({ className = '' }: { className?: string }) {
           </div>
         </div>
       </div>
-      <CopyToClipboard
-        text={buildPromptText()}
-        onCopy={() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }}
+      <button
+        type="button"
+        onClick={handleCopyClick}
+        className="absolute -right-2 -bottom-3 inline-flex h-9 w-36 -rotate-3 items-center justify-center overflow-hidden rounded-lg border border-transparent bg-orange-600 text-sm font-medium text-white shadow-lg transition-transform hover:rotate-0 hover:bg-orange-700 sm:-right-3 sm:-bottom-4"
       >
-        <button
-          type="button"
-          className="absolute -right-2 -bottom-3 inline-flex h-9 w-36 -rotate-3 items-center justify-center overflow-hidden rounded-lg border border-transparent bg-orange-600 text-sm font-medium text-white shadow-lg transition-transform hover:rotate-0 hover:bg-orange-700 sm:-right-3 sm:-bottom-4"
-        >
-          <AnimatePresence initial={false} custom={copied}>
-            <motion.span
-              key={copied ? 'copied' : 'copy'}
-              custom={copied}
-              className="absolute inset-0 flex items-center justify-center gap-2"
-              variants={{
-                enter: (isCopied: boolean) => ({ y: isCopied ? -24 : 24 }),
-                center: { y: 0 },
-                exit: (isCopied: boolean) => ({ y: isCopied ? 24 : -24 }),
-              }}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.2, ease: 'easeInOut' }}
-            >
-              {copied ? (
-                <>
-                  <CheckIcon className="h-4 w-4" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <ClipboardDocumentIcon className="h-4 w-4" />
-                  Copy prompt
-                </>
-              )}
-            </motion.span>
-          </AnimatePresence>
-          {copied && (
-            <>
-              {confettiColors.map((color, i) => (
-                <ConfettiParticle
-                  key={i}
-                  delay={i * 0.03}
-                  x={(i % 2 === 0 ? -1 : 1) * (12 + i * 6)}
-                  color={color}
-                />
-              ))}
-            </>
-          )}
-        </button>
-      </CopyToClipboard>
+        <AnimatePresence initial={false} custom={copied}>
+          <motion.span
+            key={copied ? 'copied' : 'copy'}
+            custom={copied}
+            className="absolute inset-0 flex items-center justify-center gap-2"
+            variants={{
+              enter: (isCopied: boolean) => ({ y: isCopied ? -24 : 24 }),
+              center: { y: 0 },
+              exit: (isCopied: boolean) => ({ y: isCopied ? 24 : -24 }),
+            }}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+          >
+            {copied ? (
+              <>
+                <CheckIcon className="h-4 w-4" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <ClipboardDocumentIcon className="h-4 w-4" />
+                Copy prompt
+              </>
+            )}
+          </motion.span>
+        </AnimatePresence>
+        {copied && (
+          <>
+            {confettiColors.map((color, i) => (
+              <ConfettiParticle
+                key={i}
+                delay={i * 0.03}
+                x={(i % 2 === 0 ? -1 : 1) * (12 + i * 6)}
+                color={color}
+              />
+            ))}
+          </>
+        )}
+      </button>
     </div>
   );
 }
