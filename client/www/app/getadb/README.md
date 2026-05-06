@@ -6,7 +6,7 @@ to a `getadb.*` host and rewrites them under this folder.
 
 ## Local development
 
-You can use `getadb.localhost:3000` to load the getadb micro-site. 
+You can use `getadb.localhost:3000` to load the getadb micro-site.
 
 - http://getadb.localhost:3000/ — human landing page (browser)
 - `curl http://getadb.localhost:3000/` — markdown guide (curl/agents)

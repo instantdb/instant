@@ -33,8 +33,8 @@ export default function GetadbHome() {
 
           <div className="mt-8 space-y-5 text-lg leading-relaxed text-gray-700">
             <p>
-              Pass this on to your Claude, Codex, Opencode, Pi, or your
-              favorite agent.
+              Pass this on to your Claude, Codex, Opencode, Pi, or your favorite
+              agent.
             </p>
             <p>
               When your AI fetches{' '}
@@ -52,9 +52,8 @@ export default function GetadbHome() {
                 Instant
               </a>{' '}
               backend. This includes a relational database, a sync engine, and
-              abstractions for auth, presence, and streams. Your agent can
-              build your app and won't be blocked with sign-up screens or
-              dashboards.
+              abstractions for auth, presence, and streams. Your agent can build
+              your app and won't be blocked with sign-up screens or dashboards.
             </p>
             <p>
               Once you're happy with your app, you can simply claim it with{' '}
