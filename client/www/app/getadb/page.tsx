@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Subheading } from '@/components/new-landing/typography';
 import { HumanForm } from './HumanForm';
 
 export const metadata: Metadata = {
@@ -11,7 +10,7 @@ export const metadata: Metadata = {
 export default function GetadbHome() {
   return (
     <main className="text-off-black min-h-screen bg-[#FBF9F6]">
-      <div className="landing-width mx-auto pt-16 pb-24 sm:pt-24">
+      <div className="landing-width mx-auto pt-8 pb-24 sm:pt-12">
         <div className="mx-auto max-w-3xl">
           <img
             src="/img/icon/logo-512.svg"
@@ -25,7 +24,7 @@ export default function GetadbHome() {
             No sign-up necessary.
           </p>
 
-          <p className="mt-10 text-lg leading-relaxed text-gray-700">
+          <p className="mt-6 text-lg leading-relaxed text-gray-700">
             Got an idea for an app? Type your idea out. Copy the prompt, and
             your AI has all it needs to build you a full-stack app.
           </p>
@@ -54,8 +53,8 @@ export default function GetadbHome() {
               </a>{' '}
               backend. This includes a relational database, a sync engine, and
               abstractions for auth, presence, and streams. Your agent can
-              build your app and won't be blocked with sign-up screens. They
-              can use the CLI to do just about everything.
+              build your app and won't be blocked with sign-up screens or
+              dashboards.
             </p>
             <p>
               Once you're happy with your app, you can simply claim it with{' '}
@@ -66,14 +65,13 @@ export default function GetadbHome() {
             </p>
           </div>
 
-          <div className="mt-14">
-            <Subheading>Are you an agent?</Subheading>
-          </div>
-          <p className="mt-4 text-lg leading-relaxed text-gray-700">
-            If your human sent you to read this page, they want you to build an
-            app with Instant.{' '}
+          <p className="mt-10 text-lg leading-relaxed text-gray-700">
+            <strong className="font-semibold text-gray-900">
+              Are you an agent?
+            </strong>{' '}
+            Your human wants you to build an app with Instant.{' '}
             <code className="rounded-md border border-gray-200 bg-gray-100 px-1.5 py-0.5 font-mono text-[0.92em]">
-              curl getadb.com/guide
+              curl 'https://www.getadb.com/guide'
             </code>{' '}
             for credentials and instructions.
           </p>
