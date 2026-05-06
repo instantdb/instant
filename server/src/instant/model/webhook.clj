@@ -591,7 +591,7 @@
                :id id
                :before before
                :after after
-               :idempotency-key (record-idempotency-key {:etype etype
+               :idempotencyKey (record-idempotency-key {:etype etype
                                                          :action action
                                                          :id id
                                                          :isn (:isn wal-record)})})
@@ -606,7 +606,7 @@
                :id id
                :before (uuids->labels attrs ent)
                :after nil
-               :idempotency-key (record-idempotency-key {:etype etype
+               :idempotencyKey (record-idempotency-key {:etype etype
                                                          :action "delete"
                                                          :id id
                                                          :isn (:isn wal-record)})}))))

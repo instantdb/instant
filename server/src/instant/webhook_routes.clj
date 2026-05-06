@@ -52,7 +52,7 @@
                                                   :isn isn
                                                   :webhook webhook})]
     (-> (response/ok {:data data
-                      :idempotency-key (webhook-model/payload-idempotency-key
+                      :idempotencyKey (webhook-model/payload-idempotency-key
                                         {:webhook-id (:id webhook)
                                          :isn isn})})
         (assoc :headers {"Cache-Control" "no-store, private"

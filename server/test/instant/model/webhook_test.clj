@@ -138,7 +138,7 @@
                                           :webhook-id webhook-id
                                           :isn isn})]
             (is (= 1 (count data)))
-            (let [{:keys [etype action id before after idempotency-key]} (first data)]
+            (let [{:keys [etype action id before after idempotencyKey]} (first data)]
               (is (= "users" etype))
               (is (= "create" action))
               (is (= user-a-id id))
@@ -148,10 +148,10 @@
               ;; algorithm that creates the key, it needs to be in a backwards
               ;; compatible way.
               (is (= #uuid "f1d42c0f-357c-4a5b-40da-412167ffea45"
-                     idempotency-key)))
+                     idempotencyKey)))
             ;; calling it twice returns the same idempotency keys
-            (is (= (map :idempotency-key data)
-                   (map :idempotency-key
+            (is (= (map :idempotencyKey data)
+                   (map :idempotencyKey
                         (fetch-webhook-data {:app-id (:id app)
                                              :webhook-id webhook-id
                                              :isn isn}))))))))))
@@ -194,17 +194,17 @@
                                           :webhook-id webhook-id
                                           :isn isn})]
             (is (= 1 (count data)))
-            (let [{:keys [etype action id before after idempotency-key]} (first data)]
+            (let [{:keys [etype action id before after idempotencyKey]} (first data)]
               (is (= "users" etype))
               (is (= "update" action))
               (is (= user-a-id id))
               (is (= {"id" (str user-a-id) "name" "old-alice"} before))
               (is (= {"id" (str user-a-id) "name" "alice"} after))
               (is (= #uuid "e84c8ae9-634f-7ae8-51c5-93cf4ab23f40"
-                     idempotency-key)))
+                     idempotencyKey)))
             ;; calling it twice returns the same idempotency keys
-            (is (= (map :idempotency-key data)
-                   (map :idempotency-key
+            (is (= (map :idempotencyKey data)
+                   (map :idempotencyKey
                         (fetch-webhook-data {:app-id (:id app)
                                              :webhook-id webhook-id
                                              :isn isn}))))))))))
@@ -248,17 +248,17 @@
                                           :webhook-id webhook-id
                                           :isn isn})]
             (is (= 1 (count data)))
-            (let [{:keys [etype action id before after idempotency-key]} (first data)]
+            (let [{:keys [etype action id before after idempotencyKey]} (first data)]
               (is (= "users" etype))
               (is (= "delete" action))
               (is (= user-a-id id))
               (is (= {"id" (str user-a-id) "name" "alice"} before))
               (is (nil? after))
               (is (= #uuid "3f379d1b-3382-6ff0-a82e-197a252a6ac1"
-                     idempotency-key)))
+                     idempotencyKey)))
             ;; calling it twice returns the same idempotency keys
-            (is (= (map :idempotency-key data)
-                   (map :idempotency-key
+            (is (= (map :idempotencyKey data)
+                   (map :idempotencyKey
                         (fetch-webhook-data {:app-id (:id app)
                                              :webhook-id webhook-id
                                              :isn isn}))))))))))
@@ -345,33 +345,33 @@
                                                   :isn isn}))
                 summarize (fn [data]
                             (->> data
-                                 (map (fn [r] (select-keys r [:etype :action :id :idempotency-key])))
+                                 (map (fn [r] (select-keys r [:etype :action :id :idempotencyKey])))
                                  set))]
             ;; users + all actions: create u1, update u2, delete u3
             (is (= #{{:etype "users" :action "create" :id u1-id
-                      :idempotency-key #uuid "f9a00dff-7d6b-7d56-161a-6b8fbfca5551"}
+                      :idempotencyKey #uuid "f9a00dff-7d6b-7d56-161a-6b8fbfca5551"}
                      {:etype "users" :action "update" :id u2-id
-                      :idempotency-key #uuid "84d64dec-f9b4-9787-c3e9-907334861f06"}
+                      :idempotencyKey #uuid "84d64dec-f9b4-9787-c3e9-907334861f06"}
                      {:etype "users" :action "delete" :id u3-id
-                      :idempotency-key #uuid "e68d0121-4503-d213-6a53-a87de0c1b505"}}
+                      :idempotencyKey #uuid "e68d0121-4503-d213-6a53-a87de0c1b505"}}
                    (summarize (fetch-data users-all-id))))
             ;; books + all actions: create b1, update b2, delete b3
             (is (= #{{:etype "books" :action "create" :id b1-id
-                      :idempotency-key #uuid "414a797c-83ec-2c0c-e57d-4f54caad348e"}
+                      :idempotencyKey #uuid "414a797c-83ec-2c0c-e57d-4f54caad348e"}
                      {:etype "books" :action "update" :id b2-id
-                      :idempotency-key #uuid "65bfa883-7b21-ab05-0fd0-48ff3a0fac60"}
+                      :idempotencyKey #uuid "65bfa883-7b21-ab05-0fd0-48ff3a0fac60"}
                      {:etype "books" :action "delete" :id b3-id
-                      :idempotency-key #uuid "6e09fde1-c661-d3a3-7968-7de191b36a18"}}
+                      :idempotencyKey #uuid "6e09fde1-c661-d3a3-7968-7de191b36a18"}}
                    (summarize (fetch-data books-all-id))))
             ;; users + update only
             (is (= #{{:etype "users" :action "update" :id u2-id
-                      :idempotency-key #uuid "84d64dec-f9b4-9787-c3e9-907334861f06"}}
+                      :idempotencyKey #uuid "84d64dec-f9b4-9787-c3e9-907334861f06"}}
                    (summarize (fetch-data users-update-only-id))))
             ;; users + create/delete only
             (is (= #{{:etype "users" :action "create" :id u1-id
-                      :idempotency-key #uuid "f9a00dff-7d6b-7d56-161a-6b8fbfca5551"}
+                      :idempotencyKey #uuid "f9a00dff-7d6b-7d56-161a-6b8fbfca5551"}
                      {:etype "users" :action "delete" :id u3-id
-                      :idempotency-key #uuid "e68d0121-4503-d213-6a53-a87de0c1b505"}}
+                      :idempotencyKey #uuid "e68d0121-4503-d213-6a53-a87de0c1b505"}}
                    (summarize (fetch-data users-create-delete-id))))
             ;; calling it twice returns the same idempotency keys
             (is (= (summarize (fetch-data users-all-id))

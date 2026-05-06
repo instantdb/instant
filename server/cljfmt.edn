@@ -5,4 +5,5 @@
                  tag-io    [[:block 0]]
                  cond+     [[:block 0]]
                  if+       [[:block 1]]
-                 when+     [[:block 1]]}}
+                 when+     [[:block 1]]
+                 set-var!  [[:block 1]]}}
