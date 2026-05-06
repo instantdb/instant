@@ -1,3 +1,64 @@
+;; Test fixture for instant.pg.timestamp-test.
+;;
+;; Each entry is one literal that the PostgreSQL regression suite passes to
+;; `'<literal>'::timestamptz` (or the equivalent INSERT). The expected value
+;; was captured by running the literal through a live psql with:
+;;
+;;     SET DateStyle = 'ISO, MDY';
+;;     SET TimeZone  = 'UTC';
+;;
+;; Source: PostgreSQL 17.2 regression tests
+;;     src/test/regress/sql/timestamptz.sql
+;;     src/test/regress/sql/horology.sql
+;;   (https://github.com/postgres/postgres/tree/REL_17_2/src/test/regress/sql)
+;;
+;; To regenerate after upgrading PostgreSQL or pulling new regression cases:
+;;
+;;   1. Pull the two .sql files from the desired PG release tag, e.g.
+;;        for f in timestamptz horology; do
+;;          curl -sL -o /tmp/$f.sql \
+;;            https://raw.githubusercontent.com/postgres/postgres/REL_17_2/src/test/regress/sql/$f.sql
+;;        done
+;;
+;;   2. Extract every unique timestamptz input literal (INSERT INTO
+;;      TIMESTAMPTZ_TBL VALUES, '...'::timestamptz, timestamp[(p)] with time
+;;      zone '...', timestamptz '...'):
+;;        {
+;;          grep -hoE "INSERT INTO TIMESTAMPTZ_TBL VALUES \('[^']+'\)" /tmp/{timestamptz,horology}.sql \
+;;            | sed -E "s/.+\('(.+)'\)/\1/"
+;;          grep -hoE "'[^']+'::timestamptz(\([0-9]+\))?" /tmp/{timestamptz,horology}.sql \
+;;            | sed -E "s/'(.+)'::timestamptz(\([0-9]+\))?/\1/"
+;;          grep -hoE "timestamp(\([0-9]+\))? with time zone '[^']+'" /tmp/{timestamptz,horology}.sql \
+;;            | sed -E "s/timestamp(\([0-9]+\))? with time zone '(.+)'/\2/"
+;;          grep -hoE "timestamptz '[^']+'" /tmp/{timestamptz,horology}.sql \
+;;            | sed -E "s/timestamptz '(.+)'/\1/"
+;;        } | sort -u > /tmp/inputs.txt
+;;
+;;   3. Run each through psql with DateStyle='ISO,MDY' and TimeZone='UTC',
+;;      capturing the epoch microseconds (or +INFINITY / -INFINITY / error)
+;;      under SAVEPOINTs so one bad input doesn't abort the rest. See the
+;;      build_sql.py / build_clj.py scripts in the original commit message
+;;      for the exact transformation; the SQL template per input is:
+;;        SAVEPOINT s<i>;
+;;        SELECT '<i>|' || CASE x
+;;                 WHEN 'infinity'::timestamptz  THEN '+INFINITY'
+;;                 WHEN '-infinity'::timestamptz THEN '-INFINITY'
+;;                 ELSE extract(epoch from x)::numeric(40,6)::text
+;;               END
+;;          FROM (SELECT '<input>'::timestamptz AS x) z;
+;;        ROLLBACK TO SAVEPOINT s<i>;
+;;
+;;   4. Convert each input + its result line / error line into one EDN map
+;;      below. Successful rows become {:input "..." :usec <epoch * 1e6>};
+;;      INFINITY rows become {:input "..." :infinity :pos|:neg}; rows with
+;;      no successful output become {:input "..." :error true :msg "..."}.
+;;
+;;   5. Skip clock-dependent inputs (now, today, tomorrow, yesterday and any
+;;      combinations) — PG resolves them to the transaction start time, which
+;;      cannot be matched bit-for-bit from a Clojure test.
+;;
+;; Counts in this file: 194 finite, 3 infinity, 21 error = 218 total.
+;;
 [
  {:input "+infinity" :infinity :pos}
  {:input "-infinity" :infinity :neg}
