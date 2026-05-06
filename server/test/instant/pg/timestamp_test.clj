@@ -20,10 +20,12 @@
       edn/read-string))
 
 (defn- instant->usec
-  "Convert a `java.time.Instant` to total microseconds since the Unix epoch."
+  "Convert a `java.time.Instant` to total microseconds since the Unix epoch.
+   Uses auto-promoting arithmetic so very-far-future fixtures (PG accepts
+   year ~294276) don't overflow Long."
   [^Instant inst]
-  (+ (* (.getEpochSecond inst) 1000000)
-     (quot (.getNano inst) 1000)))
+  (+' (*' (.getEpochSecond inst) 1000000)
+      (quot (.getNano inst) 1000)))
 
 (defn- run-case
   "Returns one of:
@@ -40,28 +42,31 @@
     (catch PgTimestamp$PgDateTimeException e
       {:status :error :msg (.getMessage e)})))
 
+;; XXX: For each test case, pass it through the database also
+
 (deftest extract-date-value-matches-postgres
   (testing "every PostgreSQL regression-test literal gives the same result as psql"
     (doseq [c cases]
-      (let [{:keys [input usec error infinity]} c
-            actual (run-case input)]
-        (cond
-          ;; expected: error
-          error
-          (is (= :error (:status actual))
-              (format "input %s should error but got %s" (pr-str input) actual))
+      (let [{:keys [input usec error infinity]} c]
+        (testing (str input)
+          (let [actual (run-case input)]
+            (cond
+              ;; expected: error
+              error
+              (is (= :error (:status actual))
+                  (format "input %s should error but got %s" (pr-str input) actual))
 
-          ;; expected: +infinity / -infinity
-          infinity
-          (is (= {:status :infinity :which infinity} actual)
-              (format "input %s expected infinity %s but got %s"
-                      (pr-str input) infinity actual))
+              ;; expected: +infinity / -infinity
+              infinity
+              (is (= {:status :infinity :which infinity} actual)
+                  (format "input %s expected infinity %s but got %s"
+                          (pr-str input) infinity actual))
 
-          ;; expected: a specific epoch microsecond value
-          (some? usec)
-          (is (= {:status :ok :usec usec} actual)
-              (format "input %s expected %d µs but got %s"
-                      (pr-str input) usec actual)))))))
+              ;; expected: a specific epoch microsecond value
+              (some? usec)
+              (is (= {:status :ok :usec usec} actual)
+                  (format "input %s expected %s µs but got %s"
+                          (pr-str input) usec actual)))))))))
 
 (deftest json-dispatch
   (testing "extractDateValue dispatches like triples_extract_date_value"

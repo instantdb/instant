@@ -1092,12 +1092,22 @@ public final class PgTimestamp {
                   + tm.tm_sec;
     long epochSec = (long) julDays * SECS_PER_DAY + secOfDay + tz;
 
-    // Range check matching IS_VALID_TIMESTAMP. END_TIMESTAMP is past Instant.MAX
-    // anyway, so just rely on Instant's own bounds.
     long nano = fsec * 1000L;
     if (nano < 0 || nano >= 1_000_000_000L) {
       epochSec += nano / 1_000_000_000L;
       nano = Math.floorMod(nano, 1_000_000_000L);
+    }
+
+    // Mirrors IS_VALID_TIMESTAMP. PG's bounds are MIN_TIMESTAMP <= t < END_TIMESTAMP
+    // in PG-epoch µs; the equivalents in Unix-epoch seconds are computed from
+    // the existing Julian constants and both fall well within long range.
+    // Both bounds land on whole-second boundaries (no µs fractional part), so
+    // a seconds-only check is exact: at MIN, any non-negative nano keeps t >= MIN;
+    // at END, any nano (including 0) makes t >= END which fails strict less-than.
+    final long MIN_EPOCH_SEC = (long) (DATETIME_MIN_JULIAN - UNIX_EPOCH_JDATE) * SECS_PER_DAY;
+    final long END_EPOCH_SEC = (long) (TIMESTAMP_END_JULIAN - UNIX_EPOCH_JDATE) * SECS_PER_DAY;
+    if (epochSec < MIN_EPOCH_SEC || epochSec >= END_EPOCH_SEC) {
+      throw new PgDateTimeException("timestamp out of range: \"" + origInput + "\"");
     }
     return Instant.ofEpochSecond(epochSec, nano);
   }
@@ -1135,18 +1145,42 @@ public final class PgTimestamp {
   }
 
   /**
-   * Postgres-style DYNTZ resolution: pick the offset of the {@code abbrev} as
-   * it applies to the IANA zone {@code zone} on the date in {@code tm}. Java's
-   * {@link ZoneRules} doesn't expose abbreviations for arbitrary instants, so
-   * we fall back to the standard wall-time mapping — for the rare cases where
-   * the same wall time has two valid abbreviations, we prefer DST=true if the
-   * abbreviation is conventionally the daylight one (e.g. {@code MSD} in
-   * Europe/Moscow), otherwise standard. This matches PG behaviour for
-   * unambiguous dates and is correct for the modern era of zones in the
-   * Default abbreviation set.
+   * Postgres-style DYNTZ resolution. Mirrors {@code DetermineTimeZoneAbbrevOffset}
+   * in src/backend/utils/adt/datetime.c, which calls
+   * {@code pg_interpret_timezone_abbrev} (src/timezone/localtime.c) to pick the
+   * offset of the period whose abbreviation matches {@code abbrev}.
+   *
+   * For wall times that don't sit on a transition, the offset is unambiguous.
+   * At a transition, PG's binary search uses strict {@code t < ats[mid]} and
+   * (for spring-forwards) probes at {@code beforetime}, which equals the
+   * transition instant — so the search lands past the boundary and the
+   * backward scan picks the post-transition period first. Whenever the
+   * requested abbreviation appears on both sides of the transition (the
+   * common case in modern tzdata, e.g. "MSK" before and after Europe/Moscow's
+   * 2011-03-27 permanent shift), this collapses to "use the after offset".
+   *
+   * We mirror that without inspecting tzdata abbreviations directly. The
+   * divergence: if the requested abbreviation matched only the {@code before}
+   * period (older split abbreviations like pre-2011 MSK→MSD spring-forwards),
+   * PG's backward scan would skip the after period and pick the before one;
+   * we'd still pick after. No such case appears in the regression fixture.
    */
   private static int determineTimeZoneAbbrevOffset(PgTm tm, String abbrev, ZoneId zone) {
-    return determineTimeZoneOffset(tm, zone);
+    LocalDateTime ldt;
+    try {
+      ldt = LocalDateTime.of(
+          tm.tm_year, tm.tm_mon, tm.tm_mday,
+          tm.tm_hour, tm.tm_min, tm.tm_sec);
+    } catch (java.time.DateTimeException e) {
+      return 0;
+    }
+    ZoneRules rules = zone.getRules();
+    java.time.zone.ZoneOffsetTransition trans = rules.getTransition(ldt);
+    if (trans == null) {
+      ZoneOffset off = rules.getOffset(ldt);
+      return -off.getTotalSeconds();
+    }
+    return -trans.getOffsetAfter().getTotalSeconds();
   }
 
   // ============================================================
@@ -1214,7 +1248,28 @@ public final class PgTimestamp {
       if (abEntry.zone != null) return abEntry.zone;
       return ZoneOffset.ofTotalSeconds(abEntry.offsetSeconds);
     }
+    ZoneOffset posix = tryPosixTzString(name);
+    if (posix != null) return posix;
     return tryZone(name);
+  }
+
+  // POSIX TZ form `<abbrev><sign><offset>` (e.g. "MST+7:00", "GMT-2"). The
+  // C code reaches this via pg_tzset(), which delegates to the IANA tzparse()
+  // routine. The offset uses POSIX sign convention (positive = west of UTC),
+  // which is the *opposite* of ISO/SQL. decodeTimezone() already flips ISO
+  // signs to that same convention, so its return value is exactly the
+  // ZoneOffset (positive = east) we need here.
+  private static ZoneOffset tryPosixTzString(String name) {
+    int len = name.length();
+    if (len < 3) return null;
+    int p = 0;
+    while (p < len && isAlpha(name.charAt(p))) p++;
+    if (p == 0 || p == len) return null;
+    char sign = name.charAt(p);
+    if (sign != '+' && sign != '-') return null;
+    try { return ZoneOffset.ofTotalSeconds(decodeTimezone(name.substring(p))); }
+    catch (PgDateTimeException e) { return null; }
+    catch (java.time.DateTimeException e) { return null; }
   }
 
   private static void fillNow(PgTm tm, DecodeResult r, ZoneId sessionTz) {
@@ -1264,12 +1319,20 @@ public final class PgTimestamp {
     return new int[] { year, month, day };
   }
 
+  // Mirrors IS_VALID_JULIAN in src/include/datatype/timestamp.h. Per the
+  // header comment there, this is intentionally a *month-boundary* check
+  // (no day): it admits a slightly wider range than is really supported, so
+  // that wall-time inputs that fall outside the limit but rotate back into
+  // it via tz offset (e.g. "4714-11-23 16:00:00-08 BC" → midnight UTC at
+  // the boundary) parse successfully. The exact boundary is enforced by the
+  // post-rotation IS_VALID_TIMESTAMP check in tm2instant. The `d` param is
+  // kept to mirror the macro signature.
+  @SuppressWarnings("unused")
   private static boolean isValidJulian(int y, int m, int d) {
-    // Match IS_VALID_JULIAN(y,m,d): year in [-4713 (with month >= 11), 5874898]
     if (y < -4713) return false;
-    if (y == -4713 && (m < 11 || (m == 11 && d < 24))) return false;
+    if (y == -4713 && m < 11) return false;
     if (y > 5874898) return false;
-    if (y == 5874898 && (m > 6 || (m == 6 && d > 3))) return false;
+    if (y == 5874898 && m >= 6) return false;
     return true;
   }
 
@@ -1310,6 +1373,7 @@ public final class PgTimestamp {
 
   /** Thrown for any input that PostgreSQL would reject. */
   public static final class PgDateTimeException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
     public PgDateTimeException(String message) { super(message); }
   }
 
