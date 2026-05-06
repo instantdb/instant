@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import CopyToClipboard from 'react-copy-to-clipboard';
 
 const PLACEHOLDER = '<your app idea here>';
+const FRIENDLY_DEFAULT = `I want you to build me an app. Ask me for an app idea, then follow the instructions below.`;
 const SUFFIX = `Use InstantDB for your backend. For credentials and instructions, fetch http://www.getadb.com/guide and follow the steps.`;
 
 const TERM = {
@@ -58,9 +59,10 @@ export function HumanForm({ className = '' }: { className?: string }) {
   const [ideaText, setIdeaText] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
   const ideaRef = useRef<HTMLDivElement>(null);
+  const suffixRef = useRef<HTMLDivElement>(null);
 
   function buildPromptText() {
-    return `${ideaText.trim() || PLACEHOLDER}\n\n${SUFFIX}`;
+    return `${ideaText.trim() || FRIENDLY_DEFAULT}\n\n${SUFFIX}`;
   }
 
   useEffect(() => {
@@ -75,6 +77,42 @@ export function HumanForm({ className = '' }: { className?: string }) {
     sel?.addRange(range);
     editor.focus();
   }, []);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    function handleBeforeInput(e: InputEvent) {
+      const suffix = suffixRef.current;
+      if (!suffix) return;
+      const ranges = e.getTargetRanges();
+      for (const range of ranges) {
+        if (
+          suffix.contains(range.startContainer) ||
+          suffix.contains(range.endContainer)
+        ) {
+          e.preventDefault();
+          return;
+        }
+      }
+    }
+    editor.addEventListener('beforeinput', handleBeforeInput);
+    return () => editor.removeEventListener('beforeinput', handleBeforeInput);
+  }, []);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    function handleCopy(e: ClipboardEvent) {
+      if (ideaText.trim()) return;
+      const sel = window.getSelection();
+      if (!sel || !editor) return;
+      if (sel.toString().trim() !== editor.innerText.trim()) return;
+      e.preventDefault();
+      e.clipboardData?.setData('text/plain', buildPromptText());
+    }
+    editor.addEventListener('copy', handleCopy);
+    return () => editor.removeEventListener('copy', handleCopy);
+  }, [ideaText]);
 
   function handleInput() {
     const idea = ideaRef.current;
@@ -123,7 +161,7 @@ export function HumanForm({ className = '' }: { className?: string }) {
               data-placeholder={PLACEHOLDER}
               className="min-h-[1.5em] empty:before:pointer-events-none empty:before:text-[#7f849c] empty:before:content-[attr(data-placeholder)]"
             />
-            <div contentEditable={false} className="mt-6 whitespace-pre-wrap">
+            <div ref={suffixRef} className="mt-6 whitespace-pre-wrap">
               {SUFFIX}
             </div>
           </div>
