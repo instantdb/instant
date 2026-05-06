@@ -1,6 +1,7 @@
 (ns instant.smokescreen-test
   (:require
    [clojure.test :refer [deftest is testing]]
+   [instant.flags :as flags]
    [instant.smokescreen :as smokescreen])
   (:import
    (java.net InetAddress)))
@@ -94,3 +95,24 @@
     (is (bad-ip? "::ffff:127.0.0.1"))
     (is (bad-ip? "::ffff:10.0.0.1"))
     (is (bad-ip? "::ffff:192.168.1.1"))))
+
+(deftest bad-ip?-allows-whitelisted-addresses
+  ;; Build the whitelist via the real parser so the InetAddress that bad-ip?
+  ;; compares against is exactly what production produces (InetAddress/
+  ;; getByAddress from parsed IP bytes, never InetAddress/getByName).
+  (testing "an address in smokescreen-whitelist-ips bypasses the block"
+    (binding [flags/*flag-overrides* {:smokescreen-whitelist-ips
+                                      (flags/parse-ips-flag ["127.0.0.1"])}]
+      (is (not (bad-ip? "127.0.0.1")))
+      ;; A non-whitelisted address is still blocked.
+      (is (bad-ip? "10.0.0.1"))))
+
+  (testing "private/RFC1918 addresses can also be whitelisted"
+    (binding [flags/*flag-overrides* {:smokescreen-whitelist-ips
+                                      (flags/parse-ips-flag ["10.0.0.1"])}]
+      (is (not (bad-ip? "10.0.0.1")))
+      (is (bad-ip? "127.0.0.1"))))
+
+  (testing "without the whitelist, the same addresses are blocked"
+    (is (bad-ip? "127.0.0.1"))
+    (is (bad-ip? "10.0.0.1"))))
