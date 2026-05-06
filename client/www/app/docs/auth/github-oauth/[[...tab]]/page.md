@@ -61,9 +61,13 @@ Let's dive deeper into each step:
 
 ## 2. Connect your OAuth App to Instant
 
-Go to the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Instant dashboard" /%} and select the `Auth` tab for your app.
-
 **Add your OAuth App on Instant**
+
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the {% blank-link href="/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard:
 
 - Click "Set up GitHub"
 - Enter a unique name for your client (e.g., "github-web")
@@ -71,13 +75,43 @@ Go to the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="In
 - Enter your "Client Secret" from GitHub
 - Click "Add Client"
 
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth client add \
+  --type github --name github-web \
+  --client-id <id> --client-secret <secret>
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
+
 {% conditional param="method" value="web-redirect" %}
 
 **Register your website with Instant**
 
-In the `Auth` tab, add the URL of the websites where you are using Instant to the Redirect Origins.
-If you're testing from localhost, add `http://localhost:3000`, replacing `3000` with the port you use.
-For production, add your website's domain.
+If you're testing from localhost, add `http://localhost:3000` (replacing `3000` with the port you use). For production, add your website's domain.
+
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the {% blank-link href="/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add your URL to the **Redirect Origins** list.
+
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth origin add --type website --url <your-domain>
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
 
 {% /conditional %}
 
@@ -170,11 +204,28 @@ Update your app.json with your scheme:
 
 **Register your app with Instant**
 
-Now that you have your App Scheme, it's time to tell Instant about it.
+Now that you have your App Scheme, it's time to tell Instant about it. For development with expo, add `exp://` and your scheme (e.g. `mycoolredirect://`) as redirect origins.
 
-From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add a redirect origin of type "App scheme". For development with expo add `exp://` and your scheme, e.g. `mycoolredirect://`.
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the {% blank-link href="/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard, add a redirect origin of type "App scheme".
 
 {% screenshot src="/img/docs/rn-web-redirect-origins.png" /%}
+
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+```shell
+npx instant-cli@latest auth origin add --type custom-scheme --scheme exp://
+npx instant-cli@latest auth origin add --type custom-scheme --scheme mycoolredirect://
+```
+
+{% /terminal-path %}
+
+{% /setup-paths %}
 
 **Use AuthSession to log in with GitHub!**
 
