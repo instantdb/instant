@@ -338,7 +338,7 @@
    (create-events! (aurora/conn-pool :write) wal-records matches))
   ([conn wal-records matches]
    (let [get-wal-record (vmemoize (fn [isn]
-                                    (ucoll/seek #(:= isn (:isn %)) wal-records)))
+                                    (ucoll/seek #(= isn (:isn %)) wal-records)))
          events (ucoll/reduce-tr (fn [acc {:keys [isn] :as match}]
                                    (let [wal-record (get-wal-record isn)]
                                      (if (webhook-matches? wal-record match)
@@ -488,7 +488,6 @@
                               (uhsql/formatp record-attempt-q
                                              params))]
 
-     (tool/def-locals)
      ;; Allows servers to turn off the spigot by returning a 410 if someone
      ;; typos a domain or tries to attack one
      (when (and gone?

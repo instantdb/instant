@@ -764,3 +764,49 @@
                                      remove-link
                                      {:id_attr_ids [books-id-aid]
                                       :actions ["update" "delete"]})))))))))))))
+
+(deftest create-events!-finds-wal-record-by-isn
+  (with-empty-app
+    (fn [app]
+      (let [attrs (test-util/make-attrs (:id app) [[:users/id :unique? :index?]
+                                                   [:users/name]])
+            id-aid (:users/id attrs)
+            name-aid (:users/name attrs)
+            user-id (test-util/stuid "ua")
+            webhook-id (random-uuid)
+            wal-records [(make-wal-record
+                          {:app-id (:id app)
+                           :isn (isn/test-isn 700)
+                           :previous-isn (isn/test-isn 699)
+                           :triple-changes [(triple-insert (:id app) user-id name-aid "alice")]})
+                         (make-wal-record
+                          {:app-id (:id app)
+                           :isn (isn/test-isn 701)
+                           :previous-isn (isn/test-isn 700)
+                           :triple-changes [(triple-insert (:id app) user-id id-aid (str user-id))]})
+                         (make-wal-record
+                          {:app-id (:id app)
+                           :isn (isn/test-isn 702)
+                           :previous-isn (isn/test-isn 701)
+                           :triple-changes [(triple-insert (:id app) user-id name-aid "bob")]})]
+            target-wr (nth wal-records 1)
+            match {:webhook_id webhook-id
+                   :id_attr_ids #{id-aid}
+                   :actions ["create"]
+                   :isn (:isn target-wr)}
+            expected-bucket (history/partition-bucket-of-wal-record target-wr)]
+        (insert-webhook! {:app-id (:id app)
+                          :webhook-id webhook-id
+                          :id-attr-ids [id-aid]
+                          :actions ["create"]})
+        (try
+          (let [result (webhook/create-events! wal-records [match])]
+            (is (= 1 (count result))
+                "create-events! must look up the middle wal-record by isn")
+            (let [event (first result)]
+              (is (= (:isn target-wr) (:isn event)))
+              (is (= webhook-id (:webhook_id event)))
+              (is (= expected-bucket (:partition_bucket event)))))
+          (finally
+            (sql/do-execute! (aurora/conn-pool :write)
+                             ["delete from webhook_events where webhook_id = ?" webhook-id])))))))
