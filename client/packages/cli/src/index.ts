@@ -392,13 +392,22 @@ export const infoDef = program
   .command('info')
   .description('Display CLI version and login status')
   .action(async () => {
+    const authLayer = AuthLayerLive({
+      coerce: false,
+      allowAdminToken: false,
+    });
+
     return runCommandEffect(
       infoCommand().pipe(
         Effect.provide(
-          AuthLayerLive({
-            coerce: false,
-            allowAdminToken: false,
-          }).pipe(Layer.catchAll(() => Layer.empty)), // make the auth layer optional
+          Layer.mergeAll(
+            BaseLayerLive,
+            authLayer.pipe(Layer.catchAll(() => Layer.empty)),
+            WithAppLayer({ coerce: false, allowAdminToken: true }).pipe(
+              Layer.annotateLogs('silent', true),
+              Layer.catchAll(() => Layer.empty),
+            ),
+          ),
         ),
       ),
     );
