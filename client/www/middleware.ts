@@ -19,12 +19,11 @@ export function middleware(request: NextRequest) {
 
   if (url.pathname === '/') {
     // Browser → human page; curl/agent → markdown guide.
-    // Sec-Fetch-Mode is sent by all modern browsers on navigation
+    // Sec-Fetch-Mode is sent by all modern browsers
     // (Chrome 76+, Firefox 90+, Safari 16.4+); agents like curl and
     // Claude's fetch tool don't send it.
-    const isBrowserNav =
-      request.headers.get('sec-fetch-mode') === 'navigate';
-    url.pathname = isBrowserNav ? '/getadb' : '/getadb/guide';
+    const isBrowser = request.headers.has('sec-fetch-mode');
+    url.pathname = isBrowser ? '/getadb' : '/getadb/guide';
   } else {
     url.pathname = `/getadb${url.pathname}`;
   }
