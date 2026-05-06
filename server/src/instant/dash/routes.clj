@@ -477,7 +477,9 @@
   (app-model/delete-immediately-by-id! {:id app-id}))
 
 (defn apps-get [req]
-  (let [{:keys [app]} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/read req)]
+  (let [{:keys [app]} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                   :apps/read
+                                                                   req)]
     (response/ok {:app app})))
 
 (defn apps-delete [req]
@@ -1356,7 +1358,7 @@
                                                     :ReturnPathDomain :ReturnPathDomainCNAMEValue])))})))
 
 (defn email-template-post [req]
-  (let [{app :app user :user} (req->app-and-user! :admin req)
+  (let [{app :app user :user} (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)
         email-type (ex/get-param! req [:body :email-type] string-util/coerce-non-blank-str)
         subject (ex/get-param! req [:body :subject] string-util/coerce-non-blank-str)
         _ (ex/assert-valid! :subject subject
@@ -1431,6 +1433,12 @@
        [{:message "Invalid verification code."}]))
     (response/ok {:verified true})))
 
+(defn email-template-get [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :admin :apps/read req)
+        template (app-email-template-model/get-by-app-id-and-email-type
+                  {:app-id app-id :email-type "magic-code"})]
+    (response/ok {:template template})))
+
 (comment
   (def any-app (app-model/get-by-id {:id "d8f9e0a9-b6f5-49e9-a186-eabc7fe4ddac"}))
   (def tmpl-res (email-template-post (assoc (fixtures/mock-app-req any-app) :body {:email-type "magic-code"
@@ -1442,7 +1450,7 @@
   (email-template-delete (assoc-in (fixtures/mock-app-req any-app) [:params :id] tmpl-id)))
 
 (defn email-template-delete [req]
-  (let [{app :app} (req->app-and-user! req)
+  (let [{app :app} (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)
         id (ex/get-param! req [:params :id] uuid-util/coerce)]
     (app-email-template-model/delete-by-id! {:id id :app-id (:id app)})
     (response/ok {})))
@@ -2283,6 +2291,7 @@
   (GET "/dash/apps/:app_id/sender-verification" [] sender-verification-get)
   (POST "/dash/apps/:app_id/sender-verification" [] email-sender-verification-send)
   (POST "/dash/apps/:app_id/sender-verification/verify" [] email-sender-verification-verify)
+  (GET "/dash/apps/:app_id/email_templates" [] email-template-get)
   (POST "/dash/apps/:app_id/email_templates" [] email-template-post)
   (DELETE "/dash/apps/:app_id/email_templates/:id" [] email-template-delete)
 

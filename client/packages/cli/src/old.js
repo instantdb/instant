@@ -6,6 +6,7 @@ import path from 'node:path';
 import { UI } from './ui/index.ts';
 import { deferred, renderUnwrap } from './ui/lib.ts';
 import {
+  getEmailReadCandidates,
   getPermsReadCandidates,
   getSchemaReadCandidates,
 } from './util/findConfigCandidates.ts';
@@ -418,6 +419,17 @@ export async function readLocalSchemaFile() {
   if (!res.config) return;
   const relativePath = path.relative(process.cwd(), res.sources[0]);
   return { path: relativePath, schema: res.config };
+}
+
+export async function readLocalEmailFile(emailPath) {
+  const readCandidates = getEmailReadCandidates(emailPath);
+  const res = await loadConfig({
+    sources: readCandidates,
+    merge: false,
+  });
+  if (!res.config) return;
+  const relativePath = path.relative(process.cwd(), res.sources[0]);
+  return { path: relativePath, email: res.config };
 }
 
 export async function readInstantConfigFile() {
