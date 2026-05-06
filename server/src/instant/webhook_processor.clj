@@ -13,7 +13,7 @@
    (java.sql Timestamp)
    (java.io ByteArrayOutputStream)
    (java.time Duration Instant)
-   (java.util.concurrent ArrayBlockingQueue TimeUnit)))
+   (java.util.concurrent ArrayBlockingQueue ExecutorService TimeUnit)))
 
 (defonce process (atom nil))
 
@@ -80,17 +80,28 @@
           (recur (rest events)
                  next-acc))))))
 
-(defn work! []
+(defn log-future-errors
+  "Unwraps the futures and logs an error for any that failed exceptionally."
+  [futs]
+  (doseq [fut futs]
+    (try @fut
+         (catch Throwable t
+           (tracer/record-exception-span! t {:name "webhook-processor/handle-event-error"})))))
+
+(defn work! [^ExecutorService executor]
   (try
     (let [max-apps 10
           max-per-app 10
           events (webhook-model/claim-events! {:max-apps max-apps
                                                :max-per-app max-per-app})
-          futs (mapv (fn [event]
-                       (ua/vfuture (handle-event! event (Timestamp/.toInstant
-                                                         (:created_at event)))))
-                     events)]
-      (mapv deref futs)
+          tasks (mapv (fn [event]
+                        (reify Callable
+                          (call [_]
+                            (handle-event! event (Timestamp/.toInstant
+                                                  (:created_at event))))))
+                      events)
+          futs (.invokeAll executor tasks 1 TimeUnit/MINUTES)]
+      (log-future-errors futs)
       (when (should-repeat? events max-apps max-per-app)
         ::repeat))
     (catch Throwable t
@@ -103,20 +114,23 @@
      (if (identical? item stop-signal)
        (tracer/record-info! {:name "webhook-processor/worker-finish"
                              :attributes {:worker i}})
-       (do (when (= ::repeat (work!))
+       (do (when (= ::repeat (work! executor))
              (notify-ready))
            (recur (.take q)))))))
 
-(defn work-retry! []
+(defn work-retry! [^ExecutorService executor]
   (try
     (let [max-events 100
           events (webhook-model/claim-retry-events! {:max-events max-events
                                                      :attempt-after (Instant/now)})
-          futs (mapv (fn [event]
-                       (ua/vfuture (handle-event! event (Timestamp/.toInstant
-                                                         (:next_attempt_after event)))))
-                     events)]
-      (mapv deref futs)
+          tasks (mapv (fn [event]
+                        (reify Callable
+                          (call [_]
+                            (handle-event! event (Timestamp/.toInstant
+                                                  (:next_attempt_after event))))))
+                      events)
+          futs (.invokeAll executor tasks 1 TimeUnit/MINUTES)]
+      (log-future-errors futs)
       (when (= max-events (count events))
         ::repeat))
     (catch Throwable t
@@ -129,7 +143,7 @@
      (if (identical? item stop-signal)
        (tracer/record-info! {:name "webhook-processor/retry-worker-finish"
                              :attributes {:worker i}})
-       (do (when (= ::repeat (work-retry!))
+       (do (when (= ::repeat (work-retry! executor))
              ;; Run this twice so that we ramp up worker saturation if the
              ;; queue gets backed up.
              (notify-retry)

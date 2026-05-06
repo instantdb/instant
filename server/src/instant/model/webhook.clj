@@ -59,6 +59,13 @@
   (cache/invalidate webhook-with-etypes-cache {:app-id app-id
                                                :webhook-id webhook-id}))
 
+(defmacro with-cache-invalidation [cache-key & body]
+  `(let [cache-key# ~cache-key]
+     (evict-webhook-from-cache cache-key#)
+     (let [res# ~@body]
+       (evict-webhook-from-cache cache-key#)
+       res#)))
+
 (defn evict-webhooks-for-attr-id [attr-id]
   (doseq [params (.get attr-listeners attr-id)]
     (evict-webhook-from-cache params)))
@@ -215,11 +222,13 @@
 (defn disable!
   ([params] (disable! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id webhook-id reason]}]
-   (sql/do-execute! ::disable!
-                    conn
-                    (uhsql/formatp disable-q {:app-id app-id
-                                              :webhook-id webhook-id
-                                              :reason reason}))))
+   (with-cache-invalidation {:app-id app-id
+                             :webhook-id webhook-id}
+     (sql/do-execute! ::disable!
+                      conn
+                      (uhsql/formatp disable-q {:app-id app-id
+                                                :webhook-id webhook-id
+                                                :reason reason})))))
 
 (def enable-q (uhsql/preformat {:update :webhooks
                                 :set {:status [:cast [:inline "active"] :webhook_status]
@@ -231,14 +240,16 @@
 (defn enable!
   ([params] (enable! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id webhook-id reason]}]
-   (next.jdbc/with-transaction [conn conn]
-     (take-webhook-count-lock! conn app-id)
-     (check-webhook-limit! conn app-id)
-     (sql/do-execute! ::enable!
-                      conn
-                      (uhsql/formatp enable-q {:app-id app-id
-                                               :webhook-id webhook-id
-                                               :reason reason})))))
+   (with-cache-invalidation {:app-id app-id
+                             :webhook-id webhook-id}
+     (next.jdbc/with-transaction [conn conn]
+       (take-webhook-count-lock! conn app-id)
+       (check-webhook-limit! conn app-id)
+       (sql/do-execute! ::enable!
+                        conn
+                        (uhsql/formatp enable-q {:app-id app-id
+                                                 :webhook-id webhook-id
+                                                 :reason reason}))))))
 
 (def attr-id-column-idx 2)
 (def pg-size-column-idx 12)
@@ -475,13 +486,20 @@
                  :next-attempt-after (when (= status "error")
                                        (.plus (Instant/now)
                                               ^Duration (retry-duration attempt_count)))}
-         res (sql/execute! ::record-attempt!
-                           conn
-                           (uhsql/formatp record-attempt-q
-                                          params))]
+         res (sql/do-execute! ::record-attempt!
+                              conn
+                              (uhsql/formatp record-attempt-q
+                                             params))]
+
+     (tool/def-locals)
      ;; Allows servers to turn off the spigot by returning a 410 if someone
      ;; typos a domain or tries to attack one
-     (when gone?
+     (when (and gone?
+                ;; Don't mark as disabled if someone stole the event from us
+                (some-> res
+                        first
+                        :next.jdbc/update-count
+                        pos?))
        (disable! conn {:app-id app_id
                        :webhook-id webhook_id
                        :reason "Endpoint returned 410 status code."}))

@@ -429,6 +429,35 @@
                                :reason "test"})
             (is (webhook/create! params))))))))
 
+(deftest disable-and-enable-invalidate-webhook-cache
+  (with-empty-app
+    (fn [app]
+      (let [attrs (test-util/make-attrs (:id app) [[:users/id :unique? :index?]])
+            id-aid (:users/id attrs)
+            webhook-id (random-uuid)
+            params {:app-id (:id app)
+                    :webhook-id webhook-id}]
+        (insert-webhook! {:app-id (:id app)
+                          :webhook-id webhook-id
+                          :id-attr-ids [id-aid]
+                          :actions ["create"]})
+        (try
+          (is (= "active" (:status (webhook/get-by-app-id-and-webhook-id! params))))
+
+          (webhook/disable! (assoc params :reason "test disable"))
+          (let [{:keys [status disabled_reason]}
+                (webhook/get-by-app-id-and-webhook-id! params)]
+            (is (= "disabled" status))
+            (is (= "test disable" disabled_reason)))
+
+          (webhook/enable! (assoc params :reason "test enable"))
+          (let [{:keys [status disabled_reason]}
+                (webhook/get-by-app-id-and-webhook-id! params)]
+            (is (= "active" status))
+            (is (nil? disabled_reason)))
+          (finally
+            (webhook/evict-webhook-from-cache params)))))))
+
 (deftest retries-only-max-attempts-times
   (with-empty-app
     (fn [app]
