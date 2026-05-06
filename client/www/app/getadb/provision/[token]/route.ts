@@ -1,11 +1,10 @@
 import { randomUUID } from 'crypto';
 import { createGDBApp } from '../../createGDBApp';
 import generateMarkdown from '../../generateMarkdown';
+import { PLACEHOLDER_TOKEN } from '../../guideMarkdown';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const PLACEHOLDER_TOKEN = '<generate-a-uuid>';
 
 export async function GET(
   request: Request,
