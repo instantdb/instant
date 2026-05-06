@@ -76,21 +76,6 @@ export function HumanForm({ className = '' }: { className?: string }) {
     editor.focus();
   }, []);
 
-  useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    function handleNativeCopy(e: ClipboardEvent) {
-      const idea = (ideaRef.current?.innerText ?? '').trim();
-      e.clipboardData?.setData(
-        'text/plain',
-        `${idea || PLACEHOLDER}\n\n${SUFFIX}`,
-      );
-      e.preventDefault();
-    }
-    editor.addEventListener('copy', handleNativeCopy);
-    return () => editor.removeEventListener('copy', handleNativeCopy);
-  }, []);
-
   function handleInput() {
     const idea = ideaRef.current;
     if (!idea) return;
