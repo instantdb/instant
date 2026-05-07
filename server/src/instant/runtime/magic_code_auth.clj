@@ -126,8 +126,7 @@
                          :app_title (:title app)
                          :expiration (friendly-expiration app)}
 
-        {default-sender-name :name
-         default-sender-email :email} (config/app-email-sender)
+        {default-sender-email :email} (config/app-email-sender)
 
         sender-email    (or (:email template) default-sender-email)
         email-params    (if template
@@ -135,7 +134,7 @@
                            :sender-name (or (:name template) (:title app))
                            :subject (template-replace (:subject template) template-params)
                            :body (template-replace (:body template) template-params)}
-                          {:sender-name (or default-sender-name (:title app))
+                          {:sender-name (:title app)
                            :sender-email default-sender-email
                            :subject (str code " is your verification code for " (:title app))
                            :body (default-body template-params)})
@@ -150,7 +149,7 @@
                                 (tracer/record-info! {:name "magic-code/unconfirmed-or-unknown-sender" :attributes {:email sender-email :app-id app-id}})
                                 (postmark/send-structured! (magic-code-email email (assoc email-params :sender-email default-sender-email))))
 
-;; Don't throw if it's a test user, even if we can't send email to it
+                              ;; Don't throw if it's a test user, even if we can't send email to it
                               (and (= ::ex/validation-failed (-> e ex-data ::ex/type))
                                    (not (nil? (app-model/get-test-user req))))
                               false
