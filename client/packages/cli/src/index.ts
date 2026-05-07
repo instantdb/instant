@@ -34,6 +34,8 @@ import { authOriginListCmd } from './commands/auth/origin/list.ts';
 import { authOriginDeleteCmd } from './commands/auth/origin/delete.ts';
 import { authOriginAddCmd } from './commands/auth/origin/add.ts';
 import { link } from './logging.ts';
+import { appListCommand } from './commands/app/list.ts';
+import { appDeleteCommand } from './commands/app/delete.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -87,7 +89,50 @@ export const initDef = program
     );
   });
 
-const auth = program.command('auth');
+const auth = program
+  .command('auth')
+  .description('Manage authentication for your app');
+const app = program
+  .command('app')
+  .description('Manage individual InstantDB apps');
+
+export const appListDef = app
+  .command('list')
+  .description('List apps on your Instant account')
+  .option('--json', 'Output apps as JSON')
+  .action(async (opts) => {
+    return runCommandEffect(
+      appListCommand(opts).pipe(
+        Effect.provide(
+          AuthLayerLive({
+            coerce: false,
+            allowAdminToken: false,
+          }).pipe(Layer.annotateLogs('silent', !!opts.json)),
+        ),
+      ),
+    );
+  });
+
+export const appDeleteDef = app
+  .command('delete')
+  .description('Delete an app from your Instant account')
+  .option(
+    '-a --app <app-id>',
+    'App ID to delete. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action(async (opts) => {
+    return runCommandEffect(
+      appDeleteCommand(opts).pipe(
+        Effect.provide(
+          AuthLayerLive({
+            coerce: false,
+            allowAdminToken: false,
+          }),
+        ),
+      ),
+    );
+  });
+
 const authClient = auth.command('client');
 export const authClientAddDef = authClient
   .command('add')
@@ -392,13 +437,22 @@ export const infoDef = program
   .command('info')
   .description('Display CLI version and login status')
   .action(async () => {
+    const authLayer = AuthLayerLive({
+      coerce: false,
+      allowAdminToken: false,
+    });
+
     return runCommandEffect(
       infoCommand().pipe(
         Effect.provide(
-          AuthLayerLive({
-            coerce: false,
-            allowAdminToken: false,
-          }).pipe(Layer.catchAll(() => Layer.empty)), // make the auth layer optional
+          Layer.mergeAll(
+            BaseLayerLive,
+            authLayer.pipe(Layer.catchAll(() => Layer.empty)),
+            WithAppLayer({ coerce: false, allowAdminToken: true }).pipe(
+              Layer.annotateLogs('silent', true),
+              Layer.catchAll(() => Layer.empty),
+            ),
+          ),
         ),
       ),
     );
