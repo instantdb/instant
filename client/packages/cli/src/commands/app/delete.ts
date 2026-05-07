@@ -42,9 +42,7 @@ export const appDeleteCommand = Effect.fn(function* (
   );
 
   const app = targetApp
-    ? deletableApps.find(
-        (app) => app.id === targetApp || app.title === targetApp,
-      )
+    ? deletableApps.find((app) => app.id === targetApp)
     : yes
       ? undefined
       : yield* runUIEffect(
