@@ -522,10 +522,15 @@ function EventDetail({
   const token = useContext(TokenContext);
   const [isResending, setIsResending] = useState(false);
   const attempts = useMemo(() => {
-    const arr = [...(event.attempts ?? [])];
-    arr.sort((a, b) =>
-      (b['attempt-at'] ?? '').localeCompare(a['attempt-at'] ?? ''),
-    );
+    const arr = (event.attempts ?? []).map((event, i) => {
+      return {
+        ...event,
+        key: i,
+        sortKey: new Date(event['attempt-at'] ?? new Date()).getTime(),
+      };
+    });
+
+    arr.sort((a, b) => b.sortKey - a.sortKey);
     return arr;
   }, [event.attempts]);
 
@@ -613,8 +618,8 @@ function EventDetail({
             </Content>
           ) : (
             <div className="flex flex-col gap-2">
-              {attempts.map((a, i) => (
-                <AttemptRow key={i} attempt={a} />
+              {attempts.map((a) => (
+                <AttemptRow key={a.key} attempt={a} />
               ))}
             </div>
           )}
