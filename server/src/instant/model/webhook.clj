@@ -164,7 +164,6 @@
    (let [now (Instant/now)
          floor (.minus now events-max-age)
          buckets (history/recent-partition-buckets now events-bucket-count)]
-     (tool/def-locals)
      (sql/select ::get-events
                  conn
                  (uhsql/formatp get-events-q

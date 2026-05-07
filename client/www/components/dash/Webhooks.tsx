@@ -172,8 +172,26 @@ function WebhookForm({
 
   const handle: FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
-    if (!url.trim()) {
+    const trimmed = url.trim();
+    if (!trimmed) {
       errorToast('URL is required.', { autoClose: 5000 });
+      return;
+    }
+    let parsed: URL;
+    try {
+      parsed = new URL(trimmed);
+    } catch {
+      errorToast('URL must be a valid HTTPS URL.', { autoClose: 5000 });
+      return;
+    }
+    if (parsed.protocol !== 'https:') {
+      errorToast('URL must use https.', { autoClose: 5000 });
+      return;
+    }
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+      errorToast('URL must be a public host, not localhost.', {
+        autoClose: 5000,
+      });
       return;
     }
     if (etypes.size === 0) {
@@ -185,7 +203,7 @@ function WebhookForm({
       return;
     }
     await onSubmit({
-      url: url.trim(),
+      url: trimmed,
       etypes: [...etypes],
       actions: [...actions],
     });
@@ -533,7 +551,7 @@ function WebhookRow({
           </Button>
         ) : null}
         <DropdownMenu>
-          <DropdownMenuTrigger>
+          <DropdownMenuTrigger asChild>
             <button
               className="cursor-pointer rounded p-1 hover:bg-gray-200 dark:hover:bg-neutral-700"
               title="More"
@@ -542,34 +560,28 @@ function WebhookRow({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-fit min-w-0">
-            <DropdownMenuItem className="group cursor-pointer">
-              <button
-                className="flex cursor-pointer items-center gap-2"
-                onClick={editDialog.onOpen}
-              >
-                <PencilIcon width={14} />
-                Edit
-              </button>
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onSelect={editDialog.onOpen}
+            >
+              <PencilIcon width={14} />
+              Edit
             </DropdownMenuItem>
             {webhook.status === 'active' ? (
-              <DropdownMenuItem className="group cursor-pointer">
-                <button
-                  className="flex cursor-pointer items-center gap-2"
-                  onClick={disableDialog.onOpen}
-                >
-                  <NoSymbolIcon width={14} />
-                  Disable
-                </button>
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onSelect={disableDialog.onOpen}
+              >
+                <NoSymbolIcon width={14} />
+                Disable
               </DropdownMenuItem>
             ) : null}
-            <DropdownMenuItem className="group cursor-pointer">
-              <button
-                className="flex cursor-pointer items-center gap-2 text-red-500"
-                onClick={deleteDialog.onOpen}
-              >
-                <TrashIcon width={14} />
-                Delete
-              </button>
+            <DropdownMenuItem
+              className="cursor-pointer text-red-500"
+              onSelect={deleteDialog.onOpen}
+            >
+              <TrashIcon width={14} />
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -318,10 +318,10 @@
        (doseq [bucket-idx to-truncate]
          (let [webhook-events-table-name (keyword (str "webhook_events_" bucket-idx))
                history-table-name (keyword (str "history_" bucket-idx))]
-           (sql/do-execute! ::truncate-old-history-partitions!
+           (sql/do-execute! ::truncate-old-webhook-events-partitions!
                             conn
                             (hsql/format {:truncate webhook-events-table-name}))
-           (sql/do-execute! ::truncate-old-webhook-events-partitions!
+           (sql/do-execute! ::truncate-old-history-partitions!
                             conn
                             (hsql/format {:truncate history-table-name}))))))))
 
