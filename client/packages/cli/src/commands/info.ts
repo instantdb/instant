@@ -19,7 +19,6 @@ const DashMeResponse = Schema.Struct({
 const DashAppResponse = Schema.Struct({
   app: Schema.Struct({
     id: Schema.String,
-    title: Schema.String,
   }),
 });
 
@@ -74,9 +73,7 @@ export const infoCommand = () =>
         );
 
       if (Option.isSome(appInfo)) {
-        yield* Effect.log(
-          `App: ${appInfo.value.app.title} (${appInfo.value.app.id})`,
-        );
+        yield* Effect.log(`App: ${appInfo.value.app.id}`);
       }
     }
   });

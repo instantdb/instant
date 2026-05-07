@@ -12,7 +12,6 @@ const DashResponse = Schema.Struct({
   apps: Schema.Array(
     Schema.Struct({
       id: Schema.String,
-      title: Schema.String,
       user_app_role: Schema.Literal('owner', 'admin', 'collaborator'),
     }),
   ),
@@ -48,7 +47,7 @@ export const appDeleteCommand = Effect.fn(function* (
       : yield* runUIEffect(
           new UI.Select({
             options: deletableApps.map((app) => ({
-              label: `${app.title} (${app.id})`,
+              label: app.id,
               value: app,
             })),
             promptText: 'Select an app to delete:',
@@ -66,7 +65,7 @@ export const appDeleteCommand = Effect.fn(function* (
   if (!yes) {
     const confirmed = yield* runUIEffect(
       new UI.Confirmation({
-        promptText: `Deleting an app will irreversibly delete all associated data.\nDelete app "${app.title}" (${app.id})?`,
+        promptText: `Deleting an app will irreversibly delete all associated data.\nDelete app ${app.id}?`,
         defaultValue: false,
       }),
     );
@@ -78,5 +77,5 @@ export const appDeleteCommand = Effect.fn(function* (
   }
 
   yield* http.del(`/dash/apps/${app.id}`);
-  yield* Effect.log(`Deleted app "${app.title}" (${app.id}).`);
+  yield* Effect.log(`Deleted app ${app.id}.`);
 });
