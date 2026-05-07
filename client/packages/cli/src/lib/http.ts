@@ -141,8 +141,15 @@ export const getBaseUrl = Effect.gen(function* () {
 });
 
 export const getDashUrl = Effect.gen(function* () {
+  const setEnv = yield* Config.string('INSTANT_CLI_DASH_URI').pipe(
+    Config.option,
+  );
   const dev = Option.getOrNull(
     yield* Config.boolean('INSTANT_CLI_DEV').pipe(Config.option),
   );
-  return dev ? 'http://localhost:3000' : 'https://instantdb.com';
+
+  return Option.match(setEnv, {
+    onSome: (url) => url,
+    onNone: () => (dev ? 'http://localhost:3000' : 'https://instantdb.com'),
+  });
 });
