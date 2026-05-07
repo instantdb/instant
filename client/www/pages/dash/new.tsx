@@ -53,6 +53,7 @@ function NewApp() {
       magic_code_email_template: null,
       magic_code_expiry_minutes: null,
       org: null,
+      webhooks: [],
     };
 
     const promise = createApp(token, app);

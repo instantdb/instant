@@ -2,8 +2,8 @@
   (:require
    [clojure.string]
    [compojure.core :as compojure :refer [GET defroutes]]
-   [instant.admin.routes :as admin-routes]
    [instant.config :as config]
+   [instant.dash.routes :as dash-routes]
    [instant.isn :as isn]
    [instant.model.webhook :as webhook-model]
    [instant.util.crypt :as crypt]
@@ -20,8 +20,9 @@
 (defn req->app-id-and-webhook-authed!
   "Returns app-id, webhook, and isn if the request is authed with one of:
    1. Admin token
-   2. Platform token with :data/read scope
-   3. Payload JWT that we send with the webhook"
+   2. Platform/personal access token with :data/read scope
+   3. Dashboard refresh token (collaborator role on the app)
+   4. Payload JWT that we send with the webhook"
   [req]
   (let [webhook-id-untrusted (ex/get-param! req [:params :webhook_id] uuid-util/coerce)
         isn-untrusted (ex/get-param! req [:params :*] (fn [x]
@@ -40,7 +41,9 @@
          :webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id app-id
                                                                 :webhook-id webhook-id})})
 
-      (let [{:keys [app-id]} (admin-routes/req->app-id-authed! req :data/read)]
+      (let [{{app-id :id} :app}
+            (dash-routes/req->app-accepting-superadmin-or-ref-token!
+             :collaborator :data/read req)]
         {:app-id app-id
          :isn isn-untrusted
          :webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id app-id

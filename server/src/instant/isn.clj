@@ -63,6 +63,9 @@
     (ISN. (Integer/parseInt slot-num-str 16)
           (LogSequenceNumber/valueOf ^String lsn-str))))
 
+(defn of-nums ^ISN [^Integer slot-num ^long isn-long]
+  (ISN. slot-num (LogSequenceNumber/valueOf isn-long)))
+
 ;; Tracks isn so that we can send an initial isn for add-query
 (defonce -max-seen-isn (AtomicReference. (->ISN 0 (LogSequenceNumber/valueOf 0))))
 
@@ -105,3 +108,7 @@
               (.putInt (slotNum isn))
               (.putLong (.asLong ^LogSequenceNumber (lsn isn))))]
     (.array buf)))
+
+(defn <-bytes ^ISN [^bytes ba]
+  (let [buf (ByteBuffer/wrap ba)]
+    (->ISN (.getInt buf) (LogSequenceNumber/valueOf (.getLong buf)))))
