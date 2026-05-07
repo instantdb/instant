@@ -89,8 +89,12 @@ export const initDef = program
     );
   });
 
-const auth = program.command('auth');
-const app = program.command('app');
+const auth = program
+  .command('auth')
+  .description('Manage authentication for your app');
+const app = program
+  .command('app')
+  .description('Manage individual InstantDB apps');
 
 export const appListDef = app
   .command('list')
