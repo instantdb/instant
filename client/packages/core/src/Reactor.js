@@ -967,6 +967,12 @@ export default class Reactor {
       errorMessage.hint = msg.hint;
     }
 
+    if (msg['trace-id'] || msg['original-event']?.['trace-id']) {
+      const traceIds = [msg['trace-id'], msg['original-event']?.['trace-id']];
+      const traceId = traceIds.filter(Boolean).join(',');
+      errorMessage.traceId = traceId;
+    }
+
     if (prevMutation) {
       this._handleMutationError('error', eventId, msg);
       return;
