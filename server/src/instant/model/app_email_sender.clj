@@ -1,6 +1,7 @@
 (ns instant.model.app-email-sender
   (:require [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
+            [instant.model.app-email-verification :as verification]
             [instant.postmark :as postmark]
             [instant.util.exception :as ex])
   (:import (java.util UUID)))
@@ -38,7 +39,7 @@
 (def sender-claimed-error-message "We can't use this email address; it's already been claimed by a different user.")
 
 (defn sync-sender!
-  "Given an email and an app id, we do our best to sync to postmark. There are a few cases to consider: 
+  "Given an email, we do our best to sync to postmark. There are a few cases to consider:
       1. The sender exists, but belongs to a different user
             a. In this case we throw
       2. The sender exists in our database, but not in postmark
@@ -81,12 +82,16 @@
 
                                   :else
                                   (throw e)))))
-        postmark-id  (-> postmark-response :body :ID)]
-    (put! {:email email
-           :name name
-           :app-id app-id
-           :user-id user-id
-           :postmark-id postmark-id})))
+        postmark-id  (-> postmark-response :body :ID)
+        sender (put! {:email email
+                      :name name
+                      :app-id app-id
+                      :user-id user-id
+                      :postmark-id postmark-id})]
+    (verification/put! {:app-id app-id
+                        :sender-id (get sender :id)
+                        :verified true})
+    sender))
 
 (comment
   (postmark/add-sender! {:email "hi@marky.fyi" :name "Marky"})
