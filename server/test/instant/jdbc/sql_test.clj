@@ -1,17 +1,33 @@
 (ns instant.jdbc.sql-test
   (:require
    [honey.sql :as hsql]
+   [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.rate-limit :refer [parse-duration]]
    [instant.util.test :refer [wait-for]]
    [clojure.test :refer [deftest testing is]])
   (:import
    (clojure.lang ExceptionInfo)
    (instant.isn ISN)
-   (java.time Instant)
+   (java.time Duration Instant)
    (java.time.temporal ChronoUnit)
    (java.sql Timestamp)
    (org.postgresql.replication LogSequenceNumber)))
+
+(deftest connection-startup-sets-config
+  (testing "idle_in_transaction_session_timeout"
+    (is (= (Duration/ofMinutes 1)
+           (-> (sql/select-one (aurora/conn-pool :read)
+                               ["select current_setting('idle_in_transaction_session_timeout')::interval as setting"])
+               :setting
+               parse-duration))))
+
+  (testing "application name"
+    (is (= (:ApplicationName (config/get-aurora-config))
+           (-> (sql/select-one (aurora/conn-pool :read)
+                               ["select current_setting('application_name') as setting"])
+               :setting)))))
 
 (deftest in-progress-stmts
   (let [in-progress (sql/make-statement-tracker)]

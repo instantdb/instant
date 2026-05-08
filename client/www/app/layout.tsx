@@ -4,6 +4,7 @@ import '../styles/docs/tailwind.css';
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Providers } from './providers';
+import { isSelfHosted } from '@/lib/config';
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -103,6 +104,12 @@ export default async function RootLayout({
         />
       </head>
       <body>
+        {isSelfHosted && (
+          <Script
+            src="/publicSelfHostedVariables.js"
+            strategy="beforeInteractive"
+          />
+        )}
         <Providers>{children}</Providers>
         {!isDev && <GoogleScripts />}
       </body>

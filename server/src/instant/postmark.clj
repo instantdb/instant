@@ -28,12 +28,12 @@
   (= 504
      (-> e ex-data :body :ErrorCode)))
 
-;; -------- 
+;; --------
 ;; API
 
 (defn send! [{:keys [from to cc bcc subject html text
                      reply-to]
-              :or {reply-to "hello@instantdb.com"}}]
+              :or {reply-to (config/email-reply-to)}}]
   (let [body (cond-> {:From from
                       :To to
                       :Cc cc
@@ -96,8 +96,8 @@
       (medley/update-existing :cc structured-emails->str)
       (medley/update-existing :bcc structured-emails->str)))
 
-;; XXX: Eventually we should make all callers use 
-;; this entry point. It will be easier to switch 
+;; XXX: Eventually we should make all callers use
+;; this entry point. It will be easier to switch
 ;; providers
 (defn send-structured! [req]
   (send! (structured->postmark-req req)))

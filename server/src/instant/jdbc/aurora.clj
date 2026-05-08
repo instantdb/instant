@@ -201,17 +201,29 @@
                       (catch Exception _e nil)))
      :get-config (fn [] @current-config)}))
 
+(defn build-startup-options
+  "Builds a libpq `options` startup-packet string so session settings get
+   applied during the protocol handshake. Allows us to do SET without an
+   extra round-trip"
+  [_config]
+  (let [idle-ms (flags/flag :idle-in-transaction-session-timeout (* 1000 60))]
+    (str "-c idle_in_transaction_session_timeout=" idle-ms)))
+
 (defn get-connection
-  "Creates a new connection for the connection pool and sets the idle_in_transaction_session_timeout.
-   Defaults to one minute, but can be modified with a flag in an emergency."
-  [config]
+  "Creates a new connection for the connection pool. idle_in_transaction_session_timeout
+   defaults to one minute, but can be modified with a flag in an emergency."
+  [base-config]
   (binding [socket-track/*connection-id* (random-uuid)]
-    (let [conn (next-jdbc/get-connection (assoc config
-                                                :socketFactory "instant.SocketWrapper"))]
+    (let [config (assoc base-config
+                        :options (build-startup-options base-config)
+                        ;; Setting `assumeMinServerVersion=9.0` lets pgjdbc inline `extra_float_digits`
+                        ;; and `application_name` directly into the StartupPacket instead of emitting
+                        ;; them as separate `SET` round-trips after the handshake.
+                        :assumeMinServerVersion "9.0"
+                        :socketFactory "instant.SocketWrapper")
+          conn (next-jdbc/get-connection config)]
       (socket-track/add-connection socket-track/*connection-id* conn {:cluster-id (:cluster-id config)
                                                                       :db-host (:host config)})
-      (next-jdbc/execute! conn ["select set_config('idle_in_transaction_session_timeout', ?::text, false)"
-                                (flags/flag :idle-in-transaction-session-timeout (* 1000 60))])
       conn)))
 
 (defn aurora-cluster-datasource

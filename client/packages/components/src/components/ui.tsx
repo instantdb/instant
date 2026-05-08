@@ -1639,17 +1639,41 @@ export function Fence({
           : rosePineDawnTheme
       }
     >
-      {({ className, style, tokens, getTokenProps }) => (
-        <pre
-          className={clsx(className, _className)}
-          style={{
-            ...style,
-            ..._style,
-            ...(copyable ? { position: 'relative' } : {}),
-          }}
-        >
-          {copyable ? (
-            <div className="absolute top-0 right-0 flex items-center px-2">
+      {({ className, style, tokens, getTokenProps }) => {
+        const codeBlock = (
+          <pre
+            className={clsx(className, _className)}
+            style={{
+              ...style,
+              ..._style,
+              marginTop: 0,
+              marginBottom: 0,
+              border: 'none',
+            }}
+          >
+            <code>
+              {tokens.map((line, lineIndex) => (
+                <Fragment key={lineIndex}>
+                  {line
+                    .filter((token) => !token.empty)
+                    .map((token, tokenIndex) => {
+                      const { key, ...props } = getTokenProps({ token });
+                      return <span key={key || tokenIndex} {...props} />;
+                    })}
+                  {'\n'}
+                </Fragment>
+              ))}
+            </code>
+          </pre>
+        );
+
+        if (!copyable) {
+          return codeBlock;
+        }
+
+        return (
+          <div className="relative">
+            <div className="absolute top-1 right-1 z-10 flex items-center">
               <button
                 onClick={(e) => {
                   copy(code);
@@ -1660,7 +1684,7 @@ export function Fence({
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 text-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-800 dark:ring-neutral-700"
+                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 text-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-800 dark:ring-neutral-700 dark:hover:bg-neutral-700"
               >
                 <ClipboardDocumentIcon
                   className="-ml-0.5 h-4 w-4"
@@ -1669,22 +1693,10 @@ export function Fence({
                 {copyLabel}
               </button>
             </div>
-          ) : null}
-          <code>
-            {tokens.map((line, lineIndex) => (
-              <Fragment key={lineIndex}>
-                {line
-                  .filter((token) => !token.empty)
-                  .map((token, tokenIndex) => {
-                    const { key, ...props } = getTokenProps({ token });
-                    return <span key={key || tokenIndex} {...props} />;
-                  })}
-                {'\n'}
-              </Fragment>
-            ))}
-          </code>
-        </pre>
-      )}
+            {codeBlock}
+          </div>
+        );
+      }}
     </Highlight>
   );
 }

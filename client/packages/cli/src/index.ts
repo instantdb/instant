@@ -29,10 +29,13 @@ import { PACKAGE_ALIAS_AND_FULL_NAMES } from './context/projectInfo.ts';
 import { authClientAddCmd } from './commands/auth/client/add.ts';
 import { authClientListCmd } from './commands/auth/client/list.ts';
 import { authClientDeleteCmd } from './commands/auth/client/delete.ts';
+import { authClientUpdateCmd } from './commands/auth/client/update.ts';
 import { authOriginListCmd } from './commands/auth/origin/list.ts';
 import { authOriginDeleteCmd } from './commands/auth/origin/delete.ts';
 import { authOriginAddCmd } from './commands/auth/origin/add.ts';
 import { link } from './logging.ts';
+import { appListCommand } from './commands/app/list.ts';
+import { appDeleteCommand } from './commands/app/delete.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -86,7 +89,50 @@ export const initDef = program
     );
   });
 
-const auth = program.command('auth');
+const auth = program
+  .command('auth')
+  .description('Manage authentication for your app');
+const app = program
+  .command('app')
+  .description('Manage individual InstantDB apps');
+
+export const appListDef = app
+  .command('list')
+  .description('List apps on your Instant account')
+  .option('--json', 'Output apps as JSON')
+  .action(async (opts) => {
+    return runCommandEffect(
+      appListCommand(opts).pipe(
+        Effect.provide(
+          AuthLayerLive({
+            coerce: false,
+            allowAdminToken: false,
+          }).pipe(Layer.annotateLogs('silent', !!opts.json)),
+        ),
+      ),
+    );
+  });
+
+export const appDeleteDef = app
+  .command('delete')
+  .description('Delete an app from your Instant account')
+  .option(
+    '-a --app <app-id>',
+    'App ID to delete. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action(async (opts) => {
+    return runCommandEffect(
+      appDeleteCommand(opts).pipe(
+        Effect.provide(
+          AuthLayerLive({
+            coerce: false,
+            allowAdminToken: false,
+          }),
+        ),
+      ),
+    );
+  });
+
 const authClient = auth.command('client');
 export const authClientAddDef = authClient
   .command('add')
@@ -109,28 +155,29 @@ export const authClientAddDef = authClient
     `
 Provider Specific Options:
   Google:
-   --app-type       web|ios|android|button-for-web
-   --client-id
-   --client-secret                      (web only)
-   --custom-redirect-uri      (optional, web only)
+   --app-type             web|ios|android|button-for-web
+   --dev-credentials      (optional, web only)
+   --client-id            (required unless using dev credentials)
+   --client-secret        (web only, unless using dev credentials)
+   --custom-redirect-uri  (optional, web only)
   GitHub:
    --client-id
    --client-secret
-   --custom-redirect-uri      (optional)
+   --custom-redirect-uri  (optional)
   Apple:
-   --services-id              (Services ID from ${link('https://developer.apple.com', 'developer.apple.com')})
-   --team-id                  (optional, required for web redirect flow)
-   --key-id                   (optional, required for web redirect flow)
-   --private-key-file         (optional, path to .p8 PEM; required for web redirect flow)
-   --custom-redirect-uri      (optional, web redirect flow only)
+   --services-id          (Services ID from ${link('https://developer.apple.com', 'developer.apple.com')})
+   --team-id              (optional, required for web redirect flow)
+   --key-id               (optional, required for web redirect flow)
+   --private-key-file     (optional, path to .p8 PEM; required for web redirect flow)
+   --custom-redirect-uri  (optional, web redirect flow only)
   LinkedIn:
    --client-id
    --client-secret
-   --custom-redirect-uri      (optional)
+   --custom-redirect-uri  (optional)
   Clerk:
-   --publishable-key    (Publishable Key from ${link('https://dashboard.clerk.com', 'dashboard.clerk.com')})
+   --publishable-key      (Publishable Key from ${link('https://dashboard.clerk.com', 'dashboard.clerk.com')})
   Firebase:
-   --project-id         (Project ID from ${link('https://console.firebase.google.com', 'console.firebase.google.com')})
+   --project-id           (Project ID from ${link('https://console.firebase.google.com', 'console.firebase.google.com')})
 `,
   )
   .action((opts) => {
@@ -186,6 +233,65 @@ export const authClientDeleteDef = authClient
   .action((opts) => {
     return runCommandEffect(
       authClientDeleteCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    );
+  });
+
+export const authClientUpdateDef = authClient
+  .command('update')
+  .description('Update an OAuth client')
+  .allowExcessArguments(true)
+  .allowUnknownOption(true)
+  .option('--id <client-id>', 'Client ID to update')
+  .option('--name <client-name>', 'Client name to update')
+  .option(
+    '-a --app <app-id>',
+    'App ID to update a client in. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .addHelpText(
+    'after',
+    `
+Provider Specific Options:
+  Google:
+   --dev-credentials          (web only)
+   --client-id
+   --client-secret            (web only)
+   --custom-redirect-uri      (optional, web only)
+  GitHub:
+   --client-id
+   --client-secret
+   --custom-redirect-uri      (optional)
+  Apple:
+   --services-id
+   --team-id                  (web redirect flow)
+   --key-id                   (web redirect flow)
+   --private-key-file         (web redirect flow)
+   --custom-redirect-uri      (optional, web redirect flow only)
+  LinkedIn:
+   --client-id
+   --client-secret
+   --custom-redirect-uri      (optional)
+  Clerk:
+   --publishable-key
+  Firebase:
+   --project-id
+`,
+  )
+  .action((opts) => {
+    opts = {
+      ...opts,
+      ...minimist(process.argv),
+    };
+
+    return runCommandEffect(
+      authClientUpdateCmd(opts).pipe(
         Effect.provide(
           WithAppLayer({
             coerce: false,
@@ -331,13 +437,22 @@ export const infoDef = program
   .command('info')
   .description('Display CLI version and login status')
   .action(async () => {
+    const authLayer = AuthLayerLive({
+      coerce: false,
+      allowAdminToken: false,
+    });
+
     return runCommandEffect(
       infoCommand().pipe(
         Effect.provide(
-          AuthLayerLive({
-            coerce: false,
-            allowAdminToken: false,
-          }).pipe(Layer.catchAll(() => Layer.empty)), // make the auth layer optional
+          Layer.mergeAll(
+            BaseLayerLive,
+            authLayer.pipe(Layer.catchAll(() => Layer.empty)),
+            WithAppLayer({ coerce: false, allowAdminToken: true }).pipe(
+              Layer.annotateLogs('silent', true),
+              Layer.catchAll(() => Layer.empty),
+            ),
+          ),
         ),
       ),
     );

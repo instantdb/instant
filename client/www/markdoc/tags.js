@@ -10,6 +10,11 @@ import { Tag, transformer } from '@markdoc/markdoc';
 import { HasAppID } from '../components/docs/Fence';
 import { TabbedSingle } from '../components/docs/TabbedSingle';
 import { YouTube } from '../components/docs/YouTube';
+import {
+  SetupPaths,
+  DashboardPath,
+  TerminalPath,
+} from '../components/docs/SetupPaths';
 
 function CustomDiv({ className, children }) {
   return <div className={className}>{children}</div>;
@@ -164,6 +169,16 @@ const tags = {
       defaultTab: { type: String },
       storageKey: { type: String, required: true },
     },
+  },
+
+  'setup-paths': {
+    render: SetupPaths,
+  },
+  'dashboard-path': {
+    render: DashboardPath,
+  },
+  'terminal-path': {
+    render: TerminalPath,
   },
 };
 

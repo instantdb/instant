@@ -2,7 +2,8 @@ import { Effect, Match, Option, Schema } from 'effect';
 import type { authOriginAddDef, OptsFromCommand } from '../../../index.ts';
 import { BadArgsError } from '../../../errors.ts';
 import { GlobalOpts } from '../../../context/globalOpts.ts';
-import { optOrPrompt, runUIEffect } from '../../../lib/ui.ts';
+import { Args } from '../../../lib/args.ts';
+import { runUIEffect } from '../../../lib/ui.ts';
 import { addAuthorizedOrigin } from '../../../lib/oauth.ts';
 import { UI } from '../../../ui/index.ts';
 import chalk from 'chalk';
@@ -94,23 +95,17 @@ const addOriginHandler = Effect.fn(function* (
 const handleGenericOrigin = Effect.fn(function* (
   opts: Record<string, unknown>,
 ) {
-  const url = yield* optOrPrompt(opts.url, {
-    simpleName: '--url',
-    required: true,
-    skipIf: false,
-    prompt: {
+  const url = yield* Args.text(opts, 'url').pipe(
+    Args.prompt({
       prompt: 'Website URL:',
       placeholder: 'example.com',
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
       ]),
-    },
-  });
-
-  if (!url) {
-    return yield* BadArgsError.make({ message: 'URL is required.' });
-  }
+    }),
+    Args.required(),
+  );
 
   const validated = validateGenericUrl(url);
   if (validated.type === 'error') {
@@ -121,21 +116,19 @@ const handleGenericOrigin = Effect.fn(function* (
 });
 
 const handleVercelOrigin = Effect.fn(function* (opts: Record<string, unknown>) {
-  const project = yield* optOrPrompt(opts.project, {
-    simpleName: '--project',
-    required: true,
-    skipIf: false,
-    prompt: {
+  const project = yield* Args.text(opts, 'project').pipe(
+    Args.prompt({
       prompt: 'Vercel project name:',
       placeholder: 'vercel-project-name',
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
       ]),
-    },
-  });
+    }),
+    Args.required(),
+  );
 
-  const validated = validateVercelUrl(project ?? '');
+  const validated = validateVercelUrl(project);
   if (validated.type === 'error') {
     return yield* BadArgsError.make({ message: validated.message });
   }
@@ -146,21 +139,19 @@ const handleVercelOrigin = Effect.fn(function* (opts: Record<string, unknown>) {
 const handleNetlifyOrigin = Effect.fn(function* (
   opts: Record<string, unknown>,
 ) {
-  const site = yield* optOrPrompt(opts.site, {
-    simpleName: '--site',
-    required: true,
-    skipIf: false,
-    prompt: {
+  const site = yield* Args.text(opts, 'site').pipe(
+    Args.prompt({
       prompt: 'Netlify site name:',
       placeholder: 'netlify-site-name',
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
       ]),
-    },
-  });
+    }),
+    Args.required(),
+  );
 
-  const validated = validateNetlifyUrl(site ?? '');
+  const validated = validateNetlifyUrl(site);
   if (validated.type === 'error') {
     return yield* BadArgsError.make({ message: validated.message });
   }
@@ -171,21 +162,19 @@ const handleNetlifyOrigin = Effect.fn(function* (
 const handleCustomSchemeOrigin = Effect.fn(function* (
   opts: Record<string, unknown>,
 ) {
-  const scheme = yield* optOrPrompt(opts.scheme, {
-    simpleName: '--scheme',
-    required: true,
-    skipIf: false,
-    prompt: {
+  const scheme = yield* Args.text(opts, 'scheme').pipe(
+    Args.prompt({
       prompt: 'App scheme:',
       placeholder: 'app-scheme://',
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
       ]),
-    },
-  });
+    }),
+    Args.required(),
+  );
 
-  const validated = validateCustomScheme(scheme ?? '');
+  const validated = validateCustomScheme(scheme);
   if (validated.type === 'error') {
     return yield* BadArgsError.make({ message: validated.message });
   }
