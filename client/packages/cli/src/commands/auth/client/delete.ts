@@ -1,9 +1,9 @@
 import { Effect } from 'effect';
 import type { authClientDeleteDef, OptsFromCommand } from '../../../index.ts';
 import { BadArgsError } from '../../../errors.ts';
-import { getAppsAuth } from '../../../lib/oauth.ts';
+import { findClientByIdOrName, getAppsAuth } from '../../../lib/oauth.ts';
 import { GlobalOpts } from '../../../context/globalOpts.ts';
-import { runUIEffect, UIError } from '../../../lib/ui.ts';
+import { runUIEffect } from '../../../lib/ui.ts';
 import { UI } from '../../../ui/index.ts';
 import chalk from 'chalk';
 import { InstantHttpAuthed, withCommand } from '../../../lib/http.ts';
@@ -12,13 +12,8 @@ import { CurrentApp } from '../../../context/currentApp.ts';
 export const authClientDeleteCmd = Effect.fn(function* (
   opts: OptsFromCommand<typeof authClientDeleteDef>,
 ) {
-  if (opts.id && opts.name) {
-    return yield* BadArgsError.make({
-      message: 'Cannot specify both --id and --name',
-    });
-  }
-  const info = yield* getAppsAuth();
   if (!opts.id && !opts.name) {
+    const info = yield* getAppsAuth();
     // user must pick manually
     const { yes } = yield* GlobalOpts;
     if (yes) {
@@ -44,18 +39,11 @@ export const authClientDeleteCmd = Effect.fn(function* (
     );
 
     yield* deleteOauthClient(picked.id);
-  }
-
-  if (opts.id) {
-    yield* deleteOauthClient(opts.id);
-  }
-  if (opts.name) {
-    const client = info.oauth_clients?.find((c) => c.client_name === opts.name);
-    if (!client) {
-      return yield* BadArgsError.make({
-        message: `OAuth client not found: ${opts.name}`,
-      });
-    }
+  } else {
+    const { client } = yield* findClientByIdOrName({
+      id: opts.id,
+      name: opts.name,
+    });
     yield* deleteOauthClient(client.id);
   }
 

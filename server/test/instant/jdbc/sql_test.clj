@@ -3,8 +3,10 @@
    [clojure.set]
    [clojure.test :refer [deftest is testing]]
    [honey.sql :as hsql]
+   [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.rate-limit :refer [parse-duration]]
    [instant.util.test :refer [wait-for]]
    [instant.webhook-sender :as webhook-sender])
   (:import
@@ -12,9 +14,23 @@
    (instant.isn ISN)
    (instant.webhook_sender WebhookAttempt)
    (java.sql Timestamp)
-   (java.time Instant)
+   (java.time Duration Instant)
    (java.time.temporal ChronoUnit)
    (org.postgresql.replication LogSequenceNumber)))
+
+(deftest connection-startup-sets-config
+  (testing "idle_in_transaction_session_timeout"
+    (is (= (Duration/ofMinutes 1)
+           (-> (sql/select-one (aurora/conn-pool :read)
+                               ["select current_setting('idle_in_transaction_session_timeout')::interval as setting"])
+               :setting
+               parse-duration))))
+
+  (testing "application name"
+    (is (= (:ApplicationName (config/get-aurora-config))
+           (-> (sql/select-one (aurora/conn-pool :read)
+                               ["select current_setting('application_name') as setting"])
+               :setting)))))
 
 (deftest in-progress-stmts
   (let [in-progress (sql/make-statement-tracker)]
@@ -265,23 +281,23 @@
         (is (= (-> (into {} a)
                    (truncate-attempt-at))
                (-> (sql/select-one (aurora/conn-pool :read)
-                                       (hsql/format {:with [[:x {:select [[[:lift a] :a]]}]]
-                                                     :select [[[:. [:nest :a] :attempt_at]]
-                                                              [[:. [:nest :a] :duration_ms]]
-                                                              [[:. [:nest :a] :success]]
-                                                              [[:. [:nest :a] :status_code]]
-                                                              [[:. [:nest :a] :response_text]]
-                                                              [[:. [:nest :a] :error_type]]
-                                                              [[:. [:nest :a] :error_message]]]
-                                                     :from [:x]}))
-                       (clojure.set/rename-keys {:attempt_at :attempt-at
-                                                 :duration_ms :duration-ms
-                                                 :success :success?
-                                                 :status_code :status-code
-                                                 :response_text :response-text
-                                                 :error_type :error-type
-                                                 :error_message :error-message})
-                       (update :attempt-at #(some-> % Timestamp/.toInstant (.truncatedTo ChronoUnit/SECONDS))))))))))
+                                   (hsql/format {:with [[:x {:select [[[:lift a] :a]]}]]
+                                                 :select [[[:. [:nest :a] :attempt_at]]
+                                                          [[:. [:nest :a] :duration_ms]]
+                                                          [[:. [:nest :a] :success]]
+                                                          [[:. [:nest :a] :status_code]]
+                                                          [[:. [:nest :a] :response_text]]
+                                                          [[:. [:nest :a] :error_type]]
+                                                          [[:. [:nest :a] :error_message]]]
+                                                 :from [:x]}))
+                   (clojure.set/rename-keys {:attempt_at :attempt-at
+                                             :duration_ms :duration-ms
+                                             :success :success?
+                                             :status_code :status-code
+                                             :response_text :response-text
+                                             :error_type :error-type
+                                             :error_message :error-message})
+                   (update :attempt-at #(some-> % Timestamp/.toInstant (.truncatedTo ChronoUnit/SECONDS))))))))))
 
 (deftest format-test
   (testing "static"

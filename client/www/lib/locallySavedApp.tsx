@@ -10,7 +10,7 @@ export function getLocallySavedApp(
 ): LocallySavedApp | undefined {
   const effectiveOrgId = orgId || 'personal';
   const key = `${effectiveOrgId}-locally-saved-app`;
-  return getLocal(key);
+  return getLocal(key) ?? undefined;
 }
 
 export function setLocallySavedApp(app: LocallySavedApp) {

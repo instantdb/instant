@@ -3,6 +3,54 @@ export const isBrowser = typeof window != 'undefined';
 export const isDev = process.env.NODE_ENV === 'development';
 
 const isStaging = process.env.NEXT_PUBLIC_STAGING === 'true';
+export const isSelfHosted = process.env.NEXT_PUBLIC_SELF_HOSTED === 'true';
+
+type DashboardConfig = {
+  apiURI: string;
+  websocketURI: string;
+};
+
+type RuntimeDashboardConfig = Partial<DashboardConfig>;
+
+declare global {
+  interface Window {
+    __instantConfig?: RuntimeDashboardConfig;
+  }
+}
+
+function websocketURIFromApiURI(apiURI: string) {
+  const url = new URL(apiURI);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  url.pathname = '/runtime/session';
+  url.search = '';
+  url.hash = '';
+  return url.toString();
+}
+
+function configFromApiURI(apiURI: string | undefined | null) {
+  if (!apiURI) {
+    return null;
+  }
+
+  return {
+    apiURI,
+    websocketURI: websocketURIFromApiURI(apiURI),
+  };
+}
+
+function getRuntimeConfig() {
+  try {
+    if (isBrowser) {
+      return configFromApiURI(window.__instantConfig?.apiURI);
+    }
+
+    return configFromApiURI(
+      process.env.INSTANT_API_URI || process.env.INSTANT_BACKEND_URL,
+    );
+  } catch (_e) {
+    return null;
+  }
+}
 
 const devBackend = getLocal('devBackend');
 
@@ -15,14 +63,14 @@ if (devBackend && isBrowser) {
   }
 }
 
-const config = {
-  apiURI: devBackend
-    ? `http://localhost:${localPort}`
-    : `https://${isStaging ? 'api-staging' : 'api'}.instantdb.com`,
-  websocketURI: devBackend
-    ? `ws://localhost:${localPort}/runtime/session`
-    : `wss://${isStaging ? 'api-staging' : 'api'}.instantdb.com/runtime/session`,
-};
+const defaultApiURI = devBackend
+  ? `http://localhost:${localPort}`
+  : `https://${isStaging ? 'api-staging' : 'api'}.instantdb.com`;
+
+export const config =
+  isSelfHosted && !devBackend
+    ? getRuntimeConfig() || configFromApiURI(defaultApiURI)!
+    : configFromApiURI(defaultApiURI)!;
 
 // In dev mode, sync the devBackend flag to a cookie so server components
 // can resolve the same apiURI as the client.
@@ -73,7 +121,7 @@ export const stripeCustomerPortalURI = isDev
   ? stripeDevCustomerPortalURI
   : stripeProdCustomerPortalURI;
 
-export function getLocal(k: string) {
+export function getLocal<T = any>(k: string): T | null {
   if (!isBrowser) {
     return null;
   }
@@ -87,7 +135,7 @@ export function getLocal(k: string) {
   }
 }
 
-export function setLocal(k: string, v: any) {
+export function setLocal<T = any>(k: string, v: T) {
   if (!isBrowser) {
     return;
   }

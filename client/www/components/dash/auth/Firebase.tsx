@@ -9,7 +9,6 @@ import {
   Dialog,
   Divider,
   Fence,
-  SectionHeading,
   SubsectionHeading,
   TextInput,
   useDialog,
@@ -84,8 +83,7 @@ function firebaseExampleCode({
   appId: string;
   clientName: string;
 }) {
-  return /* ts */ `
-import { useEffect } from 'react';
+  return /* ts */ `import { useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { init } from '@instantdb/react';
 

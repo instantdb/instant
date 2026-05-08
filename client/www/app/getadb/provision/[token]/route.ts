@@ -1,11 +1,10 @@
 import { randomUUID } from 'crypto';
 import { createGDBApp } from '../../createGDBApp';
 import generateMarkdown from '../../generateMarkdown';
+import { PLACEHOLDER_TOKEN } from '../../guideMarkdown';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-const PLACEHOLDER_TOKEN = '<generate-a-random-16-char-token>';
 
 export async function GET(
   request: Request,
@@ -50,9 +49,8 @@ const DEFAULT_APP_TITLE = 'Instant App';
 function placeholderNotReplacedMarkdown(): string {
   return `You fetched the provision URL without replacing the placeholder.
 
-"${PLACEHOLDER_TOKEN}" is a placeholder. Generate a random 16-character
-token yourself and put it in the URL in place of the placeholder. Each
-fetch must use a different random token so upstream caches never serve
-stale credentials.
+"${PLACEHOLDER_TOKEN}" is a placeholder. Generate a random UUID yourself
+and put it in the URL in place of the placeholder. Each fetch must use a
+different UUID so upstream caches never serve stale credentials.
 `;
 }

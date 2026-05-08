@@ -35,12 +35,31 @@ function navButtonToMarkdown(tag: string): string | null {
   return desc ? `- **${title}**: ${desc}` : `- **${title}**`;
 }
 
+// Convert a self-closing blank-link tag into a markdown link so the
+// label/href survives in the LLM-facing export.
+function blankLinkToMarkdown(tag: string): string | null {
+  const href = tag.match(/href="([^"]*)"/)?.[1];
+  const label = tag.match(/label="([^"]*)"/)?.[1];
+  if (!label) return null;
+  if (!href) return label;
+  return `[${label}](${href})`;
+}
+
 // Remove `{% ... %}` tags from markdown content, converting known tags
 // like nav-button into plain markdown equivalents
 function sanitizeMarkdown(content: string): string {
   return content.replace(/{%[\s\S]*?%}/g, (match) => {
     if (/nav-button\s/.test(match)) {
       return navButtonToMarkdown(match) ?? '';
+    }
+    if (/blank-link\s/.test(match)) {
+      return blankLinkToMarkdown(match) ?? '';
+    }
+    if (/^{%\s*dashboard-path[\s\S]*?%}$/.test(match)) {
+      return '**From the dashboard**\n';
+    }
+    if (/^{%\s*terminal-path[\s\S]*?%}$/.test(match)) {
+      return '**From the terminal**\n';
     }
     return '';
   });

@@ -1,12 +1,12 @@
 (ns instant.util.aws-signature
-  "Implements AWS' Signature Version 4. [1] 
-   
+  "Implements AWS' Signature Version 4. [1]
+
    We use these to generate S3 presigned URLs.
-   
-   Why not use the Java SDK directly to generate presigned URLs? 
-     We need a way to set the signing time. 
-     A consistent signing-time gives us stable URLs which browsers can cache. 
-   
+
+   Why not use the Java SDK directly to generate presigned URLs?
+     We need a way to set the signing time.
+     A consistent signing-time gives us stable URLs which browsers can cache.
+
    This code was originally imported from clj-aws-sign [2]
 
    [1] https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-create-signed-request.html
@@ -15,14 +15,14 @@
    [clojure.string :as str]
    [instant.util.crypt :as crypt-util])
   (:import
-   (java.net URLEncoder)
+   (java.net URI URLEncoder)
    (java.time ZonedDateTime ZoneId Instant Duration)
    (java.time.format DateTimeFormatter)))
 
 (set! *warn-on-reflection* true)
 
 ;; ------------
-;; Constants 
+;; Constants
 
 (def sig-algorithm "AWS4-HMAC-SHA256")
 
@@ -31,7 +31,7 @@
 (def empty-sha256 "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
 ;; ------------------------
-;; CanonicalRequest 
+;; CanonicalRequest
 
 (defn- url-encode
   "Percent encode the string to put in a URL."
@@ -43,17 +43,17 @@
       (.replace "%7E" "~")))
 
 (defn- ->canonical-path-str
-  "The `CanonicalURI` part of a CanonicalRequest string. 
-   
-   Note, though Amazon calls this a `CanonicalURI`, it is in fact _just_ 
-   the path component of a URI. 
+  "The `CanonicalURI` part of a CanonicalRequest string.
 
-   Rules: 
-    The URI-encoded version of the absolute path component URI, 
-    starting with the / that follows the domain name and up to 
+   Note, though Amazon calls this a `CanonicalURI`, it is in fact _just_
+   the path component of a URI.
+
+   Rules:
+    The URI-encoded version of the absolute path component URI,
+    starting with the / that follows the domain name and up to
     the end of the string or to the question mark character (?)
-    if you have query string parameters. 
-    
+    if you have query string parameters.
+
     If the absolute path is empty, use a forward slash character (/)."
   [^String path]
   (->> (.split path "/" -1)
@@ -66,12 +66,12 @@
     (compare v1 v2)))
 
 (defn- ->canonical-query-str
-  "Generates the `CanonicalQueryString` part of a CanonicalRequest string. 
-  
-  Rules:  
-   The URI-encoded query string parameters. 
-   You URI-encode each name and value individually. 
-   You must also sort the parameters in the canonical query string alphabetically by key name. 
+  "Generates the `CanonicalQueryString` part of a CanonicalRequest string.
+
+  Rules:
+   The URI-encoded query string parameters.
+   You URI-encode each name and value individually.
+   You must also sort the parameters in the canonical query string alphabetically by key name.
    The sorting occurs after encoding"
   [query]
   (->> query
@@ -81,12 +81,12 @@
        (str/join "&")))
 
 (defn- ->canonical-headers-str
-  "Generates the `CanonicalHeaders` part of a CanonicalRequest string. 
+  "Generates the `CanonicalHeaders` part of a CanonicalRequest string.
 
-   Note: The input `headers` _must_ already come sorted & transformed. 
-         see `create-sig-request`. 
+   Note: The input `headers` _must_ already come sorted & transformed.
+         see `create-sig-request`.
 
-   Rules: 
+   Rules:
     <headername>:<value>\n"
   [canonical-headers]
   (let [s (StringBuilder.)]
@@ -96,24 +96,24 @@
     (.toString s)))
 
 (defn- ->signed-headers-str
-  "Generates the `SignedHeaders` part of a CanonicalRequest. 
-   
-   Note: The input `headers` _must_ already come sorted & transformed. 
-         see `create-sig-request`. 
-   
-   Rules: 
+  "Generates the `SignedHeaders` part of a CanonicalRequest.
+
+   Note: The input `headers` _must_ already come sorted & transformed.
+         see `create-sig-request`.
+
+   Rules:
     <headername>;<headername>;..."
   [canonical-headers]
   (str/join ";" (keys canonical-headers)))
 
 (defn- ->hashed-payload-str
   "Generates the `HashedPayload` part of a CanonicalRequest string.
-  
-   Rules: 
-    Hex(SHA256Hash(<payload>)) 
-   
-    For Amazon S3, include the literal string UNSIGNED-PAYLOAD 
-    when constructing a canonical request, and set the same value as the x-amz-content-sha256 
+
+   Rules:
+    Hex(SHA256Hash(<payload>))
+
+    For Amazon S3, include the literal string UNSIGNED-PAYLOAD
+    when constructing a canonical request, and set the same value as the x-amz-content-sha256
     header value when sending the request."
   [{:keys [payload headers] :as _sig-request}]
   (let [content-sha-header (get headers "x-amz-content-sha256")]
@@ -128,23 +128,23 @@
                 crypt-util/bytes->hex-string))))
 
 (defn- ->canonical-method-str
-  "Generates the `HTTPMethod` part of a CanonicalRequest string. 
-  
-   Rules: 
+  "Generates the `HTTPMethod` part of a CanonicalRequest string.
+
+   Rules:
     GET | PUT ..."
   [method]
   (.toUpperCase (name method)))
 
 (defn ->canonical-request-str
-  "To create a signature, we first generate a CanonicalRequest string 
- 
-  
-   A `CanonicalRequest` is a deterministic string representation of your 
+  "To create a signature, we first generate a CanonicalRequest string
+
+
+   A `CanonicalRequest` is a deterministic string representation of your
    request. We format and sort it in the same way that AWS will.
-  
-   We use this string as an input to generate our signature. 
-   
-   Rules: 
+
+   We use this string as an input to generate our signature.
+
+   Rules:
     <HTTPMethod>\n
     <CanonicalURI>\n
     <CanonicalQueryString>\n
@@ -162,8 +162,8 @@
        (->signed-headers-str headers) \newline
        (->hashed-payload-str sig-request)))
 
-;; ------------- 
-;; StringToSign 
+;; -------------
+;; StringToSign
 
 (def ^DateTimeFormatter amz-date-pattern
   (DateTimeFormatter/ofPattern "yyyyMMdd'T'HHmmss'Z'"))
@@ -181,18 +181,18 @@
   (.format short-date-pattern (instant->utc-date-time instant)))
 
 (defn ->credential-scope-str
-  "Generates a `CredentialScope`. 
+  "Generates a `CredentialScope`.
    This restricts credentials to a specific region and service
-  
-   Rules: 
+
+   Rules:
     YYYYMMDD/region/service/aws4_request"
   [{:keys [signing-instant region service] :as _sig-request}]
   (str (instant->amz-short-date signing-instant) "/" region "/" service "/aws4_request"))
 
 (defn ->string-to-sign
-  "Generates the StringToSign. 
-  
-  Rules: 
+  "Generates the StringToSign.
+
+  Rules:
    Algorithm \n
    RequestDateTime \n
    CredentialScope  \n
@@ -207,13 +207,13 @@
        crypt-util/bytes->sha256
        crypt-util/bytes->hex-string)))
 
-;; ---------------- 
-;; SigningKey 
+;; ----------------
+;; SigningKey
 
 (defn ->signing-key-bytes
-  "Generates a `SigningKey`. 
-   
-   We do this by performing a succession of keyed hash operations 
+  "Generates a `SigningKey`.
+
+   We do this by performing a succession of keyed hash operations
    on the request date, region, and service"
   [{:keys [secret-key signing-instant region service] :as _sig-request}]
   (let [start-key (crypt-util/str->utf-8-bytes (str "AWS4" secret-key))
@@ -226,14 +226,14 @@
         signing-key-bytes (crypt-util/hmac-256 date-region-service-key (crypt-util/str->utf-8-bytes "aws4_request"))]
     signing-key-bytes))
 
-;; ------------- 
-;; Signature 
+;; -------------
+;; Signature
 
 (defn ->signature
-  "To generate a signature: 
-   1. We generate our SigningKey 
-   2. We generate our StringToSign 
-   
+  "To generate a signature:
+   1. We generate our SigningKey
+   2. We generate our StringToSign
+
    We then encrypt the StringToSign with our SigningKey, and voila!"
   [sig-request]
   (let [signing-key (->signing-key-bytes sig-request)
@@ -242,34 +242,44 @@
         sig-bytes (crypt-util/hmac-256 signing-key string-to-sign-bytes)]
     (crypt-util/bytes->hex-string sig-bytes)))
 
-;; ------------- 
-;; sig-request 
+;; -------------
+;; sig-request
 
 (defn- canonicalize-headers
-  "Generates a `CanonicalizedHeaders` sorted map. 
-  
-   Rules: 
+  "Generates a `CanonicalizedHeaders` sorted map.
+
+   Rules:
     Lowercase(<HeaderName1>):Trim(<value>)\n"
   [headers]
   (into (sorted-map)
         (map (fn [[k v]] [(str/lower-case k) (str/trim (or v ""))]) headers)))
 
 (defn create-sig-request
-  "Creates a signature request. 
+  "Creates a signature request.
 
    Main transformation: we sort and transform the `headers` map."
   [request]
   (-> request
       (update :headers canonicalize-headers)))
 
-;; -------------------- 
-;; presign-s3-url 
+;; --------------------
+;; presign-s3-url
 
 (defn s3-host [region bucket]
   (str bucket
        "."
        (if (= region "us-east-1") "s3" (str "s3-" region))
        ".amazonaws.com"))
+
+(defn- uri-port [^URI uri]
+  (let [port (.getPort uri)]
+    (when-not (= -1 port)
+      port)))
+
+(defn- uri-host-header [^URI uri]
+  (if-let [port (uri-port uri)]
+    (str (.getHost uri) ":" port)
+    (.getHost uri)))
 
 (defn amz-credential [{:keys [access-key signing-instant region service]}]
   (str access-key "/"
@@ -283,14 +293,21 @@
 
                               method
                               region
+                              endpoint
+                              path-style?
                               bucket
                               ^String path]}]
 
   (let [signing-instant (or signing-instant (Instant/now))
-        host (s3-host region bucket)
         path-with-slash (if (.startsWith path "/")
                           path
                           (str "/" path))
+        endpoint-uri (when endpoint (URI/create endpoint))
+        scheme (if endpoint-uri (.getScheme endpoint-uri) "https")
+        host (if endpoint-uri (uri-host-header endpoint-uri) (s3-host region bucket))
+        url-path (if path-style?
+                   (str "/" bucket path-with-slash)
+                   path-with-slash)
         amz-expires (str (.getSeconds expires-duration))
         query {"X-Amz-Algorithm" sig-algorithm
                "X-Amz-Credential" (amz-credential {:access-key access-key
@@ -309,7 +326,7 @@
                                          :method method
                                          :region region
                                          :service "s3"
-                                         :path path-with-slash
+                                         :path url-path
 
                                          :signing-instant signing-instant
                                          :query query
@@ -317,5 +334,4 @@
                                          :payload unsigned-payload})
         signature (->signature sig-request)
         all-query-params (assoc query "X-Amz-Signature" signature)]
-    (str "https://" host path-with-slash "?" (->canonical-query-str all-query-params))))
-
+    (str scheme "://" host url-path "?" (->canonical-query-str all-query-params))))

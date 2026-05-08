@@ -86,3 +86,66 @@ title: Magic Code Auth
   expect(result).toContain('- **Web**: For Next.js or other React frameworks');
   expect(result).toContain('- **Mobile**: For Expo and React Native');
 });
+
+test('converts blank-link tags to markdown links', () => {
+  const input = `---
+title: Test
+---
+
+From the {% blank-link href="/dash?s=main&t=auth" label="Auth" /%} tab on the Instant dashboard.`;
+
+  const result = transformContent(input);
+  expect(result).toContain(
+    'From the [Auth](/dash?s=main&t=auth) tab on the Instant dashboard.',
+  );
+  expect(result).not.toContain('blank-link');
+});
+
+test('renders blank-link label as plain text when href is missing', () => {
+  const input = `---
+title: Test
+---
+
+See {% blank-link label="the docs" /%} for details.`;
+
+  const result = transformContent(input);
+  expect(result).toContain('See the docs for details.');
+  expect(result).not.toContain('blank-link');
+});
+
+test('emits "From the dashboard" / "From the terminal" headings for setup-paths', () => {
+  const input = `---
+title: Test
+---
+
+{% setup-paths %}
+
+{% dashboard-path %}
+
+From the {% blank-link href="/dash?s=main&t=auth" label="Auth" /%} tab:
+
+- Click "Set up Google"
+- Click "Add Client"
+
+{% /dashboard-path %}
+
+{% terminal-path %}
+
+\`\`\`shell
+npx instant-cli@latest auth client add --type google --name google-web
+\`\`\`
+
+{% /terminal-path %}
+
+{% /setup-paths %}`;
+
+  const result = transformContent(input);
+  expect(result).toContain('**From the dashboard**');
+  expect(result).toContain('**From the terminal**');
+  expect(result).toContain('From the [Auth](/dash?s=main&t=auth) tab:');
+  expect(result).toContain('- Click "Set up Google"');
+  expect(result).toContain('npx instant-cli@latest auth client add');
+  expect(result).not.toContain('setup-paths');
+  expect(result).not.toContain('dashboard-path');
+  expect(result).not.toContain('terminal-path');
+});

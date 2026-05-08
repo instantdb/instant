@@ -1093,7 +1093,10 @@
            :x-amzn-cf-id (rs/socket-x-amz-cf-id socket)
            :transport (if (contains? socket :sse-conn)
                         "sse"
-                        "ws"))))
+                        "ws")
+           :original-trace-id (-> event
+                                  :original-event
+                                  :trace-id))))
 
 (defn handle-receive [store session event metadata]
   (binding [*request-info* {:ip (rs/socket-ip (:session/socket session))
@@ -1101,7 +1104,8 @@
     (tracer/with-exceptions-silencer [silence-exceptions]
       (tracer/with-span! {:name "receive-worker/handle-receive"
                           :attributes (handle-receive-attrs store session event metadata)}
-        (let [in-progress-stmts (sql/make-statement-tracker)
+        (let [event (assoc event :trace-id (tracer/current-trace-id))
+              in-progress-stmts (sql/make-statement-tracker)
               debug-info (atom nil)
               app-id (-> session :session/auth :app :id)
               timeout-ms (or (when app-id

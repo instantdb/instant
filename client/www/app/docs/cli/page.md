@@ -226,3 +226,26 @@ fi
 appId=$(echo "$output" | jq -r '.appId')
 adminToken=$(echo "$output" | jq -r '.adminToken')
 ```
+
+## OAuth clients and redirect origins
+
+You can manage OAuth clients and redirect origins from the CLI in addition to the dashboard. Run `--help` on any subcommand for the full list of provider-specific flags.
+
+```shell
+# Add a Google web client using Instant's dev credentials
+npx instant-cli@latest auth client add \
+  --type google --app-type web \
+  --name google-web --dev-credentials
+
+# List existing clients
+npx instant-cli@latest auth client list
+
+# Upgrade a Google dev client to your own credentials
+npx instant-cli@latest auth client update \
+  --name google-web \
+  --client-id <id> --client-secret <secret>
+
+# Add a redirect origin
+npx instant-cli@latest auth origin add \
+  --type website --url <your-domain>
+```

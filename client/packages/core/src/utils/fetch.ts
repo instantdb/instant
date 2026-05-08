@@ -91,7 +91,11 @@ export class InstantAPIError extends InstantError {
   constructor(error: InstantIssue) {
     // Create a descriptive message based on the error
     const message = error.body?.message || `API Error (${error.status})`;
-    super(message, (error.body as any).hint, (error.body as any)['trace-id']);
+    super(
+      message,
+      (error.body as any).hint,
+      (error.body as any)?.traceId || (error.body as any)['trace-id'],
+    );
 
     const actualProto = new.target.prototype;
     if (Object.setPrototypeOf) {
