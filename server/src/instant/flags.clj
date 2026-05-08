@@ -355,6 +355,9 @@
 (defn use-get-datalog-queries-for-topics-v2? []
   (toggled? :use-get-datalog-queries-for-topics-v2? true))
 
+(defn use-app-email-verification? []
+  (toggled? :use-app-email-verification? false))
+
 (defn enable-wal-entity-log? [app-id]
   (or (toggled? :enable-wal-entity-log-globally)
       (contains? (flag :enable-wal-entity-log-apps) app-id)))
