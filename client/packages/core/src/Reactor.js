@@ -505,7 +505,7 @@ export default class Reactor {
   /**
    * @param {'enqueued' | 'pending' | 'synced' | 'timeout' |  'error' } status
    * @param {string} eventId
-   * @param {{message?: string, type?: string, status?: number, hint?: unknown}} [errorMsg]
+   * @param {{message?: string, type?: string, status?: number, hint?: unknown, traceId?: string}} [errorMsg]
    */
   _finishTransaction(status, eventId, errorMsg) {
     const dfd = this.mutationDeferredStore.get(eventId);
@@ -537,6 +537,7 @@ export default class Reactor {
           new InstantError(
             errorMsg?.message || 'Unknown error',
             errorMsg?.hint,
+            errorMsg?.traceId,
           ),
         );
       }
@@ -931,7 +932,7 @@ export default class Reactor {
   /**
    * @param {'timeout' | 'error'} status
    * @param {string} eventId
-   * @param {{message?: string, type?: string, status?: number, hint?: unknown}} errorMsg
+   * @param {{message?: string, type?: string, status?: number, hint?: unknown, traceId?: string}} errorMsg
    */
   _handleMutationError(status, eventId, errorMsg) {
     const mut = this._pendingMutations().get(eventId);
@@ -945,6 +946,7 @@ export default class Reactor {
       const errDetails = {
         message: errorMsg.message,
         hint: errorMsg.hint,
+        traceId: errorMsg.traceId,
       };
       this.notifyAll();
       this.notifyAttrsSubs();
@@ -974,7 +976,7 @@ export default class Reactor {
     }
 
     if (prevMutation) {
-      this._handleMutationError('error', eventId, msg);
+      this._handleMutationError('error', eventId, errorMessage);
       return;
     }
 
