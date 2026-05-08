@@ -1,5 +1,6 @@
-import { Effect } from 'effect';
-import { optOrPrompt, validateRequired } from '../src/lib/ui.ts';
+import { Effect, Schema } from 'effect';
+import { Args } from '../src/lib/args.ts';
+import { validateRequired } from '../src/lib/ui.ts';
 import { UI } from '../src/ui/index.ts';
 import { BadArgsError } from '../src/errors.ts';
 
@@ -17,6 +18,13 @@ export const makeOAuthMock = (mocks: {
       if (!used.has(c)) return c;
     }
   };
+
+  const GoogleAppTypeSchema = Schema.Literal(
+    'web',
+    'ios',
+    'android',
+    'button-for-web',
+  );
 
   const getOrCreateProvider = Effect.fn(function* (type: string) {
     const auth: any = yield* mocks.getAppsAuth();
@@ -37,11 +45,8 @@ export const makeOAuthMock = (mocks: {
       (auth.oauth_clients ?? []).map((c: any) => c.client_name),
     );
     const suggested = findName(providerType, used);
-    const clientName = yield* optOrPrompt(opts.name, {
-      simpleName: '--name',
-      required: true,
-      skipIf: false,
-      prompt: {
+    const clientName = yield* Args.text(opts, 'name').pipe(
+      Args.prompt({
         prompt: 'Client Name:',
         defaultValue: suggested,
         placeholder: suggested,
@@ -50,9 +55,10 @@ export const makeOAuthMock = (mocks: {
           UI.modifiers.topPadding,
           UI.modifiers.dimOnComplete,
         ]),
-      },
-    });
-    if (used.has(clientName || '')) {
+      }),
+      Args.required(),
+    );
+    if (used.has(clientName)) {
       return yield* BadArgsError.make({
         message: `The unique name '${clientName}' is already in use.`,
       });
@@ -62,6 +68,7 @@ export const makeOAuthMock = (mocks: {
 
   return {
     ...mocks,
+    GoogleAppTypeSchema,
     findName,
     getOrCreateProvider,
     getClientNameAndProvider,

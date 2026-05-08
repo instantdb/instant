@@ -3,16 +3,12 @@ import { Effect, Schema } from 'effect';
 import { CurrentApp } from '../context/currentApp.ts';
 import { InstantHttpAuthed, withCommand } from './http.ts';
 import chalk from 'chalk';
-import {
-  optOrPrompt,
-  runUIEffect,
-  stripFirstBlankLine,
-  validateRequired,
-} from './ui.ts';
+import { runUIEffect, stripFirstBlankLine, validateRequired } from './ui.ts';
 import { UI } from '../ui/index.ts';
 import { BadArgsError } from '../errors.ts';
 import { link } from '../logging.ts';
 import type { ClientTypeSchema } from '../commands/auth/client/add.ts';
+import { Args } from './args.ts';
 
 export const AuthorizedOriginService = Schema.Literal(
   'generic',
@@ -32,8 +28,28 @@ export const OAuthServiceProvider = Schema.Struct({
   provider_name: Schema.String,
 });
 
+export const GoogleAppTypeSchema = Schema.Literal(
+  'web',
+  'ios',
+  'android',
+  'button-for-web',
+);
+
 const NullableString = Schema.Union(Schema.String, Schema.Null).pipe(
   Schema.optional,
+);
+
+const NullableBoolean = Schema.Union(Schema.Boolean, Schema.Null).pipe(
+  Schema.optional,
+);
+
+const OAuthClientMeta = Schema.Struct({
+  // Currently the CLI only reads Google app type from meta. Other providers store
+  // different meta shapes, so keep the rest open until we have a clean
+  // top-level discriminator for a full provider-specific union.
+  appType: GoogleAppTypeSchema.pipe(Schema.optional),
+}).pipe(
+  Schema.extend(Schema.Record({ key: Schema.String, value: Schema.Any })),
 );
 
 export const OAuthClient = Schema.Struct({
@@ -45,7 +61,8 @@ export const OAuthClient = Schema.Struct({
   token_endpoint: NullableString,
   discovery_endpoint: NullableString,
   redirect_to: NullableString,
-  meta: Schema.Any.pipe(Schema.optional),
+  meta: Schema.Union(OAuthClientMeta, Schema.Null).pipe(Schema.optional),
+  use_shared_credentials: NullableBoolean,
 });
 
 export const AddOAuthProviderResponse = Schema.Struct({
@@ -111,6 +128,7 @@ export const addOAuthClient = Effect.fn(function* (params: {
   discoveryEndpoint?: string;
   redirectTo?: string;
   meta?: unknown;
+  useSharedCredentials?: boolean;
 }) {
   const http = (yield* InstantHttpAuthed).pipe(withCommand('auth'));
   const targetAppId = params.appId ?? (yield* CurrentApp).appId;
@@ -127,6 +145,35 @@ export const addOAuthClient = Effect.fn(function* (params: {
         discovery_endpoint: params.discoveryEndpoint,
         redirect_to: params.redirectTo,
         meta: params.meta,
+        use_shared_credentials: params.useSharedCredentials,
+      }),
+    })
+    .pipe(
+      Effect.flatMap(HttpClientResponse.schemaBodyJson(AddOAuthClientResponse)),
+    );
+});
+
+export const updateOAuthClient = Effect.fn(function* (params: {
+  oauthClientId: string;
+  clientId?: string | null;
+  clientSecret?: string | null;
+  discoveryEndpoint?: string | null;
+  redirectTo?: string | null;
+  meta?: unknown;
+  useSharedCredentials?: boolean | null;
+}) {
+  const http = (yield* InstantHttpAuthed).pipe(withCommand('auth'));
+  const targetAppId = (yield* CurrentApp).appId;
+
+  return yield* http
+    .post(`/dash/apps/${targetAppId}/oauth_clients/${params.oauthClientId}`, {
+      body: HttpBody.unsafeJson({
+        client_id: params.clientId,
+        client_secret: params.clientSecret,
+        discovery_endpoint: params.discoveryEndpoint,
+        redirect_to: params.redirectTo,
+        meta: params.meta,
+        use_shared_credentials: params.useSharedCredentials,
       }),
     })
     .pipe(
@@ -212,11 +259,8 @@ export const getClientNameAndProvider = Effect.fn(function* (
   );
   const suggestedClientName = findName(providerType, usedClientNames);
 
-  const clientName = yield* optOrPrompt(opts.name, {
-    simpleName: '--name',
-    required: true,
-    skipIf: false,
-    prompt: {
+  const clientName = yield* Args.text(opts, 'name').pipe(
+    Args.prompt({
       prompt: 'Client Name:',
       defaultValue: suggestedClientName,
       placeholder: suggestedClientName,
@@ -225,15 +269,47 @@ export const getClientNameAndProvider = Effect.fn(function* (
         UI.modifiers.topPadding,
         UI.modifiers.dimOnComplete,
       ]),
-    },
-  });
+    }),
+    Args.required(),
+  );
 
-  if (usedClientNames.has(clientName || '')) {
+  if (usedClientNames.has(clientName)) {
     return yield* BadArgsError.make({
       message: `The unique name '${clientName}' is already in use.`,
     });
   }
   return { provider, clientName };
+});
+
+export const findClientByIdOrName = Effect.fn(function* (params: {
+  id?: string;
+  name?: string;
+}) {
+  if (params.id && params.name) {
+    return yield* BadArgsError.make({
+      message: 'Cannot specify both --id and --name',
+    });
+  }
+  if (!params.id && !params.name) {
+    return yield* BadArgsError.make({
+      message: 'Must specify --id or --name',
+    });
+  }
+
+  const auth = yield* getAppsAuth();
+  const clients = auth.oauth_clients ?? [];
+  const client = params.id
+    ? clients.find((entry) => entry.id === params.id)
+    : clients.find((entry) => entry.client_name === params.name);
+
+  if (!client) {
+    const lookup = params.id ? `id ${params.id}` : `name ${params.name}`;
+    return yield* BadArgsError.make({
+      message: `OAuth client not found: ${lookup}`,
+    });
+  }
+
+  return { auth, client };
 });
 
 export const removeAuthorizedOrigin = Effect.fn(function* (originId: string) {

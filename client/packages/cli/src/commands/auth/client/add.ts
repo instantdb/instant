@@ -1,20 +1,16 @@
 import { Effect, Match, Option, Schema } from 'effect';
-import { FileSystem } from '@effect/platform';
 import type { authClientAddDef, OptsFromCommand } from '../../../index.ts';
 import { BadArgsError } from '../../../errors.ts';
 import { GlobalOpts } from '../../../context/globalOpts.ts';
-import {
-  optOrPrompt,
-  optOrPromptBoolean,
-  runUIEffect,
-  stripFirstBlankLine,
-  validateRequired,
-} from '../../../lib/ui.ts';
+import { Args } from '../../../lib/args.ts';
+import { runUIEffect, validateRequired } from '../../../lib/ui.ts';
 import {
   addOAuthClient,
   findName,
   getClientNameAndProvider,
   getOrCreateProvider,
+  GoogleAppTypeSchema,
+  OAuthClient,
 } from '../../../lib/oauth.ts';
 import {
   DEFAULT_OAUTH_CALLBACK_URL,
@@ -24,6 +20,7 @@ import {
   APPLE_AUTHORIZATION_ENDPOINT,
   APPLE_DISCOVERY_ENDPOINT,
   APPLE_TOKEN_ENDPOINT,
+  clerkDomainFromPublishableKey,
   LINKEDIN_AUTHORIZATION_ENDPOINT,
   LINKEDIN_DISCOVERY_ENDPOINT,
   LINKEDIN_TOKEN_ENDPOINT,
@@ -32,6 +29,21 @@ import { UI } from '../../../ui/index.ts';
 import chalk from 'chalk';
 import boxen from 'boxen';
 import { link } from '../../../logging.ts';
+import {
+  appleKeyIdPrompt,
+  applePrivateKeyFilePrompt,
+  appleServicesIdPrompt,
+  appleTeamIdPrompt,
+  clerkPublishableKeyPrompt,
+  clientIdPrompt,
+  clientSecretPrompt,
+  firebaseDiscoveryEndpoint,
+  firebaseProjectIdPrompt,
+  readPrivateKeyFile,
+  redirectSetupMessages,
+  redirectUriPrompt,
+  validateFirebaseProjectId,
+} from './shared.ts';
 
 export const ClientTypeSchema = Schema.Literal(
   'google',
@@ -42,12 +54,13 @@ export const ClientTypeSchema = Schema.Literal(
   'firebase',
 );
 
-const GoogleAppTypeSchema = Schema.Literal(
-  'web',
-  'ios',
-  'android',
-  'button-for-web',
-);
+const googleConsoleUrl =
+  'https://console.developers.google.com/apis/credentials';
+const githubDeveloperUrl = 'https://github.com/settings/developers';
+const linkedinDeveloperUrl = 'https://www.linkedin.com/developers/apps';
+const optionalRedirectPrompt = redirectUriPrompt({
+  heading: 'Custom redirect URI (optional):',
+});
 
 const selectGoogleAppType = (value: unknown) =>
   Effect.gen(function* () {
@@ -96,99 +109,224 @@ const selectGoogleAppType = (value: unknown) =>
     );
   });
 
+const selectGoogleCredentialMode = Effect.fn(function* () {
+  return yield* runUIEffect(
+    new UI.Select({
+      options: [
+        {
+          label:
+            'Use dev credentials' +
+            chalk.dim(' (works on localhost and Expo, no Google setup)'),
+          value: 'dev' as const,
+        },
+        {
+          label:
+            'Use my own credentials' +
+            chalk.dim(' (client ID and secret from Google Console)'),
+          value: 'custom' as const,
+        },
+      ],
+      promptText: 'Select Google credential mode:',
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+      defaultValue: 'dev' as const,
+    }),
+  ).pipe(
+    Effect.catchTag('UIError', (e) =>
+      BadArgsError.make({ message: `UI error: ${e.message}` }),
+    ),
+  );
+});
+
+const resolveGoogleCredentialMode = Effect.fn(function* ({
+  appType,
+  opts,
+}: {
+  appType: typeof GoogleAppTypeSchema.Type;
+  opts: Record<string, unknown>;
+}): Effect.fn.Return<'custom' | 'dev', BadArgsError, GlobalOpts> {
+  const { yes } = yield* GlobalOpts;
+  const devCredentialsFlag = Args.isTrue(opts, 'dev-credentials');
+  const hasProvidedSomeCustomCredentials = Args.hasAny(opts, [
+    'client-id',
+    'client-secret',
+    'custom-redirect-uri',
+  ]);
+
+  if (devCredentialsFlag && appType !== 'web') {
+    return yield* BadArgsError.make({
+      message:
+        '--dev-credentials is only supported for --app-type web. Native Google clients need credentials from Google.',
+    });
+  }
+
+  if (devCredentialsFlag && hasProvidedSomeCustomCredentials) {
+    return yield* BadArgsError.make({
+      message:
+        '--dev-credentials cannot be combined with --client-id, --client-secret, or --custom-redirect-uri.',
+    });
+  }
+
+  if (appType !== 'web') {
+    return 'custom';
+  }
+
+  if (hasProvidedSomeCustomCredentials) {
+    return 'custom';
+  }
+
+  if (devCredentialsFlag) {
+    return 'dev';
+  }
+
+  if (yes) {
+    return 'dev';
+  }
+
+  return yield* selectGoogleCredentialMode();
+});
+
+const printGoogleDevCredentialsClient = Effect.fn(function* ({
+  appType,
+  client,
+}: {
+  appType: typeof GoogleAppTypeSchema.Type;
+  client: typeof OAuthClient.Type;
+}) {
+  yield* Effect.log(
+    boxen(
+      [
+        `Google OAuth client created: ${client.client_name}`,
+        `App type: ${appType}`,
+        `Credentials: Instant dev credentials`,
+        `ID: ${client.id}`,
+        '',
+        'No Google Console setup required.',
+        'Works on localhost and Expo during development.',
+        '',
+        chalk.bold('Ready for production? Run:'),
+        `  instant-cli auth client update --name ${client.client_name} --client-id <id> --client-secret <secret>`,
+      ].join('\n'),
+      { dimBorder: true, padding: { right: 1, left: 1 } },
+    ),
+  );
+});
+
+const printGoogleCustomCredentialsClient = Effect.fn(function* ({
+  appType,
+  client,
+  clientId,
+  customRedirectUri,
+  redirectUri,
+}: {
+  appType: typeof GoogleAppTypeSchema.Type;
+  client: typeof OAuthClient.Type;
+  clientId: string | undefined;
+  customRedirectUri: string | undefined;
+  redirectUri: string | undefined;
+}) {
+  const redirectMessages: string[] = [];
+  if (appType === 'web' && redirectUri) {
+    redirectMessages.push(
+      ...redirectSetupMessages({
+        prompt: 'Add this redirect URI in Google Console',
+        redirectUri,
+        showCustomRedirectInstructions: Boolean(customRedirectUri),
+      }),
+    );
+  }
+
+  yield* Effect.log(
+    boxen(
+      [
+        `Google OAuth client created: ${client.client_name}`,
+        `App type: ${appType}`,
+        `ID: ${client.id}`,
+        `Google Client ID: ${client.client_id ?? clientId}`,
+        ...redirectMessages,
+      ].join('\n'),
+      { dimBorder: true, padding: { right: 1, left: 1 } },
+    ),
+  );
+});
+
 const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
   // This one requires special logic for getting client name
   // because the suggested name includes the app type
   const appType = yield* selectGoogleAppType(opts['app-type']);
+  const credentialMode = yield* resolveGoogleCredentialMode({
+    appType,
+    opts,
+  });
+  const useSharedCredentials = credentialMode === 'dev';
+
   const { auth, provider } = yield* getOrCreateProvider('google');
   const usedClientNames = new Set(
     (auth.oauth_clients ?? []).map((client) => client.client_name),
   );
   const suggestedClientName = findName(`google-${appType}`, usedClientNames);
 
-  const clientName = yield* optOrPrompt(opts.name, {
-    simpleName: '--name',
-    required: true,
-    skipIf: false,
-    prompt: {
+  const clientName = yield* Args.text(opts, 'name').pipe(
+    Args.prompt({
       prompt: 'Client Name:',
       defaultValue: suggestedClientName,
       placeholder: suggestedClientName,
       validate: validateRequired,
-      modifyOutput: UI.modifiers.piped([UI.modifiers.dimOnComplete]),
-    },
-  });
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
+    }),
+    Args.required(),
+  );
 
-  if (usedClientNames.has(clientName || '')) {
+  if (usedClientNames.has(clientName)) {
     return yield* BadArgsError.make({
       message: `The unique name '${clientName}' is already in use.`,
     });
   }
 
-  const clientId = yield* optOrPrompt(opts['client-id'], {
-    simpleName: '--client-id',
-    required: true,
-    skipIf: false,
-    prompt: {
-      prompt: `Client ID: ${chalk.dim(`(from ${link('https://console.developers.google.com/apis/credentials')})`)}`,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-      validate: validateRequired,
-    },
-  });
+  const clientId = yield* Args.text(opts, 'client-id').pipe(
+    Args.availableWhen(!useSharedCredentials, {
+      message:
+        '--client-id is not compatible with --dev-credentials. Drop one or the other.',
+    }),
+    Args.prompt(clientIdPrompt({ providerUrl: googleConsoleUrl })),
+    Args.required(),
+  );
 
-  const clientSecret = yield* optOrPrompt(opts['client-secret'], {
-    required: appType === 'web',
-    skipIf: appType !== 'web',
-    simpleName: '--client-secret',
-    prompt: {
-      prompt: `Client Secret: ${chalk.dim(`(from ${link('https://console.developers.google.com/apis/credentials')})`)}`,
-      validate: validateRequired,
-      sensitive: true,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-  });
+  const usesCustomWebCredentials = !useSharedCredentials && appType === 'web';
+  const clientSecret = yield* Args.text(opts, 'client-secret').pipe(
+    Args.availableWhen(usesCustomWebCredentials, {
+      message: useSharedCredentials
+        ? '--client-secret is not compatible with --dev-credentials. Drop one or the other.'
+        : undefined,
+    }),
+    Args.prompt(clientSecretPrompt({ providerUrl: googleConsoleUrl })),
+    Args.required(),
+  );
 
-  const customRedirectUri = yield* optOrPrompt(opts['custom-redirect-uri'], {
-    required: false,
-    prompt: {
-      prompt: '',
-      placeholder: 'https://yoursite.com/oauth/callback',
-      modifyOutput: UI.modifiers.piped([
-        (output, status) => {
-          if (status === 'idle') {
-            return (
-              `\nCustom redirect URI (optional):
-${chalk.dim('With a custom redirect URI, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
-${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all query parameters preserved.`)}\n\n` +
-              stripFirstBlankLine(output)
-            );
-          }
-          return `\nCustom redirect URI (optional):\n${stripFirstBlankLine(output)}`;
-        },
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-    simpleName: '--custom-redirect-uri',
-    skipIf: appType !== 'web',
-    skipMessage: 'Provided custom redirect URI when not using web app type.',
-  });
+  const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
+    Args.availableWhen(usesCustomWebCredentials, {
+      message: useSharedCredentials
+        ? '--custom-redirect-uri is not compatible with --dev-credentials.'
+        : 'Provided custom redirect URI when not using web app type.',
+    }),
+    Args.prompt(optionalRedirectPrompt),
+    Args.optional(),
+  );
 
-  if (!clientName) {
-    return yield* BadArgsError.make({ message: 'Client name is required.' }); // Should never reach this
-  }
-  const redirectUri = customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
+  const redirectUri = useSharedCredentials
+    ? undefined
+    : customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
 
   const response = yield* addOAuthClient({
     providerId: provider.id,
     clientName,
-    clientId,
-    clientSecret: clientSecret,
+    clientId: useSharedCredentials ? undefined : clientId,
+    clientSecret: useSharedCredentials ? undefined : clientSecret,
     authorizationEndpoint: GOOGLE_AUTHORIZATION_ENDPOINT,
     tokenEndpoint: GOOGLE_TOKEN_ENDPOINT,
     discoveryEndpoint: GOOGLE_DISCOVERY_ENDPOINT,
@@ -197,37 +335,24 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
       appType,
       skipNonceChecks: true,
     },
+    useSharedCredentials,
   });
 
-  const redirectMessages: string[] = [];
-  if (appType === 'web') {
-    redirectMessages.push(
-      chalk.bold(
-        `\nAdd this redirect URI in Google Console:\n${redirectUri}\n`,
-      ),
-    );
-    if (customRedirectUri) {
-      redirectMessages.push(
-        `Your custom redirect must forward to ${chalk.bold(DEFAULT_OAUTH_CALLBACK_URL)} with all query parameters preserved.`,
-      );
-      redirectMessages.push(
-        `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,
-      );
-    }
+  if (useSharedCredentials) {
+    yield* printGoogleDevCredentialsClient({
+      appType,
+      client: response.client,
+    });
+    return;
   }
 
-  yield* Effect.log(
-    boxen(
-      [
-        `Google OAuth client created: ${response.client.client_name}`,
-        `App type: ${appType}`,
-        `ID: ${response.client.id}`,
-        `Google Client ID: ${response.client.client_id ?? clientId}`,
-        ...redirectMessages,
-      ].join('\n'),
-      { dimBorder: true, padding: { right: 1, left: 1 } },
-    ),
-  );
+  yield* printGoogleCustomCredentialsClient({
+    appType,
+    client: response.client,
+    clientId,
+    customRedirectUri,
+    redirectUri,
+  });
 });
 
 const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
@@ -236,62 +361,20 @@ const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
     opts,
   );
 
-  const clientId = yield* optOrPrompt(opts['client-id'], {
-    simpleName: '--client-id',
-    required: true,
-    skipIf: false,
-    prompt: {
-      prompt: `Client ID ${chalk.dim(`(from ${link('https://github.com/settings/developers')})`)}`,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-      validate: validateRequired,
-    },
-  });
+  const clientId = yield* Args.text(opts, 'client-id').pipe(
+    Args.prompt(clientIdPrompt({ providerUrl: githubDeveloperUrl })),
+    Args.required(),
+  );
 
-  const clientSecret = yield* optOrPrompt(opts['client-secret'], {
-    required: true,
-    skipIf: false,
-    simpleName: '--client-secret',
-    prompt: {
-      prompt: `Client Secret: ${chalk.dim(`(from ${link('https://github.com/settings/developers')})`)}`,
-      validate: validateRequired,
-      sensitive: true,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-  });
+  const clientSecret = yield* Args.text(opts, 'client-secret').pipe(
+    Args.prompt(clientSecretPrompt({ providerUrl: githubDeveloperUrl })),
+    Args.required(),
+  );
 
-  const customRedirectUri = yield* optOrPrompt(opts['custom-redirect-uri'], {
-    required: false,
-    simpleName: '--custom-redirect-uri',
-    skipIf: false,
-    prompt: {
-      prompt: '',
-      placeholder: 'https://yoursite.com/oauth/callback',
-      modifyOutput: UI.modifiers.piped([
-        (output, status) => {
-          if (status === 'idle') {
-            return (
-              `\nCustom redirect URI (optional):
-${chalk.dim('With a custom redirect URI, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
-${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all query parameters preserved.`)}\n\n` +
-              stripFirstBlankLine(output)
-            );
-          }
-          return `\nCustom redirect URI (optional):\n${stripFirstBlankLine(output)}`;
-        },
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-  });
-
-  if (!clientName) {
-    return yield* BadArgsError.make({ message: 'Client name is required.' });
-  }
+  const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
+    Args.prompt(optionalRedirectPrompt),
+    Args.optional(),
+  );
 
   const redirectUri = customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
 
@@ -306,19 +389,11 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
     meta: { providerName: 'github' },
   });
 
-  const redirectMessages: string[] = [
-    chalk.bold(
-      `\nAdd this callback URL in your GitHub OAuth App settings:\n${redirectUri}\n`,
-    ),
-  ];
-  if (customRedirectUri) {
-    redirectMessages.push(
-      `Your custom redirect must forward to ${chalk.bold(DEFAULT_OAUTH_CALLBACK_URL)} with all query parameters preserved.`,
-    );
-    redirectMessages.push(
-      `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,
-    );
-  }
+  const redirectMessages = redirectSetupMessages({
+    prompt: 'Add this callback URL in your GitHub OAuth App settings',
+    redirectUri,
+    showCustomRedirectInstructions: Boolean(customRedirectUri),
+  });
 
   yield* Effect.log(
     boxen(
@@ -341,62 +416,20 @@ const handleLinkedInClient = Effect.fn(function* (
     opts,
   );
 
-  const clientId = yield* optOrPrompt(opts['client-id'], {
-    simpleName: '--client-id',
-    required: true,
-    skipIf: false,
-    prompt: {
-      prompt: `Client ID: ${chalk.dim(`(from ${link('https://www.linkedin.com/developers/apps')})`)}`,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-      validate: validateRequired,
-    },
-  });
+  const clientId = yield* Args.text(opts, 'client-id').pipe(
+    Args.prompt(clientIdPrompt({ providerUrl: linkedinDeveloperUrl })),
+    Args.required(),
+  );
 
-  const clientSecret = yield* optOrPrompt(opts['client-secret'], {
-    required: true,
-    skipIf: false,
-    simpleName: '--client-secret',
-    prompt: {
-      prompt: `Client Secret: ${chalk.dim(`(from ${link('https://www.linkedin.com/developers/apps')})`)}`,
-      validate: validateRequired,
-      sensitive: true,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-  });
+  const clientSecret = yield* Args.text(opts, 'client-secret').pipe(
+    Args.prompt(clientSecretPrompt({ providerUrl: linkedinDeveloperUrl })),
+    Args.required(),
+  );
 
-  const customRedirectUri = yield* optOrPrompt(opts['custom-redirect-uri'], {
-    required: false,
-    simpleName: '--custom-redirect-uri',
-    skipIf: false,
-    prompt: {
-      prompt: '',
-      placeholder: 'https://yoursite.com/oauth/callback',
-      modifyOutput: UI.modifiers.piped([
-        (output, status) => {
-          if (status === 'idle') {
-            return (
-              `\nCustom redirect URI (optional):
-${chalk.dim('With a custom redirect URI, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
-${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all query parameters preserved.`)}\n\n` +
-              stripFirstBlankLine(output)
-            );
-          }
-          return `\nCustom redirect URI (optional):\n${stripFirstBlankLine(output)}`;
-        },
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-  });
-
-  if (!clientName) {
-    return yield* BadArgsError.make({ message: 'Client name is required.' });
-  }
+  const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
+    Args.prompt(optionalRedirectPrompt),
+    Args.optional(),
+  );
 
   const redirectUri = customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
 
@@ -411,19 +444,11 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
     redirectTo: redirectUri,
   });
 
-  const redirectMessages: string[] = [
-    chalk.bold(
-      `\nAdd this redirect URI in your LinkedIn app settings:\n${redirectUri}\n`,
-    ),
-  ];
-  if (customRedirectUri) {
-    redirectMessages.push(
-      `Your custom redirect must forward to ${chalk.bold(DEFAULT_OAUTH_CALLBACK_URL)} with all query parameters preserved.`,
-    );
-    redirectMessages.push(
-      `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,
-    );
-  }
+  const redirectMessages = redirectSetupMessages({
+    prompt: 'Add this redirect URI in your LinkedIn app settings',
+    redirectUri,
+    showCustomRedirectInstructions: Boolean(customRedirectUri),
+  });
 
   yield* Effect.log(
     boxen(
@@ -438,158 +463,75 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
   );
 });
 
-const readPrivateKeyFile = Effect.fn('readPrivateKeyFile')(function* (
-  path: string,
-) {
-  const fs = yield* FileSystem.FileSystem;
-  // Strip shell-escape backslashes so paths like "file\ (2).p8" resolve correctly.
-  // Only on POSIX — Windows uses backslashes as path separators.
-  const normalizedPath =
-    process.platform === 'win32' ? path : path.replace(/\\(.)/g, '$1');
-  const contents = yield* fs.readFileString(normalizedPath, 'utf8').pipe(
-    Effect.mapError(
-      (e) =>
-        new BadArgsError({
-          message: `Could not read private key file at ${normalizedPath}: ${e.message}`,
-        }),
-    ),
-  );
-
-  const trimmed = contents.trim();
-  if (!trimmed) {
-    return yield* BadArgsError.make({
-      message: `Private key file at ${normalizedPath} is empty.`,
-    });
-  }
-  return trimmed;
-});
-
 const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
-  const { yes } = yield* GlobalOpts;
   const { clientName, provider } = yield* getClientNameAndProvider(
     'apple',
     opts,
   );
 
-  const servicesId = yield* optOrPrompt(opts['services-id'], {
-    simpleName: '--services-id',
-    required: true,
-    skipIf: false,
-    prompt: {
-      prompt: `Services ID ${chalk.dim(`(from ${link('https://developer.apple.com/account/resources/identifiers/list/serviceId')})`)}`,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-      validate: validateRequired,
-    },
-  });
+  const servicesId = yield* Args.text(opts, 'services-id').pipe(
+    Args.prompt(appleServicesIdPrompt({})),
+    Args.required(),
+  );
 
   // If any web-flow flag is provided, enable web flow; otherwise ask
   // (non-interactively with --yes we default to native-only).
-  const anyWebFlagProvided = Boolean(
-    opts['team-id'] || opts['key-id'] || opts['private-key-file'],
-  );
+  const anyWebFlagProvided = Args.hasAny(opts, [
+    'team-id',
+    'key-id',
+    'private-key-file',
+    'custom-redirect-uri',
+  ]);
 
   const configureWeb = anyWebFlagProvided
     ? true
-    : yes
-      ? false
-      : yield* optOrPromptBoolean(undefined, {
-          simpleName: '--configure-web',
-          required: false,
-          skipIf: false,
-          prompt: {
-            promptText:
-              'Configure web redirect flow? ' +
-              chalk.dim(
-                '(requires Team ID, Key ID, and a .p8 private key from Apple)',
-              ),
-            defaultValue: false,
-          },
-        });
+    : yield* Args.bool(opts, 'configure-web').pipe(
+        Args.confirm({
+          promptText:
+            'Configure web redirect flow? ' +
+            chalk.dim(
+              '(requires Team ID, Key ID, and a .p8 private key from Apple)',
+            ),
+          defaultValue: false,
+        }),
+        Args.required(),
+      );
 
   const skipWeb = !configureWeb;
   const webSkipMessage =
     'requires configuring the web redirect flow (also provide --team-id, --key-id, and --private-key-file).';
 
-  const teamId = yield* optOrPrompt(opts['team-id'], {
-    simpleName: '--team-id',
-    required: true,
-    skipIf: skipWeb,
-    skipMessage: `--team-id ${webSkipMessage}`,
-    prompt: {
-      prompt: `Team ID ${chalk.dim(`(from ${link('https://developer.apple.com/account#MembershipDetailsCard')})`)}`,
-      validate: validateRequired,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-  });
+  const teamId = yield* Args.text(opts, 'team-id').pipe(
+    Args.availableWhen(!skipWeb, { message: `--team-id ${webSkipMessage}` }),
+    Args.prompt(appleTeamIdPrompt({})),
+    Args.required(),
+  );
 
-  const keyId = yield* optOrPrompt(opts['key-id'], {
-    simpleName: '--key-id',
-    required: true,
-    skipIf: skipWeb,
-    skipMessage: `--key-id ${webSkipMessage}`,
-    prompt: {
-      prompt: `Key ID ${chalk.dim(`(from ${link('https://developer.apple.com/account/resources/authkeys/list')})`)}`,
-      validate: validateRequired,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-  });
+  const keyId = yield* Args.text(opts, 'key-id').pipe(
+    Args.availableWhen(!skipWeb, { message: `--key-id ${webSkipMessage}` }),
+    Args.prompt(appleKeyIdPrompt({})),
+    Args.required(),
+  );
 
-  const privateKeyPath = yield* optOrPrompt(opts['private-key-file'], {
-    simpleName: '--private-key-file',
-    required: true,
-    skipIf: skipWeb,
-    skipMessage: `--private-key-file ${webSkipMessage}`,
-    prompt: {
-      prompt: `Path to .p8 private key file ${chalk.dim('(downloaded from Apple)')}`,
-      validate: validateRequired,
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-  });
+  const privateKeyPath = yield* Args.text(opts, 'private-key-file').pipe(
+    Args.availableWhen(!skipWeb, {
+      message: `--private-key-file ${webSkipMessage}`,
+    }),
+    Args.prompt(applePrivateKeyFilePrompt({})),
+    Args.required(),
+  );
 
   const privateKey = privateKeyPath
     ? yield* readPrivateKeyFile(privateKeyPath)
     : undefined;
 
-  const customRedirectUri = yield* optOrPrompt(opts['custom-redirect-uri'], {
-    required: false,
-    simpleName: '--custom-redirect-uri',
-    skipIf: skipWeb,
-    skipMessage: `--custom-redirect-uri ${webSkipMessage}`,
-    prompt: {
-      prompt: '',
-      placeholder: 'https://yoursite.com/oauth/callback',
-      modifyOutput: UI.modifiers.piped([
-        (output, status) => {
-          if (status === 'idle') {
-            return (
-              `\nCustom redirect URI (optional):
-${chalk.dim('With a custom redirect URI, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
-${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all query parameters preserved.`)}\n\n` +
-              stripFirstBlankLine(output)
-            );
-          }
-          return `\nCustom redirect URI (optional):\n${stripFirstBlankLine(output)}`;
-        },
-        UI.modifiers.dimOnComplete,
-      ]),
-    },
-  });
-
-  if (!clientName) {
-    return yield* BadArgsError.make({ message: 'Client name is required.' });
-  }
+  const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
+    Args.availableWhen(!skipWeb, {
+      message: `--custom-redirect-uri ${webSkipMessage}`,
+    }),
+    Args.prompt(optionalRedirectPrompt),
+    Args.optional(),
+  );
 
   const redirectUri = privateKey
     ? customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL
@@ -617,22 +559,16 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
     `Services ID: ${response.client.client_id ?? servicesId}`,
   ];
 
-  if (privateKey) {
+  if (privateKey && redirectUri) {
     summaryLines.push(`Team ID: ${teamId}`);
     summaryLines.push(`Key ID: ${keyId}`);
     summaryLines.push(
-      chalk.bold(
-        `\nAdd this return URL under your Services ID on ${link('https://developer.apple.com', 'developer.apple.com')}:\n${redirectUri}\n`,
-      ),
+      ...redirectSetupMessages({
+        prompt: `Add this return URL under your Services ID on ${link('https://developer.apple.com', 'developer.apple.com')}`,
+        redirectUri,
+        showCustomRedirectInstructions: Boolean(customRedirectUri),
+      }),
     );
-    if (customRedirectUri) {
-      summaryLines.push(
-        `Your custom redirect must forward to ${chalk.bold(DEFAULT_OAUTH_CALLBACK_URL)} with all query parameters preserved.`,
-      );
-      summaryLines.push(
-        `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,
-      );
-    }
   }
   yield* Effect.log(
     boxen(summaryLines.join('\n'), {
@@ -648,39 +584,12 @@ const handleClerkClient = Effect.fn(function* (opts: Record<string, unknown>) {
     opts,
   );
 
-  const publishableKey = yield* optOrPrompt(opts['publishable-key'], {
-    simpleName: '--publishable-key',
-    required: true,
-    skipIf: false,
-    prompt: {
-      prompt: `Clerk publishable key ${chalk.dim(`(from ${link('https://dashboard.clerk.com/last-active?path=api-keys')})`)}`,
-      placeholder:
-        'pk_********************************************************',
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-      validate: (val) => {
-        if (!val) {
-          return 'Publishable key is required';
-        }
-        if (!val.startsWith('pk_')) {
-          return 'Invalid publishable key. It should start with "pk_".';
-        }
-      },
-    },
-  });
+  const publishableKey = yield* Args.text(opts, 'publishable-key').pipe(
+    Args.prompt(clerkPublishableKeyPrompt({})),
+    Args.required(),
+  );
 
-  if (!clientName) {
-    return yield* BadArgsError.make({ message: 'Client name is required.' });
-  }
-  if (!publishableKey) {
-    return yield* BadArgsError.make({
-      message: 'Publishable key is required.',
-    });
-  }
-
-  const domain = domainFromClerkKey(publishableKey);
+  const domain = clerkDomainFromPublishableKey(publishableKey);
   if (!domain) {
     return yield* BadArgsError.make({
       message: 'Invalid publishable key. Could not extract domain.',
@@ -731,44 +640,15 @@ const handleFirebaseClient = Effect.fn(function* (
     opts,
   );
 
-  const firebaseProjectIdRegex = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/;
-  const projectId = yield* optOrPrompt(opts['project-id'], {
-    simpleName: '--project-id',
-    required: true,
-    skipIf: false,
-    prompt: {
-      prompt: `Firebase project ID: (From Project Settings page on ${link('https://console.firebase.google.com/')})`,
-      placeholder: '',
-      modifyOutput: UI.modifiers.piped([
-        UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
-      ]),
-      validate: (val) => {
-        if (!val) {
-          return 'Project ID is required';
-        }
-        if (!firebaseProjectIdRegex.test(val)) {
-          return 'Invalid Firebase project ID. It must be 6-30 characters, start with a lowercase letter, contain only lowercase letters, digits, and hyphens, and not end with a hyphen.';
-        }
-      },
-    },
-  });
-  // typeguard
-  if (!clientName || !projectId) {
-    return yield* BadArgsError.make({
-      message: 'Missing required arguments',
-    });
-  }
-  if (!firebaseProjectIdRegex.test(projectId)) {
-    return yield* BadArgsError.make({
-      message:
-        'Invalid Firebase project ID. It must be 6-30 characters, start with a lowercase letter, contain only lowercase letters, digits, and hyphens, and not end with a hyphen.',
-    });
-  }
+  const projectId = yield* Args.text(opts, 'project-id').pipe(
+    Args.prompt(firebaseProjectIdPrompt({})),
+    Args.validate(validateFirebaseProjectId),
+    Args.required(),
+  );
   const response = yield* addOAuthClient({
     providerId: provider.id,
     clientName,
-    discoveryEndpoint: `https://securetoken.google.com/${encodeURIComponent(projectId)}/.well-known/openid-configuration`,
+    discoveryEndpoint: firebaseDiscoveryEndpoint(projectId),
   });
 
   yield* Effect.log(
@@ -840,28 +720,3 @@ export const authClientAddCmd = Effect.fn(
     }),
   ),
 );
-
-function domainFromClerkKey(key: string): string | null {
-  try {
-    const parts = key.split('_');
-    const domainPartB64 = parts[parts.length - 1];
-    const domainPart = base64Decode(domainPartB64);
-    return domainPart.replace('$', '');
-  } catch (e) {
-    console.error('Error getting domain from clerk key', e);
-    return null;
-  }
-}
-
-// Base64 decode, switching to url-safe decode if we hit an error
-// Can't be sure which method Clerk uses because you can't generate
-// `+` or `/` with characters that go in a normal host. Urls with
-// chinese characters exist, they might encode to `+` or `/`, and
-// Clerk might support them, so we'll be safe and do both.
-function base64Decode(s: string) {
-  try {
-    return Buffer.from(s, 'base64').toString('utf-8');
-  } catch (e) {
-    return Buffer.from(s, 'base64url').toString('utf-8');
-  }
-}

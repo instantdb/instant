@@ -225,7 +225,9 @@
                                   (not (contains? (set (.getAudience verified-jwt))
                                                   client-id)))
           sub (.getSubject verified-jwt)
-          email-verified (.asBoolean (.getClaim verified-jwt "email_verified"))
+          email-verified-claim (.getClaim verified-jwt "email_verified")
+          email-verified (.asBoolean email-verified-claim)
+          email-verified-str (.asString email-verified-claim)
           email (.asString (.getClaim verified-jwt "email"))
 
           jwt-nonce (.asString (.getClaim verified-jwt "nonce"))
@@ -275,6 +277,13 @@
                   (not sub)
                   "The id_token had no subject.")
           imageURL (.asString (.getClaim verified-jwt "picture"))]
+      (when (and (not email-verified)
+                 email-verified-str)
+        (tracer/record-info! {:name "oauth/email-verified-claim-string"
+                              :attributes {:app-id app-id
+                                           :provider-id provider-id
+                                           :issuer jwt-issuer
+                                           :email-verified-string email-verified-str}}))
       (when error
         (ex/throw-validation-err! :id_token jwt [{:message error}]))
       {:email (when (or allow-unverified-email?
@@ -434,5 +443,3 @@
 
   (restart)
   discovery-endpoint-cache)
-
-

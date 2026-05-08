@@ -1,6 +1,7 @@
 (ns instant.runtime.magic-code-auth
   (:require
    [clojure.string :as string]
+   [instant.config :as config]
    [instant.flags :as flags]
    [instant.model.app :as app-model]
    [instant.model.app-email-template :as app-email-template-model]
@@ -125,16 +126,16 @@
                          :app_title (:title app)
                          :expiration (friendly-expiration app)}
 
-        default-sender  "verify@auth-pm.instantdb.com"
+        {default-sender-email :email} (config/app-email-sender)
 
-        sender-email    (or (:email template) default-sender)
+        sender-email    (or (:email template) default-sender-email)
         email-params    (if template
                           {:sender-email sender-email
                            :sender-name (or (:name template) (:title app))
                            :subject (template-replace (:subject template) template-params)
                            :body (template-replace (:body template) template-params)}
                           {:sender-name (:title app)
-                           :sender-email default-sender
+                           :sender-email default-sender-email
                            :subject (str code " is your verification code for " (:title app))
                            :body (default-body template-params)})
 
@@ -146,14 +147,12 @@
                               (invalid-sender? e)
                               (do
                                 (tracer/record-info! {:name "magic-code/unconfirmed-or-unknown-sender" :attributes {:email sender-email :app-id app-id}})
-                                (postmark/send-structured! (magic-code-email email (assoc email-params :sender-email default-sender))))
-
+                                (postmark/send-structured! (magic-code-email email (assoc email-params :sender-email default-sender-email))))
 
                               ;; Don't throw if it's a test user, even if we can't send email to it
                               (and (= ::ex/validation-failed (-> e ex-data ::ex/type))
                                    (not (nil? (app-model/get-test-user req))))
                               false
-
 
                               :else
                               (throw e))))]

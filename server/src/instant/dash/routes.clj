@@ -210,13 +210,15 @@
 ;; Magic Codes
 
 (defn magic-code-email [{:keys [user magic-code]}]
-  (let [title "Instant"
+  (let [{sender-name :name sender-email :email} (config/dashboard-email-sender)
+        title sender-name
         {:keys [email]} user
         {:keys [code]} magic-code]
-    {:from {:name title
-            :email "verify@dash-pm.instantdb.com"}
+    {:from {:name sender-name
+            :email sender-email}
      :to [{:email email}]
      :subject (str code " is your verification code for " title)
+     :reply-to sender-email
      :html
      (email/standard-body
       "<p><strong>Welcome,</strong></p>
@@ -658,7 +660,7 @@
                                                :use_shared_credentials])})))
 
 (defn update-oauth-client [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/write req)
         id (ex/get-param! req [:params :id] uuid-util/coerce)
         meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
         use-shared-credentials? (when-some [v (-> req :body :use_shared_credentials)]
@@ -666,6 +668,14 @@
         redirect-to (-> req :body :redirect_to string-util/coerce-non-blank-str)
         client-id (ex/get-optional-param! req [:body :client_id] string-util/coerce-non-blank-str)
         client-secret (ex/get-optional-param! req [:body :client_secret] string-util/coerce-non-blank-str)
+        discovery-endpoint (ex/get-optional-param!
+                            req
+                            [:body :discovery_endpoint]
+                            string-util/coerce-non-blank-str)
+        has-client-id? (contains? (:body req) :client_id)
+        has-client-secret? (contains? (:body req) :client_secret)
+        has-discovery-endpoint? (contains? (:body req) :discovery_endpoint)
+        has-use-shared-credentials? (contains? (:body req) :use_shared_credentials)
         _ (when redirect-to
             (ex/assert-valid!
              :redirect_to
@@ -684,13 +694,15 @@
                  ;; Distinguish between null and undefined
                  (contains? (:body req) :meta) (assoc :meta meta)
                  (contains? (:body req) :redirect_to) (assoc :redirect-to redirect-to)
-                 client-id (assoc :client-id client-id)
-                 client-secret (assoc :client-secret client-secret)
-                 (some? use-shared-credentials?) (assoc :use-shared-credentials? use-shared-credentials?))
+                 has-client-id? (assoc :client-id client-id)
+                 has-client-secret? (assoc :client-secret client-secret)
+                 has-discovery-endpoint? (assoc :discovery-endpoint
+                                                discovery-endpoint)
+                 has-use-shared-credentials? (assoc :use-shared-credentials? use-shared-credentials?))
         client (app-oauth-client-model/update! params)]
     (response/ok {:client (select-keys client [:id :provider_id :client_name
                                                :client_id :created_at :meta :discovery_endpoint
-                                               :use_shared_credentials])})))
+                                               :redirect_to :use_shared_credentials])})))
 
 (defn oauth-clients-delete [req]
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/write req)
@@ -700,9 +712,9 @@
                                                :client_id :created_at])})))
 
 (defn claim-app-post
-  "Users can claim two kinds of apps: 
-  
-  1. Ephemeral Apps 
+  "Users can claim two kinds of apps:
+
+  1. Ephemeral Apps
   2. Apps made by getadb.com"
   [req]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
@@ -1068,12 +1080,15 @@
 
 (defn team-member-invite-email [{:keys [invitee-email inviter-id type foreign-key]}]
   (let [user (instant-user-model/get-by-id! {:id inviter-id})
+        {sender-name :name sender-email :email} (config/team-email-sender)
         title (case type
                 :org (:title (org-model/get-by-id! {:id foreign-key}))
-                :app (:title (app-model/get-by-id! {:id foreign-key})))]
-    {:from "Instant <teams@pm.instantdb.com>"
+                :app (:title (app-model/get-by-id! {:id foreign-key})))
+        invite-url (str (config/dashboard-origin) "/dash?s=invites")]
+    {:from (str sender-name " <" sender-email ">")
      :to invitee-email
      :subject (str "[Instant] You've been invited to collaborate on " title)
+     :reply-to sender-email
      :html
      (postmark/standard-body
       (h/html
@@ -1086,7 +1101,7 @@
           :app "app")
         " " title "."]
        [:p "Navigate to "
-        [:a {:href "https://instantdb.com/dash?s=invites"}
+        [:a {:href invite-url}
          "Instant"]
         " to accept the invite."]
        [:p "Note: this invite will expire in 3 days. "
