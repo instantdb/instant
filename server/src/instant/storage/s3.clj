@@ -22,7 +22,7 @@
 ;; ----------------------
 
 (defn- configure-s3-endpoint-client ^S3ClientBuilder [^S3ClientBuilder builder]
-  (if-let [endpoint @config/s3-endpoint]
+  (if-let [endpoint (config/s3-endpoint)]
     (doto builder
       (.endpointOverride (URI/create endpoint))
       (.region (Region/of (config/s3-region)))
@@ -30,7 +30,7 @@
     builder))
 
 (defn- configure-s3-endpoint-async-client ^S3CrtAsyncClientBuilder [^S3CrtAsyncClientBuilder builder]
-  (if-let [endpoint @config/s3-endpoint]
+  (if-let [endpoint (config/s3-endpoint)]
     (doto builder
       (.endpointOverride (URI/create endpoint))
       (.region (Region/of (config/s3-region)))
