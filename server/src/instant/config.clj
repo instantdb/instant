@@ -93,10 +93,9 @@
 (defn s3-storage-secret-key []
   (some-> @config-map :s3-storage-secret-key crypt-util/secret-value))
 
-(def s3-endpoint
-  (delay
-    (or (System/getenv "S3_ENDPOINT")
-        (some-> @config-map :s3-endpoint))))
+(defn s3-endpoint []
+  (or (System/getenv "S3_ENDPOINT")
+      (some-> @config-map :s3-endpoint)))
 
 (defn s3-public-endpoint []
   (or (System/getenv "S3_PUBLIC_ENDPOINT")
