@@ -10,6 +10,8 @@ permissions:
   contents: read
   packages: write
 
+
+
 concurrency:
   group: publish-self-hosted-images-${{ github.ref }}
   cancel-in-progress: false
