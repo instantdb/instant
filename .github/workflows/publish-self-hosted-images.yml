@@ -10,7 +10,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: publish-self-hosted-images-${{ github.sha }}
+  group: publish-self-hosted-images-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -71,8 +71,8 @@ jobs:
           push: true
           tags: |
             ${{ matrix.image }}:${{ github.sha }}-${{ matrix.platform_tag }}
-          cache-from: type=gha,scope=${{ matrix.image_name }}-${{ matrix.platform_tag }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image_name }}-${{ matrix.platform_tag }}
+          cache-from: type=registry,ref=${{ matrix.image }}:cache-${{ matrix.platform_tag }}
+          cache-to: type=registry,ref=${{ matrix.image }}:cache-${{ matrix.platform_tag }},mode=max,image-manifest=true,oci-mediatypes=true,compression=zstd
 
   publish:
     runs-on: ubuntu-latest
