@@ -2,6 +2,7 @@ import {
   InstantAPIError,
   InstantError,
   InstantSchemaDef,
+  InstantUnknownSchema,
   ResolveAttrs,
   version as coreVersion,
 } from '@instantdb/core';
@@ -804,7 +805,7 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
    * );
    */
   static helpers<
-    Schema extends InstantSchemaDef<any, any, any>,
+    Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
   >(): WebhookHelpers<Schema> {
     function typedHandlers(...args: any[]): any {
       if (args.length === 2) {

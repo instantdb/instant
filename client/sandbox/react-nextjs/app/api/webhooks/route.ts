@@ -1,10 +1,4 @@
-import {
-  id,
-  init,
-  InstantError,
-  Webhooks,
-  type InstantUnknownSchemaDef,
-} from '@instantdb/admin';
+import { id, init, InstantError, Webhooks } from '@instantdb/admin';
 
 const apiURI =
   process.env.NEXT_PUBLIC_INSTANT_API_URI || 'http://localhost:8888';
@@ -21,8 +15,7 @@ export const POST = async (req: Request) => {
     }
     const db = init({ appId, apiURI });
     const guestDb = db.asUser({ guest: true });
-    const { typedHandlers, combineHandlers } =
-      Webhooks.helpers<InstantUnknownSchemaDef>();
+    const { typedHandlers, combineHandlers } = Webhooks.helpers();
 
     const handlers = combineHandlers(
       typedHandlers('$default', async (record) => {
