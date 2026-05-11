@@ -89,7 +89,7 @@
                       :user-id user-id
                       :postmark-id postmark-id})]
     (verification/put! {:app-id app-id
-                        :sender-id (get sender :id)
+                        :sender-id (:id sender)
                         :verified true})
     sender))
 
