@@ -1,5 +1,5 @@
 import { Effect, Layer, Ref } from 'effect';
-import { NodeHttpClient } from '@effect/platform-node';
+import * as NodeHttpClient from '@effect/platform-node/NodeHttpClient';
 import { PlatformApi } from '../src/context/platformApi.ts';
 import { CurrentApp } from '../src/context/currentApp.ts';
 import { InstantHttpAuthedLive, InstantHttpLive } from '../src/lib/http.ts';
