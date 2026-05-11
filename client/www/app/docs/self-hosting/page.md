@@ -37,7 +37,7 @@ docker compose --env-file .env.example up -d
 
 ## Full Hetzner Setup Guide
 
-Create a new server on Hetzner. We tested on a server with 4vcpu, 8GB of RAM. For more memory constrained environments, the `JAVA_OPTIONS` env can be set to limit the memory the server container uses.
+Create a new server on Hetzner. We tested on a server with 4 vCPU, 8 GB RAM. This guide also shows how to set up TLS. For memory-constrained environments, set the `JAVA_OPTIONS` environment variable to limit the memory the server container uses.
 
 This setup guide assumes that you have a domain name and can set DNS A records.
 {% callout type="note" %}
@@ -110,7 +110,7 @@ The MinIO bucket is private by default. Files are accessed through Instant-gener
 
 ### DNS
 
-Before running Instant, make sure that you have pointed the subdomain DNS records to the IP address of the server so that when the Caddy reverse proxy starts, it is able to setup TLS certificates automatically.
+Before running Instant, make sure that you have pointed the subdomain DNS records to the IP address of the server so that when the Caddy reverse proxy starts, it is able to set up TLS certificates automatically.
 
 ### Start Command
 
