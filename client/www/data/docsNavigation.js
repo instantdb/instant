@@ -121,6 +121,7 @@ module.exports = [
         href: '/docs/platform-api',
         optionalLLM: true,
       },
+      { title: 'Self Hosting', href: '/docs/self-hosting' },
       {
         title: 'Explorer Component',
         href: '/docs/explorer-component',
