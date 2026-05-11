@@ -417,12 +417,12 @@
   "Re-queues an event for delivery unless it is locked by another machine"
   ([params] (requeue! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id webhook-id isn]}]
-   (sql/execute! ::requeue!
-                 conn
-                 (uhsql/formatp requeue-q
-                                {:isn isn
-                                 :app-id app-id
-                                 :webhook-id webhook-id}))))
+   (sql/execute-one! ::requeue!
+                     conn
+                     (uhsql/formatp requeue-q
+                                    {:isn isn
+                                     :app-id app-id
+                                     :webhook-id webhook-id}))))
 
 (def attr-id-column-idx 2)
 (def pg-size-column-idx 12)
