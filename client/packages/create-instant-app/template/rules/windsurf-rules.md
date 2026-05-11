@@ -402,27 +402,27 @@ The bullets below are links to the Instant documentation. They provide detailed 
 
 Fetch the URL for a topic to learn more about it.
 
-- [Common mistakes](https://instantdb.com/docs/common-mistakes.md): Common mistakes when working with Instant
-- [Initializing Instant](https://instantdb.com/docs/init.md): How to integrate Instant with your app.
-- [Modeling data](https://instantdb.com/docs/modeling-data.md): How to model data with Instant's schema.
-- [Writing data](https://instantdb.com/docs/instaml.md): How to write data with Instant using InstaML.
-- [Reading data](https://instantdb.com/docs/instaql.md): How to read data with Instant using InstaQL.
-- [Instant on the Backend](https://instantdb.com/docs/backend.md): How to use Instant on the server with the Admin SDK.
-- [Patterns](https://instantdb.com/docs/patterns.md): Common patterns for working with InstantDB.
-- [Auth](https://instantdb.com/docs/auth/magic-codes.md): How to add magic code auth to your Instant app.
+- [Common mistakes](https://www.instantdb.com/docs/common-mistakes.md): Common mistakes when working with Instant
+- [Initializing Instant](https://www.instantdb.com/docs/init.md): How to integrate Instant with your app.
+- [Modeling data](https://www.instantdb.com/docs/modeling-data.md): How to model data with Instant's schema.
+- [Writing data](https://www.instantdb.com/docs/instaml.md): How to write data with Instant using InstaML.
+- [Reading data](https://www.instantdb.com/docs/instaql.md): How to read data with Instant using InstaQL.
+- [Instant on the Backend](https://www.instantdb.com/docs/backend.md): How to use Instant on the server with the Admin SDK.
+- [Patterns](https://www.instantdb.com/docs/patterns.md): Common patterns for working with InstantDB.
+- [Auth](https://www.instantdb.com/docs/auth/magic-codes.md): How to add magic code auth to your Instant app.
 - [Guest Auth](https://www.instantdb.com/docs/auth/guest-auth.md): How to add guest auth to your Instant app.
-- [Other Auth](https://instantdb.com/docs/auth.md): Additional auth methods supported by Instant.
-- [Managing users](https://instantdb.com/docs/users.md): How to manage users in your Instant app.
-- [Presence, Cursors, and Activity](https://instantdb.com/docs/presence-and-topics.md): How to add ephemeral features like presence and cursors to your Instant app.
-- [Instant CLI](https://instantdb.com/docs/cli.md): How to use the Instant CLI to manage schema.
-- [Storage](https://instantdb.com/docs/storage.md): How to upload and serve files with Instant.
-- [Streams](https://instantdb.com/docs/streams.md): How to use streams with Instant.
-- [Stripe Payments](https://instantdb.com/docs/stripe-payments.md): How to integrate Stripe payments with Instant.
-- [React Native](https://instantdb.com/docs/start-rn.md): How to use Instant in React Native apps.
-- [Vanilla JS](https://instantdb.com/docs/start-vanilla.md): How to use Instant in vanilla JS apps.
-- [SolidJS](https://instantdb.com/docs/start-solidjs.md): How to use Instant in SolidJS apps.
-- [Svelte](https://instantdb.com/docs/start-svelte.md): How to use Instant in Svelte apps.
-- [TanStack](https://instantdb.com/docs/start-tanstack.md): How to use Instant in TanStack apps.
+- [Other Auth](https://www.instantdb.com/docs/auth.md): Additional auth methods supported by Instant.
+- [Managing users](https://www.instantdb.com/docs/users.md): How to manage users in your Instant app.
+- [Presence, Cursors, and Activity](https://www.instantdb.com/docs/presence-and-topics.md): How to add ephemeral features like presence and cursors to your Instant app.
+- [Instant CLI](https://www.instantdb.com/docs/cli.md): How to use the Instant CLI to manage schema.
+- [Storage](https://www.instantdb.com/docs/storage.md): How to upload and serve files with Instant.
+- [Streams](https://www.instantdb.com/docs/streams.md): How to use streams with Instant.
+- [Stripe Payments](https://www.instantdb.com/docs/stripe-payments.md): How to integrate Stripe payments with Instant.
+- [React Native](https://www.instantdb.com/docs/start-rn.md): How to use Instant in React Native apps.
+- [Vanilla JS](https://www.instantdb.com/docs/start-vanilla.md): How to use Instant in vanilla JS apps.
+- [SolidJS](https://www.instantdb.com/docs/start-solidjs.md): How to use Instant in SolidJS apps.
+- [Svelte](https://www.instantdb.com/docs/start-svelte.md): How to use Instant in Svelte apps.
+- [TanStack](https://www.instantdb.com/docs/start-tanstack.md): How to use Instant in TanStack apps.
 
 # Final Note
 
