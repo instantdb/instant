@@ -227,14 +227,16 @@
           put2 (future (a/>!! in 2))
           _ (is (= true (deref put2 10 :timeout)))
           put3-started (promise)
-          put3 (future (deliver put3-started true)
-                       (a/>!! in 3))
+          put3 (future (let [res (a/>!! in 3)]
+                         (deliver put3-started true)
+                         res))
           put4-started (promise)
-          _put4 (and @put3-started
-                     (future (deliver put4-started true)
-                             (a/>!! in 4)))
-          _put5 (and @put4-started
-                     (future (a/>!! in 5)))]
+          _put4 (future @put3-started
+                        (let [res (a/>!! in 4)]
+                          (deliver put4-started true)
+                          res))
+          _put5 (future @put4-started
+                        (a/>!! in 5))]
 
       (is (= 3 (deref (future (a/<!! out))
                       10
@@ -255,3 +257,4 @@
                       :timeout)))
 
       (is (not= :timeout (deref (future (a/<!! (shutdown))) 10 :timeout))))))
+
