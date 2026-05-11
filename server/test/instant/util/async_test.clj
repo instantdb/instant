@@ -187,12 +187,16 @@
           put2 (future (a/>!! in [3 4]))
           _ (is (= true (deref put2 10 :timeout)))
           put3-started (promise)
-          put3 (future (deliver put3-started true)
-                       (a/>!! in [5 6]))
+          put3 (future (let [res (a/>!! in [5 6])]
+                         (deliver put3-started true)
+                         res))
           put4-started (promise)
-          put4 (and @put3-started (future (deliver put4-started true)
-                                          (a/>!! in [7 8])))
-          _put5 (and @put4-started (future (a/>!! in [9 10])))]
+          put4 (future @put3-started
+                       (let [res (a/>!! in [7 8])]
+                         (deliver put4-started true)
+                         res))
+          _put5 (future @put4-started
+                        (a/>!! in [9 10]))]
 
       (is (= [1 2 3 4] (deref (future (a/<!! out))
                               10
@@ -213,11 +217,11 @@
 
   (testing "custom accumulator"
     (let [{:keys [in out shutdown]} (chunked-chan {:flush-ms 100
-                                          :max-size 3
-                                          :combine (fn [acc x]
-                                                     (+ acc x))
-                                          :size identity
-                                          :init 0})
+                                                   :max-size 3
+                                                   :combine (fn [acc x]
+                                                              (+ acc x))
+                                                   :size identity
+                                                   :init 0})
           put1 (future (a/>!! in 1))
           _ (is (= true (deref put1 10 :timeout)))
           put2 (future (a/>!! in 2))
@@ -227,8 +231,8 @@
                        (a/>!! in 3))
           put4-started (promise)
           _put4 (and @put3-started
-                    (future (deliver put4-started true)
-                            (a/>!! in 4)))
+                     (future (deliver put4-started true)
+                             (a/>!! in 4)))
           _put5 (and @put4-started
                      (future (a/>!! in 5)))]
 
