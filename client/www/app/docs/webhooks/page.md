@@ -114,7 +114,7 @@ Handlers run concurrently. `processRequest` resolves once every handler resolves
 
 ### Next.js (Pages Router)
 
-The Pages Router gives you a Node-style request, so use `processNextPagesRequest`. You also need to disable Next's body parser so the raw bytes are available for signature verification:
+The Pages Router gives you a Node-style request, so use `processNodeRequest`. You also need to disable Next's body parser so the raw bytes are available for signature verification:
 
 ```ts {% showCopy=true %}
 // pages/api/instant-webhook.ts
