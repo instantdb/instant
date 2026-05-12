@@ -476,6 +476,11 @@
                       :actions ["create"]
                       :url "https://example.com/hook"}
               {webhook-a-id :id} (webhook/create! params)]
+          ;; Enabling an already-active webhook must not self-match in the
+          ;; duplicate check.
+          (is (webhook/enable! {:app-id (:id app)
+                                :webhook-id webhook-a-id
+                                :reason "test"}))
           (webhook/disable! {:app-id (:id app)
                              :webhook-id webhook-a-id
                              :reason "test"})
