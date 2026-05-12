@@ -415,10 +415,6 @@ function hexToUint8Array(hexString: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-// XXX: Test in nextjs pages router
-// XXX: Test with express, deno, koa, nestjs
-// XXX: Test with cloudflare
-
 function parseSignatureHeader(h: string): {
   t: string;
   kid: string;
