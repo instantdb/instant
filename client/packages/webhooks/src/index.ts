@@ -234,7 +234,34 @@ export type WebhookPayloadRecordFor<
   Schema extends InstantSchemaDef<any, any, any>,
   EtypeName extends keyof Schema['entities'],
   Action extends WebhookAction,
-> = Extract<WebhookPayloadRecord<Schema>, { etype: EtypeName; action: Action }>;
+> = Action extends 'create'
+  ? {
+      etype: EtypeName;
+      id: string;
+      action: 'create';
+      before: null;
+      after: WebhookEntity<Schema, EtypeName>;
+      idempotencyKey: string;
+    }
+  : Action extends 'update'
+    ? {
+        etype: EtypeName;
+        id: string;
+        action: 'update';
+        before: WebhookEntity<Schema, EtypeName>;
+        after: WebhookEntity<Schema, EtypeName>;
+        idempotencyKey: string;
+      }
+    : Action extends 'delete'
+      ? {
+          etype: EtypeName;
+          id: string;
+          action: 'delete';
+          before: WebhookEntity<Schema, EtypeName>;
+          after: null;
+          idempotencyKey: string;
+        }
+      : never;
 
 export type WebhookHandlerFn<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -322,7 +349,11 @@ export type WebhookHelpers<Schema extends InstantSchemaDef<any, any, any>> = {
     ): TypedHandlerEntry<Schema, EtypeName, Action>;
   };
   combineHandlers: (
-    ...entries: Array<WebhookHandlers<Schema>>
+    ...entries: Array<
+      | TypedHandlerEntry<Schema, any, any>
+      | TypedDefaultEntry<Schema>
+      | WebhookHandlers<Schema>
+    >
   ) => WebhookHandlers<Schema>;
 };
 
