@@ -263,10 +263,11 @@
                             [:= :sink :?sink]]}))
 
 (defn check-webhook-duplicate!
-  "Checks that app is below the webhook limit, will throw a validation error
-   if there are more then 100 (by default) active webhooks for the app."
+  "Checks that app doesn't already have a webhook with the same properties.
+   Will throw a validation error if it finds one.
+   Pass ignore-id if you're running an update on a webhook to prevent the update
+   from seeing itself."
   [conn app-id {:keys [url id-attr-ids actions ignore-id]}]
-  (tool/def-locals)
   (let [{:keys [id]}
         (sql/select-one ::check-webhook-duplicate!
                         conn
@@ -378,7 +379,8 @@
                                                            :webhook-id webhook-id})]
          (check-webhook-duplicate! conn app-id {:url (-> existing :sink (get "url"))
                                                 :id-attr-ids (:id_attr_ids existing)
-                                                :actions (:actions existing)}))
+                                                :actions (:actions existing)
+                                                :ignore-id webhook-id}))
        (sql/do-execute! ::enable!
                         conn
                         (uhsql/formatp enable-q {:app-id app-id
