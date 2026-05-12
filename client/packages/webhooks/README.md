@@ -144,6 +144,8 @@ Handler resolution is most-specific-wins: `etype` + `action` → that etype's `$
 
 Handlers run concurrently. `processRequest` resolves once all of them settle. If any handler rejects, the call rejects — return a non-2xx response so Instant retries the event.
 
+Instant gives each delivery attempt a **15 second timeout** before recording it as a `timeout` error and retrying. Keep your handlers fast — push slow work (emails, third-party APIs, image processing) onto a queue and respond `2xx` as soon as the job is durably enqueued.
+
 ## `processNodeRequest(handlers, req, opts?)`
 
 Adapter for frameworks that hand you a Node-style `IncomingMessage` instead of a Web `Request` — Next.js Pages Router, Express, Koa, NestJS, Fastify, etc. The raw bytes of the body are required to verify the signature, so **don't put a JSON body parser in front of this route** (`express.json()`, Next's default `bodyParser`, etc.).

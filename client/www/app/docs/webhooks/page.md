@@ -41,6 +41,8 @@ Instant retries failed deliveries with backoff. An event moves through these sta
 - `error` — an attempt failed; another retry is scheduled
 - `failed` — all retries exhausted; will not be retried automatically
 
+Each delivery attempt has a **15 second timeout** — if your endpoint hasn't responded by then the attempt is recorded as a `timeout` error and Instant retries. Do any slow work (sending emails, calling third-party APIs, etc.) asynchronously, and respond with `2xx` as soon as you've durably enqueued the work.
+
 A webhook that fails too many times in a row is automatically disabled. You can re-enable it from the dashboard or via the SDK once you've fixed the receiver.
 
 ## Setting up a webhook
