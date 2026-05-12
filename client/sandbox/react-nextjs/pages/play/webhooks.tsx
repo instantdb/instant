@@ -6,7 +6,7 @@ import {
   type WebhookPayload,
 } from '@instantdb/admin';
 import { i, id, type InstantReactWebDatabase } from '@instantdb/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import config from '../../config';
 import EphemeralAppPage from '../../components/EphemeralAppPage';
 
@@ -81,15 +81,17 @@ function App({
       return '';
     }
   }, [appId]);
-  const adminDb = useRef(
-    initAdmin({
-      ...config,
-      appId,
-      adminToken,
-      schema,
-    }),
+  const adminDb = useMemo(
+    () =>
+      initAdmin({
+        ...config,
+        appId,
+        adminToken,
+        schema,
+      }),
+    [appId, adminToken],
   );
-  const manager = adminDb.current.webhooks.manager;
+  const manager = adminDb.webhooks.manager;
 
   const [ngrokInput, setNgrokInput] = useState('');
   const [ngrokUrl, setNgrokUrl] = useState('');
@@ -212,15 +214,15 @@ function App({
     tryFire(async () => {
       const createdAt = Date.now();
       if (etype === 'colors') {
-        await adminDb.current.transact(
-          adminDb.current.tx.colors[id()].update({
+        await adminDb.transact(
+          adminDb.tx.colors[id()].update({
             color: pick(colorOptions),
             createdAt,
           }),
         );
       } else {
-        await adminDb.current.transact(
-          adminDb.current.tx.items[id()].update({
+        await adminDb.transact(
+          adminDb.tx.items[id()].update({
             name: pick(itemNames),
             createdAt,
           }),
@@ -233,16 +235,16 @@ function App({
       if (etype === 'colors') {
         const first = colorsData?.colors?.[0];
         if (!first) return;
-        await adminDb.current.transact(
-          adminDb.current.tx.colors[first.id].update({
+        await adminDb.transact(
+          adminDb.tx.colors[first.id].update({
             color: pick(colorOptions),
           }),
         );
       } else {
         const first = itemsData?.items?.[0];
         if (!first) return;
-        await adminDb.current.transact(
-          adminDb.current.tx.items[first.id].update({ name: pick(itemNames) }),
+        await adminDb.transact(
+          adminDb.tx.items[first.id].update({ name: pick(itemNames) }),
         );
       }
     });
@@ -252,14 +254,14 @@ function App({
       if (etype === 'colors') {
         const first = colorsData?.colors?.[0];
         if (!first) return;
-        await adminDb.current.transact(
-          adminDb.current.tx.colors[first.id].delete(),
+        await adminDb.transact(
+          adminDb.tx.colors[first.id].delete(),
         );
       } else {
         const first = itemsData?.items?.[0];
         if (!first) return;
-        await adminDb.current.transact(
-          adminDb.current.tx.items[first.id].delete(),
+        await adminDb.transact(
+          adminDb.tx.items[first.id].delete(),
         );
       }
     });
@@ -267,7 +269,7 @@ function App({
   const burst = () =>
     tryFire(async () => {
       const createdAt = Date.now();
-      const tx = adminDb.current.tx;
+      const tx = adminDb.tx;
       const ops: any[] = [
         tx.colors[id()].update({ color: pick(colorOptions), createdAt }),
         tx.colors[id()].update({ color: pick(colorOptions), createdAt }),
@@ -283,13 +285,13 @@ function App({
       if (firstItem) {
         ops.push(tx.items[firstItem.id].delete());
       }
-      await adminDb.current.transact(ops);
+      await adminDb.transact(ops);
     });
 
   const setStatusCode = (code: number) =>
     tryFire(async () => {
-      await adminDb.current.transact(
-        adminDb.current.tx.webhookConfig[CONFIG_ID].update({
+      await adminDb.transact(
+        adminDb.tx.webhookConfig[CONFIG_ID].update({
           nextStatusCode: code,
         }),
       );

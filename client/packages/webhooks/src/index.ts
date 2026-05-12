@@ -874,7 +874,8 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
   async keyOfKid(
     kid: string,
   ): Promise<{ alg: ImportAlgorithm; key: CryptoKey }> {
-    const cached = keyCache[kid];
+    const cacheKey = `${this.apiURI}:${kid}`;
+    const cached = keyCache[cacheKey];
     if (cached) {
       return cached;
     }
@@ -888,7 +889,7 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
     }
 
     const res = await importKey(jwk);
-    keyCache[kid] = res;
+    keyCache[cacheKey] = res;
     return res;
   }
 
@@ -918,7 +919,7 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
   ): Promise<WebhookBody> {
     const receivedAt = opts?.receivedAt || new Date();
     const { t, kid, v1 } = parseSignatureHeader(signatureHeader);
-    const tolerance = opts?.tolerance || defaultTolerance;
+    const tolerance = opts?.tolerance ?? defaultTolerance;
     validateT(receivedAt, t, tolerance);
 
     const { alg, key } = await this.keyOfKid(kid);
@@ -988,9 +989,9 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
    * `etype`'s `$default` → top-level `$default`. Records with no matching
    * handler are skipped.
    *
-   * Handlers run concurrently. The returned promise resolves once every
-   * handler has settled (success or failure); rejections in individual
-   * handlers do not bubble up.
+   * Handlers run concurrently. If any handler rejects, the call rejects so
+   * the caller (e.g. {@link processRequest}) can return a non-2xx response
+   * and let Instant retry the event.
    */
   async processPayload(
     handlers: WebhookHandlers<Schema>,
@@ -1010,7 +1011,7 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
         results.push(handler(record as any));
       }
     }
-    await Promise.allSettled(results);
+    await Promise.all(results);
   }
 
   /**

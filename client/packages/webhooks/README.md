@@ -224,7 +224,7 @@ const payload = await db.webhooks.fetchPayloads(body);
 await db.webhooks.processPayload(handlers, payload);
 ```
 
-Same resolution rules and concurrency model as `processRequest`. The returned promise resolves once every handler has settled; rejections inside handlers do **not** bubble up — wrap your handler bodies in `try`/`catch` if you care about per-handler failures.
+Same resolution rules and concurrency model as `processRequest`: handlers run in parallel, and if any of them rejects the call rejects too — return a non-2xx response so Instant retries the event. If you'd rather have a per-handler failure not fail the whole batch, wrap that handler's body in `try`/`catch`.
 
 ## `validate(signatureHeader, body, opts?)`
 
