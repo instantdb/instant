@@ -10,6 +10,9 @@ export default function Home() {
         <li>
           <A href="/infinite-scroll">infinite-scroll</A>
         </li>
+        <li>
+          <A href="/streams">streams</A>
+        </li>
       </ul>
     </div>
   );
