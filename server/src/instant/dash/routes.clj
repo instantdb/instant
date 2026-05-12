@@ -1364,12 +1364,12 @@
         sender-email (email/coerce (get-in req [:body :sender-email])) ;; optional
         custom-sender-name (string-util/coerce-non-blank-str (get-in req [:body :sender-name])) ;; optional
         sender-name (or custom-sender-name (:title app))
-        sender (when sender-email
-                 (app-email-sender-model/sync-sender!
-                  {:app-id (:id app)
-                   :user-id (:id user)
-                   :email sender-email
-                   :name sender-name}))
+        {sender :sender needs-verify :needs-verify} (when sender-email
+                                                      (app-email-sender-model/sync-sender!
+                                                       {:app-id (:id app)
+                                                        :user-id (:id user)
+                                                        :email sender-email
+                                                        :name sender-name}))
         template (app-email-template-model/put!
                   {:app-id (:id app)
                    :email-type email-type
@@ -1377,7 +1377,7 @@
                    :name sender-name
                    :subject subject
                    :body body})]
-    (response/ok {:id (:id template)})))
+    (response/ok {:id (:id template) :needs-verify needs-verify})))
 
 (comment
   (def any-app (app-model/get-by-id {:id "d8f9e0a9-b6f5-49e9-a186-eabc7fe4ddac"}))
