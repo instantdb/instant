@@ -1,4 +1,5 @@
-import { NodeContext, NodeHttpClient } from '@effect/platform-node';
+import * as NodeContext from '@effect/platform-node/NodeContext';
+import * as NodeHttpClient from '@effect/platform-node/NodeHttpClient';
 import { Cause, Effect, Layer, ManagedRuntime } from 'effect';
 import { UnknownException } from 'effect/Cause';
 import chalk from 'chalk';
