@@ -77,9 +77,7 @@ function Demo({ db }: { db: DB }) {
       (a, b) => a.value - b.value,
     ),
   );
-  const loadedValues = createMemo(
-    () => scrollResult().data?.items || [],
-  );
+  const loadedValues = createMemo(() => scrollResult().data?.items || []);
 
   return (
     <div style={{ padding: '16px', 'font-family': 'sans-serif' }}>
@@ -229,7 +227,13 @@ export default function InfiniteScroll() {
     <Show
       when={!dbState().isLoading}
       fallback={
-        <div style={{ padding: '32px', display: 'flex', 'justify-content': 'center' }}>
+        <div
+          style={{
+            padding: '32px',
+            display: 'flex',
+            'justify-content': 'center',
+          }}
+        >
           Creating ephemeral app...
         </div>
       }

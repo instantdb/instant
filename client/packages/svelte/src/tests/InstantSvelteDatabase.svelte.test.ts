@@ -32,11 +32,9 @@ function createMockCore() {
     subscribeQuery: vi.fn((_query: any, _cb: (result: any) => void) => {
       return () => {};
     }),
-    subscribeInfiniteQuery: vi.fn(
-      (_query: any, _cb: (result: any) => void) => {
-        return { unsubscribe: vi.fn(), loadNextPage: vi.fn() };
-      },
-    ),
+    subscribeInfiniteQuery: vi.fn((_query: any, _cb: (result: any) => void) => {
+      return { unsubscribe: vi.fn(), loadNextPage: vi.fn() };
+    }),
     subscribeAuth: vi.fn((_cb: (auth: any) => void) => {
       return () => {};
     }),
@@ -266,12 +264,10 @@ describe('InstantSvelteDatabase', () => {
 
     it('updates state when result arrives', async () => {
       let queryCb: ((resp: any) => void) | undefined;
-      mockCore.subscribeInfiniteQuery.mockImplementation(
-        (_q: any, cb: any) => {
-          queryCb = cb;
-          return { unsubscribe: vi.fn(), loadNextPage: vi.fn() };
-        },
-      );
+      mockCore.subscribeInfiniteQuery.mockImplementation((_q: any, cb: any) => {
+        queryCb = cb;
+        return { unsubscribe: vi.fn(), loadNextPage: vi.fn() };
+      });
 
       let state: any;
       const cleanup = $effect.root(() => {
