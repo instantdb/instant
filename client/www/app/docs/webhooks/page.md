@@ -52,6 +52,7 @@ The easiest way to create a webhook is from the **Webhooks** tab in the dashboar
 You can also create webhooks programmatically from the admin SDK:
 
 ```ts {% showCopy=true %}
+// scripts/create-webhook.ts
 import { init } from '@instantdb/admin';
 import schema from './instant.schema';
 
@@ -79,6 +80,7 @@ The URL must be `https` and resolve to a public host. An app can have up to **10
 ```ts {% showCopy=true %}
 // app/api/instant-webhook/route.ts
 import { init } from '@instantdb/admin';
+import { sendNewPostEmail } from '@./lib/emails';
 import schema from '@/instant.schema';
 
 const db = init({
@@ -122,6 +124,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { init, Webhooks } from '@instantdb/admin';
 import schema from '@/instant.schema';
 
+// Signature verification requires the raw bytes
 export const config = { api: { bodyParser: false } };
 
 const db = init({
