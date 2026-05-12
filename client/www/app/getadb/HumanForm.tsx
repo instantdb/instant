@@ -7,7 +7,7 @@ import copy from 'copy-to-clipboard';
 
 const PLACEHOLDER = '<your app idea here>';
 const FRIENDLY_DEFAULT = `I want you to build me an app. Ask me for an app idea, then follow the instructions below.`;
-const SUFFIX = `Use InstantDB for your backend. For credentials and instructions, fetch http://www.getadb.com/guide and follow the steps.`;
+const SUFFIX = `Use InstantDB for your backend. For credentials and instructions, fetch https://www.getadb.com/guide and follow the steps.`;
 
 const TERM = {
   bg: '#1e1e2e',
