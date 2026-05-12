@@ -32,6 +32,11 @@ function createMockCore() {
     subscribeQuery: vi.fn((_query: any, _cb: (result: any) => void) => {
       return () => {};
     }),
+    subscribeInfiniteQuery: vi.fn(
+      (_query: any, _cb: (result: any) => void) => {
+        return { unsubscribe: vi.fn(), loadNextPage: vi.fn() };
+      },
+    ),
     subscribeAuth: vi.fn((_cb: (auth: any) => void) => {
       return () => {};
     }),
@@ -230,6 +235,138 @@ describe('InstantSvelteDatabase', () => {
 
       expect(state.isLoading).toBe(false);
       expect(state.data).toEqual({ goals: [{ id: '1' }] });
+      cleanup();
+    });
+  });
+
+  describe('useInfiniteQuery', () => {
+    it('starts in loading state', () => {
+      let state: any;
+      const cleanup = $effect.root(() => {
+        state = db.useInfiniteQuery({ goals: {} } as any);
+      });
+
+      expect(state.isLoading).toBe(true);
+      expect(state.data).toBeUndefined();
+      expect(state.error).toBeUndefined();
+      expect(state.canLoadNextPage).toBe(false);
+      expect(typeof state.loadNextPage).toBe('function');
+      cleanup();
+    });
+
+    it('subscribes to core on mount', async () => {
+      const cleanup = $effect.root(() => {
+        db.useInfiniteQuery({ goals: {} } as any);
+      });
+      await tick();
+
+      expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalled();
+      cleanup();
+    });
+
+    it('updates state when result arrives', async () => {
+      let queryCb: ((resp: any) => void) | undefined;
+      mockCore.subscribeInfiniteQuery.mockImplementation(
+        (_q: any, cb: any) => {
+          queryCb = cb;
+          return { unsubscribe: vi.fn(), loadNextPage: vi.fn() };
+        },
+      );
+
+      let state: any;
+      const cleanup = $effect.root(() => {
+        state = db.useInfiniteQuery({ goals: {} } as any);
+      });
+      await tick();
+
+      expect(queryCb).toBeDefined();
+      queryCb!({
+        data: { goals: [{ id: '1', title: 'Test' }] },
+        canLoadNextPage: true,
+      });
+
+      expect(state.isLoading).toBe(false);
+      expect(state.data).toEqual({ goals: [{ id: '1', title: 'Test' }] });
+      expect(state.canLoadNextPage).toBe(true);
+      cleanup();
+    });
+
+    it('loadNextPage delegates to the active subscription', async () => {
+      const loadNextPage = vi.fn();
+      mockCore.subscribeInfiniteQuery.mockImplementation(() => ({
+        unsubscribe: vi.fn(),
+        loadNextPage,
+      }));
+
+      let state: any;
+      const cleanup = $effect.root(() => {
+        state = db.useInfiniteQuery({ goals: {} } as any);
+      });
+      await tick();
+
+      state.loadNextPage();
+      expect(loadNextPage).toHaveBeenCalled();
+      cleanup();
+    });
+
+    it('unsubscribes on cleanup', async () => {
+      const unsubscribe = vi.fn();
+      mockCore.subscribeInfiniteQuery.mockImplementation(() => ({
+        unsubscribe,
+        loadNextPage: vi.fn(),
+      }));
+
+      const cleanup = $effect.root(() => {
+        db.useInfiniteQuery({ goals: {} } as any);
+      });
+      await tick();
+
+      cleanup();
+      expect(unsubscribe).toHaveBeenCalled();
+    });
+
+    it('handles null query', async () => {
+      let state: any;
+      const cleanup = $effect.root(() => {
+        state = db.useInfiniteQuery(null);
+      });
+      await tick();
+
+      expect(state.isLoading).toBe(true);
+      expect(state.data).toBeUndefined();
+      expect(state.canLoadNextPage).toBe(false);
+      expect(mockCore.subscribeInfiniteQuery).not.toHaveBeenCalled();
+      cleanup();
+    });
+
+    it('re-subscribes when function query changes', async () => {
+      const unsubscribe = vi.fn();
+      mockCore.subscribeInfiniteQuery.mockImplementation(() => ({
+        unsubscribe,
+        loadNextPage: vi.fn(),
+      }));
+
+      let queryFilter = $state<string | null>(null);
+
+      const cleanup = $effect.root(() => {
+        db.useInfiniteQuery(() =>
+          queryFilter
+            ? ({ goals: { $: { where: { status: queryFilter } } } } as any)
+            : null,
+        );
+      });
+      await tick();
+
+      expect(mockCore.subscribeInfiniteQuery).not.toHaveBeenCalled();
+
+      queryFilter = 'active';
+      await tick();
+      expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalledTimes(1);
+
+      queryFilter = 'done';
+      await tick();
+      expect(unsubscribe).toHaveBeenCalled();
+      expect(mockCore.subscribeInfiniteQuery).toHaveBeenCalledTimes(2);
       cleanup();
     });
   });
