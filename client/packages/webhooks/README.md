@@ -348,9 +348,12 @@ Returns a page of delivery events for a webhook, newest first. Events are retain
 ```ts
 let cursor: string | null = null;
 do {
-  const { events, pageInfo } = await db.webhooks.manager.listEvents(webhook.id, {
-    after: cursor,
-  });
+  const { events, pageInfo } = await db.webhooks.manager.listEvents(
+    webhook.id,
+    {
+      after: cursor,
+    },
+  );
   for (const event of events) {
     console.log(event.isn, event.status, event.attempts);
   }
