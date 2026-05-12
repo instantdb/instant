@@ -254,15 +254,11 @@ function App({
       if (etype === 'colors') {
         const first = colorsData?.colors?.[0];
         if (!first) return;
-        await adminDb.transact(
-          adminDb.tx.colors[first.id].delete(),
-        );
+        await adminDb.transact(adminDb.tx.colors[first.id].delete());
       } else {
         const first = itemsData?.items?.[0];
         if (!first) return;
-        await adminDb.transact(
-          adminDb.tx.items[first.id].delete(),
-        );
+        await adminDb.transact(adminDb.tx.items[first.id].delete());
       }
     });
 
