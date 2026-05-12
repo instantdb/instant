@@ -1,6 +1,6 @@
 import { test, expect, describe, vi, beforeEach } from 'vitest';
 import { Effect, Layer, Logger } from 'effect';
-import { NodeContext } from '@effect/platform-node';
+import * as NodeContext from '@effect/platform-node/NodeContext';
 import { GlobalOpts } from '../src/context/globalOpts.ts';
 import { CurrentApp } from '../src/context/currentApp.ts';
 import { InstantHttpAuthed } from '../src/lib/http.ts';
