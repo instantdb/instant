@@ -130,6 +130,7 @@ module.exports = [
       { title: 'App teams', href: '/docs/teams', optionalLLM: true },
       { title: 'Storage', href: '/docs/storage' },
       { title: 'Streams', href: '/docs/streams' },
+      { title: 'Webhooks', href: '/docs/webhooks' },
       { title: 'Stripe Payments', href: '/docs/stripe-payments' },
       { title: 'Admin HTTP API', href: '/docs/http-api' },
       { title: '(Experimental) Next.js SSR', href: '/docs/next-ssr' },
