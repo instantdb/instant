@@ -94,6 +94,7 @@ function App({
   const [ngrokInput, setNgrokInput] = useState('');
   const [ngrokUrl, setNgrokUrl] = useState('');
   const [port, setPort] = useState('4000');
+  const [router, setRouter] = useState<'app' | 'pages'>('app');
   const [webhooks, setWebhooks] = useState<WebhookInfo[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -113,8 +114,9 @@ function App({
 
   const webhookUrl = useMemo(() => {
     if (!ngrokUrl) return '';
-    return `${ngrokUrl.replace(/\/$/, '')}/api/webhooks?appId=${encodeURIComponent(appId)}`;
-  }, [ngrokUrl, appId]);
+    const path = router === 'app' ? '/api/webhooks' : '/api/webhooks-pages';
+    return `${ngrokUrl.replace(/\/$/, '')}${path}?appId=${encodeURIComponent(appId)}`;
+  }, [ngrokUrl, appId, router]);
 
   const refreshWebhooks = async () => {
     try {
@@ -328,6 +330,27 @@ function App({
           <button className={btn} onClick={saveNgrok}>
             Save
           </button>
+        </div>
+        <div className="mt-3 flex items-center gap-3 text-xs text-gray-600">
+          <span>Receiver:</span>
+          <label>
+            <input
+              type="radio"
+              name="receiver"
+              checked={router === 'app'}
+              onChange={() => setRouter('app')}
+            />{' '}
+            App router (<code className="bg-gray-100 px-1">app/api/webhooks</code>)
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="receiver"
+              checked={router === 'pages'}
+              onChange={() => setRouter('pages')}
+            />{' '}
+            Pages router (<code className="bg-gray-100 px-1">pages/api/webhooks-pages</code>)
+          </label>
         </div>
         {ngrokSet && (
           <p className="mt-2 text-xs text-gray-500">

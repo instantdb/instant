@@ -116,11 +116,8 @@ export type WebhookInfo = {
     /** HTTPS endpoint that Instant POSTs to. */
     url: string;
   };
-  /**
-   * The entity types (namespaces) this webhook listens to. `null` if every
-   * etype the webhook referenced has since been removed from the schema.
-   */
-  etypes: string[] | null;
+  /** The entity types (namespaces) this webhook listens to. */
+  etypes: string[];
   /** Which write actions trigger delivery. */
   actions: WebhookAction[];
   /** Whether the webhook is currently delivering events. */
@@ -168,8 +165,7 @@ export type WebhookAttempt = {
 export type WebhookEventInfo = {
   /**
    * Instant Sequence Number — a stable, totally ordered identifier for the
-   * event. Doubles as the pagination cursor and is used to address the event
-   * in {@link WebhooksManager.getEvent} and {@link WebhooksManager.resendEvent}.
+   * event.
    */
   isn: string;
   /** Current stage in the delivery lifecycle. */
@@ -523,7 +519,7 @@ function toWebhookInfo(raw: any): WebhookInfo {
   return {
     id: raw.id,
     sink: raw.sink,
-    etypes: raw.etypes ?? null,
+    etypes: raw.etypes ?? [],
     actions: raw.actions,
     status: raw.status,
     disabledReason: raw.disabled_reason ?? null,
@@ -625,6 +621,9 @@ export class WebhooksManager<Schema extends InstantSchemaDef<any, any, any>> {
    * The server rejects the request if `url` is not an HTTPS URL pointing at a
    * public host, if `etypes` doesn't reference any entity in the app's
    * schema, if `actions` is empty, or if the app has hit its webhook limit.
+   *
+   * An app may have at most **100 active webhooks** at a time; {@link delete}
+   * a webhook to free up a slot before creating another.
    *
    * @example
    * const webhook = await db.webhooks.manager.create({
@@ -796,6 +795,9 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
    *   {@link WebhookHandlers} object suitable for {@link processPayload} and
    *   {@link processRequest}.
    *
+   * If you already have a {@link Webhooks} instance, prefer the instance
+   * form (`db.webhooks.helpers()`) — it infers `Schema` automatically.
+   *
    * @example
    * const { typedHandlers, combineHandlers } = Webhooks.helpers<typeof schema>();
    * const handlers = combineHandlers(
@@ -831,6 +833,17 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
       typedHandlers: typedHandlers as any,
       combineHandlers: combineHandlers as any,
     };
+  }
+
+  /**
+   * Instance form of {@link Webhooks.helpers} that infers `Schema` from this
+   * instance — no `<typeof schema>` type argument required.
+   *
+   * @example
+   * const { typedHandlers, combineHandlers } = db.webhooks.helpers();
+   */
+  helpers(): WebhookHelpers<Schema> {
+    return Webhooks.helpers<Schema>();
   }
 
   constructor(config: Config<Schema>, jsonFetch?: JsonFetch) {
@@ -1013,7 +1026,7 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
    * all handlers complete and will reject if any of the handlers fails.
    *
    * @example
-   * const { typedHandlers, combineHandlers } = Webhooks.helpers<typeof schema>();
+   * const { typedHandlers, combineHandlers } = db.webhooks.helpers();
    *
    * const handlers = combineHandlers(
    *   typedHandlers('posts', 'create', async (record) => {
@@ -1043,5 +1056,225 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
     const body = await this.validateRequest(req, opts);
     const payload = await this.fetchPayloads(body);
     await this.processPayload(handlers, payload);
+  }
+
+  /**
+   * Adapter for frameworks that hand you a Node-style `http.IncomingMessage`
+   * (Next.js Pages Router, Express, Koa, etc.) instead of a Web `Request`.
+   * Wraps the request in a Web `Request` and delegates to
+   * {@link processRequest}. You still send the HTTP response yourself.
+   *
+   * The raw body is required for signature verification. The adapter picks
+   * it up from one of:
+   *
+   * - `req.body` if it's a `Buffer` or `Uint8Array` (set by middleware like
+   *   `express.raw({ type: 'application/json' })`)
+   * - `req.body` if it's a string (set by middleware like `express.text()`)
+   * - otherwise the unconsumed request stream
+   *
+   * Don't use a JSON body parser on this route — `express.json()` and
+   * `bodyParser: true` in Next.js both parse the body into an object,
+   * destroying the raw bytes the signature was computed over.
+   *
+   * @example
+   * // Next.js Pages Router (`pages/api/webhooks.ts`)
+   * import type { NextApiRequest, NextApiResponse } from 'next';
+   *
+   * export const config = { api: { bodyParser: false } };
+   *
+   * const { typedHandlers, combineHandlers } = db.webhooks.helpers();
+   *
+   * const handlers = combineHandlers(
+   *   typedHandlers('posts', 'create', async (record) => {
+   *     await sendNewPostEmail(record.after);
+   *   }),
+   *   typedHandlers('$default', (record) => {
+   *     console.log('unhandled record', record);
+   *   }),
+   * );
+   *
+   * export default async function handler(
+   *   req: NextApiRequest,
+   *   res: NextApiResponse,
+   * ) {
+   *   try {
+   *     await db.webhooks.processNodeRequest(handlers, req);
+   *     res.status(200).end();
+   *   } catch (e) {
+   *     res.status(400).json({ error: String(e) });
+   *   }
+   * }
+   *
+   * @example
+   * // Express — skip the JSON body parser on the webhook route and use
+   * // `express.raw()` so `req.body` arrives as a Buffer.
+   * import express from 'express';
+   *
+   * const app = express();
+   *
+   * app.use((req, res, next) => {
+   *   if (req.originalUrl === '/webhooks/instant') return next();
+   *   express.json()(req, res, next);
+   * });
+   *
+   * app.post(
+   *   '/webhooks/instant',
+   *   express.raw({ type: 'application/json' }),
+   *   async (req, res) => {
+   *     try {
+   *       await db.webhooks.processNodeRequest(handlers, req);
+   *       res.status(200).end();
+   *     } catch (e) {
+   *       res.status(400).json({ error: String(e) });
+   *     }
+   *   },
+   * );
+   *
+   * @example
+   * // Koa — `ctx.req` is the raw IncomingMessage. If `koa-bodyparser` (or
+   * // similar) runs on this route it consumes the stream, so either skip it
+   * // here or pull the raw body yourself and shim it onto the request:
+   * import Koa from 'koa';
+   * import Router from '@koa/router';
+   * import rawBody from 'raw-body';
+   *
+   * const router = new Router();
+   *
+   * router.post('/webhooks/instant', async (ctx) => {
+   *   try {
+   *     await db.webhooks.processNodeRequest(handlers, ctx.req, {
+   *       body: rawBody(ctx.req), // adapter awaits the Promise
+   *     });
+   *     ctx.status = 200;
+   *   } catch (e) {
+   *     ctx.status = 400;
+   *     ctx.body = { error: String(e) };
+   *   }
+   * });
+   *
+   * @example
+   * // NestJS (Express adapter). With `rawBody: true` on the factory, Nest
+   * // populates `req.rawBody` itself — just pass `req`.
+   * import { Controller, Post, Req, HttpCode } from '@nestjs/common';
+   * import type { Request } from 'express';
+   *
+   * @Controller('webhooks')
+   * export class WebhooksController {
+   *   @Post('instant')
+   *   @HttpCode(200)
+   *   async handle(@Req() req: Request) {
+   *     await db.webhooks.processNodeRequest(handlers, req);
+   *   }
+   * }
+   *
+   * // (Pair with `NestFactory.create(AppModule, { rawBody: true })` in main.ts.)
+   */
+  async processNodeRequest(
+    handlers: WebhookHandlers<Schema>,
+    req: {
+      url?: string;
+      method?: string;
+      headers: Record<string, string | string[] | undefined>;
+      body?: unknown;
+      rawBody?: unknown;
+      [Symbol.asyncIterator]?: () => AsyncIterableIterator<Uint8Array | string>;
+    },
+    opts?:
+      | {
+          /**
+           * Raw body to use instead of reading from `req`. Useful for
+           * frameworks that hand you the body separately from the request
+           * object (e.g. NestJS `@RawBody()`, Koa with `raw-body`).
+           * Accepts a `Buffer` / `Uint8Array`, a string, or a Promise of
+           * either.
+           */
+          body?: unknown;
+          tolerance?: number | null | undefined;
+          receivedAt?: Date | null | undefined;
+        }
+      | null
+      | undefined,
+  ): Promise<void> {
+    let rawBody: string;
+    let bodyWasReserialized = false;
+    // Priority: an explicit `opts.body`, then `req.rawBody` (set by
+    // middleware like Firebase Functions or body-parser's `verify` hook),
+    // then `req.body`, then the unconsumed request stream.
+    let bodyValue: unknown = opts?.body ?? req.rawBody ?? req.body;
+    // Allow callers to pass a Promise (e.g. the result of `raw-body(ctx.req)`
+    // in Koa) without having to await first.
+    if (
+      bodyValue != null &&
+      typeof (bodyValue as { then?: unknown }).then === 'function'
+    ) {
+      bodyValue = await (bodyValue as PromiseLike<unknown>);
+    }
+    if (typeof bodyValue === 'string') {
+      rawBody = bodyValue;
+    } else if (bodyValue instanceof Uint8Array) {
+      rawBody = new TextDecoder('utf-8').decode(bodyValue);
+    } else if (bodyValue != null && typeof bodyValue === 'object') {
+      // A JSON parser middleware (e.g. `express.json()`) has consumed the
+      // stream and handed us a parsed object. Re-serialize and try anyway —
+      // for Instant's webhook body shape this typically round-trips to the
+      // bytes the server signed. If it doesn't, we surface a targeted error
+      // below.
+      try {
+        rawBody = JSON.stringify(bodyValue);
+        bodyWasReserialized = true;
+      } catch {
+        throw new InstantError(
+          'Webhook request body has already been parsed and could not be re-serialized. Configure this route to receive the raw request body instead of parsed JSON.',
+        );
+      }
+    } else if (req[Symbol.asyncIterator]) {
+      const encoder = new TextEncoder();
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of req as AsyncIterable<Uint8Array | string>) {
+        chunks.push(typeof chunk === 'string' ? encoder.encode(chunk) : chunk);
+      }
+      let total = 0;
+      for (const c of chunks) total += c.byteLength;
+      const buf = new Uint8Array(total);
+      let offset = 0;
+      for (const c of chunks) {
+        buf.set(c, offset);
+        offset += c.byteLength;
+      }
+      rawBody = new TextDecoder('utf-8').decode(buf);
+    } else {
+      throw new InstantError(
+        'Could not read the webhook request body. Pass a Node IncomingMessage with an unconsumed stream, or set `req.body` to the raw bytes (Buffer/Uint8Array) or string.',
+      );
+    }
+
+    const host =
+      typeof req.headers.host === 'string' ? req.headers.host : 'localhost';
+    const url = new URL(req.url ?? '/', `https://${host}`);
+    const headers = new Headers();
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (typeof v === 'string') headers.set(k, v);
+      else if (Array.isArray(v)) headers.set(k, v.join(', '));
+    }
+    const webReq = new Request(url, {
+      method: req.method ?? 'POST',
+      headers,
+      body: rawBody,
+    });
+    try {
+      await this.processRequest(handlers, webReq, opts);
+    } catch (e) {
+      if (
+        bodyWasReserialized &&
+        e instanceof InstantError &&
+        e.message === 'Instant Signature did not validate'
+      ) {
+        throw new InstantError(
+          'Webhook signature did not validate. The request body was re-serialized from a parsed JSON object, which can produce different bytes than the server signed. Configure this route to receive the raw request body instead of parsed JSON.',
+          { hint: e.hint },
+        );
+      }
+      throw e;
+    }
   }
 }
