@@ -391,6 +391,7 @@ export function Sandbox({
     const coreDb = initCore({
       appId: app.id,
       apiURI: config.apiURI,
+      websocketURI: config.websocketURI,
     });
 
     const unsubAttrs = coreDb._reactor.subscribeAttrs((_oAttrs: any) => {
