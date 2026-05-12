@@ -340,7 +340,8 @@ function App({
               checked={router === 'app'}
               onChange={() => setRouter('app')}
             />{' '}
-            App router (<code className="bg-gray-100 px-1">app/api/webhooks</code>)
+            App router (
+            <code className="bg-gray-100 px-1">app/api/webhooks</code>)
           </label>
           <label>
             <input
@@ -349,7 +350,8 @@ function App({
               checked={router === 'pages'}
               onChange={() => setRouter('pages')}
             />{' '}
-            Pages router (<code className="bg-gray-100 px-1">pages/api/webhooks-pages</code>)
+            Pages router (
+            <code className="bg-gray-100 px-1">pages/api/webhooks-pages</code>)
           </label>
         </div>
         {ngrokSet && (
