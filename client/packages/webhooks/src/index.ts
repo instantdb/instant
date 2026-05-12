@@ -45,13 +45,13 @@ export type WebhookBody = {
 
 export type WebhookEntity<
   Schema extends InstantSchemaDef<any, any, any>,
-  EtypeName extends keyof Schema['entities'],
+  EtypeName extends keyof Schema['entities'] & string,
 > = { id: string } & ResolveAttrs<Schema['entities'], EtypeName, false>;
 
 export type WebhookPayloadRecord<
   Schema extends InstantSchemaDef<any, any, any>,
 > = {
-  [EtypeName in keyof Schema['entities']]:
+  [EtypeName in keyof Schema['entities'] & string]:
     | {
         etype: EtypeName;
         id: string;
@@ -76,7 +76,7 @@ export type WebhookPayloadRecord<
         after: null;
         idempotencyKey: string;
       };
-}[keyof Schema['entities']];
+}[keyof Schema['entities'] & string];
 
 export type WebhookPayload<Schema extends InstantSchemaDef<any, any, any>> = {
   data: WebhookPayloadRecord<Schema>[];
@@ -232,7 +232,7 @@ export type UpdateWebhookParams<
 
 export type WebhookPayloadRecordFor<
   Schema extends InstantSchemaDef<any, any, any>,
-  EtypeName extends keyof Schema['entities'],
+  EtypeName extends keyof Schema['entities'] & string,
   Action extends WebhookAction,
 > = Action extends 'create'
   ? {
@@ -265,7 +265,7 @@ export type WebhookPayloadRecordFor<
 
 export type WebhookHandlerFn<
   Schema extends InstantSchemaDef<any, any, any>,
-  EtypeName extends keyof Schema['entities'],
+  EtypeName extends keyof Schema['entities'] & string,
   Action extends WebhookAction,
   Result = any,
 > = (
@@ -281,7 +281,7 @@ export type ResolveHandlerAction<Action> = Action extends DefaultKey
     : never;
 
 export type WebhookHandlers<Schema extends InstantSchemaDef<any, any, any>> = {
-  [EtypeName in keyof Schema['entities']]?: {
+  [EtypeName in keyof Schema['entities'] & string]?: {
     [Action in WebhookAction | DefaultKey]?: WebhookHandlerFn<
       Schema,
       EtypeName,
@@ -292,7 +292,7 @@ export type WebhookHandlers<Schema extends InstantSchemaDef<any, any, any>> = {
 } & {
   $default?: WebhookHandlerFn<
     Schema,
-    keyof Schema['entities'],
+    keyof Schema['entities'] & string,
     WebhookAction,
     any
   >;
@@ -300,7 +300,7 @@ export type WebhookHandlers<Schema extends InstantSchemaDef<any, any, any>> = {
 
 export type TypedHandlerEntry<
   Schema extends InstantSchemaDef<any, any, any>,
-  EtypeName extends keyof Schema['entities'],
+  EtypeName extends keyof Schema['entities'] & string,
   Action extends WebhookAction | DefaultKey,
 > = {
   [E in EtypeName]: {
@@ -317,7 +317,7 @@ export type TypedDefaultEntry<Schema extends InstantSchemaDef<any, any, any>> =
   {
     $default: WebhookHandlerFn<
       Schema,
-      keyof Schema['entities'],
+      keyof Schema['entities'] & string,
       WebhookAction,
       any
     >;
@@ -329,13 +329,13 @@ export type WebhookHelpers<Schema extends InstantSchemaDef<any, any, any>> = {
       etype: DefaultKey,
       handler: WebhookHandlerFn<
         Schema,
-        keyof Schema['entities'],
+        keyof Schema['entities'] & string,
         WebhookAction,
         any
       >,
     ): TypedDefaultEntry<Schema>;
     <
-      EtypeName extends keyof Schema['entities'],
+      EtypeName extends keyof Schema['entities'] & string,
       Action extends WebhookAction | DefaultKey,
     >(
       etype: EtypeName,
