@@ -80,7 +80,7 @@ The URL must be `https` and resolve to a public host. An app can have up to **10
 ```ts {% showCopy=true %}
 // app/api/instant-webhook/route.ts
 import { init } from '@instantdb/admin';
-import { sendNewPostEmail } from '@./lib/emails';
+import { sendNewPostEmail } from '@/lib/emails';
 import schema from '@/instant.schema';
 
 const db = init({
@@ -284,7 +284,7 @@ Every webhook arrives as a `POST` with two things you care about:
 
 - The `Instant-Signature` header, a comma-separated list of `key=value` pairs:
 
-  ```
+  ```http
   Instant-Signature: t=1715551200,kid=1034696293,v1=4a8f...
   ```
 
@@ -302,7 +302,7 @@ Every webhook arrives as a `POST` with two things you care about:
 
 The signed message is `t` + `.` + the raw request body, as UTF-8 bytes. Verify the `v1` signature against the Ed25519 public key whose `kid` matches the header. The public keys are published as a JWK Set at:
 
-```
+```text
 https://api.instantdb.com/.well-known/webhooks/jwks.json
 ```
 
@@ -519,7 +519,7 @@ public class WebhookVerifier {
 
 Once the signature checks out, parse the body as JSON and `GET` `payloadUrl` with the JWT in the `Authorization` header:
 
-```
+```http
 GET <payloadUrl>
 Authorization: Bearer <token>
 Accept: application/json
