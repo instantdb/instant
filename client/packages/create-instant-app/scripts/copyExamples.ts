@@ -10,6 +10,7 @@ const EXAMPLES_TO_COPY = [
   'vite-react',
   'vite-vanilla',
   'tanstack-start',
+  'vue-vite',
 ] as const;
 
 async function main() {

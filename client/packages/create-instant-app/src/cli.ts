@@ -16,6 +16,7 @@ export type Project = {
     | 'bun-react'
     | 'solidjs-vite'
     | 'sveltekit'
+    | 'vue-vite'
     | 'vercel-ai-sdk'
     | 'ai-chat';
   ruleFiles:
@@ -63,6 +64,7 @@ const baseFromFlags = (flags: Record<string, any>): Project['base'] | null =>
   (flags.next && 'next-js-app-dir') ||
   (flags.expo && 'expo') ||
   (flags.sv && 'sveltekit') ||
+  (flags.vue && 'vue-vite') ||
   null;
 
 const ruleFilesFromFlags = (
@@ -99,6 +101,7 @@ export const runCli = async (): Promise<Project> => {
         'tanstack-start-with-tanstack-query',
         'solidjs-vite',
         'sveltekit',
+        'vue-vite',
         'vercel-ai-sdk',
         'ai-chat',
       ]),
@@ -127,6 +130,9 @@ export const runCli = async (): Promise<Project> => {
     )
     .addOption(
       new Option('--sv', 'Use the SvelteKit starter template').default(false),
+    )
+    .addOption(
+      new Option('--vue', 'Use the Vue + Vite starter template').default(false),
     )
     .addOption(
       new Option('--no-git', "Don't create a git repo in the new project"),
@@ -312,6 +318,11 @@ export const runCli = async (): Promise<Project> => {
               {
                 value: 'sveltekit',
                 label: 'SvelteKit',
+                secondary: true,
+              },
+              {
+                value: 'vue-vite',
+                label: 'Vite: Vue',
                 secondary: true,
               },
               {
