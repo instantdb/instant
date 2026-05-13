@@ -14,7 +14,7 @@ WORKDIR /app
 #  creates a directory with just the packages we need to build mcp
 FROM base AS prune
 
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@10.2.0 --activate
 
 RUN pnpm install --global turbo@2.5.4
 
@@ -29,7 +29,7 @@ FROM base AS deps
 
 WORKDIR /app
 
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@10.2.0 --activate
 
 COPY --from=prune /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=prune /app/out/json/ .
@@ -45,7 +45,7 @@ RUN ls packages/mcp/node_modules
 FROM base AS build
 
 WORKDIR /app
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@10.2.0 --activate
 
 # Copy pruned lockfile and package.json snapshots
 COPY --from=prune /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
