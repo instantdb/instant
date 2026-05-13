@@ -186,6 +186,242 @@ ${mainOptionsList}${secondaryOptionsList.length ? chalk.gray('\n─────�
     }
   }
 
+  export type MultiSelectOption<T> = {
+    value: T;
+    label: string;
+  };
+
+  type MultiSelectProps<T> = {
+    options: MultiSelectOption<T>[];
+    promptText: string;
+    initialSelected?: T[];
+    filter?: (filter: string, option: MultiSelectOption<T>) => boolean;
+    minSelected?: number;
+    pageSize?: number;
+    modifyOutput?: ModifyOutputFn;
+  };
+
+  const DEFAULT_MULTI_SELECT_PAGE_SIZE = 10;
+
+  const defaultMultiSelectFilter = <T>(
+    filter: string,
+    option: MultiSelectOption<T>,
+  ) => option.label.toLowerCase().includes(filter.toLowerCase());
+
+  export class MultiSelect<T> extends Prompt<T[]> {
+    private filterText = '';
+    private cursorIdx = 0;
+    private windowStart = 0;
+    private selected: Set<number>;
+    private errorText: string | undefined;
+    private readonly props: MultiSelectProps<T>;
+    private readonly pageSize: number;
+
+    constructor(props: MultiSelectProps<T>) {
+      super(props.modifyOutput);
+      this.props = props;
+      this.pageSize = props.pageSize ?? DEFAULT_MULTI_SELECT_PAGE_SIZE;
+      this.selected = new Set(
+        (props.initialSelected ?? [])
+          .map((v) => props.options.findIndex((o) => o.value === v))
+          .filter((i) => i >= 0),
+      );
+      this.on('attach', (terminal) => {
+        terminal.setAllowInteraction(false);
+        terminal.toggleCursor('hide');
+      });
+      this.on('detach', (terminal) => terminal.toggleCursor('show'));
+      this.on('input', (input, key) => this.handleKey(input, key));
+    }
+
+    private visibleIndices(): number[] {
+      const fn = this.props.filter ?? defaultMultiSelectFilter;
+      if (!this.filterText) return this.props.options.map((_, i) => i);
+      return this.props.options
+        .map((opt, i) => ({ opt, i }))
+        .filter(({ opt }) => fn(this.filterText, opt))
+        .map(({ i }) => i);
+    }
+
+    private clampCursor(visible: number[]) {
+      if (visible.length === 0) {
+        this.cursorIdx = 0;
+      } else if (this.cursorIdx >= visible.length) {
+        this.cursorIdx = visible.length - 1;
+      } else if (this.cursorIdx < 0) {
+        this.cursorIdx = visible.length - 1;
+      }
+    }
+
+    private adjustWindow(visible: number[]) {
+      if (visible.length <= this.pageSize) {
+        this.windowStart = 0;
+        return;
+      }
+      if (this.cursorIdx < this.windowStart) {
+        this.windowStart = this.cursorIdx;
+      } else if (this.cursorIdx >= this.windowStart + this.pageSize) {
+        this.windowStart = this.cursorIdx - this.pageSize + 1;
+      }
+      const maxStart = Math.max(0, visible.length - this.pageSize);
+      if (this.windowStart > maxStart) this.windowStart = maxStart;
+      if (this.windowStart < 0) this.windowStart = 0;
+    }
+
+    private handleKey(input: string | undefined, key: AnyKey) {
+      if (key.name === 'escape') {
+        return this.terminal?.resolve({ data: undefined, status: 'aborted' });
+      }
+      if (key.name === 'return') {
+        const min = this.props.minSelected ?? 0;
+        if (this.selected.size < min) {
+          this.errorText =
+            min === 1
+              ? 'Select at least one option.'
+              : `Select at least ${min} options.`;
+          this.requestLayout();
+          return;
+        }
+        return this.terminal?.resolve({
+          data: this.result(),
+          status: 'submitted',
+        });
+      }
+
+      const visible = this.visibleIndices();
+
+      if (key.name === 'up') {
+        this.cursorIdx -= 1;
+        this.clampCursor(visible);
+        this.adjustWindow(visible);
+        this.requestLayout();
+        return;
+      }
+      if (key.name === 'down') {
+        this.cursorIdx += 1;
+        if (visible.length > 0) this.cursorIdx %= visible.length;
+        this.adjustWindow(visible);
+        this.requestLayout();
+        return;
+      }
+      if (key.name === 'pageup') {
+        this.cursorIdx -= this.pageSize;
+        if (this.cursorIdx < 0) this.cursorIdx = 0;
+        this.adjustWindow(visible);
+        this.requestLayout();
+        return;
+      }
+      if (key.name === 'pagedown') {
+        this.cursorIdx += this.pageSize;
+        if (this.cursorIdx >= visible.length) {
+          this.cursorIdx = Math.max(0, visible.length - 1);
+        }
+        this.adjustWindow(visible);
+        this.requestLayout();
+        return;
+      }
+      if (key.name === 'space') {
+        if (visible.length === 0) return;
+        const optIdx = visible[this.cursorIdx]!;
+        if (this.selected.has(optIdx)) {
+          this.selected.delete(optIdx);
+        } else {
+          this.selected.add(optIdx);
+        }
+        this.errorText = undefined;
+        this.requestLayout();
+        return;
+      }
+      if (key.name === 'backspace') {
+        if (this.filterText.length > 0) {
+          this.filterText = this.filterText.slice(0, -1);
+          this.cursorIdx = 0;
+          this.windowStart = 0;
+          this.requestLayout();
+        }
+        return;
+      }
+      if (key.name?.length === 1 && !key.ctrl && !key.meta && input) {
+        this.filterText += input;
+        this.cursorIdx = 0;
+        this.windowStart = 0;
+        this.requestLayout();
+      }
+    }
+
+    result(): T[] {
+      return [...this.selected]
+        .sort((a, b) => a - b)
+        .map((i) => this.props.options[i]!.value);
+    }
+
+    private renderOption(optIdx: number, isCursor: boolean) {
+      const option = this.props.options[optIdx]!;
+      const isSelected = this.selected.has(optIdx);
+      const checkbox = isSelected ? chalk.green('◉') : '○';
+      const cursorMark = isCursor ? chalk.hex('#EA570B').bold('❯') : ' ';
+      const label = isCursor ? chalk.bold(option.label) : option.label;
+      return `${cursorMark} ${checkbox} ${label}`;
+    }
+
+    render(status: 'idle' | 'submitted' | 'aborted'): string {
+      if (status === 'submitted') {
+        const labels = [...this.selected]
+          .sort((a, b) => a - b)
+          .map((i) => this.props.options[i]!.label);
+        return `${this.props.promptText}
+${chalk.hex('#EA570B').bold('●')} ${labels.length === 0 ? chalk.dim('(none)') : labels.join(', ')}`;
+      }
+
+      const visible = this.visibleIndices();
+      this.adjustWindow(visible);
+      const filterLine = `${chalk.dim('filter:')} ${this.filterText}${chalk.inverse(' ')}`;
+      const errorLine = this.errorText
+        ? `  ${chalk.red(this.errorText)}`
+        : '';
+
+      let optionsBlock: string;
+      if (visible.length === 0) {
+        optionsBlock = chalk.dim('  (no matches)');
+      } else {
+        const windowEnd = Math.min(
+          this.windowStart + this.pageSize,
+          visible.length,
+        );
+        const aboveCount = this.windowStart;
+        const belowCount = visible.length - windowEnd;
+        const lines: string[] = [];
+        lines.push(
+          aboveCount > 0
+            ? chalk.dim(`  ↑ ${aboveCount} more`)
+            : chalk.dim('   '),
+        );
+        for (let i = this.windowStart; i < windowEnd; i++) {
+          lines.push(this.renderOption(visible[i]!, i === this.cursorIdx));
+        }
+        lines.push(
+          belowCount > 0
+            ? chalk.dim(`  ↓ ${belowCount} more`)
+            : chalk.dim('   '),
+        );
+        optionsBlock = lines.join('\n');
+      }
+
+      const hint = chalk.dim(
+        `  ↑↓ navigate · pgup/pgdn page · space toggle · enter submit · esc cancel`,
+      );
+      const counts = chalk.dim(
+        `  ${visible.length} of ${this.props.options.length} shown · ${this.selected.size} selected`,
+      );
+
+      return `${this.props.promptText}${errorLine}
+${filterLine}
+${optionsBlock}
+${counts}
+${hint}`;
+    }
+  }
+
   /**
    * @deprecated use the modifyOutput prop instead
    * left as an example of how to do wrapper prompts
