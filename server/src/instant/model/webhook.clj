@@ -1,5 +1,6 @@
 (ns instant.model.webhook
   (:require
+   [honey.sql.pg-ops :as pg-ops]
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.flags :as flags]
@@ -8,6 +9,7 @@
    [instant.jdbc.sql :as sql]
    [instant.model.history :as history]
    [instant.reactive.topics :as topics]
+   [instant.system-catalog :as system-catalog]
    [instant.util.cache :as cache]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
@@ -75,7 +77,9 @@
   (uhsql/preformat {:select [:* [{:select [[[:array_agg :etype]]]
                                   :from :attrs
                                   :where [:and
-                                          [:= :app_id :?app-id]
+                                          [:or
+                                           [:= :app_id :?app-id]
+                                           [:= :app_id [:cast [:inline (str system-catalog/system-catalog-app-id)] :uuid]]]
                                           [:= :id [:any :id-attr-ids]]]}
                                  :etypes]]
                     :from :webhooks
@@ -110,6 +114,90 @@
    (if (= conn (aurora/conn-pool :read))
      (get-by-app-id-and-webhook-id! params)
      (get-by-app-id-and-webhook-id!* params))))
+
+(def get-all-by-app-id-q
+  (uhsql/preformat {:select [:* [{:select [[[:array_agg :etype]]]
+                                  :from :attrs
+                                  :where [:and
+                                          [:or
+                                           [:= :app_id :?app-id]
+                                           [:= :app_id [:cast [:inline (str system-catalog/system-catalog-app-id)] :uuid]]]
+                                          [:= :id [:any :id-attr-ids]]]}
+                                 :etypes]]
+                    :from :webhooks
+                    :where [:= :app_id :?app-id]
+                    :order-by [[:created-at :desc]]}))
+
+(defn get-all-by-app-id
+  ([params] (get-all-by-app-id (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id]}]
+   (sql/select ::get-all-by-app-id
+               conn
+               (uhsql/formatp get-all-by-app-id-q {:app-id app-id}))))
+
+(def events-bucket-count 3)
+(def ^{:tag Duration} events-max-age (Duration/ofDays 60))
+
+(def get-events-q
+  ;; Cursor pagination on (created_at, isn). When :?cursor-created-at is null
+  ;; we're on the first page and the row-comparison branch is skipped. The
+  ;; bucket and time-floor predicates limit the scan to recent partitions and
+  ;; ~60 days of data.
+  (uhsql/preformat
+   {:select :*
+    :from :webhook-events
+    :where [:and
+            [:= :app-id :?app-id]
+            [:= :webhook-id :?webhook-id]
+            [:= :partition-bucket [:any :?buckets]]
+            [:>= :created-at :?floor]
+            [:or
+             [:is [:cast :?after-created-at :timestamptz] nil]
+             [:< [:composite :created-at :isn]
+              [:composite :?after-created-at :?after-isn]]]]
+    :order-by [[:created-at :desc] [:isn :desc]]
+    :limit :?limit}))
+
+(defn get-events
+  ([params] (get-events (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id webhook-id after limit]
+          :or {limit 100}}]
+   (let [now (Instant/now)
+         floor (.minus now events-max-age)
+         buckets (history/recent-partition-buckets now events-bucket-count)]
+     (sql/select ::get-events
+                 conn
+                 (uhsql/formatp get-events-q
+                                {:app-id app-id
+                                 :webhook-id webhook-id
+                                 :buckets (with-meta buckets {:pgtype "int[]"})
+                                 :floor floor
+                                 :after-created-at (:created-at after)
+                                 :after-isn (:isn after)
+                                 :limit limit})))))
+
+(def get-event-by-isn-q
+  (uhsql/preformat
+   {:select :*
+    :from :webhook-events
+    :where [:and
+            [:= :app-id :?app-id]
+            [:= :webhook-id :?webhook-id]
+            [:= :isn :?isn]
+            [:= :partition-bucket [:any :?buckets]]]}))
+
+(defn get-event-by-isn
+  ([params] (get-event-by-isn (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id webhook-id isn]}]
+   (let [now (Instant/now)
+         buckets (history/recent-partition-buckets now events-bucket-count)]
+     (sql/select-one ::get-event-by-isn
+                     conn
+                     (uhsql/formatp get-event-by-isn-q
+                                    {:app-id app-id
+                                     :webhook-id webhook-id
+                                     :buckets (with-meta buckets {:pgtype "int[]"})
+                                     :isn isn})))))
 
 (defn assert-valid-url! [url-string]
   (let [{:keys [scheme host]} (uri/uri url-string)]
@@ -165,6 +253,44 @@
                                 [{:message (format "An app may not have more than %d active webhooks."
                                                    max-webhooks)}]))))
 
+(def check-webhook-duplicate-q
+  (uhsql/preformat {:select :id
+                    :from :webhooks
+                    :where [:and
+                            [:= :status [:inline [:cast [:inline "active"] :webhook_status]]]
+                            [:= :app-id :?app-id]
+                            ;; We don't have array_sort in pg 17, so we check if both arrays
+                            ;; are contained in each other
+                            [pg-ops/at> :id-attr-ids :?id-attr-ids]
+                            [pg-ops/<at :id-attr-ids :?id-attr-ids]
+                            [pg-ops/at> :actions  :?actions]
+                            [pg-ops/<at :actions  :?actions]
+                            [:= :sink :?sink]
+                            [:or
+                             [:= [:cast :?ignore-id :uuid] nil]
+                             [:<> :id :?ignore-id]]]}))
+
+(defn check-webhook-duplicate!
+  "Checks that app doesn't already have a webhook with the same properties.
+   Will throw a validation error if it finds one.
+   Pass ignore-id if you're running an update on a webhook to prevent the update
+   from seeing itself."
+  [conn app-id {:keys [url id-attr-ids actions ignore-id]}]
+  (let [{:keys [id]}
+        (sql/select-one ::check-webhook-duplicate!
+                        conn
+                        (uhsql/formatp check-webhook-duplicate-q
+                                       {:app-id app-id
+                                        :id-attr-ids (with-meta (or id-attr-ids []) {:pgtype "uuid[]"})
+                                        :actions (with-meta (or actions []) {:pgtype "webhook_action[]"})
+                                        :sink {:url url}
+                                        :ignore-id ignore-id}))]
+    (when id
+      (ex/throw-validation-err! :webhooks
+                                {:app-id app-id}
+                                [{:message "A webhook already exists with all of the same properties"
+                                  :hint {:webhook-id id}}]))))
+
 (def create-q
   (uhsql/preformat {:insert-into :webhooks
                     :values [{:id :?id
@@ -175,34 +301,45 @@
                               :status [:inline [:cast [:inline "active"] :webhook_status]]
                               :sink :?sink}]}))
 
+(defn etypes->id-attr-ids+topics!
+  "Resolves etypes to a set of id-attr-ids (the `id` attr for each etype) and a
+   bloom-filter `topics` value. Throws a validation error if any etype is unknown."
+  [app-id etypes]
+  (let [attrs (attr-model/get-by-app-id app-id)
+        id-attr-ids (reduce (fn [attr-ids etype]
+                              (let [attr-id (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))]
+                                (when-not attr-id
+                                  (ex/throw-validation-err!
+                                   :webhook
+                                   {:etype etype}
+                                   [{:message (format "Could not find matching table for %s" etype)}]))
+                                (conj attr-ids attr-id)))
+                            #{}
+                            etypes)
+        topics (reduce (fn [acc id]
+                         (bit-or acc (history/bloom-bit id)))
+                       0
+                       id-attr-ids)]
+    (when-not (seq id-attr-ids)
+      (ex/throw-validation-err! :webhook {:etypes etypes} [{:message "Webhook must have at least one table."}]))
+    {:id-attr-ids id-attr-ids
+     :topics topics}))
+
 (defn create!
   "Creates a new webhook, validating that the etypes are valid, the webhook url is valid,
    and that the app has not exceeded the maximum number of webhooks."
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id etypes actions url]}]
    (assert-valid-url! url)
-   (let [attrs (attr-model/get-by-app-id app-id)
-         id-attr-ids (reduce (fn [attr-ids etype]
-                               (let [attr-id (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))]
-                                 (when-not attr-id
-                                   (ex/throw-validation-err!
-                                    :webhook
-                                    {:etype etype}
-                                    [{:message (format "Could not find matching table for %s" etype)}]))
-                                 (conj attr-ids attr-id)))
-                             #{}
-                             etypes)
-         topics (reduce (fn [acc id]
-                          (bit-or acc (history/bloom-bit id)))
-                        0
-                        id-attr-ids)]
-     (when-not (seq id-attr-ids)
-       (ex/throw-validation-err! :webhook {:etypes etypes} [{:message "Webhook must have at least one table."}]))
+   (let [{:keys [id-attr-ids topics]} (etypes->id-attr-ids+topics! app-id etypes)]
      (when-not (seq actions)
        (ex/throw-validation-err! :webhook {:actions actions} [{:message "Webhook must have at least one action."}]))
      (next.jdbc/with-transaction [conn conn]
        (take-webhook-count-lock! conn app-id)
        (check-webhook-limit! conn app-id)
+       (check-webhook-duplicate! conn app-id {:url url
+                                              :id-attr-ids id-attr-ids
+                                              :actions actions})
        (sql/execute-one! ::create!
                          conn
                          (uhsql/formatp create-q
@@ -246,11 +383,105 @@
      (next.jdbc/with-transaction [conn conn]
        (take-webhook-count-lock! conn app-id)
        (check-webhook-limit! conn app-id)
+       (let [existing (get-by-app-id-and-webhook-id! conn {:app-id app-id
+                                                           :webhook-id webhook-id})]
+         (check-webhook-duplicate! conn app-id {:url (-> existing :sink (get "url"))
+                                                :id-attr-ids (:id_attr_ids existing)
+                                                :actions (:actions existing)
+                                                :ignore-id webhook-id}))
        (sql/do-execute! ::enable!
                         conn
                         (uhsql/formatp enable-q {:app-id app-id
                                                  :webhook-id webhook-id
                                                  :reason reason}))))))
+
+(def update-q
+  (uhsql/preformat
+   {:update :webhooks
+    :set {:sink [:coalesce [:cast :?sink :jsonb] :sink]
+          :id-attr-ids [:coalesce [:cast :?id-attr-ids (keyword "uuid[]")] :id-attr-ids]
+          :topics [:coalesce :?topics :topics]
+          :actions [:coalesce [:cast :?actions (keyword "webhook_action[]")] :actions]}
+    :where [:and
+            [:= :app-id :?app-id]
+            [:= :id :?webhook-id]]}))
+
+(defn update!
+  "Partial update of a webhook's url, etypes, and/or actions. Pass only the
+   fields you want to change. Does not touch status — use disable!/enable!."
+  ([params] (update! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id webhook-id url etypes actions] :as params}]
+   (when (contains? params :url)
+     (assert-valid-url! url))
+   (when (contains? params :actions)
+     (when-not (seq actions)
+       (ex/throw-validation-err! :webhook
+                                 {:actions actions}
+                                 [{:message "Webhook must have at least one action."}])))
+   (let [{new-id-attr-ids :id-attr-ids
+          new-topics :topics} (when (contains? params :etypes)
+                                (etypes->id-attr-ids+topics! app-id etypes))]
+     (with-cache-invalidation {:app-id app-id
+                               :webhook-id webhook-id}
+       (next.jdbc/with-transaction [conn conn]
+         (take-webhook-count-lock! conn app-id)
+         (let [existing (get-by-app-id-and-webhook-id! conn {:app-id app-id
+                                                             :webhook-id webhook-id})]
+           (check-webhook-duplicate! conn app-id {:url (or url
+                                                           (-> existing :sink (get "url")))
+                                                  :id-attr-ids (or new-id-attr-ids
+                                                                   (:id_attr_ids existing))
+                                                  :actions (or actions
+                                                               (:actions existing))
+                                                  :ignore-id webhook-id}))
+         (sql/do-execute! ::update!
+                          conn
+                          (uhsql/formatp
+                           update-q
+                           {:app-id app-id
+                            :webhook-id webhook-id
+                            :sink (when (contains? params :url) {:url url})
+                            :id-attr-ids (when new-id-attr-ids
+                                           (with-meta new-id-attr-ids {:pgtype "uuid[]"}))
+                            :topics new-topics
+                            :actions (when (contains? params :actions)
+                                       (with-meta actions {:pgtype "webhook_action[]"}))})))))))
+
+(def delete-q
+  (uhsql/preformat {:delete-from :webhooks
+                    :where [:and
+                            [:= :app-id :?app-id]
+                            [:= :id :?webhook-id]]}))
+
+(defn delete!
+  ([params] (delete! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id webhook-id]}]
+   (with-cache-invalidation {:app-id app-id
+                             :webhook-id webhook-id}
+     (sql/do-execute! ::delete!
+                      conn
+                      (uhsql/formatp delete-q {:app-id app-id
+                                               :webhook-id webhook-id})))))
+
+(def requeue-q
+  (uhsql/preformat {:update :webhook-events
+                    :set {:status [:cast [:inline "pending"] :webhook_event_status]}
+                    :where [:and
+                            [:= :app-id :?app-id]
+                            [:= :webhook-id :?webhook-id]
+                            [:= :isn :?isn]
+                            [:= :machine-id nil]]}))
+
+(defn requeue!
+  "Re-queues an event for delivery unless it is locked by another machine"
+  ([params] (requeue! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id webhook-id isn]}]
+   (sql/execute-one! ::requeue!
+                     conn
+                     (uhsql/formatp requeue-q
+                                    {:isn isn
+                                     :app-id app-id
+                                     :webhook-id webhook-id}))))
 
 (def attr-id-column-idx 2)
 (def pg-size-column-idx 12)
@@ -592,9 +823,9 @@
                :before before
                :after after
                :idempotencyKey (record-idempotency-key {:etype etype
-                                                         :action action
-                                                         :id id
-                                                         :isn (:isn wal-record)})})
+                                                        :action action
+                                                        :id id
+                                                        :isn (:isn wal-record)})})
             (for [[etype ents] ents-before
                   [id ent] ents
                   :when (and (not (get-in ents-after [etype id]))
@@ -607,9 +838,9 @@
                :before (uuids->labels attrs ent)
                :after nil
                :idempotencyKey (record-idempotency-key {:etype etype
-                                                         :action "delete"
-                                                         :id id
-                                                         :isn (:isn wal-record)})}))))
+                                                        :action "delete"
+                                                        :id id
+                                                        :isn (:isn wal-record)})}))))
 
 (defn webhook-data-for-isn
   "Returns a list of records:

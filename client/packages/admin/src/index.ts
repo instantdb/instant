@@ -95,6 +95,27 @@ import {
 import { parseCookie } from 'cookie';
 import { EventSource } from '@instantdb/eventsource';
 import { MessageEventPolyfill } from './polyfill.ts';
+import {
+  Webhooks,
+  WebhooksManager,
+  type WebhookAction,
+  type WebhookStatus,
+  type WebhookEventStatus,
+  type WebhookInfo,
+  type WebhookAttempt,
+  type WebhookEventInfo,
+  type WebhookEventsPage,
+  type WebhookBody,
+  type WebhookEntity,
+  type WebhookPayload,
+  type WebhookPayloadRecord,
+  type WebhookPayloadRecordFor,
+  type WebhookHandlerFn,
+  type WebhookHandlers,
+  type WebhookHelpers,
+  type CreateWebhookParams,
+  type UpdateWebhookParams,
+} from '@instantdb/webhooks';
 
 type DebugCheckResult = {
   /** The ID of the record. */
@@ -1115,6 +1136,7 @@ class InstantAdminDatabase<
   streams: Streams;
   rooms: Rooms<Schema>;
   impersonationOpts?: ImpersonationOpts;
+  webhooks: Webhooks<Schema>;
 
   #sseConnection: SSEConnection | null = null;
   #sseBackoff = 0;
@@ -1129,6 +1151,7 @@ class InstantAdminDatabase<
     this.storage = new Storage(this.config, this.impersonationOpts);
     this.streams = new Streams(this.#ensureInstantStream.bind(this));
     this.rooms = new Rooms<Schema>(this.config);
+    this.webhooks = new Webhooks<Schema>(this.config, jsonFetch);
     this.#log = createLogger(!!this.config.verbose);
   }
 
@@ -1596,6 +1619,25 @@ export {
   lookup,
   i,
   createInstantRouteHandler,
+  Webhooks,
+  WebhooksManager,
+  type WebhookAction,
+  type WebhookStatus,
+  type WebhookEventStatus,
+  type WebhookInfo,
+  type WebhookAttempt,
+  type WebhookEventInfo,
+  type WebhookEventsPage,
+  type WebhookBody,
+  type WebhookEntity,
+  type WebhookPayload,
+  type WebhookPayloadRecord,
+  type WebhookPayloadRecordFor,
+  type WebhookHandlerFn,
+  type WebhookHandlers,
+  type WebhookHelpers,
+  type CreateWebhookParams,
+  type UpdateWebhookParams,
 
   // error
   InstantAPIError,

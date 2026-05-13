@@ -10,6 +10,7 @@
    [instant.jdbc.sql :as sql]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
+   [instant.system-catalog :as system-catalog]
    [instant.system-catalog-ops :refer [query-op]]
    [instant.util.cache :as cache]
    [instant.util.crypt :as crypt-util]
@@ -185,7 +186,27 @@
                                          [:inline "expired"] [:< :i.sent_at [:- :%now [:interval "3 days"]]]]]
                                        :invites]]
                              :from [[:app-member-invites :i]]
-                             :group-by :i.app-id}]]
+                             :group-by :i.app-id}]
+           [:app-webhooks {:select [:w.app-id
+                                    [[:json_agg
+                                      [:json_build_object
+                                       [:inline "id"] :w.id
+                                       [:inline "sink"] :w.sink
+                                       [:inline "etypes"] {:select [[[:array_agg :attrs.etype]]]
+                                                           :from [:attrs]
+                                                           :where [:and
+                                                                   [:or
+                                                                    [:= :attrs.app-id :w.app-id]
+                                                                    [:= :attrs.app-id [:cast [:inline (str system-catalog/system-catalog-app-id)] :uuid]]]
+                                                                   [:= :attrs.id [:any :w.id-attr-ids]]]}
+                                       [:inline "actions"] :w.actions
+                                       [:inline "status"] :w.status
+                                       [:inline "disabled_reason"] :w.disabled_reason
+                                       [:inline "created_at"] :w.created_at
+                                       [:inline "updated_at"] :w.updated_at]]
+                                     :webhooks]]
+                           :from [[:webhooks :w]]
+                           :group-by :w.app-id}]]
     :select [:a.*
              [:at.token :admin_token]
              [:r.code :rules]
@@ -204,6 +225,7 @@
                               [:= :m.user_id :?user-id]]}] :user_app_role]
              [[:coalesce :m.members [:cast [:inline "[]"] :json]] :members]
              [[:coalesce :i.invites [:cast [:inline "[]"] :json]] :invites]
+             [[:coalesce :w.webhooks [:cast [:inline "[]"] :json]] :webhooks]
              [[:case [:= nil :template.id] nil
                :else [:json_build_object
                       [:inline "id"] :template.id
@@ -219,6 +241,7 @@
                 [:instant_subscriptions :sub] [:= :sub.id :a.subscription_id]
                 [:members :m] [:= :m.app_id :a.id]
                 [:member-invites :i] [:= :i.app_id :a.id]
+                [:app-webhooks :w] [:= :w.app_id :a.id]
                 [:app-email-templates :template] [:and
                                                   [:= :template.app_id :a.id]
                                                   [:= :template.email-type [:inline "magic-code"]]]

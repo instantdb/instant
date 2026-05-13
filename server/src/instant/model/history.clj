@@ -84,6 +84,15 @@
       (mod partition-bucket-count)
       int))
 
+(defn recent-partition-buckets
+  "Returns the n most recent partition buckets containing `t`, newest first.
+   With n=3 you cover ~60–90 days of data depending on where `t` sits within
+   its bucket."
+  [^Instant t n]
+  (let [current (partition-bucket-for-time t)]
+    (vec (for [offset (range n)]
+           (int (mod (- current offset) partition-bucket-count))))))
+
 (def push-q (uhsql/preformat {:insert-into :history
                               :values [{:isn :?isn
                                         :app-id :?app-id
@@ -307,10 +316,14 @@
    (tracer/with-span! {:name "history/truncate-old-partitions!"}
      (let [to-truncate (partitions-to-truncate (Instant/now))]
        (doseq [bucket-idx to-truncate]
-         (let [table-name (keyword (str "history_" bucket-idx))]
-           (sql/do-execute! ::truncate-old-partitions!
+         (let [webhook-events-table-name (keyword (str "webhook_events_" bucket-idx))
+               history-table-name (keyword (str "history_" bucket-idx))]
+           (sql/do-execute! ::truncate-old-webhook-events-partitions!
                             conn
-                            (hsql/format {:truncate table-name}))))))))
+                            (hsql/format {:truncate webhook-events-table-name}))
+           (sql/do-execute! ::truncate-old-history-partitions!
+                            conn
+                            (hsql/format {:truncate history-table-name}))))))))
 
 (defn period []
   (let [now (date-util/pt-now)
