@@ -8,7 +8,10 @@
    [clojure.walk :as w]
    [instant.config :as config]
    [instant.util.json :as json]
-   [instant.util.uuid :as uuid-util]))
+   [instant.util.uuid :as uuid-util])
+  (:import
+   (inet.ipaddr IPAddressString)
+   (java.net InetAddress)))
 
 ;; Map of query to {:result {result-tree}
 ;;                  :tx-id int}
@@ -38,11 +41,25 @@
 (def toggle-defaults {:pg-hints-by-default (= :test (config/get-env))})
 
 (defn parse-uuids-flag [vs]
-  (try
-    (set (map parse-uuid vs))
-    (catch Exception e
-      (log/error e "Error parsing UUIDs")
-      #{})))
+  (set (keep (fn [v]
+               (try
+                 (parse-uuid v)
+                 (catch Exception e
+                   (log/error e "Error parsing UUID" v))))
+             vs)))
+
+(defn parse-ips-flag [vs]
+  (set (keep (fn [v]
+               (try
+                 (let [addr-str (IPAddressString. v)]
+                   (if (.isValid addr-str)
+                     (InetAddress/getByAddress
+                      (.getBytes (.toAddress addr-str)))
+                     (do (log/error "Invalid IP" v)
+                         nil)))
+                 (catch Exception e
+                   (log/error e "Error parsing IP" v))))
+             vs)))
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -126,7 +143,8 @@
                   (update :more-vfutures-instances (fn [vs]
                                                      (set vs)))
                   (update :enable-wal-entity-log-apps parse-uuids-flag)
-                  (update :cloudfront-signed-url-apps parse-uuids-flag))
+                  (update :cloudfront-signed-url-apps parse-uuids-flag)
+                  (update :smokescreen-whitelist-ips parse-ips-flag))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
@@ -338,7 +356,8 @@
   (toggled? :use-get-datalog-queries-for-topics-v2? true))
 
 (defn enable-wal-entity-log? [app-id]
-  (contains? (flag :enable-wal-entity-log-apps) app-id))
+  (or (toggled? :enable-wal-entity-log-globally)
+      (contains? (flag :enable-wal-entity-log-apps) app-id)))
 
 (defn log-to-wal-log-table? []
   (toggled? :log-to-wal-log-table false))
@@ -382,3 +401,6 @@
 (defn default-magic-code-expiry-minutes
   []
   (flag :default-magic-code-expiry-minutes 1440))
+
+(defn smokescreen-whitelist-ips []
+  (flag :smokescreen-whitelist-ips #{}))

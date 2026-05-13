@@ -601,15 +601,19 @@
 
    Use `shutdown!` to stop the stream and clean up."
   [{:keys [get-conn-config slot-name slot-type to ex-handler close-signal-chan
-           started-promise slot-num]
+           started-promise slot-num temporary?]
     :as wal-opts}]
   (when (not= slot-type :invalidator)
     (throw (ex-info "Called start-worker with invalid slot-type" {:slot-type slot-type})))
   (let [replication-conn (get-pg-replication-conn (get-conn-config))
         {:keys [lsn]} (binding [sql/*query-timeout-seconds* 120]
-                        (create-logical-replication-slot! replication-conn
-                                                          slot-name
-                                                          "wal2json"))
+                        (if temporary?
+                          (create-temporary-logical-replication-slot! replication-conn
+                                                                      slot-name
+                                                                      "wal2json")
+                          (create-logical-replication-slot! replication-conn
+                                                            slot-name
+                                                            "wal2json")))
         shutdown? (atom false)]
     (loop [replication-conn replication-conn
            stream (create-replication-stream replication-conn slot-type slot-name lsn)

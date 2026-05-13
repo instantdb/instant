@@ -14,7 +14,7 @@
 
 (deftest all-of-the-custom-readers-are-tested
   ;; Only update this number if you also added a freeze/thaw test for the type
-  (is (= 15 (count nippy/*custom-readers*))))
+  (is (= 16 (count nippy/*custom-readers*))))
 
 (defn roundtrip [x]
   (nippy/fast-thaw (nippy/fast-freeze x)))
@@ -236,3 +236,20 @@
 (deftest invalidator-subscribe
   (let [obj (grpc/->InvalidatorSubscribe (random-uuid) (rand-int 1000))]
     (is (= obj (roundtrip obj)))))
+
+(deftest webhook-events
+  (let [obj (instant.grpc/->WebhookEvents (vec (for [_ (range 10)]
+                                                 {:webhook_id (random-uuid)
+                                                  :isn (instant.isn/test-isn (rand-int 283902348))
+                                                  :partition_bucket (rand-int 13)})))]
+    (is (= obj (roundtrip obj))))
+
+  (testing "no events"
+    (let [obj (instant.grpc/->WebhookEvents [])]
+      (is (= obj (roundtrip obj)))))
+
+  (testing "one events"
+    (let [obj (instant.grpc/->WebhookEvents [{:webhook_id (random-uuid)
+                                              :isn (instant.isn/test-isn (rand-int 283902348))
+                                              :partition_bucket (rand-int 13)}])]
+      (is (= obj (roundtrip obj))))))

@@ -5,7 +5,8 @@
  :ignore [:inline-def]
  :hooks {:analyze-call {instant.jdbc.sql/defsql hooks.defsql/defsql
                         tool/with-prod-conn hooks.with-prod-conn/with-prod-conn
-                        instant.fixtures/with-indexing-job-queue hooks.with-indexing-job-queue/with-indexing-job-queue}
+                        instant.fixtures/with-indexing-job-queue hooks.with-indexing-job-queue/with-indexing-job-queue
+                        instant.util.test/with-test-replication-slot hooks.with-test-replication-slot/with-test-replication-slot}
          :macroexpand {taoensso.nippy/extend-freeze hooks.nippy/extend-freeze
                        taoensso.nippy/extend-thaw hooks.nippy/extend-thaw}}
  :lint-as {clojure.core.cache/defcache clojure.core/defrecord

@@ -155,16 +155,29 @@
   (and (some? v)
        (= "instant.isn.ISN" (.getName ^Class (class v)))))
 
+(defn webhook-attempt?
+  [v]
+  (and (some? v)
+       (= "instant.webhook_sender.WebhookAttempt" (.getName ^Class (class v)))))
+
 ;; Delegate to the reflection-free version in instant.jdbc.sql. tool.clj can't
 ;; :import ISN (loaded before instant.isn) and can't :require instant.jdbc.sql
 ;; eagerly for the same reason, so resolve at first call.
 (def ^:private sql-isn->composite-str
   (delay (requiring-resolve 'instant.jdbc.sql/isn->composite-str)))
 
+(def ^:private sql-webhook-attempt->composite-str
+  (delay (requiring-resolve 'instant.jdbc.sql/webhook-attempt->composite-str)))
+
 (defn isn->composite-str
   "Serializes an ISN as the Postgres composite literal (slot_num,lsn)."
   ^String [v]
   (@sql-isn->composite-str v))
+
+(defn webhook-attempt->composite-str
+  "Serializes a WebhookAttempt as the Postgres composite literal."
+  ^String [v]
+  (@sql-webhook-attempt->composite-str v))
 
 (defn ->pg-isn-array
   "Array-literal form: {\"(s,l)\",\"(s,l)\"}. Composites must be double-quoted
@@ -176,6 +189,23 @@
         (.append s \,))
       (.append s \")
       (.append s (isn->composite-str isn))
+      (.append s \"))
+    (.append s "}")
+    (.toString s)))
+
+(defn ->pg-webhook-attempt-array
+  "Array-literal form for webhook_attempt[]. Composites are double-quoted
+   inside the array literal, and any embedded \" or \\ in the composite
+   literal must be escaped again for the array nesting."
+  [attempts]
+  (let [s (StringBuilder. "{")]
+    (doseq [a attempts]
+      (when (not= 1 (.length s))
+        (.append s \,))
+      (.append s \")
+      (.append s (-> (webhook-attempt->composite-str a)
+                     (str/replace "\\" "\\\\")
+                     (str/replace "\"" "\\\"")))
       (.append s \"))
     (.append s "}")
     (.toString s)))
@@ -234,6 +264,7 @@
                                                      (= "int[]" (-> v meta :pgtype))
                                                      (= "bigint[]" (-> v meta :pgtype))
                                                      (= "history_storage[]" (-> v meta :pgtype))
+                                                     (= "webhook_event_status[]" (-> v meta :pgtype))
                                                      (and (set? v)
                                                           (or (every? uuid? v)
                                                               (every? boolean? v)
@@ -284,6 +315,14 @@
 
                                                  (= "isn[]" (-> v meta :pgtype))
                                                  (format "'%s'::isn[]" (->pg-isn-array v))
+
+                                                 (webhook-attempt? v)
+                                                 (format "'%s'::webhook_attempt"
+                                                         (.replace (webhook-attempt->composite-str v) "'" "''"))
+
+                                                 (= "webhook_attempt[]" (-> v meta :pgtype))
+                                                 (format "'%s'::webhook_attempt[]"
+                                                         (.replace (->pg-webhook-attempt-array v) "'" "''"))
 
                                                  ;; Fallback to JSON
                                                  (set? v)
@@ -352,7 +391,7 @@
   "")
 
 (def time-enabled?
-  false)
+  true)
 
 (defmacro time* [msg & body]
   (if time-enabled?

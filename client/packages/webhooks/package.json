@@ -1,0 +1,61 @@
+{
+  "name": "@instantdb/webhooks",
+  "version": "0.0.0",
+  "description": "Webhook handlers for Instant DB",
+  "license": "Apache-2.0",
+  "type": "module",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/webhooks",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/webhooks"
+  },
+  "main": "./dist/commonjs/index.js",
+  "types": "./dist/commonjs/index.d.ts",
+  "module": "./dist/esm/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    }
+  },
+  "tshy": {
+    "selfLink": false,
+    "main": true,
+    "module": true,
+    "project": "./tsconfig.json",
+    "exports": {
+      "./package.json": "./package.json",
+      ".": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest",
+    "test:types": "tsc -p tsconfig.test.json --noEmit",
+    "test:ci": "vitest run && pnpm run test:types",
+    "dev": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
+    "clean": "rm -rf dist",
+    "check-exports": "attw --pack .",
+    "build:tshy": "tshy",
+    "build": "rm -rf dist; npm run build:tshy && npm run check-exports",
+    "publish-package": "pnpm pack && npm publish *.tgz --access public"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.4",
+    "@types/node": "^22.6.1",
+    "npm-run-all": "^4.1.5",
+    "tshy": "^3.0.2",
+    "typescript": "^5.9.3",
+    "vitest": "^0.21.0"
+  },
+  "dependencies": {
+    "@instantdb/core": "workspace:*"
+  }
+}

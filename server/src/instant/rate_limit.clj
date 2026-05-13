@@ -115,6 +115,7 @@
                     (refillIntervally capacity (Duration/ofHours 1))
                     (build)))
       (build)))
+
 (defn initialize
   "Sets up bucket4j to use hazelcast.
    Returns a map with a `get-bucket` function. For each unique key,

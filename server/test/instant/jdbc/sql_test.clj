@@ -1,18 +1,21 @@
 (ns instant.jdbc.sql-test
   (:require
+   [clojure.set]
+   [clojure.test :refer [deftest is testing]]
    [honey.sql :as hsql]
    [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.rate-limit :refer [parse-duration]]
    [instant.util.test :refer [wait-for]]
-   [clojure.test :refer [deftest testing is]])
+   [instant.webhook-sender :as webhook-sender])
   (:import
    (clojure.lang ExceptionInfo)
    (instant.isn ISN)
+   (instant.webhook_sender WebhookAttempt)
+   (java.sql Timestamp)
    (java.time Duration Instant)
    (java.time.temporal ChronoUnit)
-   (java.sql Timestamp)
    (org.postgresql.replication LogSequenceNumber)))
 
 (deftest connection-startup-sets-config
@@ -128,7 +131,29 @@
               (ISN. 42 (LogSequenceNumber/valueOf "1A2B/3C4D5E6F"))]]
       (is (= {:v vs}
              (sql/select-one (aurora/conn-pool :read)
-                             ["select ? as v" (with-meta vs {:pgtype "isn[]"})]))))))
+                             ["select ? as v" (with-meta vs {:pgtype "isn[]"})])))))
+
+  (testing "webhook_attempt"
+    (let [a (webhook-sender/->WebhookAttempt
+             (-> (Instant/now) (.truncatedTo ChronoUnit/MICROS))
+             123
+             true
+             200
+             "ok"
+             nil
+             nil)]
+      (is (= {:v a}
+             (sql/select-one (aurora/conn-pool :read)
+                             ["select ? as v" a])))))
+
+  (testing "webhook_attempt[]"
+    (let [now (-> (Instant/now) (.truncatedTo ChronoUnit/MICROS))
+          vs [(webhook-sender/->WebhookAttempt now 12 true 200 "" nil nil)
+              (webhook-sender/->WebhookAttempt now 50 false 500 nil "timeout" "boom: \"oops\", \\backslash")
+              (webhook-sender/->WebhookAttempt now 7 true 204 "body, with (parens) and \"quotes\"" nil nil)]]
+      (is (= {:v vs}
+             (sql/select-one (aurora/conn-pool :read)
+                             ["select ? as v" (with-meta vs {:pgtype "webhook_attempt[]"})]))))))
 
 (deftest elementset-test
   (let [xs [1 2 3]
@@ -203,6 +228,76 @@
   (testing "roundtrip with isn->composite-str"
     (let [isn (ISN. 7 (LogSequenceNumber/valueOf "1A2B/3C4D5E6F"))]
       (is (= isn (sql/parse-isn (sql/isn->composite-str isn)))))))
+
+(deftest parse-webhook-attempt-test
+  (testing "literal from postgres with success row"
+    (let [a (sql/parse-webhook-attempt
+             "(\"2026-05-04 04:38:53.045857+00\",568,t,200,\"\",,)")]
+      (is (= (Instant/parse "2026-05-04T04:38:53.045857Z") (:attempt-at a)))
+      (is (= 568 (:duration-ms a)))
+      (is (true? (:success? a)))
+      (is (= 200 (:status-code a)))
+      (is (= "" (:response-text a)))
+      (is (nil? (:error-type a)))
+      (is (nil? (:error-message a)))))
+
+  (testing "literal with error and null response-text"
+    (let [a (sql/parse-webhook-attempt
+             "(\"2026-05-04 04:38:53+00\",1200,f,,,timeout,\"connect timeout\")")]
+      (is (= 1200 (:duration-ms a)))
+      (is (false? (:success? a)))
+      (is (nil? (:status-code a)))
+      (is (nil? (:response-text a)))
+      (is (= "timeout" (:error-type a)))
+      (is (= "connect timeout" (:error-message a)))))
+
+  (testing "literal from postgres with doubled quotes and backslashes"
+    (let [a (sql/parse-webhook-attempt
+             "(\"2026-05-04 04:38:53+00\",1200,f,500,\"boom: \"\"oops\"\", \\\\backslash\",,)")]
+      (is (= 500 (:status-code a)))
+      (is (= "boom: \"oops\", \\backslash" (:response-text a)))))
+
+  (testing "roundtrip with webhook-attempt->composite-str"
+    (let [now (Instant/now)
+          truncate-attempt-at (fn [attempt]
+                                (update attempt :attempt-at #(some-> % (Instant/.truncatedTo ChronoUnit/SECONDS))))
+          attempts [(webhook-sender/->WebhookAttempt now 1 true 200 "ok" nil nil)
+                    (webhook-sender/->WebhookAttempt now 5 false 502 nil "upstream" "upstream down")
+                    (webhook-sender/->WebhookAttempt now 9 false 500
+                                                     "{\"err\":\"x\\\"y\"}"
+                                                     "exception"
+                                                     "boom, with (parens), \"quotes\" and \\backslash")
+                    (webhook-sender/->WebhookAttempt now 8 false 500
+                                                     "slash-quote: \\\"x\\\""
+                                                     nil
+                                                     nil)
+                    (webhook-sender/->WebhookAttempt now 0 true 204 "" nil nil)]]
+      (doseq [^WebhookAttempt a attempts]
+        (is (= (truncate-attempt-at a)
+               (-> a
+                   sql/webhook-attempt->composite-str
+                   sql/parse-webhook-attempt
+                   truncate-attempt-at)))
+        (is (= (-> (into {} a)
+                   (truncate-attempt-at))
+               (-> (sql/select-one (aurora/conn-pool :read)
+                                   (hsql/format {:with [[:x {:select [[[:lift a] :a]]}]]
+                                                 :select [[[:. [:nest :a] :attempt_at]]
+                                                          [[:. [:nest :a] :duration_ms]]
+                                                          [[:. [:nest :a] :success]]
+                                                          [[:. [:nest :a] :status_code]]
+                                                          [[:. [:nest :a] :response_text]]
+                                                          [[:. [:nest :a] :error_type]]
+                                                          [[:. [:nest :a] :error_message]]]
+                                                 :from [:x]}))
+                   (clojure.set/rename-keys {:attempt_at :attempt-at
+                                             :duration_ms :duration-ms
+                                             :success :success?
+                                             :status_code :status-code
+                                             :response_text :response-text
+                                             :error_type :error-type
+                                             :error_message :error-message})
+                   (update :attempt-at #(some-> % Timestamp/.toInstant (.truncatedTo ChronoUnit/SECONDS))))))))))
 
 (deftest format-test
   (testing "static"

@@ -49,6 +49,7 @@
             [instant.model.outreach :as outreach-model]
             [instant.model.rule :as rule-model]
             [instant.model.schema :as schema-model]
+            [instant.model.webhook :as webhook-model]
             [instant.plans :as plans]
             [instant.postmark :as postmark]
             [instant.runtime.magic-code-auth :refer [check-send-rate-limit!
@@ -63,6 +64,7 @@
             [instant.util.email :as email]
             [instant.util.exception :as ex]
             [instant.util.http :as http-util]
+            [instant.isn :as isn]
             [instant.util.json :as json]
             [instant.util.number :as number-util]
             [instant.util.roles :refer [assert-least-privilege!
@@ -74,6 +76,7 @@
             [instant.util.tracer :as tracer]
             [instant.util.url :as url-util]
             [instant.util.uuid :as uuid-util]
+            [instant.webhook-processor :as webhook-processor]
             [medley.core :as medley]
             [next.jdbc :as next-jdbc]
             [ring.middleware.cookies :refer [wrap-cookies]]
@@ -81,7 +84,10 @@
   (:import
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
-   (java.util Map UUID)))
+   (java.nio ByteBuffer)
+   (java.sql Timestamp)
+   (java.time Instant)
+   (java.util Base64 Map UUID)))
 
 (def cli-min-version (semver/parse "v0.19.0"))
 
@@ -1632,6 +1638,181 @@
                           :headers {"authorization" (str "Bearer " (:id r))}}))
 
 ;; --------
+;; Webhooks
+
+(defn webhook-row->response [webhook]
+  (select-keys webhook [:id :sink :etypes :actions :status
+                        :disabled_reason :created_at :updated_at]))
+
+(defn coerce-string-vec [x]
+  (when (and (sequential? x)
+             (every? string? x))
+    (vec x)))
+
+(defn webhooks-get [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/read
+                                                                         req)
+        webhooks (webhook-model/get-all-by-app-id {:app-id app-id})]
+    (response/ok {:webhooks (mapv webhook-row->response webhooks)})))
+
+(defn webhooks-post [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/write
+                                                                         req)
+        url (ex/get-param! req [:body :url] string-util/coerce-non-blank-str)
+        etypes (ex/get-param! req [:body :etypes] coerce-string-vec)
+        actions (ex/get-param! req [:body :actions] coerce-string-vec)
+        {webhook-id :id} (webhook-model/create! {:app-id app-id
+                                                 :url url
+                                                 :etypes etypes
+                                                 :actions actions})
+        webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id app-id
+                                                              :webhook-id webhook-id})]
+    (response/ok {:webhook (webhook-row->response webhook)})))
+
+(defn webhook-update-post [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/write
+                                                                         req)
+        webhook-id (ex/get-param! req [:params :webhook_id] uuid-util/coerce)
+        body (:body req)
+        params (cond-> {:app-id app-id
+                        :webhook-id webhook-id}
+                 (contains? body :url)
+                 (assoc :url (ex/get-param! req [:body :url] string-util/coerce-non-blank-str))
+
+                 (contains? body :etypes)
+                 (assoc :etypes (ex/get-param! req [:body :etypes] coerce-string-vec))
+
+                 (contains? body :actions)
+                 (assoc :actions (ex/get-param! req [:body :actions] coerce-string-vec)))]
+    (webhook-model/update! params)
+    (let [webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id app-id
+                                                                :webhook-id webhook-id})]
+      (response/ok {:webhook (webhook-row->response webhook)}))))
+
+(defn webhook-delete [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/write
+                                                                         req)
+        webhook-id (ex/get-param! req [:params :webhook_id] uuid-util/coerce)
+        webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id app-id
+                                                              :webhook-id webhook-id})]
+    (webhook-model/delete! {:app-id app-id
+                            :webhook-id webhook-id})
+    (response/ok {:webhook (webhook-row->response webhook)})))
+
+(defn webhook-enable-post [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/write
+                                                                         req)
+        webhook-id (ex/get-param! req [:params :webhook_id] uuid-util/coerce)]
+    (webhook-model/enable! {:app-id app-id
+                            :webhook-id webhook-id})
+    (let [webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id app-id
+                                                                :webhook-id webhook-id})]
+      (response/ok {:webhook (webhook-row->response webhook)}))))
+
+(defn webhook-disable-post [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/write
+                                                                         req)
+        webhook-id (ex/get-param! req [:params :webhook_id] uuid-util/coerce)
+        reason (ex/get-optional-param! req [:body :reason] string-util/coerce-non-blank-str)]
+    (webhook-model/disable! {:app-id app-id
+                             :webhook-id webhook-id
+                             :reason reason})
+    (let [webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id app-id
+                                                                :webhook-id webhook-id})]
+      (response/ok {:webhook (webhook-row->response webhook)}))))
+
+(def webhook-events-page-size 100)
+
+(defn webhook-event-row->response [event]
+  (select-keys event [:isn :status :attempts :next_attempt_after
+                      :created_at :updated_at]))
+
+(defn encode-events-cursor [^Timestamp created-at isn]
+  (let [isn-bytes (isn/->bytes isn)
+        buf (ByteBuffer/allocate (+ 8 (alength isn-bytes)))
+        encoder (.withoutPadding (Base64/getUrlEncoder))]
+    (.putLong buf (-> created-at .toInstant .toEpochMilli))
+    (.put buf isn-bytes)
+    (.encodeToString encoder (.array buf))))
+
+(defn decode-events-cursor [^String s]
+  (let [decoder (Base64/getUrlDecoder)
+        buf (ByteBuffer/wrap (.decode decoder s))
+        created-at (Instant/ofEpochMilli (.getLong buf))
+        isn-ba (byte-array (.remaining buf))]
+    (.get buf isn-ba)
+    {:created-at created-at
+     :isn (isn/<-bytes isn-ba)}))
+
+(defn webhook-events-get [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/read
+                                                                         req)
+        webhook-id (ex/get-param! req [:params :webhook_id] uuid-util/coerce)
+        after (ex/get-optional-param! req [:params :after]
+                                      (fn [v] (try (decode-events-cursor v)
+                                                   (catch Exception _ nil))))
+        events (webhook-model/get-events {:app-id app-id
+                                          :webhook-id webhook-id
+                                          :after after
+                                          :limit (inc webhook-events-page-size)})
+        results (mapv webhook-event-row->response
+                      (take webhook-events-page-size events))
+        start-cursor (when-let [event (first results)]
+                       (encode-events-cursor (:created_at event)
+                                             (:isn event)))
+        end-cursor (when-let [event (last results)]
+                     (encode-events-cursor (:created_at event)
+                                           (:isn event)))]
+    (response/ok {:events results
+                  :pageInfo {:startCursor start-cursor
+                             :endCursor end-cursor
+                             :hasNextPage (= (count events) (inc webhook-events-page-size))}})))
+
+(defn webhook-event-get [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/read
+                                                                         req)
+        webhook-id (ex/get-param! req [:params :webhook_id] uuid-util/coerce)
+        isn (ex/get-param! req [:params :*]
+                           (fn [v] (try (isn/of-string v)
+                                        (catch Exception _ nil))))
+        event (-> (webhook-model/get-event-by-isn {:app-id app-id
+                                                   :webhook-id webhook-id
+                                                   :isn isn})
+                  (ex/assert-record! :webhook-event {:args [{:app-id app-id
+                                                             :webhook-id webhook-id
+                                                             :isn isn}]}))]
+    (response/ok {:event (webhook-event-row->response event)})))
+
+(defn webhook-event-resend-post [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/write
+                                                                         req)
+        webhook-id (ex/get-param! req [:params :webhook_id] uuid-util/coerce)
+        isn (ex/get-param! req [:params :*]
+                           (fn [v] (try (isn/of-string v)
+                                        (catch Exception _ nil))))
+        event (webhook-model/requeue! {:app-id app-id
+                                       :webhook-id webhook-id
+                                       :isn isn})]
+    (if event
+      (do
+        (webhook-processor/notify-events [event])
+        (response/ok {:event (webhook-event-row->response event)}))
+      (ex/throw-validation-err! :webhook-events
+                                {:app-id app-id
+                                 :webhook-id webhook-id
+                                 :isn isn}
+                                [{:message "Could not resend event. Try again in one minute."}]))))
+
+;; --------
 ;; CLI auth
 
 (defn cli-auth-register-post [_]
@@ -2091,6 +2272,17 @@
   (GET "/dash/apps/:app_id/indexing-jobs/:job_id" [] indexing-job-get)
   (GET "/dash/apps/:app_id/indexing-jobs/group/:group_id" [] indexing-jobs-group-get)
   (POST "/dash/apps/:app_id/indexing-jobs" [] indexing-job-post)
+
+  ;; Webhooks
+  (GET "/dash/apps/:app_id/webhooks" [] webhooks-get)
+  (POST "/dash/apps/:app_id/webhooks" [] webhooks-post)
+  (POST "/dash/apps/:app_id/webhooks/:webhook_id" [] webhook-update-post)
+  (DELETE "/dash/apps/:app_id/webhooks/:webhook_id" [] webhook-delete)
+  (POST "/dash/apps/:app_id/webhooks/:webhook_id/enable" [] webhook-enable-post)
+  (POST "/dash/apps/:app_id/webhooks/:webhook_id/disable" [] webhook-disable-post)
+  (GET "/dash/apps/:app_id/webhooks/:webhook_id/events" [] webhook-events-get)
+  (GET "/dash/apps/:app_id/webhooks/:webhook_id/events/*" [] webhook-event-get)
+  (POST "/dash/apps/:app_id/webhooks/:webhook_id/events/*" [] webhook-event-resend-post)
 
   ;; Orgs
   (POST "/dash/orgs" [] orgs-post)
