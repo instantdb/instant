@@ -1,5 +1,6 @@
 (ns instant.model.webhook
   (:require
+   [honey.sql.pg-ops :as pg-ops]
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.flags :as flags]
@@ -258,8 +259,12 @@
                     :where [:and
                             [:= :status [:inline [:cast [:inline "active"] :webhook_status]]]
                             [:= :app-id :?app-id]
-                            [:= :id-attr-ids :?id-attr-ids]
-                            [:= :actions :?actions]
+                            ;; We don't have array_sort in pg 17, so we check if both arrays
+                            ;; are contained in each other
+                            [pg-ops/at> :id-attr-ids :?id-attr-ids]
+                            [pg-ops/<at :id-attr-ids :?id-attr-ids]
+                            [pg-ops/at> :actions  :?actions]
+                            [pg-ops/<at :actions  :?actions]
                             [:= :sink :?sink]]}))
 
 (defn check-webhook-duplicate!

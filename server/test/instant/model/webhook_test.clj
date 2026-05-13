@@ -30,7 +30,7 @@
               :actions :?actions
               :sink [:cast :?sink :jsonb]}]}))
 
-(defn insert-webhook! [{:keys [app-id webhook-id id-attr-ids actions]}]
+(defn insert-webhook! [{:keys [app-id webhook-id id-attr-ids actions url]}]
   (sql/do-execute!
    (aurora/conn-pool :write)
    (uhsql/formatp insert-webhook-q
@@ -38,7 +38,7 @@
                    :app-id app-id
                    :id-attr-ids (with-meta (vec id-attr-ids) {:pgtype "uuid[]"})
                    :actions (with-meta (vec actions) {:pgtype "webhook_action[]"})
-                   :sink (json/->json {:url "http://example.com"})})))
+                   :sink (json/->json {:url (or url "http://example.com")})})))
 
 (defn triple-cols [app-id eid aid value]
   [(WalColumn. "app_id" (str app-id))
@@ -490,6 +490,48 @@
                     (webhook/enable! {:app-id (:id app)
                                       :webhook-id webhook-a-id
                                       :reason "test"})
+                    (catch Exception ex ex))]
+            (is (some? e))
+            (is (re-find #"webhook already exists"
+                         (.getMessage ^Exception e)))))))))
+
+(deftest duplicate-check-ignores-array-order
+  (with-redefs [webhook-sender/validate-url (constantly nil)]
+    (with-empty-app
+      (fn [app]
+        (let [attrs (test-util/make-attrs (:id app) [[:users/id :unique? :index?]
+                                                     [:books/id :unique? :index?]])
+              users-id (:users/id attrs)
+              books-id (:books/id attrs)
+              url "https://example.com/hook"]
+          ;; Insert a webhook with id-attr-ids in [users books] order and
+          ;; actions in ["create" "update"] order.
+          (insert-webhook! {:app-id (:id app)
+                            :webhook-id (random-uuid)
+                            :id-attr-ids [users-id books-id]
+                            :actions ["create" "update"]
+                            :url url})
+          ;; The same webhook with id-attr-ids reversed should be flagged as a
+          ;; duplicate.
+          (let [e (try
+                    (webhook/check-webhook-duplicate!
+                     (aurora/conn-pool :read)
+                     (:id app)
+                     {:url url
+                      :id-attr-ids [books-id users-id]
+                      :actions ["create" "update"]})
+                    (catch Exception ex ex))]
+            (is (some? e))
+            (is (re-find #"webhook already exists"
+                         (.getMessage ^Exception e))))
+          ;; Same id-attr-ids but actions reversed should also be flagged.
+          (let [e (try
+                    (webhook/check-webhook-duplicate!
+                     (aurora/conn-pool :read)
+                     (:id app)
+                     {:url url
+                      :id-attr-ids [users-id books-id]
+                      :actions ["update" "create"]})
                     (catch Exception ex ex))]
             (is (some? e))
             (is (re-find #"webhook already exists"
