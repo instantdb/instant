@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#
+# Wrapper around `clojure` that adds an S3-backed Maven mirror to :mvn/repos
+# when AWS credentials are available.
+#
+# tools.deps ships with a built-in Maven Resolver Transporter for s3:// URLs
+# (Cognitect aws-api under the hood). We can't insert a custom repo before
+# the built-in central/clojars entries via insertion order, so we override
+# "central" and "clojars" to point at the S3 mirror and add upstream
+# fallbacks ("central-upstream", "clojars-upstream"). Maven Resolver
+# walks repos in order on a 404, so a cache miss in S3 transparently falls
+# through to the real upstream.
+#
+# Env vars:
+#   INSTANT_DEPS_S3_BUCKET   bucket name. Required to enable the mirror.
+#   INSTANT_DEPS_S3_PREFIX   key prefix in the bucket. Default: "mvn".
+#   INSTANT_DEPS_S3_REGION   bucket region.            Default: "us-east-1".
+#
+# AWS auth: any of the standard SDK sources are detected -- explicit env
+# vars, an active AWS_PROFILE, or a web-identity token file (CI OIDC). If
+# none are present, the wrapper transparently delegates to plain `clojure`
+# so devs without S3 access keep building from Maven Central directly.
+
+set -euo pipefail
+
+BUCKET="${INSTANT_DEPS_S3_BUCKET:-}"
+PREFIX="${INSTANT_DEPS_S3_PREFIX:-mvn}"
+REGION="${INSTANT_DEPS_S3_REGION:-us-east-1}"
+
+have_aws_creds() {
+  [[ -n "${AWS_ACCESS_KEY_ID:-}" ]] && return 0
+  [[ -n "${AWS_SESSION_TOKEN:-}" ]] && return 0
+  [[ -n "${AWS_WEB_IDENTITY_TOKEN_FILE:-}" ]] && return 0
+  [[ -n "${AWS_PROFILE:-}" ]] && return 0
+  return 1
+}
+
+if [[ -n "$BUCKET" ]] && have_aws_creds; then
+  S3_URL="s3://${BUCKET}/${PREFIX}?region=${REGION}"
+  SDEPS="{:mvn/repos {\"central\" {:url \"${S3_URL}\"}
+                       \"clojars\" {:url \"${S3_URL}\"}
+                       \"central-upstream\" {:url \"https://repo1.maven.org/maven2/\"}
+                       \"clojars-upstream\" {:url \"https://repo.clojars.org/\"}}}"
+  exec clojure -Sdeps "$SDEPS" "$@"
+else
+  exec clojure "$@"
+fi

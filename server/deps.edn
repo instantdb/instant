@@ -192,6 +192,17 @@
            :oss-bootstrap {:extra-deps {org.clojure/tools.cli {:mvn/version "1.1.230"}}
                            :exec-fn tasks/bootstrap-for-oss
                            :jvm-opts ["-Dclojure.main.report=stderr"]}
+           ;; Uploads every Maven artifact in the basis (with the listed aliases)
+           ;; to an S3 bucket using the standard Maven 2 layout. Reads, on the
+           ;; other hand, are wired up in scripts/clj-deps-mirror, which
+           ;; conditionally injects the S3 mirror as :mvn/repos when AWS creds
+           ;; are present so plain `clojure` keeps working without it.
+           :mirror-deps {:extra-deps {io.github.clojure/tools.build {:git/tag "v0.10.3" :git/sha "15ead66"}}
+                         :exec-fn tasks/mirror-deps-to-s3
+                         :exec-args {:prefix "mvn"
+                                     :region "us-east-1"
+                                     :aliases [:dev :test :build]}
+                         :jvm-opts ["-Dclojure.main.report=stderr"]}
            :lint {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2025.04.07"}}
                   :main-opts ["-m" "clj-kondo.main" "--lint" "src" "test"]}
 

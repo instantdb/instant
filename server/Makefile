@@ -172,3 +172,19 @@ generate-cloudfront-key-staging:
 
 lint:
 	if command -v clj-kondo >/dev/null 2>&1; then clj-kondo --lint src test; else clojure -M:lint; fi
+
+# Fetch deps using the S3 mirror when INSTANT_DEPS_S3_BUCKET + AWS creds are
+# set, otherwise just plain `clojure -P`.
+deps:
+	./scripts/clj-deps-mirror -P
+	./scripts/clj-deps-mirror -P -M:dev:test
+	./scripts/clj-deps-mirror -P -T:build
+
+# Upload every Maven artifact in the current basis to the S3 mirror. Run
+# this in CI after a successful build; INSTANT_DEPS_S3_BUCKET must be set
+# and AWS creds available.
+mirror-deps:
+	@if [ -z "$$INSTANT_DEPS_S3_BUCKET" ]; then echo "INSTANT_DEPS_S3_BUCKET is required"; exit 1; fi
+	clojure -P -M:dev:test
+	clojure -P -T:build
+	clojure -X:mirror-deps :bucket '"'$$INSTANT_DEPS_S3_BUCKET'"'
