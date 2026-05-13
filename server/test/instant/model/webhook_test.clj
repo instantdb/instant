@@ -440,8 +440,8 @@
         (let [params {:app-id (:id app)
                       :etypes ["users"]
                       :actions ["create"]
-                      :url "https://example.com/hook"}]
-          (is (webhook/create! params))
+                      :url "https://example.com/hook"}
+              {original-id :id} (webhook/create! params)]
           (let [e (try
                     (webhook/create! params)
                     (catch Exception ex ex))]
@@ -453,18 +453,10 @@
           (is (webhook/create! (assoc params :etypes ["books"])))
           (is (webhook/create! (assoc params :actions ["update"])))
           ;; A disabled webhook with matching params does not block creation.
-          (let [{disabled-id :id}
-                (sql/select-one (aurora/conn-pool :read)
-                                ["select id from webhooks
-                                    where app_id = ?
-                                      and sink->>'url' = 'https://example.com/hook'
-                                      and actions = array['create']::webhook_action[]
-                                    limit 1"
-                                 (:id app)])]
-            (webhook/disable! {:app-id (:id app)
-                               :webhook-id disabled-id
-                               :reason "test"})
-            (is (webhook/create! params))))))))
+          (webhook/disable! {:app-id (:id app)
+                             :webhook-id original-id
+                             :reason "test"})
+          (is (webhook/create! params)))))))
 
 (deftest cant-enable-webhook-when-duplicate-is-active
   (with-redefs [webhook-sender/validate-url (constantly nil)]
