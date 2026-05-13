@@ -448,4 +448,21 @@ describe('InstantVueDatabase', () => {
       cleanup();
     });
   });
+
+  describe('rooms.useTypingIndicator', () => {
+    // Vue's v-bind spread hyphenates `on<UpperCase>` keys via Vue's
+    // `parseName` (which calls `hyphenate`, not `toLowerCase`). So
+    // `onKeyDown` would map to a non-existent `key-down` event listener.
+    // Lowercasing the key (`onKeydown`) avoids the hyphenation entirely.
+    it('inputProps uses lowercase listener keys (Vue v-bind requirement)', () => {
+      const room = db.room('chat' as any, 'r1');
+      const { result, cleanup } = withScope(() =>
+        (db.rooms.useTypingIndicator as any)(room, 'chat-input'),
+      );
+      expect(typeof result.inputProps.onKeydown).toBe('function');
+      expect(typeof result.inputProps.onBlur).toBe('function');
+      expect((result.inputProps as any).onKeyDown).toBeUndefined();
+      cleanup();
+    });
+  });
 });

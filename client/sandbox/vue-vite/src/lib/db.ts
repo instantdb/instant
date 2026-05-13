@@ -2,9 +2,8 @@ import { ref, shallowRef } from 'vue';
 import { init, i, type InstantSchemaDef } from '@instantdb/vue';
 import config from './config';
 
-const STORAGE_KEY = 'sb-vue-vite-ephemeral-app';
-
-type EphemeralApp = { id: string; 'admin-token': string };
+const URL_PARAM = 'app';
+const STORAGE_KEY = 'sb-vue-vite-ephemeral-app-id';
 
 const schema = i.schema({
   entities: {
@@ -27,6 +26,7 @@ async function provisionEphemeralApp(schema: InstantSchemaDef<any, any, any>) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title: 'Vue Sandbox', schema }),
   });
+  if (!r.ok) throw await r.json();
   return r.json();
 }
 
@@ -38,23 +38,38 @@ async function verifyEphemeralApp(appId: string) {
   return r.json();
 }
 
-async function getOrCreateApp(): Promise<EphemeralApp> {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
+function readAppIdFromUrl(): string | null {
+  return new URLSearchParams(window.location.search).get(URL_PARAM);
+}
+
+function persistAppId(appId: string) {
+  localStorage.setItem(STORAGE_KEY, appId);
+  const url = new URL(window.location.href);
+  if (url.searchParams.get(URL_PARAM) !== appId) {
+    url.searchParams.set(URL_PARAM, appId);
+    window.history.replaceState(null, '', url);
+  }
+}
+
+async function getOrCreateAppId(): Promise<string> {
+  // URL param wins over localStorage so a shared link can target a specific app
+  // across tabs / users. Falls back to localStorage, then provisions fresh.
+  const incoming = readAppIdFromUrl() || localStorage.getItem(STORAGE_KEY);
+
+  if (incoming) {
     try {
-      const app = JSON.parse(saved) as EphemeralApp;
-      await verifyEphemeralApp(app.id);
-      return app;
+      await verifyEphemeralApp(incoming);
+      persistAppId(incoming);
+      return incoming;
     } catch {
-      localStorage.removeItem(STORAGE_KEY);
+      // app no longer exists; fall through to provision a new one
     }
   }
 
   const res = await provisionEphemeralApp(schema);
   if (!res.app) throw new Error('Could not create ephemeral app');
-  const app: EphemeralApp = res.app;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(app));
-  return app;
+  persistAppId(res.app.id);
+  return res.app.id;
 }
 
 export type DB = ReturnType<typeof init<AppSchema>>;
@@ -63,11 +78,11 @@ export const isLoading = ref(true);
 export const error = ref<string | null>(null);
 export const db = shallowRef<DB | null>(null);
 
-getOrCreateApp()
-  .then((app) => {
+getOrCreateAppId()
+  .then((appId) => {
     db.value = init({
       ...config,
-      appId: app.id,
+      appId,
       schema,
       devtool: false,
     });
@@ -80,6 +95,9 @@ getOrCreateApp()
 
 export function resetEphemeralApp() {
   localStorage.removeItem(STORAGE_KEY);
+  const url = new URL(window.location.href);
+  url.searchParams.delete(URL_PARAM);
+  window.history.replaceState(null, '', url);
   location.reload();
 }
 

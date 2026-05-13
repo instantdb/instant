@@ -19,7 +19,7 @@
     "@tailwindcss/vite": "^4.1.13",
     "@tsconfig/node22": "^22.0.0",
     "@types/node": "^22.0.0",
-    "@vitejs/plugin-vue": "^5.2.0",
+    "@vitejs/plugin-vue": "^6.0.0",
     "@vue/tsconfig": "^0.7.0",
     "npm-run-all2": "^7.0.0",
     "tailwindcss": "^4.1.13",
