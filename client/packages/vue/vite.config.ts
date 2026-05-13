@@ -8,6 +8,7 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, 'src/index.ts'),
+        cli: resolve(__dirname, 'src/cli.ts'),
         InstantVueDatabase: resolve(__dirname, 'src/InstantVueDatabase.ts'),
         InstantVueRoom: resolve(__dirname, 'src/InstantVueRoom.ts'),
         useInfiniteQuery: resolve(__dirname, 'src/useInfiniteQuery.ts'),

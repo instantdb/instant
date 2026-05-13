@@ -12,6 +12,7 @@ type ConfigCandidate = {
  * Some framework packages can't be loaded in a Node.js CLI context:
  * - @instantdb/react-native brings in react-native which isn't available
  * - @instantdb/svelte re-exports .svelte files which can't be parsed
+ * - @instantdb/vue re-exports .vue files which can't be parsed
  *
  * Since schema files only need schema types (i, id, tx, etc.) which all
  * come from @instantdb/core, we rewrite these imports to a safe export
@@ -23,7 +24,8 @@ function transformImports(code: string): string {
       /["']@instantdb\/react-native["']/g,
       '"@instantdb/react-native/dist/cli"',
     )
-    .replace(/["']@instantdb\/svelte["']/g, '"@instantdb/svelte/dist/cli"');
+    .replace(/["']@instantdb\/svelte["']/g, '"@instantdb/svelte/dist/cli"')
+    .replace(/["']@instantdb\/vue["']/g, '"@instantdb/vue/dist/cli"');
 }
 
 function findPathsRecursive(
