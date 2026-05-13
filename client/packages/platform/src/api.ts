@@ -3,6 +3,7 @@ import {
   version as coreVersion,
   InstantRules,
   InstantSchemaDef,
+  InstantUnknownSchema,
   EntitiesDef,
   LinksDef,
   RoomsDef,
@@ -13,6 +14,7 @@ import {
   InstantDBInferredType,
   DataAttrDef,
 } from '@instantdb/core';
+import { Webhooks, type WithAuth } from '@instantdb/webhooks';
 import version from './version.ts';
 import {
   attrFwdLabel,
@@ -1849,5 +1851,31 @@ export class PlatformApi {
       throw new PlatformApiMissingAuthError();
     }
     return this.withRetry(tokenInfo, [this.#apiURI, this.token()]);
+  }
+
+  /**
+   * Returns a {@link Webhooks} instance scoped to `appId`. You don't need
+   * auth on this PlatformApi to verify signatures or process incoming
+   * deliveries — only `webhooks(appId).manager.*` requires it, and those
+   * calls are routed through {@link withRetry}, so an expired access token
+   * is transparently refreshed.
+   *
+   * Pass `schema` (e.g. from {@link apiSchemaToInstantSchemaDef}) for typed
+   * handler records and typed `etypes` on `manager.create`/`update`.
+   */
+  webhooks<
+    Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+  >(appId: string, opts?: { schema?: Schema }): Webhooks<Schema> {
+    const withAuth: WithAuth = (operation) =>
+      this.withRetry(
+        (_apiURI: string, token: string) => operation(token),
+        [this.#apiURI, this.token()],
+      );
+    return new Webhooks<Schema>({
+      appId,
+      apiURI: this.#apiURI,
+      schema: opts?.schema,
+      withAuth,
+    });
   }
 }

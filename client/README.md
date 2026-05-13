@@ -29,6 +29,7 @@ To kick everything off:
 cd client
 corepack enable # enables pnpm
 pnpm i
+pnpm run build-packages
 make dev
 ```
 

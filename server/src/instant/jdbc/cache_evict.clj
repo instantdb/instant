@@ -6,6 +6,7 @@
    [instant.model.app-stream :as app-stream-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
+   [instant.model.webhook :as webhook-model]
    [instant.system-catalog :as system-catalog]))
 
 (defn get-column [columns col-name]
@@ -76,7 +77,8 @@
       ;; n.b. Add the table to the `add-tables` setting in
       ;;      create-replication-stream or else we will never be notified
       ;;      about it.
-      "attrs" (attr-model/evict-app-id-from-cache (get-app-id wal-record))
+      "attrs" (do (attr-model/evict-app-id-from-cache (get-app-id wal-record))
+                  (webhook-model/evict-webhooks-for-attr-id (get-id wal-record)))
       "rules" (rule-model/evict-app-id-from-cache (get-app-id wal-record))
       "apps" (let [app-id (get-id wal-record)]
                (app-model/evict-app-id-from-cache app-id)
@@ -90,6 +92,8 @@
                                                         (nth 2)
                                                         :value)))
                   (notify-stream-machine-id-changed wal-record))
+      "webhooks" (webhook-model/evict-webhook-from-cache {:app-id (get-app-id wal-record)
+                                                          :webhook-id (get-id wal-record)})
       nil)
 
     nil))

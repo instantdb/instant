@@ -60,7 +60,7 @@
    "codeChallengeMethod" "cchalmeth"
    "codeHash" "codehash"
    "content-disposition" "cdisp"
-   "content-type" "c-type"
+   "content-type" "ctype"
    "cookieHash" "cookihash"
    "discoveryEndpoint" "discovend"
    "done" "done"
@@ -87,13 +87,17 @@
    "type" "type"
    "url" "url"
    "useSharedCredentials" "usesharcr"
-   "userInfo" "userInfo"})
+   "userInfo" "usernfo"})
 
 (def shortcodes-label (map-invert label-shortcodes))
 
 (defn encode-string->long [input]
   (assert (< (count input) 13) {:input input :count (count input)})
-  (let [base (apply str (map (fn [c] (char->bitstring c)) input))
+  (let [base (apply str (map (fn [c]
+                               (or (char->bitstring c)
+                                   (throw (ex-info "Unsupported character in encode-string->long"
+                                                   {:input input :char c}))))
+                             input))
         padded (apply str base (repeat (- 64 (count base)) "1"))]
     (.getLong (java.nio.ByteBuffer/wrap
                (byte-array (map (fn [x]

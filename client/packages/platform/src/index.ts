@@ -27,6 +27,27 @@ import { ProgressPromise } from './ProgressPromise.ts';
 import { i, type InstantRules } from '@instantdb/core';
 import { exchangeCodeForToken, exchangeRefreshToken } from './serverOAuth.ts';
 import { clerkDomainFromPublishableKey } from './clerk.ts';
+import {
+  Webhooks,
+  type WebhookAction,
+  type WebhookStatus,
+  type WebhookEventStatus,
+  type WebhookInfo,
+  type WebhookAttempt,
+  type WebhookEventInfo,
+  type WebhookEventsPage,
+  type WebhookBody,
+  type WebhookEntity,
+  type WebhookPayload,
+  type WebhookPayloadRecord,
+  type WebhookPayloadRecordFor,
+  type WebhookHandlerFn,
+  type WebhookHandlers,
+  type WebhookHelpers,
+  type CreateWebhookParams,
+  type UpdateWebhookParams,
+  WebhooksManager,
+} from '@instantdb/webhooks';
 
 export {
   type InstantAPIPlatformSchema,
@@ -52,6 +73,25 @@ export {
   exchangeRefreshToken,
   clerkDomainFromPublishableKey,
   i,
+  Webhooks,
+  WebhooksManager,
+  type WebhookAction,
+  type WebhookStatus,
+  type WebhookEventStatus,
+  type WebhookInfo,
+  type WebhookAttempt,
+  type WebhookEventInfo,
+  type WebhookEventsPage,
+  type WebhookBody,
+  type WebhookEntity,
+  type WebhookPayload,
+  type WebhookPayloadRecord,
+  type WebhookPayloadRecordFor,
+  type WebhookHandlerFn,
+  type WebhookHandlers,
+  type WebhookHelpers,
+  type CreateWebhookParams,
+  type UpdateWebhookParams,
 };
 
 export {

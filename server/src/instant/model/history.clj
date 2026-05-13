@@ -63,16 +63,35 @@
           0
           (:triple-changes wal-record)))
 
+(def partition-bucket-count 13)
+(defn partition-bucket-for-time [^Instant t]
+  (-> ^Instant t
+      (.getEpochSecond)
+      (quot 86400) ; 1 day
+      (quot 30)
+      (mod partition-bucket-count)
+      int))
+
 (defn partition-bucket-of-wal-record
   "Extract the partition from the tx-created-at. Each bucket spans 30 days, with
    13 total buckets. That allows us to store up to 1 year of history."
   [^WalRecord wal-record]
-  (-> ^Instant (:tx-created-at wal-record)
-      (.getEpochSecond)
-      (quot 86400) ; 1 day
-      (quot 30)
-      (mod 13)
+  (partition-bucket-for-time (:tx-created-at wal-record)))
+
+(defn previous-partition-bucket [bucket-idx]
+  (-> bucket-idx
+      dec
+      (mod partition-bucket-count)
       int))
+
+(defn recent-partition-buckets
+  "Returns the n most recent partition buckets containing `t`, newest first.
+   With n=3 you cover ~60–90 days of data depending on where `t` sits within
+   its bucket."
+  [^Instant t n]
+  (let [current (partition-bucket-for-time t)]
+    (vec (for [offset (range n)]
+           (int (mod (- current offset) partition-bucket-count))))))
 
 (def push-q (uhsql/preformat {:insert-into :history
                               :values [{:isn :?isn
@@ -211,17 +230,29 @@
 
 (def push-batch-q
   (uhsql/preformat
-   {:insert-into [[:history [:isn :app-id :topics :storage :content :partition-bucket]]
-                  {:select [[[:cast [:composite :slot-num :lsn] :isn]]
-                            :app-id :topics :storage :content :partition-bucket]
-                   :from [[[:unnest :?isn :?app-id :?topics :?storage :?content :?partition-bucket]
-                           [:t [:composite :slot-num :lsn :app-id :topics :storage :content :partition-bucket]]]]}]
-    :on-conflict [:isn :partition-bucket]
-    :do-nothing true}))
+   {:with [[:inputs {:select [[[:cast [:composite :slot-num :lsn] :isn] :isn]
+                              :app-id :topics :storage :content :partition-bucket]
+                     :from [[[:unnest :?isn :?app-id :?topics :?storage :?content :?partition-bucket]
+                             [:t [:composite :slot-num :lsn :app-id :topics :storage :content :partition-bucket]]]]}]
+           [:history-inserts
+            {:insert-into [[:history [:isn :app-id :topics :storage :content :partition-bucket]]
+                           {:select :* :from :inputs}]
+             :on-conflict [:isn :partition-bucket]
+             :do-nothing true}]]
+    :select [[:webhooks.id :webhook-id]
+             [:webhooks.id-attr-ids :id-attr-ids]
+             [:webhooks.actions :actions]
+             :isn]
+    :from :webhooks
+    :join [:inputs [:and
+                    [:= :webhooks.app-id :inputs.app-id]
+                    [:= :webhooks.status [:cast [:inline "active"] :webhook_status]]
+                    [:<> [:& :inputs.topics :webhooks.topics] :0]]]}))
 
 (defn push-batch!
   "Saves a batch of wal records in the history table, pushing the content to s3 (or
-   the database if s3 is disabled)."
+   the database if s3 is disabled).
+   Returns webhooks that may need to be triggered based on the input wal-records."
   ([wal-records] (push-batch! (aurora/conn-pool :write) wal-records))
   ([conn wal-records]
    (let [upload-results (if (store-to-s3?)
@@ -233,9 +264,9 @@
                                    :wal-record wal-record})
                                 wal-records))
          params (collect-push-batch-params upload-results)]
-     (sql/do-execute! ::push-batch!
-                      conn
-                      (uhsql/formatp push-batch-q params)))))
+     (sql/execute! ::push-batch!
+                   conn
+                   (uhsql/formatp push-batch-q params)))))
 
 (def get-by-app-id-and-isn-q
   (uhsql/preformat
@@ -285,10 +316,14 @@
    (tracer/with-span! {:name "history/truncate-old-partitions!"}
      (let [to-truncate (partitions-to-truncate (Instant/now))]
        (doseq [bucket-idx to-truncate]
-         (let [table-name (keyword (str "history_" bucket-idx))]
-           (sql/do-execute! ::truncate-old-partitions!
+         (let [webhook-events-table-name (keyword (str "webhook_events_" bucket-idx))
+               history-table-name (keyword (str "history_" bucket-idx))]
+           (sql/do-execute! ::truncate-old-webhook-events-partitions!
                             conn
-                            (hsql/format {:truncate table-name}))))))))
+                            (hsql/format {:truncate webhook-events-table-name}))
+           (sql/do-execute! ::truncate-old-history-partitions!
+                            conn
+                            (hsql/format {:truncate history-table-name}))))))))
 
 (defn period []
   (let [now (date-util/pt-now)

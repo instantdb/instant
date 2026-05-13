@@ -15,10 +15,17 @@
   Object
   (toString [_] "<secret>"))
 
+(deftype JWTString [value]
+  Object
+  (toString [_] "<secret>"))
+
 (defn platform-access-token-value [^PlatformAccessToken t]
   (.value t))
 
 (defn personal-access-token-value [^PersonalAccessToken t]
+  (.value t))
+
+(defn jwt-token-value [^JWTString t]
   (.value t))
 
 (defn is-platform-access-token? [t]
@@ -31,12 +38,18 @@
   (or (is-platform-access-token? t)
       (is-personal-access-token? t)))
 
+(defn is-jwt? [t]
+  (instance? JWTString t))
+
 (defn coerce-token-from-string [^String s]
   (cond (string/starts-with? s platform-access-token-prefix)
         (->PlatformAccessToken s)
 
         (string/starts-with? s personal-access-token-prefix)
         (->PersonalAccessToken s)
+
+        (string/starts-with? s "eyJ")
+        (JWTString. s)
 
         :else
         (uuid-util/coerce s)))

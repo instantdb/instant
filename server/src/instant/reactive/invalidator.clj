@@ -15,6 +15,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.model.history :as history-model]
+   [instant.model.webhook :as webhook-model]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
@@ -22,9 +23,10 @@
    [instant.util.async :as ua]
    [instant.util.coll :as ucoll]
    [instant.util.e2e-tracer :as e2e-tracer]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [instant.webhook-processor :as webhook-processor])
   (:import
-   (instant.grpc InvalidatorSubscribe PackedWalRecord SlotDisconnect WalRecord)
+   (instant.grpc InvalidatorSubscribe PackedWalRecord SlotDisconnect WalRecord WebhookEvents)
    (io.grpc Status Status$Code)
    (io.grpc.stub ServerCallStreamObserver StreamObserver)
    (java.sql Timestamp)
@@ -387,7 +389,8 @@
    and a `shutdown` function that will wait for the queue to clear
    before returning."
   [{:keys [flush-lsn-chan
-           on-error]}]
+           on-error
+           notify-webhook-events]}]
   (let [executor (Executors/newSingleThreadExecutor)
         q (LinkedBlockingQueue.)
         stop-gauge (gauges/add-gauge-metrics-fn (fn [_]
@@ -407,13 +410,19 @@
                              ;; First item will block
                              item (.take q)]
                         (.add batch item)
-                        ;; Grab up to 1000 items from the queue
-                        (.drainTo q batch 999)
+                        ;; Grab up to 100 items from the queue
+                        (.drainTo q batch (dec (flags/flag :history-batch-size 100)))
                         (let [quit? (identical? shutdown-sentinel (.get batch (dec (.size batch))))]
                           (when quit?
                             (.remove batch (dec (.size batch))))
                           (when-not (.isEmpty batch)
-                            (history-model/push-batch! batch)
+                            ;; We create the history entries and the webhook events before flushing the
+                            ;; lsn so that we never miss a wal entry. We may handle the same entry twice,
+                            ;; but `push-batch` and `create-events!` are idempotent functions
+                            (let [webhook-matches (history-model/push-batch! batch)
+                                  events (webhook-model/create-events! batch webhook-matches)]
+                              (when (seq events)
+                                (notify-webhook-events events)))
                             (a/put! flush-lsn-chan (:nextlsn (.get batch (dec (.size batch))))))
 
                           (when-not quit?
@@ -457,7 +466,24 @@
                                       queue
                                       previous-isn-atom]}]
   (tracer/record-info! {:name "invalidator/singleton-worker-start"})
-  (let [save-history-process (start-save-history-process {:flush-lsn-chan flush-lsn-chan
+  (let [notify-webhook-events (fn [event-primary-keys]
+                                ;; Notify a random machine that they should check for new webhook
+                                ;; events. Prevents a thundering herd.
+                                (let [observers (get-remote-observers)
+                                      i (rand-int (inc (count observers)))
+                                      observer (nth observers i ::self)]
+                                  (if (= observer ::self)
+                                    (webhook-processor/notify-events event-primary-keys)
+                                    (try
+                                      (StreamObserver/.onNext observer (grpc/->WebhookEvents event-primary-keys))
+                                      (catch Exception e
+                                        (tracer/record-exception-span!
+                                         e
+                                         {:name "invalidator/grpc-send-webhook-event-failure"})
+                                        ;; We'll just handle it ourselves
+                                        (webhook-processor/notify-events event-primary-keys))))))
+        save-history-process (start-save-history-process {:flush-lsn-chan flush-lsn-chan
+                                                          :notify-webhook-events notify-webhook-events
                                                           :on-error on-error})
         process (a/go
                   (loop []
@@ -698,6 +724,7 @@
                                                         :previous-isn-atom previous-isn-atom}
                                                        (history-model/unpack-wal-record (:ba msg)))
           SlotDisconnect (a/put! acquire-slot-interrupt-chan true)
+          WebhookEvents (webhook-processor/notify-events (:event-primary-keys msg))
           (tracer/record-info! {:name "invalidator/unknown-message"
                                 :attributes {:msg msg}})))
       (onError [_ t]

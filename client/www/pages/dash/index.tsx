@@ -62,6 +62,8 @@ import {
 } from '@/components/dash/MainDashLayout';
 import OAuthApps from '@/components/dash/OAuthApps';
 import { Sandbox } from '@/components/dash/Sandbox';
+import { Webhooks } from '@/components/dash/Webhooks';
+import WebhookIcon from '@/components/icons/WebhookIcon';
 import {
   Badge,
   Copyable,
@@ -73,6 +75,7 @@ import {
   twel,
 } from '@/components/ui';
 import { SearchFilter, useSchemaQuery } from '@/lib/hooks/explorer';
+import { useFlag } from '@/lib/hooks/useFlag';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 import clsx from 'clsx';
@@ -131,6 +134,7 @@ type MainTabId =
   | 'sandbox'
   | 'perms'
   | 'auth'
+  | 'webhooks'
   | 'email'
   | 'team'
   | 'admin'
@@ -165,6 +169,7 @@ const mainTabs: Tab<MainTabId>[] = [
   { id: 'schema', title: 'Schema', icon: makeIcon(CodeBracketIcon) },
   { id: 'perms', title: 'Permissions', icon: makeIcon(LockClosedIcon) },
   { id: 'auth', title: 'Auth', icon: makeIcon(IdentificationIcon) },
+  { id: 'webhooks', title: 'Webhooks', icon: makeIcon(WebhookIcon) },
   { id: 'repl', title: 'Query Inspector', icon: makeIcon(MagnifyingGlassIcon) },
   { id: 'sandbox', title: 'Sandbox', icon: makeIcon(BeakerIcon) },
   {
@@ -261,6 +266,7 @@ function Dashboard() {
   const fetchedDash = useFetchedDash();
   const posthog = usePostHog();
   const apps = fetchedDash.data.apps;
+  const webhooksEnabled = useFlag('webhooks');
 
   const appId =
     (router.query.app as string) ||
@@ -552,6 +558,7 @@ function Dashboard() {
   const role = getRole(dashResponse.data, app);
   const availableTabs: TabItem[] = mainTabs
     .filter((t) => isTabAvailable(t, role))
+    .filter((t) => t.id !== 'webhooks' || webhooksEnabled)
     .map((t) => {
       return {
         id: t.id,
@@ -946,6 +953,7 @@ function DashboardContent({
   // Subscribe to schema changes at the dashboard level
   const schemaData = useSchemaQuery(connection.db);
   const token = useContext(TokenContext)!;
+  const webhooksEnabled = useFlag('webhooks');
 
   return (
     <>
@@ -983,6 +991,8 @@ function DashboardContent({
         />
       ) : tab === 'auth' ? (
         <AppAuth app={app} key={app.id} nav={nav} />
+      ) : tab === 'webhooks' && webhooksEnabled ? (
+        <Webhooks app={app} namespaces={schemaData.namespaces} />
       ) : tab === 'admin' && isMinRole('admin', role) ? (
         <Admin
           role={role}

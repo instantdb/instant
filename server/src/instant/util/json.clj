@@ -5,9 +5,12 @@
             [cheshire.parse :as parse])
   (:import (com.google.protobuf DynamicMessage NullValue Timestamp Duration)
            (com.fasterxml.jackson.core JsonGenerator JsonFactory)
+           (com.fasterxml.jackson.databind ObjectMapper)
            (com.google.protobuf.util JsonFormat)
            (java.time Instant)
            (java.util Map List)))
+
+(def ^{:tag ObjectMapper} object-mapper (ObjectMapper.))
 
 (def add-encoder cheshire.generate/add-encoder)
 (def encode-str cheshire.generate/encode-str)

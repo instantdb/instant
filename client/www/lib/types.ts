@@ -20,6 +20,71 @@ export type InstantApp = {
   } | null;
   magic_code_expiry_minutes: number | null;
   org: { id: string; title: string } | null;
+  webhooks: InstantWebhook[];
+};
+
+export type InstantWebhookAction = 'create' | 'update' | 'delete';
+export type InstantWebhookStatus = 'active' | 'disabled';
+
+export type InstantWebhook = {
+  id: string;
+  sink: { url: string };
+  etypes: string[] | null;
+  actions: InstantWebhookAction[];
+  status: InstantWebhookStatus;
+  disabled_reason: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InstantWebhookEventStatus =
+  | 'pending'
+  | 'processing'
+  | 'success'
+  | 'error'
+  | 'failed';
+
+export type InstantWebhookAttempt = {
+  'attempt-at': string | null;
+  'duration-ms': number | null;
+  'success?': boolean | null;
+  'status-code': number | null;
+  'response-text': string | null;
+  'error-type': string | null;
+  'error-message': string | null;
+};
+
+export type InstantWebhookEvent = {
+  isn: string;
+  status: InstantWebhookEventStatus;
+  attempts: InstantWebhookAttempt[] | null;
+  next_attempt_after: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InstantWebhookEventsPage = {
+  events: InstantWebhookEvent[];
+  pageInfo: {
+    endCursor: string | null;
+    hasNextPage: boolean;
+  };
+};
+
+export type InstantWebhookPayloadAction = 'create' | 'update' | 'delete';
+
+export type InstantWebhookPayloadRecord = {
+  etype: string;
+  id: string;
+  action: InstantWebhookPayloadAction;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  idempotencyKey: string;
+};
+
+export type InstantWebhookPayload = {
+  data: InstantWebhookPayloadRecord[] | null;
+  idempotencyKey: string;
 };
 
 export type InstantMember = {

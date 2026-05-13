@@ -1,5 +1,6 @@
 (ns instant.util.test
   (:require
+   [clojure.core.async :as a]
    [clojure.set :as set]
    [clojure.string :as string]
    [clojure+.walk :as walk]
@@ -11,8 +12,10 @@
    [instant.db.model.triple :as triple-model]
    [instant.db.transaction :as tx]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.wal :as wal]
    [instant.model.rule :as rule-model]
    [instant.reactive.aggregator :as aggregator]
+   [instant.reactive.invalidator :as inv]
    [instant.storage.s3 :as s3]
    [instant.system-catalog :refer [encode-string->long]]
    [instant.util.coll :as coll]
@@ -96,6 +99,10 @@
      index?            false
      on-delete-reverse :cascade
 
+   Or a checked-data-type via :string, :number, :date, :boolean:
+
+     [:A/createdAt :index? :date]  ;; index? + checked-data-type :date
+
   Returns map attr->attr-id"
   [app-id attrs]
   (let [attrs (for [attr attrs
@@ -109,7 +116,8 @@
                      :index?            (assoc m :index? true)
                      :required?         (assoc m :required? true)
                      :on-delete         (assoc m :on-delete :cascade)
-                     :on-delete-reverse (assoc m :on-delete-reverse :cascade)))
+                     :on-delete-reverse (assoc m :on-delete-reverse :cascade)
+                     (:string :number :date :boolean) (assoc m :checked-data-type k)))
                  {:id               (random-uuid)
                   :forward-identity [(random-uuid) (namespace fwd) (name fwd)]
                   :reverse-identity (when rvr
@@ -336,3 +344,47 @@
                            :get-object-metadata ~get-object-metadata
                            :location-id-url ~location-id-url}]
      ~@body))
+
+(defmacro with-test-replication-slot
+  "Spins up a temporary wal2json replication slot and a wal worker that
+   continuously appends transformed `WalRecord`s (the same shape the
+   invalidator sees) to `records-sym`, an atom of a vector. Body code can
+   run SQL and use `wait-for` against the atom to await specific changes.
+
+   Cleans up the worker, channels, and slot in finally."
+  [[records-sym] & body]
+  `(let [slot-name# (str "test_"
+                         (subs (.replace ^String (str (random-uuid)) "-" "") 0 16))
+         wal-chan# (a/chan 1000 (inv/wal-record-xf))
+         close-signal# (a/chan)
+         worker-chan# (a/chan)
+         opts# (-> (wal/make-wal-opts {:wal-chan wal-chan#
+                                       :close-signal-chan close-signal#
+                                       :ex-handler (fn [e#] (throw e#))
+                                       :get-conn-config config/get-aurora-config
+                                       :slot-suffix nil
+                                       :slot-type :invalidator
+                                       :flush-lsn-chan nil
+                                       :lsn nil
+                                       :worker-chan worker-chan#
+                                       :slot-num config/invalidator-slot-num})
+                   (assoc :slot-name slot-name#
+                          :temporary? true))
+         worker# (future (wal/start-worker opts#))
+         ~records-sym (atom [])
+         pumper# (future
+                   (loop []
+                     (when-let [r# (a/<!! wal-chan#)]
+                       (swap! ~records-sym conj r#)
+                       (recur))))]
+     (try
+       (when (= ::timeout (deref (:started-promise opts#) 10000 ::timeout))
+         (throw (ex-info "wal worker did not start within 10s"
+                         {:worker-error (when (future-done? worker#)
+                                          (try @worker#
+                                               (catch Throwable t# t#)))})))
+       ~@body
+       (finally
+         (inv/stop opts#)
+         @worker#
+         @pumper#))))

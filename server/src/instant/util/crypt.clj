@@ -3,10 +3,9 @@
             [instant.util.memoize :refer [safe-memoize]]
             [instant.util.uuid :as uuid-util])
   (:import
-   (java.nio ByteBuffer)
    (java.security KeyPair KeyFactory KeyPairGenerator MessageDigest PrivateKey)
    (java.security.spec PKCS8EncodedKeySpec)
-   (java.util Arrays Base64 UUID)
+   (java.util Base64 UUID)
    (javax.crypto Mac)
    (javax.crypto.spec SecretKeySpec)
    (com.google.crypto.tink Aead JsonKeysetReader TinkJsonProtoKeysetFormat
@@ -15,7 +14,8 @@
                            ;; Only used for bootstrapping for OSS
                            InsecureSecretKeyAccess
                            RegistryConfiguration
-                           PublicKeySign)
+                           PublicKeySign
+                           PublicKeyVerify)
    (com.google.crypto.tink.aead AeadConfig
                                 PredefinedAeadParameters)
    (com.google.crypto.tink.proto Ed25519PublicKey)
@@ -239,15 +239,21 @@
 
 (def get-sign-primitive (safe-memoize get-sign-primitive*))
 
+(defn get-verify-primitive* [^KeysetHandle k]
+  (.getPrimitive k
+                 (RegistryConfiguration/get)
+                 PublicKeyVerify))
+
+(def get-verify-primitive (safe-memoize get-verify-primitive*))
+
 (defn signature-sign [^KeysetHandle k ^bytes ba]
   (let [^PublicKeySign primitive (get-sign-primitive k)
-        ^bytes sig (.sign primitive ba)
-        kid (-> (ByteBuffer/wrap sig 1 4)
-                (.getInt)
-                (Integer/toUnsignedLong)
-                str)]
-    {:kid kid
-     :signature (bytes->hex-string (Arrays/copyOfRange sig 5 69))}))
+        ^bytes sig (.sign primitive ba)]
+    {:kid (-> k
+              (.getKeysetInfo)
+              (.getPrimaryKeyId)
+              str)
+     :signature (bytes->hex-string sig)}))
 
 ;; Utilities for bootstrap
 
@@ -278,5 +284,5 @@
 (defn generate-webhook-signing-key
   "Generates a ED25519 key for signing webhook payloads."
   ^String []
-  (-> (KeysetHandle/generateNew PredefinedSignatureParameters/ED25519)
+  (-> (KeysetHandle/generateNew PredefinedSignatureParameters/ED25519WithRawOutput)
       (TinkJsonProtoKeysetFormat/serializeKeyset (InsecureSecretKeyAccess/get))))
