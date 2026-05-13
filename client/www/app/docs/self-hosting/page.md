@@ -133,10 +133,10 @@ server:
       condition: service_completed_successfully
   image: 'ghcr.io/instantdb/server:latest'
   environment:
-    JAVA_OPTS: ${JAVA_OPTS:--Xmx8g}
+    JAVA_OPTS: -Xmx8g -Xms8g
 ```
 
-This example sets the maximum memory usage to 8GB.
+This example sets the minimum and maximum heap memory usage to 8GB.
 
 ## Using Self-Hosted InstantDB
 
