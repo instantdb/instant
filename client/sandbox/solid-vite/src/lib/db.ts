@@ -14,13 +14,26 @@ const schema = i.schema({
   },
 });
 
+const perms = {
+  $streams: {
+    allow: {
+      create: 'true',
+      view: 'true',
+    },
+  },
+};
+
 type AppSchema = typeof schema;
 
 async function provisionEphemeralApp(schema: InstantSchemaDef<any, any, any>) {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: 'Solid Sandbox', schema }),
+    body: JSON.stringify({
+      title: 'Solid Sandbox',
+      schema,
+      rules: { code: perms },
+    }),
   });
   return r.json();
 }

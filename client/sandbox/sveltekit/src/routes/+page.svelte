@@ -4,6 +4,7 @@
     { href: '/infinite-scroll', label: 'infinite-scroll' },
     { href: '/cursors', label: 'cursors' },
     { href: '/auth', label: 'auth' },
+    { href: '/streams', label: 'streams' },
   ];
 </script>
 
