@@ -1,10 +1,4 @@
-import React, {
-  useContext,
-  useEffect,
-  useId,
-  useMemo,
-  useState,
-} from 'react';
+import React, { useContext, useEffect, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon } from '@heroicons/react/24/solid';
 

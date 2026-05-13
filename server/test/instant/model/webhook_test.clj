@@ -699,6 +699,44 @@
                                 where webhook_id = ? and isn = ? and partition_bucket = ?"
                               webhook-id isn partition-bucket])))))))
 
+(deftest webhook-event-resend
+  (with-empty-app
+    (fn [app]
+      (let [attrs (test-util/make-attrs (:id app) [[:users/id :unique? :index?]])
+            id-aid (:users/id attrs)
+            webhook-id (random-uuid)
+            isn (isn/test-isn 300)
+            partition-bucket (history/partition-bucket-for-time (Instant/now))]
+        (insert-webhook! {:app-id (:id app)
+                          :webhook-id webhook-id
+                          :id-attr-ids [id-aid]
+                          :actions ["create"]})
+        (sql/do-execute! (aurora/conn-pool :write)
+                         ["insert into webhook_events
+                            (webhook_id, isn, app_id, status, partition_bucket)
+                            values (?, ?, ?, 'failed'::webhook_event_status, ?)"
+                          webhook-id isn (:id app) partition-bucket])
+        (try
+          (let [event (webhook/requeue! {:app-id (:id app)
+                                         :webhook-id webhook-id
+                                         :isn isn})]
+            (is (some? event))
+            (is (= "pending" (:status event)))
+            (is (some? (:created_at event)))
+            (testing "can't requeue a webhook_event that is processing"
+              (sql/do-execute! (aurora/conn-pool :write)
+                               ["update webhook_events set status = 'processing', machine_id = gen_random_uuid() where webhook_id = ? and isn = ?"
+                                webhook-id isn])
+
+              (is (nil? (webhook/requeue! {:app-id (:id app)
+                                           :webhook-id webhook-id
+                                           :isn isn})))))
+          (finally
+            (sql/do-execute! (aurora/conn-pool :write)
+                             ["delete from webhook_events
+                                where webhook_id = ? and isn = ? and partition_bucket = ?"
+                              webhook-id isn partition-bucket])))))))
+
 (deftest webhook-matches?-test
   (with-empty-app
     (fn [app]
