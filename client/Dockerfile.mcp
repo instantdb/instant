@@ -84,6 +84,9 @@ COPY --from=build --chown=mcp:nodejs /app/packages/core/dist packages/core/dist
 COPY --from=build --chown=mcp:nodejs /app/packages/admin/package.json packages/admin/package.json
 COPY --from=build --chown=mcp:nodejs /app/packages/admin/dist packages/admin/dist
 
+COPY --from=build --chown=mcp:nodejs /app/packages/webhooks/package.json packages/webhooks/package.json
+COPY --from=build --chown=mcp:nodejs /app/packages/webhooks/dist packages/webhooks/dist
+
 COPY --from=build --chown=mcp:nodejs /app/packages/platform/package.json packages/platform/package.json
 COPY --from=build --chown=mcp:nodejs /app/packages/platform/dist packages/platform/dist
 
@@ -91,6 +94,7 @@ COPY --from=build --chown=mcp:nodejs /app/packages/platform/dist packages/platfo
 COPY --from=deps --chown=mcp:nodejs  /app/packages/mcp/node_modules packages/mcp/node_modules
 COPY --from=deps --chown=mcp:nodejs  /app/packages/core/node_modules packages/core/node_modules
 COPY --from=deps --chown=mcp:nodejs  /app/packages/admin/node_modules packages/admin/node_modules
+COPY --from=deps --chown=mcp:nodejs  /app/packages/webhooks/node_modules packages/webhooks/node_modules
 COPY --from=deps --chown=mcp:nodejs  /app/packages/platform/node_modules packages/platform/node_modules
 COPY --from=deps --chown=mcp:nodejs  /app/node_modules node_modules
 
