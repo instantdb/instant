@@ -6,6 +6,8 @@
    [instant.util.token :as token-util]
    [instant.util.tracer :as tracer]
    [instant.util.request :refer [*request-info*]]
+   [instant.util.roles :refer [get-app-with-role!]]
+   [instant.util.uuid :as uuid-util]
    [ring.util.http-response :as response]
    [ring.middleware.cors :as cors]))
 
@@ -21,7 +23,6 @@
                  [:headers "authorization"]
                  coerce-bearer-token))
 
-
 (defn req->bearer-token [req]
   (if-let [header (get-in req [:headers "authorization"])]
     (coerce-bearer-token header)
@@ -33,6 +34,22 @@
   (when-let [refresh-token (req->bearer-token req)]
     (instant-user-model/get-by-refresh-token {:refresh-token refresh-token
                                               :auth? true})))
+
+(defn req->auth-user!
+  "Extracts authenticated user from request. Throws if unauthenticated."
+  [req]
+  (when-let [refresh-token (req->bearer-token req)]
+    (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token
+                                               :auth? true})))
+
+(defn req->app-and-user!
+  ([req] (req->app-and-user! :owner req))
+  ([least-privilege req]
+   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
+         user (req->auth-user! req)]
+     (get-app-with-role! {:user user
+                          :app-id app-id
+                          :role least-privilege}))))
 
 ;; ----------
 ;; Middleware

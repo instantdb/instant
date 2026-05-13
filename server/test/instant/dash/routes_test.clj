@@ -6,7 +6,6 @@
    [instant.fixtures :refer [random-email with-empty-app with-org with-pro-app with-startup-org with-free-org with-user]]
    [instant.dash.ephemeral-app :as ephemeral-app]
    [instant.dash.get-a-db :as get-a-db]
-   [instant.dash.routes :as routes]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
@@ -19,6 +18,7 @@
    [instant.model.app-members :as app-members]
    [instant.stripe :as stripe]
    [instant.util.crypt :as crypt-util]
+   [instant.util.http :refer [req->app-and-user!]]
    [instant.util.json :refer [->json <-json]]
    [instant.util.tracer :as tracer]))
 
@@ -621,8 +621,8 @@
                        :headers {"authorization" (str "Bearer " (:refresh-token user))}}]
               (case expected
                 :ok (is (= (:id app)
-                           (:id (:app (routes/req->app-and-user! role req)))))
-                :error (is (thrown? Exception (routes/req->app-and-user! role req)))))))))))
+                           (:id (:app (req->app-and-user! role req)))))
+                :error (is (thrown? Exception (req->app-and-user! role req)))))))))))
 
 (deftest app-access-works-with-free-orgs
   (with-free-org
@@ -673,8 +673,8 @@
                        :headers {"authorization" (str "Bearer " (:refresh-token user))}}]
               (case expected
                 :ok (is (= (:id app)
-                           (:id (:app (routes/req->app-and-user! role req)))))
-                :error (is (thrown? Exception (routes/req->app-and-user! role req)))))))))))
+                           (:id (:app (req->app-and-user! role req)))))
+                :error (is (thrown? Exception (req->app-and-user! role req)))))))))))
 
 (deftest you-are-an-app-member-of-the-org-if-you-are-a-member-of-an-app
   (with-startup-org
