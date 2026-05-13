@@ -13,6 +13,7 @@ import {
   // classes
   Auth,
   Storage,
+  Streams,
   txInit,
   InstantCoreDatabase,
   init as core_init,
@@ -63,12 +64,14 @@ export class InstantVueDatabase<
 
   public auth: Auth;
   public storage: Storage;
+  public streams: Streams;
   public core: InstantCoreDatabase<Schema, UseDates>;
 
   constructor(core: InstantCoreDatabase<Schema, UseDates>) {
     this.core = core;
     this.auth = this.core.auth;
     this.storage = this.core.storage;
+    this.streams = this.core.streams;
   }
 
   /**

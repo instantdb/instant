@@ -32,8 +32,14 @@ export type TypingIndicatorOpts = {
 export type TypingIndicatorHandle<PresenceShape> = {
   active: Ref<PresenceShape[]>;
   setActive(active: boolean): void;
+  /**
+   * Listener keys are lowercased (`onKeydown`, not `onKeyDown`) so that
+   * Vue's `v-bind` spread hyphenates them correctly to native DOM events
+   * (`keydown`). With camelCase Vue would emit a non-existent `key-down`
+   * listener and the indicator would never fire.
+   */
   inputProps: {
-    onKeyDown: (e: KeyboardEvent) => void;
+    onKeydown: (e: KeyboardEvent) => void;
     onBlur: () => void;
   };
 };
@@ -283,7 +289,7 @@ export function useTypingIndicator<
     setActive(false);
   });
 
-  const onKeyDown = (e: KeyboardEvent) => {
+  const onKeydown = (e: KeyboardEvent) => {
     const isEnter = opts?.stopOnEnter && e.key === 'Enter';
     const isActive = !isEnter;
     setActive(isActive);
@@ -296,7 +302,7 @@ export function useTypingIndicator<
   return {
     active,
     setActive,
-    inputProps: { onKeyDown, onBlur },
+    inputProps: { onKeydown, onBlur },
   };
 }
 
