@@ -265,7 +265,10 @@
                             [pg-ops/<at :id-attr-ids :?id-attr-ids]
                             [pg-ops/at> :actions  :?actions]
                             [pg-ops/<at :actions  :?actions]
-                            [:= :sink :?sink]]}))
+                            [:= :sink :?sink]
+                            [:or
+                             [:= [:cast :?ignore-id :uuid] nil]
+                             [:<> :id :?ignore-id]]]}))
 
 (defn check-webhook-duplicate!
   "Checks that app doesn't already have a webhook with the same properties.
@@ -280,9 +283,9 @@
                                        {:app-id app-id
                                         :id-attr-ids (with-meta (or id-attr-ids []) {:pgtype "uuid[]"})
                                         :actions (with-meta (or actions []) {:pgtype "webhook_action[]"})
-                                        :sink {:url url}}))]
-    (when (and id
-               (not= id ignore-id))
+                                        :sink {:url url}
+                                        :ignore-id ignore-id}))]
+    (when id
       (ex/throw-validation-err! :webhooks
                                 {:app-id app-id}
                                 [{:message "A webhook already exists with all of the same properties"
