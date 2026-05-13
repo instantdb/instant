@@ -38,7 +38,7 @@
 (defn req->auth-user!
   "Extracts authenticated user from request. Throws if unauthenticated."
   [req]
-  (when-let [refresh-token (req->bearer-token req)]
+  (let [refresh-token (req->bearer-token! req)]
     (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token
                                                :auth? true})))
 
