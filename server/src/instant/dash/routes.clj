@@ -62,12 +62,11 @@
             [instant.util.date :as date]
             [instant.util.email :as email]
             [instant.util.exception :as ex]
-            [instant.util.http :as http-util]
+            [instant.util.http :as http-util :refer [req->app-and-user! req->auth-user!]]
             [instant.util.json :as json]
             [instant.util.number :as number-util]
             [instant.util.roles :refer [assert-least-privilege!
-                                        assert-valid-member-role!
-                                        get-app-with-role!]]
+                                        assert-valid-member-role!]]
             [instant.util.semver :as semver]
             [instant.util.string :as string-util]
             [instant.util.posthog :as posthog]
@@ -88,26 +87,12 @@
 ;; ---
 ;; Auth helpers
 
-(defn req->auth-user! [req]
-  (let [refresh-token (http-util/req->bearer-token! req)]
-    (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token
-                                               :auth? true})))
-
 (defn req->auth-user-accepting-superadmin-token! [scope req]
   (let [refresh-token (http-util/req->bearer-token! req)]
     (if (uuid? refresh-token)
       (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token
                                                  :auth? true})
       (req->superadmin-user! scope req))))
-
-(defn req->app-and-user!
-  ([req] (req->app-and-user! :owner req))
-  ([least-privilege req]
-   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-         user (req->auth-user! req)]
-     (get-app-with-role! {:user user
-                          :app-id app-id
-                          :role least-privilege}))))
 
 (defn req->app-accepting-superadmin-or-ref-token! [least-privilege scope req]
   (try
