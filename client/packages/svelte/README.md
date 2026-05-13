@@ -18,7 +18,7 @@
    <a href="https://instantdb.com/examples">Examples</a> ·
    <a href="https://www.instantdb.com/docs/start-svelte">Docs</a> ·
    <a href="https://discord.com/invite/VU53p7uQcE">Discord</a>
-<p>
+</p>
 
 Welcome to [Instant's](http://instantdb.com) Svelte SDK.
 
