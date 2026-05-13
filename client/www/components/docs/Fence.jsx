@@ -1,12 +1,48 @@
 'use client';
 
-import { Fragment, useContext } from 'react';
+import { Fragment, useContext, useEffect, useState } from 'react';
 import { CopyToClipboard } from 'react-copy-to-clipboard';
 import { ClipboardDocumentIcon } from '@heroicons/react/24/outline';
-import Highlight, { defaultProps } from 'prism-react-renderer';
-import { useState } from 'react';
+import Highlight, { defaultProps, Prism } from 'prism-react-renderer';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { rosePineDawnTheme } from '@/lib/rosePineDawnTheme';
+
+// prism-react-renderer 1.x ships with a small set of languages built in.
+// Hang its Prism off the global so additional language packs from `prismjs`
+// can register against it.
+if (typeof globalThis !== 'undefined' && !globalThis.Prism) {
+  globalThis.Prism = Prism;
+}
+
+// Languages loaded lazily so they aren't pulled into the main bundle —
+// webpack code-splits each dynamic import into its own chunk.
+const lazyLanguages = {
+  python: () => import('prismjs/components/prism-python'),
+  ruby: () => import('prismjs/components/prism-ruby'),
+  go: () => import('prismjs/components/prism-go'),
+  rust: () => import('prismjs/components/prism-rust'),
+  java: () => import('prismjs/components/prism-java'),
+  csharp: () => import('prismjs/components/prism-csharp'),
+  php: () => import('prismjs/components/prism-php'),
+  elixir: () => import('prismjs/components/prism-elixir'),
+  kotlin: () => import('prismjs/components/prism-kotlin'),
+  swift: () => import('prismjs/components/prism-swift'),
+};
+
+const loadedLanguages = new Set();
+
+function useLazyPrismLanguage(language) {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!language || loadedLanguages.has(language)) return;
+    const loader = lazyLanguages[language];
+    if (!loader) return;
+    loader().then(() => {
+      loadedLanguages.add(language);
+      bump((n) => n + 1);
+    });
+  }, [language]);
+}
 
 function parseLineHighlights(lineHighlight) {
   if (!lineHighlight) {
@@ -43,6 +79,7 @@ export function Fence({ children, language, showCopy, lineHighlight }) {
 
   const app = useContext(SelectedAppContext);
   const highlightedLines = parseLineHighlights(lineHighlight);
+  useLazyPrismLanguage(language);
 
   const code = children
     .trimEnd()
