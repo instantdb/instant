@@ -12,3 +12,8 @@
           ON CONFLICT (app_id, sender_id) DO UPDATE SET sender_id = EXCLUDED.sender_id
           RETURNING id, verified"
                            (random-uuid) app-id sender-id verified])))
+
+(defn get-from-app-and-sender
+  "gets the email verification for the given app and sender"
+  [app-id sender-id]
+  (sql/execute-one! (aurora/conn-pool :read) ["SELECT * FROM app_email_verifications WHERE app_id = ? AND sender_id = ?" app-id sender-id]))
