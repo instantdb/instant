@@ -1,17 +1,13 @@
-import { init, i, type InstantSchemaDef } from '@instantdb/svelte';
+import { createSignal } from 'solid-js';
+import { init, i, type InstantSchemaDef } from '@instantdb/solidjs';
 import config from './config';
 
-const STORAGE_KEY = 'sb-sveltekit-ephemeral-app';
+const STORAGE_KEY = 'sb-solid-vite-ephemeral-app';
 
 type EphemeralApp = { id: string; 'admin-token': string };
 
 const schema = i.schema({
   entities: {
-    todos: i.entity({
-      text: i.string(),
-      done: i.boolean(),
-      createdAt: i.number(),
-    }),
     items: i.entity({
       value: i.number().indexed(),
     }),
@@ -27,14 +23,14 @@ const perms = {
   },
 };
 
-export type AppSchema = typeof schema;
+type AppSchema = typeof schema;
 
 async function provisionEphemeralApp(schema: InstantSchemaDef<any, any, any>) {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      title: 'SvelteKit Sandbox',
+      title: 'Solid Sandbox',
       schema,
       rules: { code: perms },
     }),
@@ -69,30 +65,31 @@ async function getOrCreateApp(): Promise<EphemeralApp> {
   return app;
 }
 
-type DB = ReturnType<typeof init<AppSchema>>;
+export type DB = ReturnType<typeof init<AppSchema>>;
 
-export const dbState: {
+const [dbState, setDbState] = createSignal<{
   isLoading: boolean;
   db: DB | null;
   error: string | null;
-} = $state({ isLoading: true, db: null, error: null });
+}>({ isLoading: true, db: null, error: null });
 
-getOrCreateApp()
-  .then((app) => {
-    dbState.db = init({
-      ...config,
-      appId: app.id,
-      schema,
-      devtool: false,
-    });
-    dbState.isLoading = false;
-  })
-  .catch((e) => {
-    dbState.error = (e as Error).message;
-    dbState.isLoading = false;
-  });
+export { dbState };
 
 export function resetEphemeralApp() {
   localStorage.removeItem(STORAGE_KEY);
   location.reload();
 }
+
+getOrCreateApp()
+  .then((app) => {
+    const db = init({
+      ...config,
+      appId: app.id,
+      schema,
+      devtool: false,
+    });
+    setDbState({ isLoading: false, db, error: null });
+  })
+  .catch((e) => {
+    setDbState({ isLoading: false, db: null, error: (e as Error).message });
+  });

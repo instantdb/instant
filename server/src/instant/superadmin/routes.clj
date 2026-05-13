@@ -88,8 +88,10 @@
                                           ". Admin tokens are bound to a single app."
                                           " Use a personal access token to manage other apps.")}))
           app)
-        (ex/throw+ {::ex/type ::ex/record-not-found
-                    ::ex/message "Record not found: token"})))))
+        (if-let [{:keys [app]} (http-util/req->app-and-user! role req)]
+          app
+          (ex/throw+ {::ex/type ::ex/record-not-found
+                      ::ex/message "Record not found: token"}))))))
 
 (defn enhance-apps
   "Adds schema and perms to apps if the request asked for them."
