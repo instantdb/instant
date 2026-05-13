@@ -120,6 +120,24 @@ docker compose -f docker-compose.with-caddy.yml --env-file .env up --build
 
 After everything starts up, the dashboard will be available at whatever you set `INSTANT_DASHBOARD_URL` to.
 
+## Memory Limits
+
+By default, the backend server container can use a lot of resources. We recommend setting a maximum memory limit on the server container using the `JAVA_OPTS` environment variable like so:
+
+```yaml {%lineHighlight="9"%}
+server:
+  depends_on:
+    postgres:
+      condition: service_healthy
+    createbuckets:
+      condition: service_completed_successfully
+  image: 'ghcr.io/instantdb/server:latest'
+  environment:
+    JAVA_OPTS: ${JAVA_OPTS:--Xmx8g}
+```
+
+This example sets the maximum memory usage to 8GB.
+
 ## Using Self-Hosted InstantDB
 
 Without a `POSTMARK_TOKEN` environment variable set, OTP codes will not be emailed.
