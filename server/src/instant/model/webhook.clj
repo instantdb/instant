@@ -70,7 +70,7 @@
        res#)))
 
 (defn evict-webhooks-for-attr-id [attr-id]
-  (doseq [params (.get attr-listeners attr-id)]
+  (doseq [params (vec (.get attr-listeners attr-id))]
     (evict-webhook-from-cache params)))
 
 (def get-by-app-id-and-webhook-id-q

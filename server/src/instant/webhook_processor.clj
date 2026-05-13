@@ -13,7 +13,7 @@
    (java.sql Timestamp)
    (java.io ByteArrayOutputStream)
    (java.time Duration Instant)
-   (java.util.concurrent ArrayBlockingQueue ExecutorService TimeUnit)))
+   (java.util.concurrent ArrayBlockingQueue Callable ExecutorService TimeUnit)))
 
 (defonce process (atom nil))
 

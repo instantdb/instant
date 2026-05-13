@@ -113,7 +113,13 @@ Pass it a Web [`Request`](https://developer.mozilla.org/en-US/docs/Web/API/Reque
 
 ```ts
 // app/api/instant-webhook/route.ts
-import { Webhooks } from '@instantdb/admin';
+import { init } from '@instantdb/admin';
+import schema from '@/instant.schema';
+
+const db = init({
+  appId: process.env.INSTANT_APP_ID!,
+  schema,
+});
 
 const { typedHandlers, combineHandlers } = db.webhooks.helpers();
 
