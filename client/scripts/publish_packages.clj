@@ -18,6 +18,7 @@
                     :components "./packages/components"
                     :solidjs "./packages/solidjs"
                     :svelte "./packages/svelte"
+                    :vue "./packages/vue"
                     :react-native-mmkv "./packages/react-native-mmkv"
                     :resumable-stream "./packages/resumable-stream"})
 
