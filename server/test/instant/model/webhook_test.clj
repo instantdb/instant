@@ -11,6 +11,7 @@
    [instant.jdbc.sql :as sql]
    [instant.model.history :as history]
    [instant.model.webhook :as webhook]
+   [instant.util.crypt :as crypt-util]
    [instant.util.hsql :as uhsql]
    [instant.util.json :as json]
    [instant.util.test :as test-util]
@@ -29,7 +30,7 @@
               :actions :?actions
               :sink [:cast :?sink :jsonb]}]}))
 
-(defn insert-webhook! [{:keys [app-id webhook-id id-attr-ids actions]}]
+(defn insert-webhook! [{:keys [app-id webhook-id id-attr-ids actions url]}]
   (sql/do-execute!
    (aurora/conn-pool :write)
    (uhsql/formatp insert-webhook-q
@@ -37,7 +38,7 @@
                    :app-id app-id
                    :id-attr-ids (with-meta (vec id-attr-ids) {:pgtype "uuid[]"})
                    :actions (with-meta (vec actions) {:pgtype "webhook_action[]"})
-                   :sink (json/->json {:url "http://example.com"})})))
+                   :sink (json/->json {:url (or url "http://example.com")})})))
 
 (defn triple-cols [app-id eid aid value]
   [(WalColumn. "app_id" (str app-id))
@@ -400,17 +401,18 @@
     (with-empty-app
       (fn [app]
         (test-util/make-attrs (:id app) [[:users/id :unique? :index?]])
-        (let [params {:app-id (:id app)
-                      :etypes ["users"]
-                      :actions ["create"]
-                      :url "https://example.com/hook"}
+        (let [params (fn []
+                       {:app-id (:id app)
+                        :etypes ["users"]
+                        :actions ["create"]
+                        :url (str "https://example.com/" (crypt-util/random-hex 16))})
               start-promise (promise)
               ;; Race to create a bunch of webhooks
               tasks (mapv (fn [_]
                             (future
                               (try
                                 @start-promise
-                                [:ok (webhook/create! params)]
+                                [:ok (webhook/create! (params))]
                                 (catch Exception e [:err e]))))
                           (range 20))
               _ (deliver start-promise true)
@@ -427,7 +429,138 @@
             (webhook/disable! {:app-id (:id app)
                                :webhook-id disabled-id
                                :reason "test"})
+            (is (webhook/create! (params)))))))))
+
+(deftest cant-create-duplicate-webhook
+  (with-redefs [webhook-sender/validate-url (constantly nil)]
+    (with-empty-app
+      (fn [app]
+        (test-util/make-attrs (:id app) [[:users/id :unique? :index?]
+                                         [:books/id :unique? :index?]])
+        (let [params {:app-id (:id app)
+                      :etypes ["users"]
+                      :actions ["create"]
+                      :url "https://example.com/hook"}]
+          (is (webhook/create! params))
+          (let [e (try
+                    (webhook/create! params)
+                    (catch Exception ex ex))]
+            (is (some? e))
+            (is (re-find #"webhook already exists"
+                         (.getMessage ^Exception e))))
+          ;; Differing on any one of url / etypes / actions is not a duplicate.
+          (is (webhook/create! (assoc params :url "https://example.com/other")))
+          (is (webhook/create! (assoc params :etypes ["books"])))
+          (is (webhook/create! (assoc params :actions ["update"])))
+          ;; A disabled webhook with matching params does not block creation.
+          (let [{disabled-id :id}
+                (sql/select-one (aurora/conn-pool :read)
+                                ["select id from webhooks
+                                    where app_id = ?
+                                      and sink->>'url' = 'https://example.com/hook'
+                                      and actions = array['create']::webhook_action[]
+                                    limit 1"
+                                 (:id app)])]
+            (webhook/disable! {:app-id (:id app)
+                               :webhook-id disabled-id
+                               :reason "test"})
             (is (webhook/create! params))))))))
+
+(deftest cant-enable-webhook-when-duplicate-is-active
+  (with-redefs [webhook-sender/validate-url (constantly nil)]
+    (with-empty-app
+      (fn [app]
+        (test-util/make-attrs (:id app) [[:users/id :unique? :index?]])
+        (let [params {:app-id (:id app)
+                      :etypes ["users"]
+                      :actions ["create"]
+                      :url "https://example.com/hook"}
+              {webhook-a-id :id} (webhook/create! params)]
+          ;; Enabling an already-active webhook must not self-match in the
+          ;; duplicate check.
+          (is (webhook/enable! {:app-id (:id app)
+                                :webhook-id webhook-a-id
+                                :reason "test"}))
+          (webhook/disable! {:app-id (:id app)
+                             :webhook-id webhook-a-id
+                             :reason "test"})
+          ;; Create a second webhook with the same properties — now active.
+          (webhook/create! params)
+          (let [e (try
+                    (webhook/enable! {:app-id (:id app)
+                                      :webhook-id webhook-a-id
+                                      :reason "test"})
+                    (catch Exception ex ex))]
+            (is (some? e))
+            (is (re-find #"webhook already exists"
+                         (.getMessage ^Exception e)))))))))
+
+(deftest duplicate-check-ignores-array-order
+  (with-redefs [webhook-sender/validate-url (constantly nil)]
+    (with-empty-app
+      (fn [app]
+        (let [attrs (test-util/make-attrs (:id app) [[:users/id :unique? :index?]
+                                                     [:books/id :unique? :index?]])
+              users-id (:users/id attrs)
+              books-id (:books/id attrs)
+              url "https://example.com/hook"]
+          ;; Insert a webhook with id-attr-ids in [users books] order and
+          ;; actions in ["create" "update"] order.
+          (insert-webhook! {:app-id (:id app)
+                            :webhook-id (random-uuid)
+                            :id-attr-ids [users-id books-id]
+                            :actions ["create" "update"]
+                            :url url})
+          ;; The same webhook with id-attr-ids reversed should be flagged as a
+          ;; duplicate.
+          (let [e (try
+                    (webhook/check-webhook-duplicate!
+                     (aurora/conn-pool :read)
+                     (:id app)
+                     {:url url
+                      :id-attr-ids [books-id users-id]
+                      :actions ["create" "update"]})
+                    (catch Exception ex ex))]
+            (is (some? e))
+            (is (re-find #"webhook already exists"
+                         (.getMessage ^Exception e))))
+          ;; Same id-attr-ids but actions reversed should also be flagged.
+          (let [e (try
+                    (webhook/check-webhook-duplicate!
+                     (aurora/conn-pool :read)
+                     (:id app)
+                     {:url url
+                      :id-attr-ids [users-id books-id]
+                      :actions ["update" "create"]})
+                    (catch Exception ex ex))]
+            (is (some? e))
+            (is (re-find #"webhook already exists"
+                         (.getMessage ^Exception e)))))))))
+
+(deftest cant-update-webhook-to-match-active-duplicate
+  (with-redefs [webhook-sender/validate-url (constantly nil)]
+    (with-empty-app
+      (fn [app]
+        (test-util/make-attrs (:id app) [[:users/id :unique? :index?]])
+        (let [base {:app-id (:id app)
+                    :etypes ["users"]
+                    :actions ["create"]
+                    :url "https://example.com/hook"}
+              {a-id :id} (webhook/create! base)
+              {b-id :id} (webhook/create! (assoc base :url "https://example.com/other"))]
+          ;; Updating B's url to match A's should be rejected.
+          (let [e (try
+                    (webhook/update! {:app-id (:id app)
+                                      :webhook-id b-id
+                                      :url (:url base)})
+                    (catch Exception ex ex))]
+            (is (some? e))
+            (is (re-find #"webhook already exists"
+                         (.getMessage ^Exception e))))
+          ;; A no-op update to A's own values should still succeed.
+          (is (webhook/update! {:app-id (:id app)
+                                :webhook-id a-id
+                                :url (:url base)})))))))
 
 (deftest disable-and-enable-invalidate-webhook-cache
   (with-empty-app

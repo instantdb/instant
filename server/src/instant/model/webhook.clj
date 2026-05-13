@@ -1,5 +1,6 @@
 (ns instant.model.webhook
   (:require
+   [honey.sql.pg-ops :as pg-ops]
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.flags :as flags]
@@ -252,6 +253,44 @@
                                 [{:message (format "An app may not have more than %d active webhooks."
                                                    max-webhooks)}]))))
 
+(def check-webhook-duplicate-q
+  (uhsql/preformat {:select :id
+                    :from :webhooks
+                    :where [:and
+                            [:= :status [:inline [:cast [:inline "active"] :webhook_status]]]
+                            [:= :app-id :?app-id]
+                            ;; We don't have array_sort in pg 17, so we check if both arrays
+                            ;; are contained in each other
+                            [pg-ops/at> :id-attr-ids :?id-attr-ids]
+                            [pg-ops/<at :id-attr-ids :?id-attr-ids]
+                            [pg-ops/at> :actions  :?actions]
+                            [pg-ops/<at :actions  :?actions]
+                            [:= :sink :?sink]
+                            [:or
+                             [:= [:cast :?ignore-id :uuid] nil]
+                             [:<> :id :?ignore-id]]]}))
+
+(defn check-webhook-duplicate!
+  "Checks that app doesn't already have a webhook with the same properties.
+   Will throw a validation error if it finds one.
+   Pass ignore-id if you're running an update on a webhook to prevent the update
+   from seeing itself."
+  [conn app-id {:keys [url id-attr-ids actions ignore-id]}]
+  (let [{:keys [id]}
+        (sql/select-one ::check-webhook-duplicate!
+                        conn
+                        (uhsql/formatp check-webhook-duplicate-q
+                                       {:app-id app-id
+                                        :id-attr-ids (with-meta (or id-attr-ids []) {:pgtype "uuid[]"})
+                                        :actions (with-meta (or actions []) {:pgtype "webhook_action[]"})
+                                        :sink {:url url}
+                                        :ignore-id ignore-id}))]
+    (when id
+      (ex/throw-validation-err! :webhooks
+                                {:app-id app-id}
+                                [{:message "A webhook already exists with all of the same properties"
+                                  :hint {:webhook-id id}}]))))
+
 (def create-q
   (uhsql/preformat {:insert-into :webhooks
                     :values [{:id :?id
@@ -298,6 +337,9 @@
      (next.jdbc/with-transaction [conn conn]
        (take-webhook-count-lock! conn app-id)
        (check-webhook-limit! conn app-id)
+       (check-webhook-duplicate! conn app-id {:url url
+                                              :id-attr-ids id-attr-ids
+                                              :actions actions})
        (sql/execute-one! ::create!
                          conn
                          (uhsql/formatp create-q
@@ -341,6 +383,12 @@
      (next.jdbc/with-transaction [conn conn]
        (take-webhook-count-lock! conn app-id)
        (check-webhook-limit! conn app-id)
+       (let [existing (get-by-app-id-and-webhook-id! conn {:app-id app-id
+                                                           :webhook-id webhook-id})]
+         (check-webhook-duplicate! conn app-id {:url (-> existing :sink (get "url"))
+                                                :id-attr-ids (:id_attr_ids existing)
+                                                :actions (:actions existing)
+                                                :ignore-id webhook-id}))
        (sql/do-execute! ::enable!
                         conn
                         (uhsql/formatp enable-q {:app-id app-id
@@ -375,18 +423,29 @@
                                 (etypes->id-attr-ids+topics! app-id etypes))]
      (with-cache-invalidation {:app-id app-id
                                :webhook-id webhook-id}
-       (sql/do-execute! ::update!
-                        conn
-                        (uhsql/formatp
-                         update-q
-                         {:app-id app-id
-                          :webhook-id webhook-id
-                          :sink (when (contains? params :url) {:url url})
-                          :id-attr-ids (when new-id-attr-ids
-                                         (with-meta new-id-attr-ids {:pgtype "uuid[]"}))
-                          :topics new-topics
-                          :actions (when (contains? params :actions)
-                                     (with-meta actions {:pgtype "webhook_action[]"}))}))))))
+       (next.jdbc/with-transaction [conn conn]
+         (take-webhook-count-lock! conn app-id)
+         (let [existing (get-by-app-id-and-webhook-id! conn {:app-id app-id
+                                                             :webhook-id webhook-id})]
+           (check-webhook-duplicate! conn app-id {:url (or url
+                                                           (-> existing :sink (get "url")))
+                                                  :id-attr-ids (or new-id-attr-ids
+                                                                   (:id_attr_ids existing))
+                                                  :actions (or actions
+                                                               (:actions existing))
+                                                  :ignore-id webhook-id}))
+         (sql/do-execute! ::update!
+                          conn
+                          (uhsql/formatp
+                           update-q
+                           {:app-id app-id
+                            :webhook-id webhook-id
+                            :sink (when (contains? params :url) {:url url})
+                            :id-attr-ids (when new-id-attr-ids
+                                           (with-meta new-id-attr-ids {:pgtype "uuid[]"}))
+                            :topics new-topics
+                            :actions (when (contains? params :actions)
+                                       (with-meta actions {:pgtype "webhook_action[]"}))})))))))
 
 (def delete-q
   (uhsql/preformat {:delete-from :webhooks
@@ -417,12 +476,12 @@
   "Re-queues an event for delivery unless it is locked by another machine"
   ([params] (requeue! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id webhook-id isn]}]
-   (sql/execute! ::requeue!
-                 conn
-                 (uhsql/formatp requeue-q
-                                {:isn isn
-                                 :app-id app-id
-                                 :webhook-id webhook-id}))))
+   (sql/execute-one! ::requeue!
+                     conn
+                     (uhsql/formatp requeue-q
+                                    {:isn isn
+                                     :app-id app-id
+                                     :webhook-id webhook-id}))))
 
 (def attr-id-column-idx 2)
 (def pg-size-column-idx 12)

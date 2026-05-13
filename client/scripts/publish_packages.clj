@@ -19,7 +19,8 @@
                     :solidjs "./packages/solidjs"
                     :svelte "./packages/svelte"
                     :react-native-mmkv "./packages/react-native-mmkv"
-                    :resumable-stream "./packages/resumable-stream"})
+                    :resumable-stream "./packages/resumable-stream"
+                    :webhooks "./packages/webhooks"})
 
 (defn package-json-path [main]
   (str main "/package.json"))

@@ -26,7 +26,10 @@
   [req]
   (let [webhook-id-untrusted (ex/get-param! req [:params :webhook_id] uuid-util/coerce)
         isn-untrusted (ex/get-param! req [:params :*] (fn [x]
-                                                        (isn/of-string x)))
+                                                        (try
+                                                          (isn/of-string x)
+                                                          (catch Exception _
+                                                            nil))))
         app-id-untrusted (ex/get-param! req [:params :app_id] uuid-util/coerce)
         token (http-util/req->bearer-token! req)]
     (if (token-util/is-jwt? token)
