@@ -33,6 +33,7 @@
                      t.app_id,
                      t.email_type,
                      t.body,
+                     t.sender_id,
                      t.name,
                      t.subject,
                      s.email,

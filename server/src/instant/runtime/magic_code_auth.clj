@@ -6,6 +6,7 @@
    [instant.flags :as flags]
    [instant.model.app :as app-model]
    [instant.model.app-email-template :as app-email-template-model]
+   [instant.model.app-email-verification :as verification]
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
@@ -61,6 +62,14 @@
       (tracer/record-info! {:name "magic-code/consume-rate-limited"
                             :attributes {:app-id (:app-id params)
                                          :email (:email params)
+                                         :source "bucket4j"}})
+      (ex/throw-record-email-rate-limited!))))
+
+(defn check-custom-sender-rate-limit! [params]
+  (when (flags/toggled? :use-bucket4j true)
+    (when-not (rate-limit/try-consume-custom-sender (eph/get-rate-limit) params)
+      (tracer/record-info! {:name "custom-sender/consume-rate-limited"
+                            :attributes {:email (:email params)
                                          :source "bucket4j"}})
       (ex/throw-record-email-rate-limited!))))
 
@@ -126,10 +135,18 @@
                          :code code
                          :app_title (:title app)
                          :expiration (friendly-expiration app)}
-
         {default-sender-email :email} (config/app-email-sender)
 
-        sender-email    (or (:email template) default-sender-email)
+        custom-email (:email template)
+        custom-email-verified? (and (seq custom-email)
+                                    (verification/verified-by-app-and-sender? app-id (:sender_id template)))
+
+        sender-email (if (flags/use-app-email-verification?)
+                       (if custom-email-verified?
+                         custom-email
+                         default-sender-email)
+                       (or custom-email default-sender-email))
+
         email-params    (if template
                           {:sender-email sender-email
                            :sender-name (or (:name template) (:title app))

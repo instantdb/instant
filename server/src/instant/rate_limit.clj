@@ -201,6 +201,14 @@
         ^Bucket bucket (get-bucket key)]
     (.tryConsume bucket 1)))
 
+(defn try-consume-custom-sender
+  "Takes (hz/rate-limit) and email, will return false if the rate-limit is exceeded.
+   Otherwise, will return true and increment the bucket counter."
+  [{:keys [get-bucket]} {:keys [email]}]
+  (let [key (magic-code-key-hash "custom-sender-verify" #uuid "00000000-0000-0000-0000-000000000000" email)
+        ^Bucket bucket (get-bucket key)]
+    (.tryConsume bucket 1)))
+
 (defn parse-duration ^Duration [^String s]
   (let [i (PGInterval. s)]
     (-> Duration/ZERO
