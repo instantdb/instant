@@ -184,7 +184,11 @@ function Demo({ db }: { db: DB }) {
             when={writerStatus() === 'open'}
             fallback={
               <button
-                style={{ ...btnStyle, background: '#2563eb', width: 'fit-content' }}
+                style={{
+                  ...btnStyle,
+                  background: '#2563eb',
+                  width: 'fit-content',
+                }}
                 onClick={createWriter}
               >
                 Create stream
@@ -236,7 +240,11 @@ function Demo({ db }: { db: DB }) {
               </button>
             </div>
             <button
-              style={{ ...btnStyle, background: '#dc2626', width: 'fit-content' }}
+              style={{
+                ...btnStyle,
+                background: '#dc2626',
+                width: 'fit-content',
+              }}
               onClick={closeWriter}
             >
               Close
