@@ -36,6 +36,12 @@ import { authOriginAddCmd } from './commands/auth/origin/add.ts';
 import { link } from './logging.ts';
 import { appListCommand } from './commands/app/list.ts';
 import { appDeleteCommand } from './commands/app/delete.ts';
+import { webhooksListCmd } from './commands/webhooks/list.ts';
+import { webhooksAddCmd } from './commands/webhooks/add.ts';
+import { webhooksUpdateCmd } from './commands/webhooks/update.ts';
+import { webhooksDeleteCmd } from './commands/webhooks/delete.ts';
+import { webhooksEnableCmd } from './commands/webhooks/enable.ts';
+import { webhooksDisableCmd } from './commands/webhooks/disable.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -386,6 +392,163 @@ export const authOriginDeleteDef = authOrigin
             coerce: false,
             appId: opts.app,
             allowAdminToken: true,
+          }),
+        ),
+      ),
+    );
+  });
+
+const webhooks = program
+  .command('webhooks')
+  .description('Manage webhooks for an app');
+
+export const webhooksListDef = webhooks
+  .command('list')
+  .description('List webhooks for an app')
+  .option(
+    '-a --app <app-id>',
+    'App ID to list webhooks for. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option('--json', 'Enable JSON output')
+  .action((opts) => {
+    return runCommandEffect(
+      webhooksListCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: false,
+          }).pipe(Layer.annotateLogs('silent', !!opts.json)),
+        ),
+      ),
+    );
+  });
+
+export const webhooksAddDef = webhooks
+  .command('add')
+  .description('Add a webhook to an app')
+  .option('--url <url>', 'HTTPS endpoint to deliver events to')
+  .option(
+    '--etypes <e1,e2>',
+    'Comma-separated list of entity types to listen on',
+  )
+  .option(
+    '--actions <a1,a2>',
+    'Comma-separated list of actions (create, update, delete)',
+  )
+  .option(
+    '-a --app <app-id>',
+    'App ID to add a webhook to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      webhooksAddCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: false,
+          }),
+        ),
+      ),
+    );
+  });
+
+export const webhooksUpdateDef = webhooks
+  .command('update')
+  .description('Update a webhook')
+  .option('--id <webhook-id>', 'Webhook ID to update')
+  .option('--url <url>', 'New HTTPS endpoint')
+  .option('--etypes <e1,e2>', 'New comma-separated entity types')
+  .option(
+    '--actions <a1,a2>',
+    'New comma-separated actions (create, update, delete)',
+  )
+  .option(
+    '-a --app <app-id>',
+    'App ID the webhook belongs to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      webhooksUpdateCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: false,
+          }),
+        ),
+      ),
+    );
+  });
+
+export const webhooksDeleteDef = webhooks
+  .command('delete')
+  .description('Delete a webhook')
+  .option('--id <webhook-id>', 'Webhook ID to delete')
+  .option(
+    '-a --app <app-id>',
+    'App ID the webhook belongs to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      webhooksDeleteCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: false,
+          }),
+        ),
+      ),
+    );
+  });
+
+export const webhooksEnableDef = webhooks
+  .command('enable')
+  .description('Re-enable a disabled webhook')
+  .option('--id <webhook-id>', 'Webhook ID to enable')
+  .option(
+    '-a --app <app-id>',
+    'App ID the webhook belongs to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      webhooksEnableCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: false,
+          }),
+        ),
+      ),
+    );
+  });
+
+export const webhooksDisableDef = webhooks
+  .command('disable')
+  .description('Disable an active webhook')
+  .option('--id <webhook-id>', 'Webhook ID to disable')
+  .option('--reason <reason>', 'Human-readable reason stored on the webhook')
+  .option(
+    '-a --app <app-id>',
+    'App ID the webhook belongs to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      webhooksDisableCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: false,
           }),
         ),
       ),
