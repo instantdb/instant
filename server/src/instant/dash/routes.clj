@@ -1720,16 +1720,20 @@
 
 (defn encode-events-cursor [^Timestamp created-at isn]
   (let [isn-bytes (isn/->bytes isn)
-        buf (ByteBuffer/allocate (+ 8 (alength isn-bytes)))
+        instant (.toInstant created-at)
+        buf (ByteBuffer/allocate (+ 12 (alength isn-bytes)))
         encoder (.withoutPadding (Base64/getUrlEncoder))]
-    (.putLong buf (-> created-at .toInstant .toEpochMilli))
+    (.putLong buf (.getEpochSecond instant))
+    (.putInt buf (.getNano instant))
     (.put buf isn-bytes)
     (.encodeToString encoder (.array buf))))
 
 (defn decode-events-cursor [^String s]
   (let [decoder (Base64/getUrlDecoder)
         buf (ByteBuffer/wrap (.decode decoder s))
-        created-at (Instant/ofEpochMilli (.getLong buf))
+        epoch-second (.getLong buf)
+        nano (.getInt buf)
+        created-at (Instant/ofEpochSecond epoch-second nano)
         isn-ba (byte-array (.remaining buf))]
     (.get buf isn-ba)
     {:created-at created-at

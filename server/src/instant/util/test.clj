@@ -371,11 +371,6 @@
                    (assoc :slot-name slot-name#
                           :temporary? true))
          worker# (future (wal/start-worker opts#))
-         _# (when (= ::timeout (deref (:started-promise opts#) 10000 ::timeout))
-              (throw (ex-info "wal worker did not start within 10s"
-                              {:worker-error (when (future-done? worker#)
-                                               (try @worker#
-                                                    (catch Throwable t# t#)))})))
          ~records-sym (atom [])
          pumper# (future
                    (loop []
@@ -383,6 +378,11 @@
                        (swap! ~records-sym conj r#)
                        (recur))))]
      (try
+       (when (= ::timeout (deref (:started-promise opts#) 10000 ::timeout))
+         (throw (ex-info "wal worker did not start within 10s"
+                         {:worker-error (when (future-done? worker#)
+                                          (try @worker#
+                                               (catch Throwable t# t#)))})))
        ~@body
        (finally
          (inv/stop opts#)
