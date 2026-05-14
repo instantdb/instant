@@ -64,7 +64,7 @@
             (let [payload (.getResource pooled)]
               (on-message {:channel (channel-wrapper channel)
                            :data    (Util/toArray payload)}))
-            (finally (.free pooled)))))
+            (finally (.close pooled)))))
       (onPong [^WebSocketChannel channel ^StreamSourceFrameChannel channel]
         (when (and set-ping-latency-nanos atomic-last-ping-at)
           (set-ping-latency-nanos (- (System/nanoTime) (.get atomic-last-ping-at))))
