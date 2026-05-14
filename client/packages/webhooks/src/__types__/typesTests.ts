@@ -18,14 +18,14 @@ type Schema = typeof schema;
 function _typedRecordWithSchemaCreate() {
   const { typedHandlers } = Webhooks.helpers<Schema>();
   typedHandlers('users', 'create', (record) => {
-    type Etype = typeof record.etype;
+    type Namespace = typeof record.namespace;
     type Action = typeof record.action;
     type Before = typeof record.before;
     type After = typeof record.after;
 
     type _cases = [
       Expect<NotAny<typeof record>>,
-      Expect<Equal<Etype, 'users'>>,
+      Expect<Equal<Namespace, 'users'>>,
       Expect<Equal<Action, 'create'>>,
       Expect<Equal<Before, null>>,
       Expect<NotAny<After>>,
@@ -43,7 +43,7 @@ function _typedRecordWithSchemaUpdate() {
     type Before = typeof record.before;
     type After = typeof record.after;
     type _cases = [
-      Expect<Equal<typeof record.etype, 'users'>>,
+      Expect<Equal<typeof record.namespace, 'users'>>,
       Expect<Equal<typeof record.action, 'update'>>,
       // Both before and after are present for updates.
       Expect<Equal<Before['id'], string>>,
@@ -58,7 +58,7 @@ function _typedRecordWithSchemaDelete() {
   const { typedHandlers } = Webhooks.helpers<Schema>();
   typedHandlers('users', 'delete', (record) => {
     type _cases = [
-      Expect<Equal<typeof record.etype, 'users'>>,
+      Expect<Equal<typeof record.namespace, 'users'>>,
       Expect<Equal<typeof record.action, 'delete'>>,
       // `after` is null for deletes; `before` carries the entity.
       Expect<Equal<typeof record.after, null>>,
@@ -71,11 +71,11 @@ function _typedRecordWithSchemaDelete() {
 function _defaultHandlerWithSchema() {
   const { typedHandlers } = Webhooks.helpers<Schema>();
   typedHandlers('$default', (record) => {
-    type Etype = typeof record.etype;
+    type Namespace = typeof record.namespace;
     type Action = typeof record.action;
     type _cases = [
-      // The $default form spans all etypes and actions in the schema.
-      Expect<Equal<Etype, 'users'>>,
+      // The $default form spans all namespaces and actions in the schema.
+      Expect<Equal<Namespace, 'users'>>,
       Expect<Equal<Action, 'create' | 'update' | 'delete'>>,
     ];
   });
@@ -87,15 +87,15 @@ function _typedRecordNoSchemaCreate() {
   // Helpers default to InstantUnknownSchema when no schema is given.
   const { typedHandlers } = Webhooks.helpers();
   typedHandlers('$users', 'create', (record) => {
-    type Etype = typeof record.etype;
+    type Namespace = typeof record.namespace;
     type Action = typeof record.action;
     type After = typeof record.after;
     type _cases = [
       Expect<NotAny<typeof record>>,
       Expect<NotNever<typeof record>>,
-      // The literal etype passed at the call site is preserved even without
+      // The literal namespace passed at the call site is preserved even without
       // a schema — this is the regression we just fixed.
-      Expect<Equal<Etype, '$users'>>,
+      Expect<Equal<Namespace, '$users'>>,
       Expect<Equal<Action, 'create'>>,
       Expect<Equal<typeof record.before, null>>,
       // `after` is an entity reachable without a schema (the regression we
@@ -114,7 +114,7 @@ function _typedRecordNoSchemaUpdate() {
   const { typedHandlers } = Webhooks.helpers();
   typedHandlers('posts', 'update', (record) => {
     type _cases = [
-      Expect<Equal<typeof record.etype, 'posts'>>,
+      Expect<Equal<typeof record.namespace, 'posts'>>,
       Expect<Equal<typeof record.action, 'update'>>,
       Expect<NotNever<typeof record.before>>,
       Expect<NotNever<typeof record.after>>,
@@ -126,7 +126,7 @@ function _typedRecordNoSchemaDelete() {
   const { typedHandlers } = Webhooks.helpers();
   typedHandlers('comments', 'delete', (record) => {
     type _cases = [
-      Expect<Equal<typeof record.etype, 'comments'>>,
+      Expect<Equal<typeof record.namespace, 'comments'>>,
       Expect<Equal<typeof record.action, 'delete'>>,
       Expect<Equal<typeof record.after, null>>,
       Expect<NotNever<typeof record.before>>,
@@ -137,13 +137,13 @@ function _typedRecordNoSchemaDelete() {
 function _defaultHandlerNoSchema() {
   const { typedHandlers } = Webhooks.helpers();
   typedHandlers('$default', (record) => {
-    type Etype = typeof record.etype;
+    type Namespace = typeof record.namespace;
     type Action = typeof record.action;
     type _cases = [
-      // Without a schema, etype is exactly `string` — not `string | number`
+      // Without a schema, namespace is exactly `string` — not `string | number`
       // (which would leak the TS index-signature `keyof` artifact, since
-      // etypes are always strings on the wire).
-      Expect<Equal<Etype, string>>,
+      // namespaces are always strings on the wire).
+      Expect<Equal<Namespace, string>>,
       Expect<Equal<Action, 'create' | 'update' | 'delete'>>,
     ];
   });
@@ -171,16 +171,16 @@ function _combineHandlersAcceptsTypedEntriesNoSchema() {
   type _cases = [Expect<NotAny<typeof handlers>>];
 }
 
-// ---------- Unknown etype is rejected when a schema is supplied ----------
+// ---------- Unknown namespace is rejected when a schema is supplied ----------
 
-function _typedHandlersRejectsUnknownEtypeWithSchema() {
+function _typedHandlersRejectsUnknownNamespaceWithSchema() {
   const { typedHandlers } = Webhooks.helpers<Schema>();
-  // The schema only declares `users`. Passing an etype not in the schema
+  // The schema only declares `users`. Passing a namespace not in the schema
   // should fail typecheck.
   // @ts-expect-error - 'posts' is not in Schema['entities']
   typedHandlers('posts', 'create', (_record) => {});
 
-  // Sanity: the known etype still typechecks.
+  // Sanity: the known namespace still typechecks.
   typedHandlers('users', 'create', (_record) => {});
 }
 

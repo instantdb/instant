@@ -30,7 +30,7 @@ export default async function handler(
         await guestDb.transact(
           db.tx.webhookEvents[id()].update({
             receivedAt: Date.now(),
-            etype: record.etype,
+            namespace: record.namespace,
             action: record.action,
             payload: record,
           }),

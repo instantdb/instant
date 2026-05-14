@@ -397,7 +397,7 @@ function RecordRow({ record }: { record: InstantWebhookPayloadRecord }) {
           className={`shrink-0 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
         />
         <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm font-medium text-gray-700 dark:bg-neutral-700 dark:text-neutral-200">
-          {record.etype}
+          {record.namespace}
         </span>
         <ActionBadge action={record.action} />
         <span className="font-mono text-sm break-all text-gray-500 dark:text-neutral-500">
@@ -407,8 +407,8 @@ function RecordRow({ record }: { record: InstantWebhookPayloadRecord }) {
       {open ? (
         <div id={panelId} className="flex flex-col gap-1 pl-5 text-sm">
           <div>
-            <span className="font-semibold">etype</span>:{' '}
-            <span className="font-mono">{record.etype}</span>
+            <span className="font-semibold">namespace</span>:{' '}
+            <span className="font-mono">{record.namespace}</span>
           </div>
           <div>
             <span className="font-semibold">id</span>:{' '}
@@ -496,7 +496,7 @@ function EventPayload({
               <div className="flex flex-col gap-2">
                 {records.map((r) => (
                   <RecordRow
-                    key={`${r.etype}:${r.id}:${r.action}`}
+                    key={`${r.namespace}:${r.id}:${r.action}`}
                     record={r}
                   />
                 ))}
@@ -865,13 +865,13 @@ function EventsListPage({
               {
                 label: 'Entities',
                 value:
-                  (webhook.etypes ?? []).length === 0 ? (
+                  (webhook.namespaces ?? []).length === 0 ? (
                     <span className="text-gray-400 dark:text-neutral-500">
                       (none)
                     </span>
                   ) : (
                     <span className="font-mono text-xs">
-                      {[...(webhook.etypes ?? [])].sort().map((e, i, arr) => (
+                      {[...(webhook.namespaces ?? [])].sort().map((e, i, arr) => (
                         <Fragment key={e}>
                           <span className="whitespace-nowrap">{e}</span>
                           {i < arr.length - 1 ? ', ' : ''}

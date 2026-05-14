@@ -93,7 +93,7 @@ const webhooksWithManager = new Webhooks<typeof schema>({
 
 - `appId` — required for `manager.*`; recommended for the receiving side so error messages and helpers are scoped.
 - `adminToken` (or `token`) — required for `manager.*`. Not needed to verify signatures or dispatch handlers.
-- `schema` — optional. Pass your schema to get fully typed `record.before` / `record.after` in handlers and typed `etypes` on `manager.create` / `manager.update`.
+- `schema` — optional. Pass your schema to get fully typed `record.before` / `record.after` in handlers and typed `namespaces` on `manager.create` / `manager.update`.
 - `apiURI` — defaults to `https://api.instantdb.com`. Override for self-hosted or local development.
 - `withAuth` — advanced hook used by the platform SDK to inject a fresh OAuth token per request; you generally won't pass this directly.
 
@@ -146,7 +146,7 @@ Options:
 - `tolerance` — max signature age in seconds (default `300`). Protects against replays; raising this weakens that.
 - `receivedAt` — override the "now" used when checking signature age. Mostly useful in tests.
 
-Handler resolution is most-specific-wins: `etype` + `action` → that etype's `$default` → top-level `$default`. Records with no matching handler are skipped.
+Handler resolution is most-specific-wins: `namespace` + `action` → that namespace's `$default` → top-level `$default`. Records with no matching handler are skipped.
 
 Handlers run concurrently. `processRequest` resolves once all of them settle. If any handler rejects, the call rejects — return a non-2xx response so Instant retries the event.
 
@@ -267,7 +267,7 @@ console.log(payload.idempotencyKey, payload.data.length);
 
 Schema-bound helpers for building typed handler maps:
 
-- `typedHandlers(etype, action, handler)` — typed entry for one `etype` + `action`. Pass `'$default'` for `action` to handle every action for that etype.
+- `typedHandlers(namespace, action, handler)` — typed entry for one `namespace` + `action`. Pass `'$default'` for `action` to handle every action for that namespace.
 - `typedHandlers('$default', handler)` — top-level catch-all.
 - `combineHandlers(...entries)` — merges entries into a single `WebhookHandlers` object suitable for `processRequest` / `processPayload`.
 
@@ -295,23 +295,23 @@ Returns every webhook configured on the app, newest first. Includes both active 
 const webhooks = await db.webhooks.manager.list();
 ```
 
-## `manager.create({ url, etypes, actions })`
+## `manager.create({ url, namespaces, actions })`
 
 Creates a webhook in the `active` state. It starts receiving matching events immediately.
 
 ```ts
 const webhook = await db.webhooks.manager.create({
   url: 'https://example.com/instant',
-  etypes: ['posts', 'comments'],
+  namespaces: ['posts', 'comments'],
   actions: ['create', 'update'],
 });
 ```
 
-The server rejects the request if `url` isn't an HTTPS URL pointing at a public host, if `etypes` doesn't reference any entity in the app's schema, if `actions` is empty, or if the app has hit its **100 active webhooks** limit.
+The server rejects the request if `url` isn't an HTTPS URL pointing at a public host, if `namespaces` doesn't reference any entity in the app's schema, if `actions` is empty, or if the app has hit its **100 active webhooks** limit.
 
 ## `manager.update(webhookId, params)`
 
-Patches `url`, `etypes`, and/or `actions`. Omitted fields keep their current value. Does not affect status — use `enable` / `disable` for that.
+Patches `url`, `namespaces`, and/or `actions`. Omitted fields keep their current value. Does not affect status — use `enable` / `disable` for that.
 
 ```ts
 await db.webhooks.manager.update(webhook.id, {

@@ -1861,7 +1861,7 @@ export class PlatformApi {
    * is transparently refreshed.
    *
    * Pass `schema` (e.g. from {@link apiSchemaToInstantSchemaDef}) for typed
-   * handler records and typed `etypes` on `manager.create`/`update`.
+   * handler records and typed `namespaces` on `manager.create`/`update`.
    */
   webhooks<
     Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
