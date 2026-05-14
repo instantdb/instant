@@ -1345,7 +1345,8 @@
         {postmark-id :postmark_id}
         (app-email-template-model/get-by-app-id-and-email-type
          {:app-id app-id :email-type "magic-code"})]
-    (response/ok {:verification (when postmark-id
+    (response/ok {:sender-verification false
+                  :verification (when postmark-id
                                   (-> (postmark/get-sender! {:id postmark-id})
                                       :body
                                       (select-keys [:ID :EmailAddress :Confirmed
@@ -1393,7 +1394,7 @@
               code (app-email-verification-code/put!
                     {:code (app-user-magic-code-model/rand-code)
                      :verification-id (:id verification)})]
-          (tool/def-locals) (response/ok {:template code})))
+          (response/ok {:template code})))
 
 (comment
   (def any-app (app-model/get-by-id {:id "d8f9e0a9-b6f5-49e9-a186-eabc7fe4ddac"}))
