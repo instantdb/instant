@@ -55,7 +55,11 @@ import {
   ItemTitle,
 } from '@/components/components/ui/item';
 
-const ALL_ACTIONS: InstantWebhookAction[] = ['create', 'update', 'delete'];
+export const ALL_ACTIONS: InstantWebhookAction[] = [
+  'create',
+  'update',
+  'delete',
+];
 
 export function CopyableText({
   value,
@@ -66,12 +70,15 @@ export function CopyableText({
 }) {
   const [tooltipOpen, setTooltipOpen] = useState(false);
 
-  const handleClick = () => {
+  const handleClick = async () => {
     const selection = window.getSelection();
-    if (!selection || selection.toString().length === 0) {
-      window.navigator.clipboard.writeText(value);
+    if (selection && selection.toString().length > 0) return;
+    try {
+      await window.navigator.clipboard.writeText(value);
       setTooltipOpen(true);
       setTimeout(() => setTooltipOpen(false), 1000);
+    } catch (e) {
+      console.error('Failed to copy to clipboard', e);
     }
   };
 

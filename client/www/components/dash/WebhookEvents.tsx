@@ -30,7 +30,11 @@ import {
 } from '@/lib/types';
 import { Button, Content, SectionHeading } from '@/components/ui';
 import { useReadyRouter } from '@/components/clientOnlyPage';
-import { CopyableText, WebhookActionsMenu } from '@/components/dash/Webhooks';
+import {
+  ALL_ACTIONS,
+  CopyableText,
+  WebhookActionsMenu,
+} from '@/components/dash/Webhooks';
 import {
   Tabs,
   TabsContent,
@@ -38,8 +42,6 @@ import {
   TabsTrigger,
 } from '@/components/components/ui/tabs';
 import { Card, CardContent } from '@/components/components/ui/card';
-
-const ALL_ACTIONS: InstantWebhookAction[] = ['create', 'update', 'delete'];
 
 // ---- Data ----
 
