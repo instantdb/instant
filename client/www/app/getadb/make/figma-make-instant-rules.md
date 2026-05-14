@@ -25,7 +25,7 @@ Instant provides client-side JS SDKs and an admin SDK:
 
 ## Prerequisites
 
-Create your `.env` file with the credentials from this document. 
+Create your `.env` file with the credentials from this document.
 
 If you have an app id/admin token but no schema/perm files, pull them:
 
@@ -375,10 +375,9 @@ Run `pnpm dlx instant-cli query '{ posts: {} }' --admin` to query your app. A co
 
 The bullets below are links to the Instant documentation. They provide detailed information on how to use different features of InstantDB. Each line follows the pattern of
 
-
 - [TOPIC](URL): Description of the topic.
 
-Curls to `instantdb.com/docs/*.md` are fast and unmetered, curl these docs when you aren't sure how to build something with Instant. 
+Curls to `instantdb.com/docs/*.md` are fast and unmetered, curl these docs when you aren't sure how to build something with Instant.
 
 - [Common mistakes](https://www.instantdb.com/docs/common-mistakes.md): Common mistakes when working with Instant
 - [Initializing Instant](https://www.instantdb.com/docs/init.md): How to integrate Instant with your app.

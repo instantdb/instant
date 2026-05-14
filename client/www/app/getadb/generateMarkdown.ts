@@ -1,9 +1,10 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-export default async function generateMarkdown(
-  app: { id: string; adminToken: string },
-): Promise<string> {
+export default async function generateMarkdown(app: {
+  id: string;
+  adminToken: string;
+}): Promise<string> {
   const baseRules = await loadBaseRules();
 
   return `
