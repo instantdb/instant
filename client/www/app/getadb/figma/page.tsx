@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { HumanForm } from '../HumanForm';
+import { FigmaMakeIcon } from './FigmaMakeIcon';
 
 export const metadata: Metadata = {
   title: 'getadb for Figma Make — give your agent a backend',
@@ -14,11 +15,15 @@ export default function GetadbFigma() {
     <main className="text-off-black min-h-screen bg-[#FBF9F6]">
       <div className="landing-width mx-auto pt-8 pb-24 sm:pt-12">
         <div className="mx-auto max-w-3xl">
-          <img
-            src="/img/icon/logo-512.svg"
-            alt="Instant"
-            className="mb-5 h-10 w-10 sm:mb-6 sm:h-12 sm:w-12"
-          />
+          <div className="mb-5 flex items-center gap-3 sm:mb-6">
+            <img
+              src="/img/icon/logo-512.svg"
+              alt="Instant"
+              className="h-10 w-10 sm:h-12 sm:w-12"
+            />
+            <span className="text-xl text-gray-300 sm:text-2xl">×</span>
+            <FigmaMakeIcon className="h-10 w-10 sm:h-12 sm:w-12" />
+          </div>
           <h1 className="text-3xl leading-snug font-normal sm:text-4xl">
             Give your agent a full-stack backend
           </h1>

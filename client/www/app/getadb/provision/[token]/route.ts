@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { createGDBApp } from '../../createGDBApp';
-import generateMarkdown, { detectRequester } from '../../generateMarkdown';
+import generateMarkdown from '../../generateMarkdown';
 import { PLACEHOLDER_TOKEN } from '../../guideMarkdown';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +28,7 @@ export async function GET(
     new URL(request.url).searchParams.get('title')?.trim() || DEFAULT_APP_TITLE;
   const app = await createGDBApp(title);
 
-  const markdown = await generateMarkdown(app, detectRequester(request));
+  const markdown = await generateMarkdown(app);
 
   return new Response(markdown, {
     headers: {

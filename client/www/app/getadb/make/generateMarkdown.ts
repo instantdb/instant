@@ -1,10 +1,11 @@
 import fs from 'fs/promises';
 import path from 'path';
+import type { ProvisionedApp } from '../createGDBApp';
 
-export default async function generateMarkdown(
-  app: { id: string; adminToken: string },
+export default async function generateMakeMarkdown(
+  app: ProvisionedApp,
 ): Promise<string> {
-  const baseRules = await loadBaseRules();
+  const rules = await loadRules();
 
   return `
 A new Instant app has just been provisioned for you!
@@ -24,23 +25,21 @@ If you can't use npx/pnpm dlx/bunx to install packages you can use the unpkg CDN
 What follows are instructions for using Instant. Follow them, and you are golden!
 ---
 
-${baseRules}`;
+${rules}`;
 }
-
-// ----------
-// Base Rules
 
 const RULES_PATH = path.join(
   process.cwd(),
-  'lib',
-  'intern',
-  'instant-rules.md',
+  'app',
+  'getadb',
+  'make',
+  'figma-make-instant-rules.md',
 );
 
-let cachedBaseRules: string | null = null;
-async function loadBaseRules(): Promise<string> {
-  if (cachedBaseRules !== null) return cachedBaseRules;
+let cachedRules: string | null = null;
+async function loadRules(): Promise<string> {
+  if (cachedRules !== null) return cachedRules;
   const contents = await fs.readFile(RULES_PATH, 'utf8');
-  cachedBaseRules = contents;
+  cachedRules = contents;
   return contents;
 }
