@@ -1,6 +1,8 @@
 import { test, expect, describe, vi, beforeEach } from 'vitest';
 import { Effect, Layer, Logger } from 'effect';
 import { GlobalOpts } from '../src/context/globalOpts.ts';
+import { AuthToken } from '../src/context/authToken.ts';
+import { CurrentApp } from '../src/context/currentApp.ts';
 
 vi.mock('../src/index.ts', () => ({}));
 
@@ -10,29 +12,28 @@ const state = vi.hoisted(() => ({
   promptResponses: [] as unknown[],
 }));
 
-vi.mock('../src/lib/webhooks.ts', async (importOriginal) => {
+// Mock at the SDK boundary: any `new InstantPlatformApi(...)` returns a stub
+// whose `.webhooks(appId).manager` is the per-test fake manager, and whose
+// `getSchema` reflects state.etypes (null → reject, simulating an auth /
+// network / missing-app failure that getRemoteEtypes catches).
+vi.mock('@instantdb/platform', async (importOriginal) => {
   const orig: any = await importOriginal();
-  const { Effect } = await import('effect');
   return {
     ...orig,
-    useWebhooksManager: (fn: any) => Effect.promise(() => fn(state.manager)),
-    getRemoteEtypes: Effect.sync(() => state.etypes),
-    buildWebhooksManager: Effect.sync(() => state.manager),
-    fetchRecentEvents: (webhookId: string, limit: number) =>
-      Effect.promise(async () => {
-        const collected: any[] = [];
-        let after: string | undefined;
-        while (collected.length < limit) {
-          const page: any = await state.manager.listEvents(
-            webhookId,
-            after ? { after } : undefined,
-          );
-          collected.push(...page.events);
-          if (!page.pageInfo.hasNextPage || !page.pageInfo.endCursor) break;
-          after = page.pageInfo.endCursor;
+    PlatformApi: class {
+      webhooks(_appId: string) {
+        return { manager: state.manager };
+      }
+      async getSchema(_appId: string) {
+        if (state.etypes === null) {
+          throw new Error('schema unavailable');
         }
-        return collected.slice(0, limit);
-      }),
+        const entities = Object.fromEntries(
+          state.etypes.map((name) => [name, {}]),
+        );
+        return { schema: { entities } };
+      }
+    },
   };
 });
 
@@ -174,8 +175,17 @@ const run = (effect: any, opts: { yes: boolean }) =>
   Effect.runPromise(
     effect.pipe(
       Effect.provide(
-        Layer.merge(
+        Layer.mergeAll(
           Layer.succeed(GlobalOpts, { yes: opts.yes }),
+          Layer.succeed(AuthToken, {
+            getAuthToken: Effect.succeed('test-token'),
+            getSource: Effect.succeed('env' as const),
+            setAuthToken: () => Effect.succeed(undefined),
+          }),
+          Layer.succeed(CurrentApp, {
+            appId: 'test-app',
+            source: 'env' as const,
+          }),
           Logger.replace(
             Logger.defaultLogger,
             Logger.make(({ message }) => {
@@ -501,8 +511,17 @@ describe('fetchRecentEvents', () => {
     Effect.runPromise(
       effect.pipe(
         Effect.provide(
-          Layer.merge(
+          Layer.mergeAll(
             Layer.succeed(GlobalOpts, { yes: true }),
+            Layer.succeed(AuthToken, {
+              getAuthToken: Effect.succeed('test-token'),
+              getSource: Effect.succeed('env' as const),
+              setAuthToken: () => Effect.succeed(undefined),
+            }),
+            Layer.succeed(CurrentApp, {
+              appId: 'test-app',
+              source: 'env' as const,
+            }),
             Logger.replace(
               Logger.defaultLogger,
               Logger.make(({ message }) => logs.push(String(message))),
