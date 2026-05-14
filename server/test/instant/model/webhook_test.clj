@@ -863,6 +863,9 @@
                         (or (= aid (:id app)) (enable-wal-entity-log? aid)))
                       flags/log-to-wal-log-table?
                       (constantly true)]
+         (test-util/with-s3-mock {:location-id-url
+                                  (fn [_app-id location-id]
+                                    (str "https://test.invalid/" location-id))}
           (let [attrs (attr-model/get-by-app-id (:id app))
                 users-id-aid (system-catalog/get-attr-id "$users" "id")
                 users-email-aid (system-catalog/get-attr-id "$users" "email")
@@ -1054,7 +1057,7 @@
                         files-only {:etypes ["$files"]
                                     :actions ["create" "update" "delete"]}]
                     (is (empty? (webhook/webhook-data-for-wal-record users-only file-insert)))
-                    (is (empty? (webhook/webhook-data-for-wal-record files-only user-insert)))))))))))))
+                    (is (empty? (webhook/webhook-data-for-wal-record files-only user-insert))))))))))))))
 
 ;; We don't support links yet
 (deftest webhook-matches?-doesn't-match-for-links
