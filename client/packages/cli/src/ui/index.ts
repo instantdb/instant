@@ -366,9 +366,7 @@ ${chalk.hex('#EA570B').bold('●')} ${this.params.options[this.data.selectedIdx]
       const expandHint = hasExpandable
         ? '\n' +
           chalk.dim(
-            this.stickyExpanded
-              ? '  (tab to collapse)'
-              : '  (tab to expand)',
+            this.stickyExpanded ? '  (tab to collapse)' : '  (tab to expand)',
           )
         : '';
 
