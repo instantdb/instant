@@ -48,7 +48,7 @@ export const webhooksEventsPayloadCmd = Effect.fn(
       yield* Effect.logError(e.message);
       yield* Effect.log(
         chalk.dim(
-          'hint: run `instant-cli webhooks events payload --help` for available arguments',
+          'hint: run `instant-cli webhook event payload --help` for available arguments',
         ),
       );
     }),

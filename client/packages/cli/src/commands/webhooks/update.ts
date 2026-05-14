@@ -198,7 +198,7 @@ export const webhooksUpdateCmd = Effect.fn(
       yield* Effect.logError(e.message);
       yield* Effect.log(
         chalk.dim(
-          'hint: run `instant-cli webhooks update --help` for available arguments',
+          'hint: run `instant-cli webhook update --help` for available arguments',
         ),
       );
     }),

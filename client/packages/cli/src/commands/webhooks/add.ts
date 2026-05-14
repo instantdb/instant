@@ -102,7 +102,7 @@ export const webhooksAddCmd = Effect.fn(
       yield* Effect.logError(e.message);
       yield* Effect.log(
         chalk.dim(
-          'hint: run `instant-cli webhooks add --help` for available arguments',
+          'hint: run `instant-cli webhook add --help` for available arguments',
         ),
       );
     }),

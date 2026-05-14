@@ -58,7 +58,7 @@ export const webhooksEventsResendCmd = Effect.fn(
       yield* Effect.logError(e.message);
       yield* Effect.log(
         chalk.dim(
-          'hint: run `instant-cli webhooks events resend --help` for available arguments',
+          'hint: run `instant-cli webhook event resend --help` for available arguments',
         ),
       );
     }),

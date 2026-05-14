@@ -402,7 +402,7 @@ export const authOriginDeleteDef = authOrigin
   });
 
 const webhooks = program
-  .command('webhooks')
+  .command('webhook')
   .description('Manage webhooks for an app');
 
 export const webhooksListDef = webhooks
@@ -559,7 +559,7 @@ export const webhooksDisableDef = webhooks
   });
 
 const webhooksEvents = webhooks
-  .command('events')
+  .command('event')
   .description('Inspect and resend webhook events');
 
 export const webhooksEventsListDef = webhooksEvents
