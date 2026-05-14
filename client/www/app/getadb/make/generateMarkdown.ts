@@ -1,5 +1,4 @@
 import fs from 'fs/promises';
-import path from 'path';
 import type { ProvisionedApp } from '../createGDBApp';
 
 export default async function generateMakeMarkdown(
@@ -26,13 +25,7 @@ What follows are instructions for using Instant. Follow them, and you are golden
 ${rules}`;
 }
 
-const RULES_PATH = path.join(
-  process.cwd(),
-  'app',
-  'getadb',
-  'make',
-  'figma-make-instant-rules.md',
-);
+const RULES_PATH = new URL('./figma-make-instant-rules.md', import.meta.url);
 
 let cachedRules: string | null = null;
 async function loadRules(): Promise<string> {

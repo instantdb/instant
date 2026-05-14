@@ -1,5 +1,4 @@
 import fs from 'fs/promises';
-import path from 'path';
 import type { ProvisionedApp } from '../createGDBApp';
 
 export default async function generateMetaMarkdown(
@@ -27,13 +26,7 @@ app. Follow them, and you are golden!
 ${rules}`;
 }
 
-const RULES_PATH = path.join(
-  process.cwd(),
-  'app',
-  'getadb',
-  'meta',
-  'meta-react-instant-rules.md',
-);
+const RULES_PATH = new URL('./meta-react-instant-rules.md', import.meta.url);
 
 let cachedRules: string | null = null;
 async function loadRules(): Promise<string> {

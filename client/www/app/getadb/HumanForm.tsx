@@ -84,8 +84,8 @@ export function HumanForm({
   useEffect(() => {
     const editor = editorRef.current;
     const idea = ideaRef.current;
-    const suffix = suffixRef.current;
-    if (!editor || !idea || !suffix) return;
+    const suffixEl = suffixRef.current;
+    if (!editor || !idea || !suffixEl) return;
 
     function onInput() {
       if (idea!.innerHTML === '<br>') idea!.innerHTML = '';
@@ -93,8 +93,8 @@ export function HumanForm({
     function onBeforeInput(e: InputEvent) {
       for (const range of e.getTargetRanges()) {
         if (
-          suffix!.contains(range.startContainer) ||
-          suffix!.contains(range.endContainer)
+          suffixEl!.contains(range.startContainer) ||
+          suffixEl!.contains(range.endContainer)
         ) {
           e.preventDefault();
           return;
