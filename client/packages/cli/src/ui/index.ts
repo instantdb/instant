@@ -101,7 +101,6 @@ export namespace UI {
   };
   export class Select<T> extends Prompt<T> {
     config(status: 'idle' | 'submitted' | 'aborted'): string {
-      console.log('config', status);
       return status;
     }
 

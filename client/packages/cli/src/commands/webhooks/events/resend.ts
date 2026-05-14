@@ -20,6 +20,7 @@ export const webhooksEventsResendCmd = Effect.fn(
 
     const webhookId = yield* resolveWebhookId({
       id: opts.webhookId,
+      flagName: '--webhook-id',
       picker: {
         promptText: 'Select a webhook:',
         emptyMessage: 'No webhooks configured.',

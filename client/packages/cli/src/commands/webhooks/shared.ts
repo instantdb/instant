@@ -70,12 +70,15 @@ const pickWebhook = (params: PickerParams) =>
 export const resolveWebhookId = (params: {
   id: string | undefined;
   picker: PickerParams;
+  flagName?: string;
 }) =>
   Effect.gen(function* () {
     if (params.id) return params.id;
     const { yes } = yield* GlobalOpts;
     if (yes) {
-      return yield* BadArgsError.make({ message: 'Must specify --id' });
+      return yield* BadArgsError.make({
+        message: `Must specify ${params.flagName ?? '--id'}`,
+      });
     }
     const picked = yield* pickWebhook(params.picker);
     return picked?.id;
@@ -288,6 +291,7 @@ export const pickEvent = (params: {
 export const resolveWebhook = (params: {
   id: string | undefined;
   picker: PickerParams;
+  flagName?: string;
 }) =>
   Effect.gen(function* () {
     if (params.id) {
@@ -305,7 +309,9 @@ export const resolveWebhook = (params: {
     }
     const { yes } = yield* GlobalOpts;
     if (yes) {
-      return yield* BadArgsError.make({ message: 'Must specify --id' });
+      return yield* BadArgsError.make({
+        message: `Must specify ${params.flagName ?? '--id'}`,
+      });
     }
     return yield* pickWebhook(params.picker);
   });

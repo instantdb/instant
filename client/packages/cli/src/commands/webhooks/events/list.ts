@@ -10,6 +10,7 @@ export const webhooksEventsListCmd = Effect.fn(function* (
 ) {
   const webhookId = yield* resolveWebhookId({
     id: opts.webhookId,
+    flagName: '--webhook-id',
     picker: {
       promptText: 'Select a webhook to inspect:',
       emptyMessage: 'No webhooks configured.',
