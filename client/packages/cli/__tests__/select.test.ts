@@ -12,6 +12,7 @@ const key = (name: string) => ({
 
 const tab = key('tab');
 const down = key('down');
+const up = key('up');
 
 class FakeTerminal {
   toggleCursor(_state: 'hide' | 'show') {}
@@ -67,18 +68,52 @@ describe('Select expansion', () => {
     expect(stripAnsi(sel.render('idle'))).not.toContain('static-detail');
   });
 
-  test('Navigation collapses expansion', () => {
+  test('Sticky mode: navigating to another expandable auto-expands it', () => {
     const { sel } = setup({
       options: [
-        { value: 'a', label: 'a', expandableLabel: '    static-detail' },
+        { value: 'a', label: 'a-row', expandableLabel: '    a-detail' },
+        { value: 'b', label: 'b-row', expandableLabel: '    b-detail' },
+      ],
+      promptText: 'p',
+    });
+    sel.input(undefined, tab);
+    expect(stripAnsi(sel.render('idle'))).toContain('a-detail');
+    sel.input(undefined, down);
+    const out = stripAnsi(sel.render('idle'));
+    expect(out).not.toContain('a-detail');
+    expect(out).toContain('b-detail');
+  });
+
+  test('Sticky mode: navigating to non-expandable hides expansion but stays sticky', () => {
+    const { sel } = setup({
+      options: [
+        { value: 'a', label: 'a', expandableLabel: '    a-detail' },
         { value: 'b', label: 'b' },
       ],
       promptText: 'p',
     });
     sel.input(undefined, tab);
-    expect(stripAnsi(sel.render('idle'))).toContain('static-detail');
+    sel.input(undefined, down); // move to b, no expansion
+    let out = stripAnsi(sel.render('idle'));
+    expect(out).not.toContain('a-detail');
+    expect(out).toContain('(tab to collapse)');
+    sel.input(undefined, up); // back to a — should auto-expand again
+    out = stripAnsi(sel.render('idle'));
+    expect(out).toContain('a-detail');
+  });
+
+  test('Without Tab, navigation does not auto-expand', () => {
+    const { sel } = setup({
+      options: [
+        { value: 'a', label: 'a', expandableLabel: '    a-detail' },
+        { value: 'b', label: 'b', expandableLabel: '    b-detail' },
+      ],
+      promptText: 'p',
+    });
     sel.input(undefined, down);
-    expect(stripAnsi(sel.render('idle'))).not.toContain('static-detail');
+    const out = stripAnsi(sel.render('idle'));
+    expect(out).not.toContain('a-detail');
+    expect(out).not.toContain('b-detail');
   });
 
   test('Async expandableLabel shows Loading then resolves', async () => {
@@ -145,7 +180,7 @@ describe('Select expansion', () => {
     expect(stripAnsi(sel.render('idle'))).toMatch(/Error loading.*boom/);
   });
 
-  test('Hint shown when focused option has expandableLabel', () => {
+  test('Hint shown whenever any option has expandableLabel', () => {
     const { sel } = setup({
       options: [
         { value: 'a', label: 'a', expandableLabel: '    detail' },
@@ -156,9 +191,20 @@ describe('Select expansion', () => {
     expect(stripAnsi(sel.render('idle'))).toContain('(tab to expand)');
     sel.input(undefined, tab);
     expect(stripAnsi(sel.render('idle'))).toContain('(tab to collapse)');
-    sel.input(undefined, down); // move to b (no expandable)
-    expect(stripAnsi(sel.render('idle'))).not.toContain('(tab to expand)');
-    expect(stripAnsi(sel.render('idle'))).not.toContain('(tab to collapse)');
+    // Moving to a non-expandable row keeps the hint (sticky mode is active)
+    sel.input(undefined, down);
+    expect(stripAnsi(sel.render('idle'))).toContain('(tab to collapse)');
+  });
+
+  test('Hint not shown when no option has expandableLabel', () => {
+    const { sel } = setup({
+      options: [
+        { value: 'a', label: 'a' },
+        { value: 'b', label: 'b' },
+      ],
+      promptText: 'p',
+    });
+    expect(stripAnsi(sel.render('idle'))).not.toMatch(/tab to/);
   });
 
   test('Tab only expands the focused row', async () => {

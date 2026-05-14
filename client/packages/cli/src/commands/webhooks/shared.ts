@@ -154,7 +154,10 @@ export const logEventDetail = (e: WebhookEventInfo): string[] => {
   return lines;
 };
 
-const formatExpandedEvent = (e: WebhookEventInfo): string => {
+const formatExpandedEvent = (
+  e: WebhookEventInfo,
+  maxAttempts?: number,
+): string => {
   const lines: string[] = [];
   lines.push(chalk.dim(`    Created:      ${fmtTime(e.createdAt)}`));
   lines.push(chalk.dim(`    Updated:      ${fmtTime(e.updatedAt)}`));
@@ -162,8 +165,19 @@ const formatExpandedEvent = (e: WebhookEventInfo): string => {
     lines.push(chalk.dim(`    Next attempt: ${fmtTime(e.nextAttemptAfter)}`));
   }
   if (e.attempts && e.attempts.length > 0) {
-    lines.push(chalk.dim(`    Attempts:`));
-    e.attempts.forEach((a, i) => {
+    const total = e.attempts.length;
+    const cap = maxAttempts ?? total;
+    const hiddenCount = Math.max(0, total - cap);
+    const shown = e.attempts.slice(-cap);
+    lines.push(
+      chalk.dim(
+        hiddenCount > 0
+          ? `    Attempts:     showing last ${shown.length} of ${total}`
+          : `    Attempts:`,
+      ),
+    );
+    shown.forEach((a, i) => {
+      const realIdx = hiddenCount + i + 1;
       const code =
         a.statusCode != null ? String(a.statusCode) : (a.errorType ?? 'error');
       const dur = a.durationMs != null ? `${a.durationMs}ms` : '—';
@@ -174,7 +188,7 @@ const formatExpandedEvent = (e: WebhookEventInfo): string => {
           ? chalk.red(code)
           : chalk.yellow(code);
       lines.push(
-        chalk.dim(`      ${i + 1}. ${fmtTime(a.attemptAt)} → `) +
+        chalk.dim(`      ${realIdx}. ${fmtTime(a.attemptAt)} → `) +
           codeColored +
           chalk.dim(` (${dur})`),
       );
@@ -216,15 +230,48 @@ export const pickEvent = (params: {
         options: events.map((e) => ({
           label: renderEventLabel(e),
           expandableLabel: async () => {
-            const base = formatExpandedEvent(e);
+            // Total budget = terminal rows minus picker chrome (prompt + one
+            // line per option + hint + safety).
+            const rows = process.stdout.rows ?? 24;
+            const chrome = events.length + 4;
+            const totalBudget = Math.max(12, rows - chrome);
+
+            // Split: reserve roughly half for payload (floor 6, ceil 30) and
+            // give the rest to attempts. Static timestamp lines + payload
+            // header are accounted for in `staticOverhead`.
+            const staticOverhead = 4; // 3 timestamp-ish lines + Payload: header
+            const payloadBudget = Math.min(
+              30,
+              Math.max(6, Math.floor((totalBudget - staticOverhead) / 2)),
+            );
+            const attemptsBudget = Math.max(
+              2,
+              totalBudget - staticOverhead - payloadBudget,
+            );
+            // Each attempt is 1-3 lines (line + optional errorMessage +
+            // optional body). Conservative average: 2 lines per attempt.
+            const maxAttempts = Math.max(1, Math.floor(attemptsBudget / 2));
+
+            const base = formatExpandedEvent(e, maxAttempts);
+
             try {
               const payload = await manager.getPayload(params.webhookId, e.isn);
               const json = JSON.stringify(payload, null, 2);
-              const indented = json
-                .split('\n')
-                .map((l) => '    ' + l)
-                .join('\n');
-              return `${base}\n${chalk.dim('    Payload:')}\n${chalk.dim(indented)}`;
+              const indented = json.split('\n').map((l) => '    ' + l);
+
+              let payloadLines = indented;
+              let truncationHint = '';
+              if (payloadLines.length > payloadBudget) {
+                const omitted = payloadLines.length - (payloadBudget - 1);
+                payloadLines = payloadLines.slice(0, payloadBudget - 1);
+                truncationHint =
+                  '\n' +
+                  chalk.dim(
+                    `    … ${omitted} more lines · run \`instant-cli webhooks events payload --isn ${e.isn}\` for full output`,
+                  );
+              }
+
+              return `${base}\n${chalk.dim('    Payload:')}\n${chalk.dim(payloadLines.join('\n'))}${truncationHint}`;
             } catch (err: any) {
               return `${base}\n${chalk.red(`    Payload error: ${err?.message ?? err}`)}`;
             }

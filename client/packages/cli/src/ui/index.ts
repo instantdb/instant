@@ -109,6 +109,7 @@ export namespace UI {
     private readonly options: SelectProps<T>['options'];
     private readonly params: SelectProps<T>;
     private expandedIdx: number | null = null;
+    private stickyExpanded = false;
     private readonly expansionCache: Map<number, string> = new Map();
     private readonly expansionLoading: Set<number> = new Set();
 
@@ -119,12 +120,12 @@ export namespace UI {
         if (input === 'j') {
           this.data.selectedIdx =
             (this.data.selectedIdx + 1) % this.options.length;
-          this.expandedIdx = null;
+          this.applyNavigation();
         } else if (input === 'k') {
           this.data.selectedIdx =
             (this.data.selectedIdx - 1 + this.options.length) %
             this.options.length;
-          this.expandedIdx = null;
+          this.applyNavigation();
         }
         this.requestLayout();
       });
@@ -151,54 +152,67 @@ export namespace UI {
 
       this.on('input', (_input, key) => {
         if (key?.name === 'tab') {
-          const focused = this.data.selectedIdx;
-          const focusedOption = this.options[focused];
-          const exp = focusedOption?.expandableLabel;
-          if (!exp) return;
-          if (this.expandedIdx === focused) {
+          const hasExpandable = this.options.some((o) => o.expandableLabel);
+          if (!hasExpandable) return;
+          this.stickyExpanded = !this.stickyExpanded;
+          if (this.stickyExpanded) {
+            this.expandFocused();
+          } else {
             this.expandedIdx = null;
-            this.requestLayout();
-            return;
           }
-          this.expandedIdx = focused;
           this.requestLayout();
-          if (
-            typeof exp === 'function' &&
-            !this.expansionCache.has(focused) &&
-            !this.expansionLoading.has(focused)
-          ) {
-            this.expansionLoading.add(focused);
-            this.requestLayout();
-            Promise.resolve()
-              .then(() => exp())
-              .then(
-                (content) => {
-                  this.expansionLoading.delete(focused);
-                  this.expansionCache.set(focused, content);
-                  if (this.expandedIdx === focused) this.requestLayout();
-                },
-                (err) => {
-                  this.expansionLoading.delete(focused);
-                  this.expansionCache.set(
-                    focused,
-                    chalk.red(
-                      `    Error loading expansion: ${err?.message ?? err}`,
-                    ),
-                  );
-                  if (this.expandedIdx === focused) this.requestLayout();
-                },
-              );
-          }
           return;
         }
-        if (
-          (key?.name === 'up' || key?.name === 'down') &&
-          this.expandedIdx !== null
-        ) {
-          this.expandedIdx = null;
+        if (key?.name === 'up' || key?.name === 'down') {
+          this.applyNavigation();
           this.requestLayout();
         }
       });
+    }
+
+    private applyNavigation() {
+      if (this.stickyExpanded) {
+        this.expandFocused();
+      } else {
+        this.expandedIdx = null;
+      }
+    }
+
+    private expandFocused() {
+      const focused = this.data.selectedIdx;
+      const focusedOption = this.options[focused];
+      const exp = focusedOption?.expandableLabel;
+      if (!exp) {
+        this.expandedIdx = null;
+        return;
+      }
+      this.expandedIdx = focused;
+      if (
+        typeof exp === 'function' &&
+        !this.expansionCache.has(focused) &&
+        !this.expansionLoading.has(focused)
+      ) {
+        this.expansionLoading.add(focused);
+        Promise.resolve()
+          .then(() => (exp as () => string | Promise<string>)())
+          .then(
+            (content) => {
+              this.expansionLoading.delete(focused);
+              this.expansionCache.set(focused, content);
+              if (this.expandedIdx === focused) this.requestLayout();
+            },
+            (err) => {
+              this.expansionLoading.delete(focused);
+              this.expansionCache.set(
+                focused,
+                chalk.red(
+                  `    Error loading expansion: ${err?.message ?? err}`,
+                ),
+              );
+              if (this.expandedIdx === focused) this.requestLayout();
+            },
+          );
+      }
     }
 
     private getExpansionContent(
@@ -225,46 +239,141 @@ ${chalk.hex('#EA570B').bold('●')} ${this.params.options[this.data.selectedIdx]
 
       const renderRow = (
         option: SelectProps<T>['options'][number],
-        idx: number,
+        originalIdx: number,
       ) => {
-        const isSelected = idx === this.data.selectedIdx;
+        const isSelected = originalIdx === this.data.selectedIdx;
         const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
         const label = isSelected
           ? chalk.bold(option.label)
           : chalk.dim(option.label);
         const expandedContent =
-          isSelected && this.expandedIdx === idx
-            ? this.getExpansionContent(option, idx)
+          isSelected && this.expandedIdx === originalIdx
+            ? this.getExpansionContent(option, originalIdx)
             : null;
         const expanded = expandedContent !== null ? '\n' + expandedContent : '';
         return `${cursor} ${label}${expanded}`;
       };
 
-      const mainOptionsList = this.options
-        .filter((option) => !option.secondary)
-        .map((option, idx) => renderRow(option, idx))
-        .join('\n');
+      const rowLineCount = (originalIdx: number) => {
+        const opt = this.options[originalIdx]!;
+        const labelLines = opt.label.split('\n').length;
+        const isFocused = originalIdx === this.data.selectedIdx;
+        const expContent =
+          isFocused && this.expandedIdx === originalIdx
+            ? this.getExpansionContent(opt, originalIdx)
+            : null;
+        const expLines =
+          expContent !== null ? expContent.split('\n').length : 0;
+        return labelLines + expLines;
+      };
 
-      const secondaryStart = this.options.filter((o) => !o.secondary).length;
-      const secondaryOptionsList = this.options
-        .filter((option) => option.secondary)
-        .map((option, idx) => renderRow(option, idx + secondaryStart))
-        .join('\n');
+      const mainEntries: {
+        opt: SelectProps<T>['options'][number];
+        originalIdx: number;
+      }[] = [];
+      const secondaryEntries: typeof mainEntries = [];
+      this.options.forEach((o, i) => {
+        if (o.secondary) secondaryEntries.push({ opt: o, originalIdx: i });
+        else mainEntries.push({ opt: o, originalIdx: i });
+      });
 
+      const totalRows = process.stdout.rows ?? 24;
+      const secondaryHeight =
+        secondaryEntries.length === 0
+          ? 0
+          : secondaryEntries.reduce(
+              (acc, { originalIdx }) => acc + rowLineCount(originalIdx),
+              0,
+            ) + 1; // +1 for divider
       const hasExpandable = this.options.some((o) => o.expandableLabel);
-      const focused = this.options[this.data.selectedIdx];
-      const expandHint =
-        hasExpandable && focused?.expandableLabel
-          ? '\n' +
-            chalk.dim(
-              this.expandedIdx === this.data.selectedIdx
-                ? '  (tab to collapse)'
-                : '  (tab to expand)',
-            )
-          : '';
+      // chrome = prompt(1) + secondaries(+divider) + hint + safety(2)
+      const chrome = 1 + secondaryHeight + (hasExpandable ? 1 : 0) + 2;
+      const mainBudget = Math.max(3, totalRows - chrome);
+
+      const focusedMainPos = mainEntries.findIndex(
+        (e) => e.originalIdx === this.data.selectedIdx,
+      );
+      let visiblePositions: number[] = [];
+
+      if (focusedMainPos >= 0) {
+        let used = rowLineCount(mainEntries[focusedMainPos]!.originalIdx);
+        visiblePositions = [focusedMainPos];
+        let lo = focusedMainPos - 1;
+        let hi = focusedMainPos + 1;
+        while (lo >= 0 || hi < mainEntries.length) {
+          let progressed = false;
+          if (lo >= 0) {
+            const h = rowLineCount(mainEntries[lo]!.originalIdx);
+            if (used + h <= mainBudget) {
+              visiblePositions.unshift(lo);
+              used += h;
+              lo--;
+              progressed = true;
+            } else {
+              lo = -1;
+            }
+          }
+          if (hi < mainEntries.length) {
+            const h = rowLineCount(mainEntries[hi]!.originalIdx);
+            if (used + h <= mainBudget) {
+              visiblePositions.push(hi);
+              used += h;
+              hi++;
+              progressed = true;
+            } else {
+              hi = mainEntries.length;
+            }
+          }
+          if (!progressed) break;
+        }
+      } else {
+        // Cursor is on a secondary — show as many mains as fit, top-down.
+        let used = 0;
+        for (let i = 0; i < mainEntries.length; i++) {
+          const h = rowLineCount(mainEntries[i]!.originalIdx);
+          if (used + h > mainBudget) break;
+          visiblePositions.push(i);
+          used += h;
+        }
+      }
+
+      const firstVisible = visiblePositions[0] ?? 0;
+      const lastVisible =
+        visiblePositions[visiblePositions.length - 1] ?? mainEntries.length - 1;
+      const aboveCount = firstVisible;
+      const belowCount = Math.max(0, mainEntries.length - 1 - lastVisible);
+
+      const mainLines: string[] = [];
+      if (aboveCount > 0) mainLines.push(chalk.dim(`  ↑ ${aboveCount} more`));
+      for (const pos of visiblePositions) {
+        mainLines.push(
+          renderRow(mainEntries[pos]!.opt, mainEntries[pos]!.originalIdx),
+        );
+      }
+      if (belowCount > 0) mainLines.push(chalk.dim(`  ↓ ${belowCount} more`));
+      const mainBlock = mainLines.join('\n');
+
+      const secondaryBlock =
+        secondaryEntries.length === 0
+          ? ''
+          : chalk.gray(
+              '\n───────────────── Additional Options ─────────────────\n',
+            ) +
+            secondaryEntries
+              .map((e) => renderRow(e.opt, e.originalIdx))
+              .join('\n');
+
+      const expandHint = hasExpandable
+        ? '\n' +
+          chalk.dim(
+            this.stickyExpanded
+              ? '  (tab to collapse)'
+              : '  (tab to expand)',
+          )
+        : '';
 
       return `${this.params.promptText}
-${mainOptionsList}${secondaryOptionsList.length ? chalk.gray('\n───────────────── Additional Options ─────────────────\n') + secondaryOptionsList : ''}${expandHint}`;
+${mainBlock}${secondaryBlock}${expandHint}`;
     }
   }
 
