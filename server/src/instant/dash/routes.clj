@@ -1388,13 +1388,22 @@
 (defn email-sender-verification-send
   "sends the email"
   [req] (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
-              verification (verification/get-by-app-id-and-email-type-with-template
-                            {:app-id app-id :email-type "magic-code"})
+              verification-info (verification/get-by-app-id-and-email-type-with-template
+                                 {:app-id app-id :email-type "magic-code"})
               _ (app-email-verification-code/put!
                  {:code (app-user-magic-code-model/rand-code)
-                  :verification-id (:verification_id verification)})]
+                  :verification-id (:verification_id verification-info)})]
           (response/ok {:sent true})))
 
+(defn email-sender-verification-verify
+  "verify the code after receiving the email"
+  [req] (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
+              verification-info (verification/get-by-app-id-and-email-type-with-template
+                                 {:app-id app-id :email-type "magic-code"})
+              _ (app-email-verification-code/put!
+                 {:code (app-user-magic-code-model/rand-code)
+                  :verification-id (:verification_id verification-info)})]
+          (response/ok {:sent true})))
 (comment
   (def any-app (app-model/get-by-id {:id "d8f9e0a9-b6f5-49e9-a186-eabc7fe4ddac"}))
   (def tmpl-res (email-template-post (assoc (fixtures/mock-app-req any-app) :body {:email-type "magic-code"
@@ -2246,6 +2255,7 @@
 
   (GET "/dash/apps/:app_id/sender-verification" [] sender-verification-get)
   (POST "/dash/apps/:app_id/sender-verification" [] email-sender-verification-send)
+  (POST "/dash/apps/:app_id/sender-verification/verify" [] email-sender-verification-verify)
   (POST "/dash/apps/:app_id/email_templates" [] email-template-post)
   (DELETE "/dash/apps/:app_id/email_templates/:id" [] email-template-delete)
 
