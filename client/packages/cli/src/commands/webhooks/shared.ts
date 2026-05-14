@@ -83,7 +83,7 @@ const pickWebhook = (params: PickerParams) =>
           value: w,
         })),
         promptText: params.promptText,
-        modifyOutput: UI.modifiers.dimOnComplete,
+        modifyOutput: UI.modifiers.vanishOnComplete,
       }),
     );
   });
@@ -304,7 +304,7 @@ export const pickEvent = (params: {
           value: e,
         })),
         promptText: params.promptText,
-        modifyOutput: UI.modifiers.dimOnComplete,
+        modifyOutput: UI.modifiers.vanishOnComplete,
       }),
     );
   });

@@ -123,7 +123,7 @@ export const webhooksUpdateCmd = Effect.fn(
         new UI.Select<MenuChoice>({
           promptText: `Editing webhook ${chalk.cyan(current.sink.url)} ${chalk.dim(`(${current.id})`)}`,
           defaultValue: cursor,
-          modifyOutput: UI.modifiers.dimOnComplete,
+          modifyOutput: UI.modifiers.vanishOnComplete,
           options: [
             {
               value: 'url',
@@ -167,7 +167,7 @@ export const webhooksUpdateCmd = Effect.fn(
             validate: validateWebhookUrl,
             modifyOutput: UI.modifiers.piped([
               UI.modifiers.topPadding,
-              UI.modifiers.dimOnComplete,
+              UI.modifiers.vanishOnComplete,
             ]),
           }),
         );
@@ -181,6 +181,7 @@ export const webhooksUpdateCmd = Effect.fn(
             promptText: 'Actions to trigger on:',
             initialSelected: pending.actions ?? current.actions,
             minSelected: 1,
+            modifyOutput: UI.modifiers.vanishOnComplete,
           }),
         );
       }
@@ -213,6 +214,7 @@ const promptEtypes = Effect.fn(function* (initial: readonly string[]) {
         promptText: 'Entity types to listen to:',
         initialSelected: [...initial],
         minSelected: 1,
+        modifyOutput: UI.modifiers.vanishOnComplete,
       }),
     );
   }
@@ -223,7 +225,7 @@ const promptEtypes = Effect.fn(function* (initial: readonly string[]) {
       placeholder: initial.join(','),
       modifyOutput: UI.modifiers.piped([
         UI.modifiers.topPadding,
-        UI.modifiers.dimOnComplete,
+        UI.modifiers.vanishOnComplete,
       ]),
     }),
   );

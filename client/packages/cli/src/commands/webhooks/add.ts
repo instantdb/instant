@@ -4,7 +4,7 @@ import type { WebhookAction } from '@instantdb/platform';
 import type { OptsFromCommand, webhooksAddDef } from '../../index.ts';
 import { Args } from '../../lib/args.ts';
 import { runUIEffect } from '../../lib/ui.ts';
-import { UI } from '../../ui/index.ts';
+import { clearPromptTrail, UI } from '../../ui/index.ts';
 import {
   getRemoteEtypes,
   parseActions,
@@ -48,6 +48,7 @@ export const webhooksAddCmd = Effect.fn(
             options: available.map((name) => ({ value: name, label: name })),
             promptText: 'Entity types to listen to:',
             minSelected: 1,
+            modifyOutput: UI.modifiers.dimOnComplete,
           }),
         );
       } else {
@@ -83,6 +84,7 @@ export const webhooksAddCmd = Effect.fn(
           options: WEBHOOK_ACTIONS.map((a) => ({ value: a, label: a })),
           promptText: 'Actions to trigger on:',
           minSelected: 1,
+          modifyOutput: UI.modifiers.dimOnComplete,
         }),
       );
     }
@@ -92,6 +94,7 @@ export const webhooksAddCmd = Effect.fn(
       'Error creating webhook',
     );
 
+    yield* Effect.sync(clearPromptTrail);
     yield* logWebhookEvent('added', webhook);
   },
   Effect.catchTag('BadArgsError', (e) =>

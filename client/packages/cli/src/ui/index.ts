@@ -4,7 +4,12 @@ import stringWidth from 'string-width';
 import { Prompt, SelectState } from './lib.ts';
 import type { AnyKey, ModifyOutputFn } from './lib.ts';
 
-export { render, renderUnwrap, setRawModeWindowsFriendly } from './lib.ts';
+export {
+  clearPromptTrail,
+  render,
+  renderUnwrap,
+  setRawModeWindowsFriendly,
+} from './lib.ts';
 
 export namespace UI {
   type Status = 'idle' | 'submitted' | 'aborted';
@@ -115,12 +120,12 @@ export namespace UI {
     constructor(params: SelectProps<T>) {
       super(params.modifyOutput);
       this.on('attach', (terminal) => terminal.toggleCursor('hide'));
-      this.on('input', (input) => {
-        if (input === 'j') {
+      this.on('input', (input, key) => {
+        if (input === 'j' || (key?.ctrl && key.name === 'n')) {
           this.data.selectedIdx =
             (this.data.selectedIdx + 1) % this.options.length;
           this.applyNavigation();
-        } else if (input === 'k') {
+        } else if (input === 'k' || (key?.ctrl && key.name === 'p')) {
           this.data.selectedIdx =
             (this.data.selectedIdx - 1 + this.options.length) %
             this.options.length;
@@ -478,28 +483,28 @@ ${mainBlock}${secondaryBlock}${expandHint}`;
 
       const visible = this.visibleIndices();
 
-      if (key.name === 'up') {
+      if (key.name === 'up' || (key.ctrl && key.name === 'p')) {
         this.cursorIdx -= 1;
         this.clampCursor(visible);
         this.adjustWindow(visible);
         this.requestLayout();
         return;
       }
-      if (key.name === 'down') {
+      if (key.name === 'down' || (key.ctrl && key.name === 'n')) {
         this.cursorIdx += 1;
         if (visible.length > 0) this.cursorIdx %= visible.length;
         this.adjustWindow(visible);
         this.requestLayout();
         return;
       }
-      if (key.name === 'pageup') {
+      if (key.name === 'pageup' || (key.ctrl && key.name === 'u')) {
         this.cursorIdx -= this.pageSize;
         if (this.cursorIdx < 0) this.cursorIdx = 0;
         this.adjustWindow(visible);
         this.requestLayout();
         return;
       }
-      if (key.name === 'pagedown') {
+      if (key.name === 'pagedown' || (key.ctrl && key.name === 'd')) {
         this.cursorIdx += this.pageSize;
         if (this.cursorIdx >= visible.length) {
           this.cursorIdx = Math.max(0, visible.length - 1);
@@ -594,7 +599,7 @@ ${chalk.hex('#EA570B').bold('●')} ${labels.length === 0 ? chalk.dim('(none)') 
       }
 
       const hint = chalk.dim(
-        `  ↑↓ navigate · pgup/pgdn page · space toggle · enter submit · esc cancel`,
+        `  ↑↓ or ctrl-n/p navigate · pgup/pgdn or ctrl-u/d page · space toggle · enter submit · esc cancel`,
       );
       const counts = chalk.dim(
         `  ${visible.length} of ${this.props.options.length} shown · ${this.selected.size} selected`,
