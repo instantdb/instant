@@ -492,7 +492,9 @@
           ;; Reset the tx-id before we test
           (rs/transact! "store/reset-tx-id"
                         (rs/app-conn store app-id)
-)
+                        [[:db.fn/call (fn [db]
+                                        [[:db/add (ds/entid db [:tx-meta/app-id app-id]) :tx-meta/processed-tx-id 0]
+                                         [:db/add (ds/entid db [:tx-meta/app-id app-id]) :tx-meta/processed-isn (instant.isn/test-isn 0)]])]])
 
           (blocking-send-msg :add-query-ok socket
                              {:op :add-query
@@ -1368,7 +1370,7 @@
       (fn [store {:keys [socket zeneca-app-id]
                   {:keys [id]} :socket}]
         (with-redefs [ws/send-json! (fn [_app-id _msg _conn]
-                                      (throw (IOException. "UT002027: connection broken"))) ]
+                                      (throw (IOException. "UT002027: connection broken")))]
           (send-msg socket {:op :init :app-id zeneca-app-id}))
         (test-util/wait-for #(nil? (rs/session store id)) 1000)
         (is (nil? (rs/session store id))))))
