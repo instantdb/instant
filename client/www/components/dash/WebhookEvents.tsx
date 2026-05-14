@@ -1,4 +1,11 @@
-import React, { useContext, useEffect, useId, useMemo, useState } from 'react';
+import React, {
+  Fragment,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+} from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon } from '@heroicons/react/24/solid';
 
@@ -19,9 +26,15 @@ import {
   InstantWebhookEventsPage,
   InstantWebhookPayload,
   InstantWebhookPayloadRecord,
+  SchemaNamespace,
 } from '@/lib/types';
 import { Button, Content, SectionHeading } from '@/components/ui';
 import { useReadyRouter } from '@/components/clientOnlyPage';
+import {
+  ALL_ACTIONS,
+  CopyableText,
+  WebhookActionsMenu,
+} from '@/components/dash/Webhooks';
 import {
   Tabs,
   TabsContent,
@@ -684,9 +697,13 @@ function eventDetailHref(
 export function WebhookEventsPage({
   app,
   webhook,
+  namespaces,
+  onChanged,
 }: {
   app: InstantApp;
   webhook: InstantWebhook;
+  namespaces: SchemaNamespace[] | null;
+  onChanged: () => void;
 }) {
   const router = useReadyRouter();
   const focusedIsn =
@@ -703,7 +720,15 @@ export function WebhookEventsPage({
     );
   }
 
-  return <EventsListPage app={app} webhook={webhook} router={router} />;
+  return (
+    <EventsListPage
+      app={app}
+      webhook={webhook}
+      namespaces={namespaces}
+      onChanged={onChanged}
+      router={router}
+    />
+  );
 }
 
 function FocusedEventPage({
@@ -760,10 +785,14 @@ function FocusedEventPage({
 function EventsListPage({
   app,
   webhook,
+  namespaces,
+  onChanged,
   router,
 }: {
   app: InstantApp;
   webhook: InstantWebhook;
+  namespaces: SchemaNamespace[] | null;
+  onChanged: () => void;
   router: ReturnType<typeof useReadyRouter>;
 }) {
   const {
@@ -778,38 +807,57 @@ function EventsListPage({
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
-      <div className="flex flex-row items-center gap-1">
-        <Link href={webhooksHref(router)} className="underline">
-          <SectionHeading>Webhooks</SectionHeading>
-        </Link>
-        <SectionHeading>/</SectionHeading>{' '}
-        <SectionHeading>Events</SectionHeading>
+      <div className="flex flex-row items-center justify-between gap-2">
+        <div className="flex flex-row items-center gap-1">
+          <Link href={webhooksHref(router)} className="underline">
+            <SectionHeading>Webhooks</SectionHeading>
+          </Link>
+          <SectionHeading>/</SectionHeading>{' '}
+          <SectionHeading>Events</SectionHeading>
+        </div>
+        <WebhookActionsMenu
+          app={app}
+          namespaces={namespaces}
+          webhook={webhook}
+          onChanged={onChanged}
+        />
       </div>
 
+      <h4 className="text-sm font-semibold tracking-wide text-gray-500 uppercase dark:text-neutral-400">
+        Details
+      </h4>
+
       <Card>
-        <CardContent className="flex flex-col gap-2 p-4">
-          <h4 className="text-sm font-semibold tracking-wide text-gray-500 uppercase dark:text-neutral-400">
-            Details
-          </h4>
+        <CardContent className="p-4">
           <DetailGrid
             rows={[
               {
+                label: 'ID',
+                value: (
+                  <CopyableText
+                    value={webhook.id}
+                    className="font-mono text-xs break-all"
+                  />
+                ),
+              },
+              {
                 label: 'URL',
                 value: (
-                  <span className="font-mono text-xs break-all">
-                    {webhook.sink.url}
-                  </span>
+                  <CopyableText
+                    value={webhook.sink.url}
+                    className="font-mono text-xs break-all"
+                  />
                 ),
               },
               {
                 label: 'Status',
                 value:
                   webhook.status === 'active' ? (
-                    <span className="text-green-700 dark:text-green-300">
+                    <span className="font-mono text-xs text-green-700 dark:text-green-300">
                       Active
                     </span>
                   ) : (
-                    <span className="text-red-700 dark:text-red-300">
+                    <span className="font-mono text-xs text-red-700 dark:text-red-300">
                       Disabled
                     </span>
                   ),
@@ -823,17 +871,32 @@ function EventsListPage({
                     </span>
                   ) : (
                     <span className="font-mono text-xs">
-                      {(webhook.etypes ?? []).join(', ')}
+                      {[...(webhook.etypes ?? [])].sort().map((e, i, arr) => (
+                        <Fragment key={e}>
+                          <span className="whitespace-nowrap">{e}</span>
+                          {i < arr.length - 1 ? ', ' : ''}
+                        </Fragment>
+                      ))}
                     </span>
                   ),
               },
               {
                 label: 'Actions',
-                value: webhook.actions.join(', '),
+                value: (
+                  <span className="font-mono text-xs">
+                    {ALL_ACTIONS.filter((a) =>
+                      webhook.actions.includes(a),
+                    ).join(', ')}
+                  </span>
+                ),
               },
               {
                 label: 'Created at',
-                value: formatTimestamp(webhook.created_at),
+                value: (
+                  <span className="font-mono text-xs">
+                    {formatTimestamp(webhook.created_at)}
+                  </span>
+                ),
               },
               ...(webhook.disabled_reason
                 ? [
