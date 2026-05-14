@@ -114,6 +114,7 @@ export const webhooksUpdateCmd = Effect.fn(
         new UI.Select<MenuChoice>({
           promptText: `Editing webhook ${chalk.cyan(current.sink.url)} ${chalk.dim(`(${current.id})`)}`,
           defaultValue: cursor,
+          modifyOutput: UI.modifiers.dimOnComplete,
           options: [
             {
               value: 'url',
@@ -154,6 +155,10 @@ export const webhooksUpdateCmd = Effect.fn(
             prompt: 'Webhook URL:',
             defaultValue: seed,
             placeholder: seed,
+            modifyOutput: UI.modifiers.piped([
+              UI.modifiers.topPadding,
+              UI.modifiers.dimOnComplete,
+            ]),
           }),
         );
       } else if (choice === 'etypes') {
@@ -205,6 +210,10 @@ const promptEtypes = Effect.fn(function* (initial: readonly string[]) {
       prompt: 'Entity types (comma-separated):',
       defaultValue: initial.join(','),
       placeholder: initial.join(','),
+      modifyOutput: UI.modifiers.piped([
+        UI.modifiers.topPadding,
+        UI.modifiers.dimOnComplete,
+      ]),
     }),
   );
   const parsed = yield* parseEtypes(raw);

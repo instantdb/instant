@@ -62,6 +62,7 @@ const pickWebhook = (params: PickerParams) =>
           value: w,
         })),
         promptText: params.promptText,
+        modifyOutput: UI.modifiers.dimOnComplete,
       }),
     );
   });
@@ -279,6 +280,7 @@ export const pickEvent = (params: {
           value: e,
         })),
         promptText: params.promptText,
+        modifyOutput: UI.modifiers.dimOnComplete,
       }),
     );
   });

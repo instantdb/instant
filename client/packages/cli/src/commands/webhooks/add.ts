@@ -21,7 +21,14 @@ export const webhooksAddCmd = Effect.fn(
     const { yes } = yield* GlobalOpts;
 
     const url = yield* Args.text(opts, 'url').pipe(
-      Args.prompt({ prompt: 'Webhook URL:', placeholder: 'https://...' }),
+      Args.prompt({
+        prompt: 'Webhook URL:',
+        placeholder: 'https://...',
+        modifyOutput: UI.modifiers.piped([
+          UI.modifiers.topPadding,
+          UI.modifiers.dimOnComplete,
+        ]),
+      }),
       Args.required(),
     );
 
@@ -46,6 +53,10 @@ export const webhooksAddCmd = Effect.fn(
           new UI.TextInput({
             prompt: 'Entity types (comma-separated):',
             placeholder: 'posts,comments',
+            modifyOutput: UI.modifiers.piped([
+              UI.modifiers.topPadding,
+              UI.modifiers.dimOnComplete,
+            ]),
           }),
         );
         etypes = yield* parseEtypes(raw);
