@@ -33,7 +33,10 @@ const schema = i.schema({
 });
 
 type Schema = typeof schema;
-type NamespaceName = Exclude<keyof Schema['entities'] & string, 'webhookEvents'>;
+type NamespaceName = Exclude<
+  keyof Schema['entities'] & string,
+  'webhookEvents'
+>;
 
 const NGROK_KEY = 'webhooks-ngrok';
 const CONFIG_ID = '11111111-1111-4111-9111-111111111111';
@@ -663,9 +666,7 @@ function WebhookEditor({
                 <input
                   type="checkbox"
                   checked={selectedNamespaces.has(e)}
-                  onChange={() =>
-                    setSelectedNamespaces((s) => toggle(s, e))
-                  }
+                  onChange={() => setSelectedNamespaces((s) => toggle(s, e))}
                 />{' '}
                 {e}
               </label>

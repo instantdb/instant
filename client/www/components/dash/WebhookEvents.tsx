@@ -871,12 +871,14 @@ function EventsListPage({
                     </span>
                   ) : (
                     <span className="font-mono text-xs">
-                      {[...(webhook.namespaces ?? [])].sort().map((e, i, arr) => (
-                        <Fragment key={e}>
-                          <span className="whitespace-nowrap">{e}</span>
-                          {i < arr.length - 1 ? ', ' : ''}
-                        </Fragment>
-                      ))}
+                      {[...(webhook.namespaces ?? [])]
+                        .sort()
+                        .map((e, i, arr) => (
+                          <Fragment key={e}>
+                            <span className="whitespace-nowrap">{e}</span>
+                            {i < arr.length - 1 ? ', ' : ''}
+                          </Fragment>
+                        ))}
                     </span>
                   ),
               },
