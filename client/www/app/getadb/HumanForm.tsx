@@ -7,7 +7,7 @@ import copy from 'copy-to-clipboard';
 
 const PLACEHOLDER = '<your app idea here>';
 const FRIENDLY_DEFAULT = `I want you to build me an app. Ask me for an app idea, then follow the instructions below.`;
-const SUFFIX = `Use InstantDB for your backend. For credentials and instructions, fetch https://www.getadb.com/guide and follow the steps.`;
+const DEFAULT_SUFFIX = `Use InstantDB for your backend. For credentials and instructions, fetch https://www.getadb.com/guide and follow the steps.`;
 
 const TERM = {
   bg: '#1e1e2e',
@@ -60,7 +60,13 @@ function ConfettiParticle({
 //   2. If the user copies without typing anything, we substitute a friendly
 //      default ("I want you to build me an app...") so the prompt is still
 //      useful.
-export function HumanForm({ className = '' }: { className?: string }) {
+export function HumanForm({
+  className = '',
+  suffix = DEFAULT_SUFFIX,
+}: {
+  className?: string;
+  suffix?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const ideaRef = useRef<HTMLDivElement>(null);
@@ -68,7 +74,7 @@ export function HumanForm({ className = '' }: { className?: string }) {
 
   function buildPromptText() {
     const idea = (ideaRef.current?.innerText ?? '').trim();
-    return `${idea || FRIENDLY_DEFAULT}\n\n${SUFFIX}`;
+    return `${idea || FRIENDLY_DEFAULT}\n\n${suffix}`;
   }
 
   useEffect(() => {
@@ -159,7 +165,7 @@ export function HumanForm({ className = '' }: { className?: string }) {
               className="min-h-[1.5em] empty:before:pointer-events-none empty:before:text-[#7f849c] empty:before:content-[attr(data-placeholder)]"
             />
             <div ref={suffixRef} className="mt-6 whitespace-pre-wrap">
-              {SUFFIX}
+              {suffix}
             </div>
           </div>
         </div>

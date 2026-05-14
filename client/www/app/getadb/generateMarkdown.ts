@@ -6,8 +6,9 @@ type Requester = 'figmaMake' | 'unknown';
 export default async function generateMarkdown(
   request: Request,
   app: { id: string; adminToken: string },
+  forceRequester?: Requester,
 ): Promise<string> {
-  const requester = detectRequester(request);
+  const requester = forceRequester ?? detectRequester(request);
   const baseRules = await loadBaseRules();
 
   const extraRules =
