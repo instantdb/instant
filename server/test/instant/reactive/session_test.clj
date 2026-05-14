@@ -1392,6 +1392,16 @@
         (with-redefs [ws/send-json! (fn [_app-id _msg _conn]
                                       (throw (IOException. "something else went wrong")))]
           (send-msg socket {:op :init :app-id zeneca-app-id}))
-        ;; Give the worker a chance to run, then verify the session is still present.
-        (Thread/sleep 200)
-        (is (some? (rs/session store id)))))))
+        ;; Poll: session must remain present for the entire observation window.
+        (let [deadline (+ (System/currentTimeMillis) 500)]
+          (loop []
+            (let [s (rs/session store id)]
+              (cond
+                (nil? s)
+                (is (some? s) "session was cleaned up during observation window")
+
+                (< (System/currentTimeMillis) deadline)
+                (do (Thread/sleep 50) (recur))
+
+                :else
+                (is (some? s))))))))))
