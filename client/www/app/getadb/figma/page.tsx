@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     "Your agents shouldn't have to ask for your login info to build apps. Get fresh credentials by curling getadb.",
 };
 
-const FIGMA_SUFFIX = `Use InstantDB for your backend. For credentials and instructions, curl https://www.getadb.com/make and follow the steps.`;
+const FIGMA_SUFFIX = `I have my own backend: InstantDB. This is not a Supabase task. To get credentials and instructions, curl https://www.getadb.com/make and follow the steps inside.`;
 
 export default function GetadbFigma() {
   return (
@@ -25,7 +25,7 @@ export default function GetadbFigma() {
             <FigmaMakeIcon className="h-10 w-10 sm:h-12 sm:w-12" />
           </div>
           <h1 className="text-3xl leading-snug font-normal sm:text-4xl">
-            Give your agent a full-stack backend
+            Give Make a full-stack backend
           </h1>
           <p className="mt-3 text-lg text-gray-500 sm:text-xl">
             No sign-up necessary.
@@ -33,7 +33,7 @@ export default function GetadbFigma() {
 
           <p className="mt-6 text-lg leading-relaxed text-gray-700">
             Got an idea for an app? Type your idea out. Copy the prompt, and
-            your AI has all it needs to build you a full-stack app.
+            Make has all it needs to build you a real-time app.
           </p>
 
           <HumanForm className="mt-8" suffix={FIGMA_SUFFIX} />
@@ -41,7 +41,7 @@ export default function GetadbFigma() {
           <div className="mt-8 space-y-5 text-lg leading-relaxed text-gray-700">
             <p>Pass this on to Figma Make.</p>
             <p>
-              When your AI curls{' '}
+              When Make curls{' '}
               <a
                 href="https://www.getadb.com/make"
                 className="underline underline-offset-4 hover:text-orange-600"

@@ -8,8 +8,8 @@ export const runtime = 'nodejs';
 export async function GET(request: Request) {
   const title =
     new URL(request.url).searchParams.get('title')?.trim() || DEFAULT_APP_TITLE;
-  const app = await createGDBApp(title);
-  const markdown = await generateMakeMarkdown(app);
+  // const app = await createGDBApp(title);
+  const markdown = await generateMakeMarkdown({} as any);
 
   return new Response(markdown, {
     headers: {
