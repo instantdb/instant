@@ -654,11 +654,9 @@ describe('webhooks events resend', () => {
 
 describe('webhooks events payload', () => {
   test('--yes prints prettified JSON', async () => {
-    state.manager.getPayload = vi
-      .fn()
-      .mockResolvedValueOnce({
-        records: [{ etype: 'posts', action: 'create' }],
-      });
+    state.manager.getPayload = vi.fn().mockResolvedValueOnce({
+      records: [{ etype: 'posts', action: 'create' }],
+    });
     await run(
       webhooksEventsPayloadCmd({ webhookId: 'wh1', isn: 'evt-1' } as any),
       { yes: true },
