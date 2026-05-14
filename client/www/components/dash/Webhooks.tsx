@@ -249,7 +249,7 @@ function WebhookForm({
       return;
     }
     if (selectedNamespaces.size === 0) {
-      errorToast('Select at least one entity.', { autoClose: 5000 });
+      errorToast('Select at least one namespace.', { autoClose: 5000 });
       return;
     }
     if (actions.size === 0) {
@@ -280,10 +280,10 @@ function WebhookForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <Label>Entities</Label>
+        <Label>Namespaces</Label>
         {allOptions.length === 0 ? (
           <Content className="text-xs text-gray-500 dark:text-neutral-500">
-            Define entities in your schema to enable webhooks.
+            Define namespaces in your schema to enable webhooks.
           </Content>
         ) : (
           <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-sm border bg-gray-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/50">
@@ -661,7 +661,7 @@ function WebhookRow({
           <dd>
             <CopyableText value={webhook.id} className="font-mono break-all" />
           </dd>
-          <dt className="text-gray-500 dark:text-neutral-500">Entities</dt>
+          <dt className="text-gray-500 dark:text-neutral-500">Namespaces</dt>
           <dd className="font-mono">
             {(webhook.namespaces ?? []).length === 0
               ? '(none)'
@@ -756,8 +756,8 @@ export function Webhooks({
         <div className="flex flex-col gap-1">
           <SectionHeading>Webhooks</SectionHeading>
           <Content className="text-sm text-gray-500 dark:text-neutral-500">
-            Receive HTTP callbacks when entities are created, updated, or
-            deleted.
+            Receive HTTP callbacks when entries in a namespace are created,
+            updated, or deleted.
           </Content>
         </div>
         <Button variant="primary" onClick={createDialog.onOpen}>

@@ -863,7 +863,7 @@ function EventsListPage({
                   ),
               },
               {
-                label: 'Entities',
+                label: 'Namespaces',
                 value:
                   (webhook.namespaces ?? []).length === 0 ? (
                     <span className="text-gray-400 dark:text-neutral-500">
