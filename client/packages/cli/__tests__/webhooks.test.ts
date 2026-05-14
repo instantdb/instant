@@ -15,8 +15,7 @@ vi.mock('../src/lib/webhooks.ts', async (importOriginal) => {
   const { Effect } = await import('effect');
   return {
     ...orig,
-    useWebhooksManager: (fn: any) =>
-      Effect.promise(() => fn(state.manager)),
+    useWebhooksManager: (fn: any) => Effect.promise(() => fn(state.manager)),
     getRemoteEtypes: Effect.sync(() => state.etypes),
   };
 });
@@ -75,25 +74,29 @@ const buildManager = (
   } = {},
 ) => ({
   list: vi.fn(async () => overrides.list ?? []),
-  create: vi.fn(async (p: any) =>
-    overrides.createReturns ?? makeWebhook({ ...p, id: 'new-id' }),
+  create: vi.fn(
+    async (p: any) =>
+      overrides.createReturns ?? makeWebhook({ ...p, id: 'new-id' }),
   ),
-  update: vi.fn(async (id: string, p: any) =>
-    overrides.updateReturns ?? makeWebhook({ ...p, id }),
+  update: vi.fn(
+    async (id: string, p: any) =>
+      overrides.updateReturns ?? makeWebhook({ ...p, id }),
   ),
-  delete: vi.fn(async (id: string) =>
-    overrides.deleteReturns ?? makeWebhook({ id }),
+  delete: vi.fn(
+    async (id: string) => overrides.deleteReturns ?? makeWebhook({ id }),
   ),
-  enable: vi.fn(async (id: string) =>
-    overrides.enableReturns ?? makeWebhook({ id, status: 'active' }),
+  enable: vi.fn(
+    async (id: string) =>
+      overrides.enableReturns ?? makeWebhook({ id, status: 'active' }),
   ),
-  disable: vi.fn(async (id: string, opts?: { reason?: string }) =>
-    overrides.disableReturns ??
-    makeWebhook({
-      id,
-      status: 'disabled',
-      disabledReason: opts?.reason ?? null,
-    }),
+  disable: vi.fn(
+    async (id: string, opts?: { reason?: string }) =>
+      overrides.disableReturns ??
+      makeWebhook({
+        id,
+        status: 'disabled',
+        disabledReason: opts?.reason ?? null,
+      }),
   ),
 });
 
@@ -257,10 +260,9 @@ describe('webhooks disable', () => {
     expect(logs.join('\n')).toContain('Webhook disabled');
   });
   test('with reason', async () => {
-    await run(
-      webhooksDisableCmd({ id: 'wh1', reason: 'flaky' } as any),
-      { yes: true },
-    );
+    await run(webhooksDisableCmd({ id: 'wh1', reason: 'flaky' } as any), {
+      yes: true,
+    });
     expect(state.manager.disable).toHaveBeenCalledWith('wh1', {
       reason: 'flaky',
     });
@@ -303,10 +305,9 @@ describe('webhooks update --yes', () => {
     expect(logs.join('\n')).toMatch(/at least one of/);
   });
   test('no --id errors and does not call update', async () => {
-    await run(
-      webhooksUpdateCmd({ url: 'https://x.example.com' } as any),
-      { yes: true },
-    );
+    await run(webhooksUpdateCmd({ url: 'https://x.example.com' } as any), {
+      yes: true,
+    });
     expect(state.manager.update).not.toHaveBeenCalled();
     expect(logs.join('\n')).toMatch(/--id/);
   });
@@ -390,10 +391,9 @@ describe('interactive flows', () => {
     const initial = makeWebhook({ id: 'wh1' });
     state.manager = buildManager({ list: [initial] });
     state.promptResponses = [initial]; // only the picker
-    await run(
-      webhooksUpdateCmd({ url: 'https://new.example.com' } as any),
-      { yes: false },
-    );
+    await run(webhooksUpdateCmd({ url: 'https://new.example.com' } as any), {
+      yes: false,
+    });
     expect(state.manager.update).toHaveBeenCalledWith('wh1', {
       url: 'https://new.example.com',
     });

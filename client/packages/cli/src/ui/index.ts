@@ -376,9 +376,7 @@ ${chalk.hex('#EA570B').bold('●')} ${labels.length === 0 ? chalk.dim('(none)') 
       const visible = this.visibleIndices();
       this.adjustWindow(visible);
       const filterLine = `${chalk.dim('filter:')} ${this.filterText}${chalk.inverse(' ')}`;
-      const errorLine = this.errorText
-        ? `  ${chalk.red(this.errorText)}`
-        : '';
+      const errorLine = this.errorText ? `  ${chalk.red(this.errorText)}` : '';
 
       let optionsBlock: string;
       if (visible.length === 0) {

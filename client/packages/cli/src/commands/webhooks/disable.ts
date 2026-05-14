@@ -17,8 +17,7 @@ export const webhooksDisableCmd = Effect.fn(function* (
   if (!id) return;
 
   const webhook = yield* useWebhooksManager(
-    (m) =>
-      m.disable(id, opts.reason ? { reason: opts.reason } : undefined),
+    (m) => m.disable(id, opts.reason ? { reason: opts.reason } : undefined),
     'Error disabling webhook',
   );
   yield* logWebhookEvent('disabled', webhook);

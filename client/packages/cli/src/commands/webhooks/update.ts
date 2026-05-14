@@ -17,11 +17,7 @@ import {
   WEBHOOK_ACTIONS,
 } from '../../lib/webhooks.ts';
 import { UI } from '../../ui/index.ts';
-import {
-  logWebhookEvent,
-  resolveWebhook,
-  resolveWebhookId,
-} from './shared.ts';
+import { logWebhookEvent, resolveWebhook, resolveWebhookId } from './shared.ts';
 
 type MenuChoice = 'url' | 'etypes' | 'actions' | 'save' | 'cancel';
 
@@ -37,7 +33,10 @@ const fmtScalar = (current: string, pending: string | undefined) =>
     ? `${chalk.green(pending)} ${chalk.dim(`(was ${current})`)}`
     : chalk.dim(current);
 
-const fmtList = (current: readonly string[], pending: readonly string[] | undefined) =>
+const fmtList = (
+  current: readonly string[],
+  pending: readonly string[] | undefined,
+) =>
   pending !== undefined && !sortedEq(current, pending)
     ? `${chalk.green(pending.join(', '))} ${chalk.dim(`(was ${current.join(', ')})`)}`
     : chalk.dim(current.join(', '));
@@ -55,8 +54,7 @@ export const webhooksUpdateCmd = Effect.fn(
       }
       if (!hasAnyFieldFlag) {
         return yield* BadArgsError.make({
-          message:
-            'Must specify at least one of --url, --etypes, or --actions',
+          message: 'Must specify at least one of --url, --etypes, or --actions',
         });
       }
       const params: UpdateWebhookParams<any> = {};
@@ -152,9 +150,7 @@ export const webhooksUpdateCmd = Effect.fn(
           }),
         );
       } else if (choice === 'etypes') {
-        pending.etypes = yield* promptEtypes(
-          pending.etypes ?? current.etypes,
-        );
+        pending.etypes = yield* promptEtypes(pending.etypes ?? current.etypes);
       } else if (choice === 'actions') {
         pending.actions = yield* runUIEffect(
           new UI.MultiSelect<WebhookAction>({
@@ -217,7 +213,8 @@ const hasPending = (
   pending: UpdateWebhookParams<any>,
   current: WebhookInfo,
 ) => {
-  if (pending.url !== undefined && pending.url !== current.sink.url) return true;
+  if (pending.url !== undefined && pending.url !== current.sink.url)
+    return true;
   if (pending.etypes !== undefined && !sortedEq(pending.etypes, current.etypes))
     return true;
   if (
