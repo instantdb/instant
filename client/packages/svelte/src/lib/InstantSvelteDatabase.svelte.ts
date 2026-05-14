@@ -10,14 +10,17 @@ import {
   type PageInfoResponse,
   type InstaQLLifecycleState,
   type InstaQLResponse,
+  type InfiniteQuerySubscription,
   type ValidQuery,
   // classes
   Auth,
   Storage,
+  Streams,
   txInit,
   InstantCoreDatabase,
   init as core_init,
   coerceQuery,
+  getInfiniteQueryInitialSnapshot,
   InstantSchemaDef,
   RoomsOf,
   InstantError,
@@ -33,6 +36,18 @@ const defaultState = {
   pageInfo: undefined,
   error: undefined,
 } as const;
+
+export type InfiniteQueryState<
+  Schema extends InstantSchemaDef<any, any, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+> = {
+  isLoading: boolean;
+  error: { message: string } | undefined;
+  data: InstaQLResponse<Schema, Q, UseDates> | undefined;
+  canLoadNextPage: boolean;
+  loadNextPage: () => void;
+};
 
 const defaultAuthState: AuthState = {
   isLoading: true,
@@ -60,12 +75,14 @@ export class InstantSvelteDatabase<
 
   public auth: Auth;
   public storage: Storage;
+  public streams: Streams;
   public core: InstantCoreDatabase<Schema, UseDates>;
 
   constructor(core: InstantCoreDatabase<Schema, UseDates>) {
     this.core = core;
     this.auth = this.core.auth;
     this.storage = this.core.storage;
+    this.streams = this.core.streams;
   }
 
   /**
@@ -194,6 +211,81 @@ export class InstantSvelteDatabase<
       });
 
       return unsub;
+    });
+
+    return result;
+  };
+
+  /**
+   * Subscribe to a query and incrementally load more items.
+   *
+   * Only one top level namespace in the query is allowed.
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *   const state = db.useInfiniteQuery({
+   *     posts: {
+   *       $: {
+   *         limit: 20,
+   *         order: { createdAt: 'desc' },
+   *       },
+   *     },
+   *   });
+   *   // state.data, state.isLoading, state.error,
+   *   // state.canLoadNextPage, state.loadNextPage()
+   */
+  useInfiniteQuery = <Q extends ValidQuery<Q, Schema>>(
+    query: (() => null | Q) | null | Q,
+    opts?: InstaQLOptions,
+  ): InfiniteQueryState<Schema, Q, UseDates> => {
+    let sub: InfiniteQuerySubscription | null = null;
+
+    let result: InfiniteQueryState<Schema, Q, UseDates> = $state({
+      isLoading: true,
+      error: undefined,
+      data: undefined,
+      canLoadNextPage: false,
+      loadNextPage: () => sub?.loadNextPage(),
+    });
+
+    $effect(() => {
+      const resolvedQuery = typeof query === 'function' ? query() : query;
+
+      if (!resolvedQuery) {
+        sub = null;
+        result.isLoading = true;
+        result.error = undefined;
+        result.data = undefined;
+        result.canLoadNextPage = false;
+        return;
+      }
+
+      const snapshot = getInfiniteQueryInitialSnapshot<Schema, Q, UseDates>(
+        this.core,
+        resolvedQuery,
+        opts,
+      );
+      result.isLoading = !snapshot.data && !snapshot.error;
+      result.error = snapshot.error;
+      result.data = snapshot.data;
+      result.canLoadNextPage = snapshot.canLoadNextPage;
+
+      sub = this.core.subscribeInfiniteQuery<Q>(
+        resolvedQuery,
+        (resp) => {
+          result.isLoading = false;
+          result.data = resp.data;
+          result.error = resp.error;
+          result.canLoadNextPage = resp.canLoadNextPage;
+        },
+        opts,
+      );
+
+      return () => {
+        sub?.unsubscribe();
+        sub = null;
+      };
     });
 
     return result;

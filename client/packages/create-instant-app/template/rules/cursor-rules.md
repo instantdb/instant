@@ -21,6 +21,7 @@ Instant provides client-side JS SDKs and an admin SDK:
 - `@instantdb/react-native` --- React Native / Expo
 - `@instantdb/solidjs` --- SolidJS
 - `@instantdb/svelte` --- Svelte
+- `@instantdb/vue` --- Vue
 - `@instantdb/admin` --- backend scripts / servers
 
 When installing, always check what package manager the project uses (npm, pnpm,
@@ -422,6 +423,7 @@ Fetch the URL for a topic to learn more about it.
 - [Vanilla JS](https://www.instantdb.com/docs/start-vanilla.md): How to use Instant in vanilla JS apps.
 - [SolidJS](https://www.instantdb.com/docs/start-solidjs.md): How to use Instant in SolidJS apps.
 - [Svelte](https://www.instantdb.com/docs/start-svelte.md): How to use Instant in Svelte apps.
+- [Vue](https://www.instantdb.com/docs/start-vue.md): How to use Instant in Vue apps.
 - [TanStack](https://www.instantdb.com/docs/start-tanstack.md): How to use Instant in TanStack apps.
 
 # Final Note

@@ -31,6 +31,7 @@ export const PACKAGE_ALIAS_AND_FULL_NAMES = {
   admin: '@instantdb/admin',
   solid: '@instantdb/solidjs',
   svelte: '@instantdb/svelte',
+  vue: '@instantdb/vue',
 };
 
 export class ProjectInfoError extends Data.TaggedError('ProjectInfoError')<{
@@ -128,6 +129,7 @@ const getProjectInfo = (
               { label: '@instantdb/admin', value: '@instantdb/admin' },
               { label: '@instantdb/solidjs', value: '@instantdb/solidjs' },
               { label: '@instantdb/svelte', value: '@instantdb/svelte' },
+              { label: '@instantdb/vue', value: '@instantdb/vue' },
             ],
           }),
         ).pipe(
@@ -202,6 +204,7 @@ function getInstantModuleName(pkgJson: PackageJson) {
     '@instantdb/admin',
     '@instantdb/solidjs',
     '@instantdb/svelte',
+    '@instantdb/vue',
   ].find((name) => deps[name] || devDeps[name]);
   return instantModuleName;
 }

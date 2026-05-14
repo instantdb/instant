@@ -12,16 +12,32 @@ const schema = i.schema({
       done: i.boolean(),
       createdAt: i.number(),
     }),
+    items: i.entity({
+      value: i.number().indexed(),
+    }),
   },
 });
 
-type AppSchema = typeof schema;
+const perms = {
+  $streams: {
+    allow: {
+      create: 'true',
+      view: 'true',
+    },
+  },
+};
+
+export type AppSchema = typeof schema;
 
 async function provisionEphemeralApp(schema: InstantSchemaDef<any, any, any>) {
   const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: 'SvelteKit Sandbox', schema }),
+    body: JSON.stringify({
+      title: 'SvelteKit Sandbox',
+      schema,
+      rules: { code: perms },
+    }),
   });
   return r.json();
 }
@@ -76,4 +92,7 @@ getOrCreateApp()
     dbState.isLoading = false;
   });
 
-export { schema, type AppSchema };
+export function resetEphemeralApp() {
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}

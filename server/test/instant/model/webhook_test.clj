@@ -440,8 +440,8 @@
         (let [params {:app-id (:id app)
                       :etypes ["users"]
                       :actions ["create"]
-                      :url "https://example.com/hook"}]
-          (is (webhook/create! params))
+                      :url "https://example.com/hook"}
+              {original-id :id} (webhook/create! params)]
           (let [e (try
                     (webhook/create! params)
                     (catch Exception ex ex))]
@@ -453,18 +453,10 @@
           (is (webhook/create! (assoc params :etypes ["books"])))
           (is (webhook/create! (assoc params :actions ["update"])))
           ;; A disabled webhook with matching params does not block creation.
-          (let [{disabled-id :id}
-                (sql/select-one (aurora/conn-pool :read)
-                                ["select id from webhooks
-                                    where app_id = ?
-                                      and sink->>'url' = 'https://example.com/hook'
-                                      and actions = array['create']::webhook_action[]
-                                    limit 1"
-                                 (:id app)])]
-            (webhook/disable! {:app-id (:id app)
-                               :webhook-id disabled-id
-                               :reason "test"})
-            (is (webhook/create! params))))))))
+          (webhook/disable! {:app-id (:id app)
+                             :webhook-id original-id
+                             :reason "test"})
+          (is (webhook/create! params)))))))
 
 (deftest cant-enable-webhook-when-duplicate-is-active
   (with-redefs [webhook-sender/validate-url (constantly nil)]
@@ -693,6 +685,44 @@
             (is (= "disabled" wh-status))
             (is (= "Endpoint returned 410 status code." disabled_reason))
             (is (= "failed" ev-status)))
+          (finally
+            (sql/do-execute! (aurora/conn-pool :write)
+                             ["delete from webhook_events
+                                where webhook_id = ? and isn = ? and partition_bucket = ?"
+                              webhook-id isn partition-bucket])))))))
+
+(deftest webhook-event-resend
+  (with-empty-app
+    (fn [app]
+      (let [attrs (test-util/make-attrs (:id app) [[:users/id :unique? :index?]])
+            id-aid (:users/id attrs)
+            webhook-id (random-uuid)
+            isn (isn/test-isn 300)
+            partition-bucket (history/partition-bucket-for-time (Instant/now))]
+        (insert-webhook! {:app-id (:id app)
+                          :webhook-id webhook-id
+                          :id-attr-ids [id-aid]
+                          :actions ["create"]})
+        (sql/do-execute! (aurora/conn-pool :write)
+                         ["insert into webhook_events
+                            (webhook_id, isn, app_id, status, partition_bucket)
+                            values (?, ?, ?, 'failed'::webhook_event_status, ?)"
+                          webhook-id isn (:id app) partition-bucket])
+        (try
+          (let [event (webhook/requeue! {:app-id (:id app)
+                                         :webhook-id webhook-id
+                                         :isn isn})]
+            (is (some? event))
+            (is (= "pending" (:status event)))
+            (is (some? (:created_at event)))
+            (testing "can't requeue a webhook_event that is processing"
+              (sql/do-execute! (aurora/conn-pool :write)
+                               ["update webhook_events set status = 'processing', machine_id = gen_random_uuid() where webhook_id = ? and isn = ?"
+                                webhook-id isn])
+
+              (is (nil? (webhook/requeue! {:app-id (:id app)
+                                           :webhook-id webhook-id
+                                           :isn isn})))))
           (finally
             (sql/do-execute! (aurora/conn-pool :write)
                              ["delete from webhook_events

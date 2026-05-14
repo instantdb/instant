@@ -110,5 +110,8 @@
     (.array buf)))
 
 (defn <-bytes ^ISN [^bytes ba]
+  (when (not= 12 (alength ba))
+    (throw (IllegalArgumentException.
+            (format "Invalid isn byte length: got %d, expected 12" (alength ba)))))
   (let [buf (ByteBuffer/wrap ba)]
     (->ISN (.getInt buf) (LogSequenceNumber/valueOf (.getLong buf)))))

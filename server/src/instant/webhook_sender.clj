@@ -178,15 +178,14 @@
                                                ["unknown" "Unknown error."])]
             (make-exception-attempt start (.getMessage e) error-type error-message)))))))
 
-(defn validate-url [^String url]
-  (let [url (try
-              (HttpUrl/parse url)
-              (catch Exception _
-                (ex/throw-validation-err! :webhook {:url url} [{:message "Invalid URL."}])))]
+(defn validate-url [^String input-url]
+  (let [parsed-url (HttpUrl/parse input-url)]
+    (when (nil? parsed-url)
+      (ex/throw-validation-err! :webhook {:url input-url} [{:message "Invalid URL."}]))
     (try
-      (ensure-safe-host! url)
+      (ensure-safe-host! parsed-url)
       (when (empty? (.lookup (.dns client)
-                             (HttpUrl/.host url)))
+                             (HttpUrl/.host parsed-url)))
         (throw (Exception. "Could not resolve URL.")))
       (catch Exception _
-        (ex/throw-validation-err! :webhook {:url url} [{:message "Could not resolve URL."}])))))
+        (ex/throw-validation-err! :webhook {:url input-url} [{:message "Could not resolve URL."}])))))

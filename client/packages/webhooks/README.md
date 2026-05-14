@@ -113,7 +113,13 @@ Pass it a Web [`Request`](https://developer.mozilla.org/en-US/docs/Web/API/Reque
 
 ```ts
 // app/api/instant-webhook/route.ts
-import { Webhooks } from '@instantdb/admin';
+import { init } from '@instantdb/admin';
+import schema from '@/instant.schema';
+
+const db = init({
+  appId: process.env.INSTANT_APP_ID!,
+  schema,
+});
 
 const { typedHandlers, combineHandlers } = db.webhooks.helpers();
 
@@ -143,8 +149,6 @@ Options:
 Handler resolution is most-specific-wins: `etype` + `action` → that etype's `$default` → top-level `$default`. Records with no matching handler are skipped.
 
 Handlers run concurrently. `processRequest` resolves once all of them settle. If any handler rejects, the call rejects — return a non-2xx response so Instant retries the event.
-
-Instant gives each delivery attempt a **15-second timeout** before recording it as a `timeout` error and retrying. Keep your handlers fast — push slow work (emails, third-party APIs, image processing) onto a queue and respond `2xx` as soon as the job is durably enqueued.
 
 ## `processNodeRequest(handlers, req, opts?)`
 

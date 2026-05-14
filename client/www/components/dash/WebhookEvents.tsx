@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useId, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon } from '@heroicons/react/24/solid';
 
@@ -103,9 +103,14 @@ function useWebhookEvent(
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
       const delay = intervalsMs[Math.min(i, intervalsMs.length - 1)];
-      timeoutId = setTimeout(() => {
+      timeoutId = setTimeout(async () => {
         if (cancelled) return;
-        mutate();
+        try {
+          await mutate();
+        } catch {
+          // ignore — keep polling
+        }
+        if (cancelled) return;
         i++;
         schedule();
       }, delay);
@@ -337,11 +342,14 @@ function AttemptOneLiner({ attempt }: { attempt: InstantWebhookAttempt }) {
 
 function AttemptRow({ attempt }: { attempt: InstantWebhookAttempt }) {
   const [open, setOpen] = useState(false);
+  const panelId = useId();
   return (
     <div className="flex flex-col gap-2">
       <button
         className="flex cursor-pointer items-center gap-3 text-left"
         onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
       >
         <ChevronRightIcon
           height={10}
@@ -350,7 +358,7 @@ function AttemptRow({ attempt }: { attempt: InstantWebhookAttempt }) {
         <AttemptOneLiner attempt={attempt} />
       </button>
       {open ? (
-        <div className="pl-5">
+        <div id={panelId} className="pl-5">
           <AttemptDetails attempt={attempt} />
         </div>
       ) : null}
@@ -362,11 +370,14 @@ function AttemptRow({ attempt }: { attempt: InstantWebhookAttempt }) {
 
 function RecordRow({ record }: { record: InstantWebhookPayloadRecord }) {
   const [open, setOpen] = useState(false);
+  const panelId = useId();
   return (
     <div className="flex flex-col gap-2">
       <button
         className="flex cursor-pointer items-center gap-2 text-left"
         onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
       >
         <ChevronRightIcon
           height={10}
@@ -381,7 +392,7 @@ function RecordRow({ record }: { record: InstantWebhookPayloadRecord }) {
         </span>
       </button>
       {open ? (
-        <div className="flex flex-col gap-1 pl-5 text-sm">
+        <div id={panelId} className="flex flex-col gap-1 pl-5 text-sm">
           <div>
             <span className="font-semibold">etype</span>:{' '}
             <span className="font-mono">{record.etype}</span>

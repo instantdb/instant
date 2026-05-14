@@ -5,11 +5,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from '@heroicons/react/24/solid';
-import {
-  ArrowTopRightOnSquareIcon,
-  ListBulletIcon,
-  NoSymbolIcon,
-} from '@heroicons/react/24/outline';
+import { ListBulletIcon, NoSymbolIcon } from '@heroicons/react/24/outline';
 
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
@@ -657,15 +653,7 @@ export function Webhooks({
           <SectionHeading>Webhooks</SectionHeading>
           <Content className="text-sm text-gray-500 dark:text-neutral-500">
             Receive HTTP callbacks when entities are created, updated, or
-            deleted.{' '}
-            <a
-              className="inline-flex items-baseline gap-1 underline"
-              target="_blank"
-              href="/docs/webhooks"
-            >
-              Learn more in the docs
-              <ArrowTopRightOnSquareIcon className="h-3 w-3" />
-            </a>
+            deleted.
           </Content>
         </div>
         <Button variant="primary" onClick={createDialog.onOpen}>

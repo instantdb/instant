@@ -63,13 +63,12 @@
             [instant.util.date :as date]
             [instant.util.email :as email]
             [instant.util.exception :as ex]
-            [instant.util.http :as http-util]
             [instant.isn :as isn]
+            [instant.util.http :as http-util :refer [req->app-and-user! req->auth-user!]]
             [instant.util.json :as json]
             [instant.util.number :as number-util]
             [instant.util.roles :refer [assert-least-privilege!
-                                        assert-valid-member-role!
-                                        get-app-with-role!]]
+                                        assert-valid-member-role!]]
             [instant.util.semver :as semver]
             [instant.util.string :as string-util]
             [instant.util.posthog :as posthog]
@@ -94,26 +93,12 @@
 ;; ---
 ;; Auth helpers
 
-(defn req->auth-user! [req]
-  (let [refresh-token (http-util/req->bearer-token! req)]
-    (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token
-                                               :auth? true})))
-
 (defn req->auth-user-accepting-superadmin-token! [scope req]
   (let [refresh-token (http-util/req->bearer-token! req)]
     (if (uuid? refresh-token)
       (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token
                                                  :auth? true})
       (req->superadmin-user! scope req))))
-
-(defn req->app-and-user!
-  ([req] (req->app-and-user! :owner req))
-  ([least-privilege req]
-   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-         user (req->auth-user! req)]
-     (get-app-with-role! {:user user
-                          :app-id app-id
-                          :role least-privilege}))))
 
 (defn req->app-accepting-superadmin-or-ref-token! [least-privilege scope req]
   (try
@@ -1735,16 +1720,20 @@
 
 (defn encode-events-cursor [^Timestamp created-at isn]
   (let [isn-bytes (isn/->bytes isn)
-        buf (ByteBuffer/allocate (+ 8 (alength isn-bytes)))
+        instant (.toInstant created-at)
+        buf (ByteBuffer/allocate (+ 12 (alength isn-bytes)))
         encoder (.withoutPadding (Base64/getUrlEncoder))]
-    (.putLong buf (-> created-at .toInstant .toEpochMilli))
+    (.putLong buf (.getEpochSecond instant))
+    (.putInt buf (.getNano instant))
     (.put buf isn-bytes)
     (.encodeToString encoder (.array buf))))
 
 (defn decode-events-cursor [^String s]
   (let [decoder (Base64/getUrlDecoder)
         buf (ByteBuffer/wrap (.decode decoder s))
-        created-at (Instant/ofEpochMilli (.getLong buf))
+        epoch-second (.getLong buf)
+        nano (.getInt buf)
+        created-at (Instant/ofEpochSecond epoch-second nano)
         isn-ba (byte-array (.remaining buf))]
     (.get buf isn-ba)
     {:created-at created-at

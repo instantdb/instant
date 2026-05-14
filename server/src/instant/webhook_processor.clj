@@ -13,7 +13,7 @@
    (java.sql Timestamp)
    (java.io ByteArrayOutputStream)
    (java.time Duration Instant)
-   (java.util.concurrent ArrayBlockingQueue ExecutorService TimeUnit)))
+   (java.util.concurrent ArrayBlockingQueue Callable ExecutorService TimeUnit)))
 
 (defonce process (atom nil))
 
@@ -184,6 +184,7 @@
             shutdown (fn []
                        (tracer/with-span! {:name "webhook-processor/shutdown"}
                          (reset! shutdown? true)
+                         (.close kicker)
                          (.clear q)
                          (dotimes [_ worker-count]
                            (.offer q stop-signal 10 TimeUnit/SECONDS))
@@ -202,8 +203,7 @@
                                (future-cancel worker))
                              (catch Throwable t
                                (tracer/record-exception-span! t {:name "webhook-processor/shutdown-error"}))))
-                         (.shutdownNow executor)
-                         (.close kicker)))]
+                         (.shutdownNow executor)))]
         {:q q
          :retry-q retry-q
          :worker-count worker-count
