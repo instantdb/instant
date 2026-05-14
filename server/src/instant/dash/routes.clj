@@ -1387,14 +1387,14 @@
 
 (defn email-sender-verification-send
   "sends the email"
-  [req] (let [app-id (:id (:app (req->app-and-user! :admin req)))
-              template (app-email-template-model/get-by-app-id-and-email-type
-                        {:app-id app-id :email-type "magic code"})
-              verification (verification/get-from-app-and-sender app-id (:sender_id template))
-              code (app-email-verification-code/put!
-                    {:code (app-user-magic-code-model/rand-code)
-                     :verification-id (:id verification)})]
-          (response/ok {:template code})))
+  [req] (println "Hello") (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
+                                template (app-email-template-model/get-by-app-id-and-email-type
+                                          {:app-id app-id :email-type "magic-code"})
+                                verification (verification/get-from-app-and-sender app-id (:sender_id template))
+                                code (tool/inspect (app-email-verification-code/put!
+                                                    {:code (app-user-magic-code-model/rand-code)
+                                                     :verification-id (:id verification)}))]
+                            (response/ok {:template code})))
 
 (comment
   (def any-app (app-model/get-by-id {:id "d8f9e0a9-b6f5-49e9-a186-eabc7fe4ddac"}))
