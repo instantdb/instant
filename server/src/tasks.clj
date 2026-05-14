@@ -15,9 +15,9 @@
            (software.amazon.awssdk.regions Region)
            (software.amazon.awssdk.services.s3 S3Client)
            (software.amazon.awssdk.services.s3.model HeadObjectRequest
-                                                    NoSuchKeyException
-                                                    PutObjectRequest
-                                                    S3Exception)))
+                                                     NoSuchKeyException
+                                                     PutObjectRequest
+                                                     S3Exception)))
 
 (defn read-input ^String []
   (let [reader (BufferedReader. (InputStreamReader. System/in))]
@@ -199,35 +199,33 @@
    Run after `clojure -P` (with the same aliases) so the artifacts are
    actually present in ~/.m2/repository."
   [{:keys [bucket prefix region aliases]
-    :or   {prefix  ""
-           region  "us-east-1"
-           aliases [:dev :test :build]}}]
+    :or {prefix ""
+         region "us-east-1"
+         aliases [:dev :test :build]}}]
   (assert (and (string? bucket) (seq bucket)) "Missing :bucket")
   (require 'clojure.tools.build.api)
   (let [create-basis (resolve 'clojure.tools.build.api/create-basis)
         _ (assert create-basis "io.github.clojure/tools.build must be on the classpath")
-        basis        (create-basis {:project "deps.edn" :aliases aliases})
-        m2           (.toAbsolutePath (m2-root))
-        dirs         (mirror-version-dirs basis)
-        s3           (-> (S3Client/builder)
-                         (.region (Region/of region))
-                         ^S3Client (.build))
-        counters     (atom {:put 0 :skip 0})]
+        basis (create-basis {:project "deps.edn" :aliases aliases})
+        m2 (.toAbsolutePath (m2-root))
+        dirs (mirror-version-dirs basis)
+        s3 (-> (S3Client/builder)
+               (.region (Region/of region))
+               ^S3Client (.build))
+        counters (atom {:put 0 :skip 0})]
     (println-err (format "[mirror] %d Maven version dirs to consider -> s3://%s%s"
                          (count dirs)
                          bucket
                          (if (string/blank? prefix) "" (str "/" prefix))))
     (try
       (doseq [^Path dir dirs
-              ^File f   (file-seq (.toFile dir))
-              :when     (.isFile f)
-              :let      [name (.getName f)]
-              :when     (mirror-include? name)
-              :let      [key (s3-key m2 (.toPath f) prefix)]]
+              ^File f (file-seq (.toFile dir))
+              :when (.isFile f)
+              :let [name (.getName f)]
+              :when (mirror-include? name)
+              :let [key (s3-key m2 (.toPath f) prefix)]]
         (if (s3-has-key? s3 bucket key)
-          (do (swap! counters update :skip inc)
-              ;; quieter: only log skips at trace-level. comment if too noisy.
-              )
+          (swap! counters update :skip inc)
           (do (println-err "[mirror] put" key)
               (s3-put s3 bucket key f)
               (swap! counters update :put inc))))
