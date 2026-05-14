@@ -1,14 +1,12 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-type Requester = 'figmaMake' | 'unknown';
+export type Requester = 'figmaMake' | 'unknown';
 
 export default async function generateMarkdown(
-  request: Request,
   app: { id: string; adminToken: string },
-  forceRequester?: Requester,
+  requester: Requester,
 ): Promise<string> {
-  const requester = forceRequester ?? detectRequester(request);
   const baseRules = await loadBaseRules();
 
   const extraRules =

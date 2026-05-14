@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const title =
     new URL(request.url).searchParams.get('title')?.trim() || DEFAULT_APP_TITLE;
   const app = await createGDBApp(title);
-  const markdown = await generateMarkdown(request, app, 'figmaMake');
+  const markdown = await generateMarkdown(app, 'figmaMake');
 
   return new Response(markdown, {
     headers: {
