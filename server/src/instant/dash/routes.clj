@@ -1342,10 +1342,10 @@
 
 (defn sender-verification-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :admin req)
-        {postmark-id :postmark_id}
-        (app-email-template-model/get-by-app-id-and-email-type
-         {:app-id app-id :email-type "magic-code"})]
-    (response/ok {:sender-verification false
+        {postmark-id :postmark_id verification :verification_verified}
+        (tool/inspect (verification/get-by-app-id-and-email-type-with-template
+                       {:app-id app-id :email-type "magic-code"}))]
+    (response/ok {:sender-verification verification
                   :verification (when postmark-id
                                   (-> (postmark/get-sender! {:id postmark-id})
                                       :body
