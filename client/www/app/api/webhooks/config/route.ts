@@ -159,6 +159,7 @@ const postEmbed = async (embed: Embed) => {
       username: 'Instant Config Webhook',
       embeds: [embed],
     }),
+    signal: AbortSignal.timeout(5_000),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
