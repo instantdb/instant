@@ -1,0 +1,107 @@
+<p><img
+src="https://www.instantdb.com/img/emails/may2026/s_DF8F10A9009F2A236BC7D07C4EC05DDA50E4FB82F40AA98593D3B98A1A7EA3DC_1730238267270_instant_header.png" /></p>
+<p>Hey crew! It’s time for another edition of Instant News 🙂 We’ve been
+shipping a lot the past couple months, capped off with our biggest
+milestone yet. Here’s the round-up!</p>
+<p><strong>Self-host Instant</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/may2026/s_AA7FE922FB40128B92DB685D6EFC801C26C6290C432EAB84E4F6E7E3E3E3101F_1778714959970_agent-prompt.png" /></p>
+<p>Want to run Instant on your own server? We just made that a lot
+easier. You can hand the <a
+href="https://www.instantdb.com/docs/self-hosting">self-hosting docs</a>
+to an agent and it’ll set everything up for you. Point Claude or Codex
+at a fresh box and a few minutes later you’ll have a working Instant
+instance with TLS, storage, and a dashboard.</p>
+<p>Paste the screenshot above to your agent and it’ll get it
+working!</p>
+<p><strong>Use Instant with any Agent</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/may2026/s_AA7FE922FB40128B92DB685D6EFC801C26C6290C432EAB84E4F6E7E3E3E3101F_1778714513365_image.png" /></p>
+<p>We launched <a href="https://www.getadb.com">getadb.com</a>, so it’s
+easier for agents to build full-stack apps without ever asking for
+credentials. Just by loading a GET request, an agent gets a database, a
+sync engine, and abstractions for auth, presence, and streams.</p>
+<p>If you ever wanted to quickly hack on an idea try adding getadb to
+your prompt!</p>
+<p><strong>useInfiniteQuery</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/may2026/s_AA7FE922FB40128B92DB685D6EFC801C26C6290C432EAB84E4F6E7E3E3E3101F_1778716120199_use-infinite-query.png" /></p>
+<p>We heard you want infinite scroll so we delivered the new
+<code>useInfiniteQuery</code> hook! It works just like
+<code>useQuery</code>, but you also get a <code>canLoadNextPage</code>
+boolean and a <code>loadNextPage</code> function.</p>
+<p>This is available in all our client SDK packages!</p>
+<p><a href="https://www.instantdb.com/docs/infinite-queries">Check out
+the docs</a> for the full picture.</p>
+<p><strong>Starter templates for Vue and Svelte</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/may2026/s_AA7FE922FB40128B92DB685D6EFC801C26C6290C432EAB84E4F6E7E3E3E3101F_1778716142582_starter-templates.png" /></p>
+<p>If you’ve been building with Vue or Svelte and wished you could use
+Instant, now you can.</p>
+<p>Realtime queries, auth, presence, cursors, storage, streams: it’s all
+there. The Svelte SDK is built on Svelte 5 runes and the Vue SDK is
+built on Vue 3’s Composition API, so everything feels native.</p>
+<p>You can try them out by running:</p>
+<pre><code>npx create-instant-app --sv
+npx create-instant-app --vue</code></pre>
+<p>See our quick-start guides for <a
+href="https://www.instantdb.com/docs/start-svelte">Svelte</a> and <a
+href="https://www.instantdb.com/docs/start-vue">Vue</a> to get
+hacking!</p>
+<p><strong>Rate limits</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/may2026/s_AA7FE922FB40128B92DB685D6EFC801C26C6290C432EAB84E4F6E7E3E3E3101F_1778715127216_rate-limits-per-user.png" /></p>
+<p>You can now add rate limits via permission rules! We support
+per-user, per-IP, and burst limits for both writes and reads.</p>
+<p>You can stack multiple limits, mix per-user and per-IP buckets, and
+chain with other permission checks.</p>
+<p><a href="https://www.instantdb.com/docs/rate-limits">Check out the
+docs</a> for the full set of patterns.</p>
+<p><strong>Magic code improvements</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/may2026/s_AA7FE922FB40128B92DB685D6EFC801C26C6290C432EAB84E4F6E7E3E3E3101F_1778716272424_image.png" /></p>
+<p>You requested test accounts with static magic codes for app store
+review. Now you can add them from the <a
+href="https://www.instantdb.com/dash?s=main&amp;t=auth">Auth page on the
+dashboard!</a></p>
+<p>We also tightened up regular magic code flows: codes have a shorter
+expiry, are rate limited, and you can configure the duration per
+app.</p>
+<p><strong>Migrate from Supabase</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/may2026/s_AA7FE922FB40128B92DB685D6EFC801C26C6290C432EAB84E4F6E7E3E3E3101F_1778715623490_agent-prompt-supabase.png" /></p>
+<p>Want to give Instant a try but already have a Supabase project? No
+problem! We also wrote a <a
+href="https://www.instantdb.com/docs/migrate-from-supabase">migration
+guide</a> you can hand to your AI coding assistant. It walks the agent
+through copying the project, translating schema and RLS policies,
+rewriting queries, and migrating your data.</p>
+<p>This can be an easy to evaluate whether you want to give an existing
+project a spin with Instant!</p>
+<p><strong>Instant goes 1.0!</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/may2026/s_AA7FE922FB40128B92DB685D6EFC801C26C6290C432EAB84E4F6E7E3E3E3101F_1778714490465_image.png" /></p>
+<p>4 years in the making, we announced <strong>Instant 1.0</strong>! We
+truly think Instant is the best backend for AI-coded apps today.</p>
+<p>We’ve grown 10x in usage and 10k+ Github stars since our open source
+launch 18 months ago. Startups today use us as their core infra.</p>
+<p>Read <a href="https://www.instantdb.com/essays">our 1.0 essay</a> for
+the full story!</p>
+<p><strong>And a few more things!</strong> Here are a few more wins that
+got shipped thanks to your feedback!</p>
+<ul>
+<li><strong>Resumable stream updates</strong> Our
+<code>@instantdb/resumable-stream</code> package now works in edge
+runtimes (Vercel Edge, Cloudflare Workers, Next.js edge routes), reads
+<code>NEXT_PUBLIC_INSTANT_APP_ID</code> automatically, and resuming a
+missing stream returns <code>undefined</code> instead of throwing.</li>
+<li><strong>instant-cli query</strong> lets you run InstaQL queries
+straight from the terminal. Supports JSON5 syntax, and you can pass
+<code>--admin</code>, <code>--as-email</code>, or
+<code>--as-guest</code> to control the auth context. Great for piping
+into <code>jq</code> or letting your agent inspect data. <a
+href="https://www.instantdb.com/docs/cli">Docs here</a>.</li>
+<li><strong>Permission undo</strong> is here! If you ever push a bad or
+unintended permission rule, you can now roll it back from the dashboard.
+We keep a full history of edits so you can recover with one click.</li>
+</ul>
