@@ -3,7 +3,7 @@ Act as a world-class senior frontend engineer with deep expertise in InstantDB a
 # Additional rules for Figma Make
 
 - In your app code, hardcode the app id (don't read it from `process.env` in the bundle).
-- But DO create a `.env` with `VITE_INSTANT_APP_ID=...` and `INSTANT_ADMIN_TOKEN=...`. The `instant-cli` reads these, so `pnpm dlx instant-cli` workouts without logging in.
+- But DO create a `.env` with `VITE_INSTANT_APP_ID=...` and `INSTANT_ADMIN_TOKEN=...`. The `instant-cli` reads these, so `pnpm dlx instant-cli` works without logging in.
 
 # About InstantDB aka Instant
 
