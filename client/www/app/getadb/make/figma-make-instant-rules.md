@@ -377,7 +377,7 @@ The bullets below are links to the Instant documentation. They provide detailed 
 
 - [TOPIC](URL): Description of the topic.
 
-Curls to `instantdb.com/docs/*.md` are fast and unmetered, curl these docs when you aren't sure how to build something with Instant.
+Curls to `instantdb.com/docs/*.md` are fast and unmetered. Before calling Instant APIs whose signature you haven't seen written in this document, curl the relevant doc URL below first.
 
 - [Common mistakes](https://www.instantdb.com/docs/common-mistakes.md): Common mistakes when working with Instant
 - [Initializing Instant](https://www.instantdb.com/docs/init.md): How to integrate Instant with your app.
