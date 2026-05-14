@@ -17,6 +17,22 @@ vi.mock('../src/lib/webhooks.ts', async (importOriginal) => {
     ...orig,
     useWebhooksManager: (fn: any) => Effect.promise(() => fn(state.manager)),
     getRemoteEtypes: Effect.sync(() => state.etypes),
+    buildWebhooksManager: Effect.sync(() => state.manager),
+    fetchRecentEvents: (webhookId: string, limit: number) =>
+      Effect.promise(async () => {
+        const collected: any[] = [];
+        let after: string | undefined;
+        while (collected.length < limit) {
+          const page: any = await state.manager.listEvents(
+            webhookId,
+            after ? { after } : undefined,
+          );
+          collected.push(...page.events);
+          if (!page.pageInfo.hasNextPage || !page.pageInfo.endCursor) break;
+          after = page.pageInfo.endCursor;
+        }
+        return collected.slice(0, limit);
+      }),
   };
 });
 
@@ -33,7 +49,12 @@ vi.mock('../src/ui/lib.ts', async (importOriginal) => {
   };
 });
 
-const { parseEtypes, parseActions } = await import('../src/lib/webhooks.ts');
+const { parseEtypes, parseActions, fetchRecentEvents } = await import(
+  '../src/lib/webhooks.ts'
+);
+const { joinEtypes, joinActions } = await import(
+  '../src/commands/webhooks/shared.ts'
+);
 const { webhooksListCmd } = await import('../src/commands/webhooks/list.ts');
 const { webhooksAddCmd } = await import('../src/commands/webhooks/add.ts');
 const { webhooksUpdateCmd } = await import(
@@ -47,6 +68,15 @@ const { webhooksEnableCmd } = await import(
 );
 const { webhooksDisableCmd } = await import(
   '../src/commands/webhooks/disable.ts'
+);
+const { webhooksEventsListCmd } = await import(
+  '../src/commands/webhooks/events/list.ts'
+);
+const { webhooksEventsResendCmd } = await import(
+  '../src/commands/webhooks/events/resend.ts'
+);
+const { webhooksEventsPayloadCmd } = await import(
+  '../src/commands/webhooks/events/payload.ts'
 );
 
 let logs: string[] = [];
@@ -63,6 +93,29 @@ const makeWebhook = (overrides: any = {}) => ({
   ...overrides,
 });
 
+const makeEvent = (overrides: any = {}) => ({
+  isn: 'isn1',
+  status: 'success' as const,
+  attempts: null,
+  nextAttemptAfter: null,
+  createdAt: new Date('2026-05-14T10:00:00Z'),
+  updatedAt: new Date('2026-05-14T10:00:01Z'),
+  ...overrides,
+});
+
+const eventsPage = (
+  events: any[],
+  hasNextPage = false,
+  endCursor: string | null = null,
+) => ({
+  events,
+  pageInfo: {
+    startCursor: events[0]?.isn ?? null,
+    endCursor,
+    hasNextPage,
+  },
+});
+
 const buildManager = (
   overrides: {
     list?: any[];
@@ -71,6 +124,9 @@ const buildManager = (
     deleteReturns?: any;
     enableReturns?: any;
     disableReturns?: any;
+    listEventsReturns?: any;
+    resendReturns?: any;
+    payloadReturns?: any;
   } = {},
 ) => ({
   list: vi.fn(async () => overrides.list ?? []),
@@ -97,6 +153,20 @@ const buildManager = (
         status: 'disabled',
         disabledReason: opts?.reason ?? null,
       }),
+  ),
+  listEvents: vi.fn(
+    async (_webhookId: string, _opts?: { after?: string }) =>
+      overrides.listEventsReturns ?? eventsPage([]),
+  ),
+  resendEvent: vi.fn(
+    async (_webhookId: string, isn: string) =>
+      overrides.resendReturns ?? makeEvent({ isn, status: 'pending' }),
+  ),
+  getPayload: vi.fn(
+    async (_webhookId: string, _isn: string) =>
+      overrides.payloadReturns ?? {
+        records: [{ etype: 'posts', action: 'create' }],
+      },
   ),
 });
 
@@ -397,5 +467,227 @@ describe('interactive flows', () => {
     expect(state.manager.update).toHaveBeenCalledWith('wh1', {
       url: 'https://new.example.com',
     });
+  });
+});
+
+describe('joinEtypes', () => {
+  test('sorts alphabetically', () => {
+    expect(joinEtypes(['posts', 'authors', 'comments'])).toBe(
+      'authors, comments, posts',
+    );
+  });
+  test('handles single etype', () => {
+    expect(joinEtypes(['posts'])).toBe('posts');
+  });
+  test('handles empty list', () => {
+    expect(joinEtypes([])).toBe('');
+  });
+});
+
+describe('joinActions', () => {
+  test('returns canonical order regardless of input order', () => {
+    expect(joinActions(['delete', 'create'])).toBe('create, delete');
+    expect(joinActions(['update', 'delete', 'create'])).toBe(
+      'create, update, delete',
+    );
+  });
+  test('handles single action', () => {
+    expect(joinActions(['update'])).toBe('update');
+  });
+});
+
+describe('fetchRecentEvents', () => {
+  const runWithLayer = (effect: any) =>
+    Effect.runPromise(
+      effect.pipe(
+        Effect.provide(
+          Layer.merge(
+            Layer.succeed(GlobalOpts, { yes: true }),
+            Logger.replace(
+              Logger.defaultLogger,
+              Logger.make(({ message }) => logs.push(String(message))),
+            ),
+          ),
+        ),
+      ),
+    );
+
+  test('paginates until limit is satisfied', async () => {
+    const events1 = Array.from({ length: 50 }, (_, i) =>
+      makeEvent({ isn: `e${i}` }),
+    );
+    const events2 = Array.from({ length: 50 }, (_, i) =>
+      makeEvent({ isn: `e${50 + i}` }),
+    );
+    state.manager.listEvents = vi
+      .fn()
+      .mockResolvedValueOnce(eventsPage(events1, true, 'cursor-1'))
+      .mockResolvedValueOnce(eventsPage(events2, true, 'cursor-2'));
+    const result = (await runWithLayer(fetchRecentEvents('wh1', 100))) as any[];
+    expect(result).toHaveLength(100);
+    expect(state.manager.listEvents).toHaveBeenCalledTimes(2);
+    expect(state.manager.listEvents).toHaveBeenNthCalledWith(
+      1,
+      'wh1',
+      undefined,
+    );
+    expect(state.manager.listEvents).toHaveBeenNthCalledWith(2, 'wh1', {
+      after: 'cursor-1',
+    });
+  });
+
+  test('stops when hasNextPage is false', async () => {
+    const events = [makeEvent({ isn: 'a' }), makeEvent({ isn: 'b' })];
+    state.manager.listEvents = vi
+      .fn()
+      .mockResolvedValueOnce(eventsPage(events, false, null));
+    const result = (await runWithLayer(fetchRecentEvents('wh1', 100))) as any[];
+    expect(result).toHaveLength(2);
+    expect(state.manager.listEvents).toHaveBeenCalledTimes(1);
+  });
+
+  test('caps oversized pages at limit', async () => {
+    const events = Array.from({ length: 150 }, (_, i) =>
+      makeEvent({ isn: `e${i}` }),
+    );
+    state.manager.listEvents = vi
+      .fn()
+      .mockResolvedValueOnce(eventsPage(events, true, 'cursor'));
+    const result = (await runWithLayer(fetchRecentEvents('wh1', 100))) as any[];
+    expect(result).toHaveLength(100);
+    expect(state.manager.listEvents).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('webhooks events list', () => {
+  test('--yes prints each event with status, attempts, timestamps', async () => {
+    state.manager.listEvents = vi.fn().mockResolvedValueOnce(
+      eventsPage(
+        [
+          makeEvent({
+            isn: 'evt-1',
+            status: 'failed',
+            attempts: [
+              {
+                attemptAt: new Date('2026-05-14T10:00:00Z'),
+                durationMs: 1234,
+                success: false,
+                statusCode: 503,
+                responseText: null,
+                errorType: null,
+                errorMessage: null,
+              },
+            ],
+          }),
+        ],
+        false,
+        null,
+      ),
+    );
+    await run(webhooksEventsListCmd({ webhookId: 'wh1' } as any), {
+      yes: true,
+    });
+    const out = logs.join('\n');
+    expect(out).toContain('evt-1');
+    expect(out).toContain('failed');
+    expect(out).toContain('Attempts: 1');
+    expect(out).toContain('503');
+  });
+
+  test('--json prints the raw events array', async () => {
+    state.manager.listEvents = vi
+      .fn()
+      .mockResolvedValueOnce(
+        eventsPage([makeEvent({ isn: 'a' })], false, null),
+      );
+    await run(webhooksEventsListCmd({ webhookId: 'wh1', json: true } as any), {
+      yes: true,
+    });
+    const parsed = JSON.parse(logs.join('\n'));
+    expect(parsed[0]).toMatchObject({ isn: 'a' });
+  });
+
+  test('empty list shows friendly message', async () => {
+    state.manager.listEvents = vi
+      .fn()
+      .mockResolvedValueOnce(eventsPage([], false, null));
+    await run(webhooksEventsListCmd({ webhookId: 'wh1' } as any), {
+      yes: true,
+    });
+    expect(logs.join('\n')).toContain('No events for this webhook');
+  });
+});
+
+describe('webhooks events resend', () => {
+  test('--yes with --webhook-id and --isn calls resendEvent', async () => {
+    await run(
+      webhooksEventsResendCmd({ webhookId: 'wh1', isn: 'evt-1' } as any),
+      { yes: true },
+    );
+    expect(state.manager.resendEvent).toHaveBeenCalledWith('wh1', 'evt-1');
+    expect(logs.join('\n')).toContain('Resent event');
+  });
+
+  test('--yes without --isn errors via catchTag', async () => {
+    await run(webhooksEventsResendCmd({ webhookId: 'wh1' } as any), {
+      yes: true,
+    });
+    expect(state.manager.resendEvent).not.toHaveBeenCalled();
+    expect(logs.join('\n')).toMatch(/--isn/);
+  });
+
+  test('interactive: pickers for webhook and event', async () => {
+    const wh = makeWebhook({ id: 'pick-wh' });
+    const evt = makeEvent({ isn: 'pick-evt' });
+    state.manager = buildManager({
+      list: [wh],
+      listEventsReturns: eventsPage([evt], false, null),
+    });
+    state.promptResponses = [wh, evt];
+    await run(webhooksEventsResendCmd({} as any), { yes: false });
+    expect(state.manager.resendEvent).toHaveBeenCalledWith(
+      'pick-wh',
+      'pick-evt',
+    );
+  });
+});
+
+describe('webhooks events payload', () => {
+  test('--yes prints prettified JSON', async () => {
+    state.manager.getPayload = vi
+      .fn()
+      .mockResolvedValueOnce({
+        records: [{ etype: 'posts', action: 'create' }],
+      });
+    await run(
+      webhooksEventsPayloadCmd({ webhookId: 'wh1', isn: 'evt-1' } as any),
+      { yes: true },
+    );
+    expect(state.manager.getPayload).toHaveBeenCalledWith('wh1', 'evt-1');
+    const parsed = JSON.parse(logs.join('\n'));
+    expect(parsed).toMatchObject({
+      records: [{ etype: 'posts', action: 'create' }],
+    });
+  });
+
+  test('--yes without --isn errors', async () => {
+    await run(webhooksEventsPayloadCmd({ webhookId: 'wh1' } as any), {
+      yes: true,
+    });
+    expect(state.manager.getPayload).not.toHaveBeenCalled();
+    expect(logs.join('\n')).toMatch(/--isn/);
+  });
+
+  test('interactive: picker for event then prints payload', async () => {
+    const wh = makeWebhook({ id: 'wh1' });
+    const evt = makeEvent({ isn: 'evt-1' });
+    state.manager = buildManager({
+      list: [wh],
+      listEventsReturns: eventsPage([evt], false, null),
+      payloadReturns: { records: [] },
+    });
+    state.promptResponses = [wh, evt];
+    await run(webhooksEventsPayloadCmd({} as any), { yes: false });
+    expect(state.manager.getPayload).toHaveBeenCalledWith('wh1', 'evt-1');
   });
 });

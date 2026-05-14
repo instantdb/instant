@@ -3,14 +3,15 @@ import { Effect } from 'effect';
 import type { WebhookInfo } from '@instantdb/platform';
 import type { OptsFromCommand, webhooksListDef } from '../../index.ts';
 import { useWebhooksManager } from '../../lib/webhooks.ts';
+import { joinActions, joinEtypes } from './shared.ts';
 
 export const renderWebhook = (webhook: WebhookInfo) =>
   Effect.gen(function* () {
     yield* Effect.log(chalk.cyan(webhook.sink.url));
     yield* Effect.log(`  ID: ${webhook.id}`);
-    yield* Effect.log(`  Etypes: ${webhook.etypes.join(', ')}`);
-    yield* Effect.log(`  Actions: ${webhook.actions.join(', ')}`);
     yield* Effect.log(`  Status: ${webhook.status}`);
+    yield* Effect.log(`  Actions: ${joinActions(webhook.actions)}`);
+    yield* Effect.log(`  Etypes: ${joinEtypes(webhook.etypes)}`);
     if (webhook.disabledReason) {
       yield* Effect.log(`  Disabled reason: ${webhook.disabledReason}`);
     }

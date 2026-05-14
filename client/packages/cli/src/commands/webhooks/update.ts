@@ -17,7 +17,13 @@ import {
   WEBHOOK_ACTIONS,
 } from '../../lib/webhooks.ts';
 import { UI } from '../../ui/index.ts';
-import { logWebhookEvent, resolveWebhook, resolveWebhookId } from './shared.ts';
+import {
+  joinActions,
+  joinEtypes,
+  logWebhookEvent,
+  resolveWebhook,
+  resolveWebhookId,
+} from './shared.ts';
 
 type MenuChoice = 'url' | 'etypes' | 'actions' | 'save' | 'cancel';
 
@@ -36,10 +42,11 @@ const fmtScalar = (current: string, pending: string | undefined) =>
 const fmtList = (
   current: readonly string[],
   pending: readonly string[] | undefined,
+  join: (xs: readonly string[]) => string = (xs) => xs.join(', '),
 ) =>
   pending !== undefined && !sortedEq(current, pending)
-    ? `${chalk.green(pending.join(', '))} ${chalk.dim(`(was ${current.join(', ')})`)}`
-    : chalk.dim(current.join(', '));
+    ? `${chalk.green(join(pending))} ${chalk.dim(`(was ${join(current)})`)}`
+    : chalk.dim(join(current));
 
 export const webhooksUpdateCmd = Effect.fn(
   function* (opts: OptsFromCommand<typeof webhooksUpdateDef>) {
@@ -113,12 +120,12 @@ export const webhooksUpdateCmd = Effect.fn(
               label: `URL: ${fmtScalar(current.sink.url, pending.url)}`,
             },
             {
-              value: 'etypes',
-              label: `Entity types: ${fmtList(current.etypes, pending.etypes)}`,
+              value: 'actions',
+              label: `Actions: ${fmtList(current.actions, pending.actions, joinActions)}`,
             },
             {
-              value: 'actions',
-              label: `Actions: ${fmtList(current.actions, pending.actions)}`,
+              value: 'etypes',
+              label: `Entity types: ${fmtList(current.etypes, pending.etypes, joinEtypes)}`,
             },
             { value: 'save', label: 'Save changes', secondary: true },
             { value: 'cancel', label: 'Cancel', secondary: true },

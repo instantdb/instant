@@ -92,6 +92,7 @@ export namespace UI {
     options: {
       value: T;
       label: string;
+      expandableLabel?: string | (() => string | Promise<string>);
       secondary?: boolean;
     }[];
     promptText: string;
@@ -107,6 +108,9 @@ export namespace UI {
     private readonly data: SelectState<T>;
     private readonly options: SelectProps<T>['options'];
     private readonly params: SelectProps<T>;
+    private expandedIdx: number | null = null;
+    private readonly expansionCache: Map<number, string> = new Map();
+    private readonly expansionLoading: Set<number> = new Set();
 
     constructor(params: SelectProps<T>) {
       super(params.modifyOutput);
@@ -115,10 +119,12 @@ export namespace UI {
         if (input === 'j') {
           this.data.selectedIdx =
             (this.data.selectedIdx + 1) % this.options.length;
+          this.expandedIdx = null;
         } else if (input === 'k') {
           this.data.selectedIdx =
             (this.data.selectedIdx - 1 + this.options.length) %
             this.options.length;
+          this.expandedIdx = null;
         }
         this.requestLayout();
       });
@@ -142,6 +148,69 @@ export namespace UI {
       }
 
       this.data.bind(this as any);
+
+      this.on('input', (_input, key) => {
+        if (key?.name === 'tab') {
+          const focused = this.data.selectedIdx;
+          const focusedOption = this.options[focused];
+          const exp = focusedOption?.expandableLabel;
+          if (!exp) return;
+          if (this.expandedIdx === focused) {
+            this.expandedIdx = null;
+            this.requestLayout();
+            return;
+          }
+          this.expandedIdx = focused;
+          this.requestLayout();
+          if (
+            typeof exp === 'function' &&
+            !this.expansionCache.has(focused) &&
+            !this.expansionLoading.has(focused)
+          ) {
+            this.expansionLoading.add(focused);
+            this.requestLayout();
+            Promise.resolve()
+              .then(() => exp())
+              .then(
+                (content) => {
+                  this.expansionLoading.delete(focused);
+                  this.expansionCache.set(focused, content);
+                  if (this.expandedIdx === focused) this.requestLayout();
+                },
+                (err) => {
+                  this.expansionLoading.delete(focused);
+                  this.expansionCache.set(
+                    focused,
+                    chalk.red(
+                      `    Error loading expansion: ${err?.message ?? err}`,
+                    ),
+                  );
+                  if (this.expandedIdx === focused) this.requestLayout();
+                },
+              );
+          }
+          return;
+        }
+        if (
+          (key?.name === 'up' || key?.name === 'down') &&
+          this.expandedIdx !== null
+        ) {
+          this.expandedIdx = null;
+          this.requestLayout();
+        }
+      });
+    }
+
+    private getExpansionContent(
+      option: SelectProps<T>['options'][number],
+      idx: number,
+    ): string | null {
+      const exp = option.expandableLabel;
+      if (!exp) return null;
+      if (typeof exp === 'string') return exp;
+      if (this.expansionLoading.has(idx)) return chalk.dim('    Loading…');
+      const cached = this.expansionCache.get(idx);
+      return cached ?? chalk.dim('    Loading…');
     }
 
     result(): T {
@@ -154,35 +223,48 @@ export namespace UI {
 ${chalk.hex('#EA570B').bold('●')} ${this.params.options[this.data.selectedIdx]?.label}`;
       }
 
+      const renderRow = (
+        option: SelectProps<T>['options'][number],
+        idx: number,
+      ) => {
+        const isSelected = idx === this.data.selectedIdx;
+        const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
+        const label = isSelected
+          ? chalk.bold(option.label)
+          : chalk.dim(option.label);
+        const expandedContent =
+          isSelected && this.expandedIdx === idx
+            ? this.getExpansionContent(option, idx)
+            : null;
+        const expanded = expandedContent !== null ? '\n' + expandedContent : '';
+        return `${cursor} ${label}${expanded}`;
+      };
+
       const mainOptionsList = this.options
         .filter((option) => !option.secondary)
-        .map((option, idx) => {
-          const isSelected = idx === this.data.selectedIdx;
-          const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
-          const label = isSelected
-            ? chalk.bold(option.label)
-            : chalk.dim(option.label);
-
-          return `${cursor} ${label}`;
-        })
+        .map((option, idx) => renderRow(option, idx))
         .join('\n');
 
+      const secondaryStart = this.options.filter((o) => !o.secondary).length;
       const secondaryOptionsList = this.options
         .filter((option) => option.secondary)
-        .map((option, idx) => {
-          const realIdx = idx + this.options.filter((o) => !o.secondary).length;
-          const isSelected = realIdx === this.data.selectedIdx;
-          const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
-          const label = isSelected
-            ? chalk.bold(option.label)
-            : chalk.dim(option.label);
-
-          return `${cursor} ${label}`;
-        })
+        .map((option, idx) => renderRow(option, idx + secondaryStart))
         .join('\n');
 
+      const hasExpandable = this.options.some((o) => o.expandableLabel);
+      const focused = this.options[this.data.selectedIdx];
+      const expandHint =
+        hasExpandable && focused?.expandableLabel
+          ? '\n' +
+            chalk.dim(
+              this.expandedIdx === this.data.selectedIdx
+                ? '  (tab to collapse)'
+                : '  (tab to expand)',
+            )
+          : '';
+
       return `${this.params.promptText}
-${mainOptionsList}${secondaryOptionsList.length ? chalk.gray('\n───────────────── Additional Options ─────────────────\n') + secondaryOptionsList : ''}`;
+${mainOptionsList}${secondaryOptionsList.length ? chalk.gray('\n───────────────── Additional Options ─────────────────\n') + secondaryOptionsList : ''}${expandHint}`;
     }
   }
 

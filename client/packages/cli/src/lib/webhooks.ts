@@ -2,6 +2,7 @@ import { Effect } from 'effect';
 import {
   PlatformApi as InstantPlatformApi,
   type WebhookAction,
+  type WebhookEventInfo,
   type WebhooksManager,
 } from '@instantdb/platform';
 import { AuthToken } from '../context/authToken.ts';
@@ -41,6 +42,17 @@ export const useWebhooksManager = <R>(
   });
 
 /**
+ * Yields a `WebhooksManager` instance scoped to the current app. Use when you
+ * need to hold on to the manager outside an Effect (e.g. to call from inside
+ * an async UI callback).
+ */
+export const buildWebhooksManager = Effect.gen(function* () {
+  const api = yield* getAuthedPlatformApi;
+  const { appId } = yield* CurrentApp;
+  return api.webhooks(appId).manager;
+});
+
+/**
  * Fetches the app's schema and returns the sorted list of etype names. Returns
  * `null` if the schema can't be fetched (network, auth, missing app, etc.) so
  * callers can fall back to a plain text prompt.
@@ -55,6 +67,26 @@ export const getRemoteEtypes = Effect.gen(function* () {
   const entities = result.schema?.entities ?? {};
   return Object.keys(entities).sort();
 });
+
+/**
+ * Pages through `manager.listEvents` until we have `limit` events or the server
+ * runs out. Returns the events in their natural (newest-first) order.
+ */
+export const fetchRecentEvents = (webhookId: string, limit: number) =>
+  Effect.gen(function* () {
+    const collected: WebhookEventInfo[] = [];
+    let after: string | undefined;
+    while (collected.length < limit) {
+      const page = yield* useWebhooksManager(
+        (m) => m.listEvents(webhookId, after ? { after } : undefined),
+        'Error listing webhook events',
+      );
+      collected.push(...page.events);
+      if (!page.pageInfo.hasNextPage || !page.pageInfo.endCursor) break;
+      after = page.pageInfo.endCursor;
+    }
+    return collected.slice(0, limit);
+  });
 
 const splitCsv = (s: string) =>
   s

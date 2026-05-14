@@ -42,6 +42,9 @@ import { webhooksUpdateCmd } from './commands/webhooks/update.ts';
 import { webhooksDeleteCmd } from './commands/webhooks/delete.ts';
 import { webhooksEnableCmd } from './commands/webhooks/enable.ts';
 import { webhooksDisableCmd } from './commands/webhooks/disable.ts';
+import { webhooksEventsListCmd } from './commands/webhooks/events/list.ts';
+import { webhooksEventsPayloadCmd } from './commands/webhooks/events/payload.ts';
+import { webhooksEventsResendCmd } from './commands/webhooks/events/resend.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -543,6 +546,82 @@ export const webhooksDisableDef = webhooks
   .action((opts) => {
     return runCommandEffect(
       webhooksDisableCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: false,
+          }),
+        ),
+      ),
+    );
+  });
+
+const webhooksEvents = webhooks
+  .command('events')
+  .description('Inspect and resend webhook events');
+
+export const webhooksEventsListDef = webhooksEvents
+  .command('list')
+  .description('List recent events for a webhook (up to 100, newest first)')
+  .option('--webhook-id <webhook-id>', 'Webhook ID to inspect')
+  .option('--json', 'Enable JSON output')
+  .option(
+    '-a --app <app-id>',
+    'App ID the webhook belongs to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      webhooksEventsListCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: false,
+          }).pipe(Layer.annotateLogs('silent', !!opts.json)),
+        ),
+      ),
+    );
+  });
+
+export const webhooksEventsResendDef = webhooksEvents
+  .command('resend')
+  .description('Re-queue a webhook event for delivery')
+  .option('--webhook-id <webhook-id>', 'Webhook ID the event belongs to')
+  .option('--isn <isn>', 'Event ISN to resend')
+  .option(
+    '-a --app <app-id>',
+    'App ID the webhook belongs to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      webhooksEventsResendCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: false,
+          }),
+        ),
+      ),
+    );
+  });
+
+export const webhooksEventsPayloadDef = webhooksEvents
+  .command('payload')
+  .description('Print the JSON payload for a webhook event')
+  .option('--webhook-id <webhook-id>', 'Webhook ID the event belongs to')
+  .option('--isn <isn>', 'Event ISN to fetch')
+  .option(
+    '-a --app <app-id>',
+    'App ID the webhook belongs to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) => {
+    return runCommandEffect(
+      webhooksEventsPayloadCmd(opts).pipe(
         Effect.provide(
           WithAppLayer({
             coerce: false,
