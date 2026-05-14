@@ -9,6 +9,7 @@
    [instant.jdbc.sql :as sql]
    [instant.model.history :as history]
    [instant.reactive.topics :as topics]
+   [instant.storage.s3 :as s3]
    [instant.system-catalog :as system-catalog]
    [instant.util.cache :as cache]
    [instant.util.coll :as ucoll]
@@ -787,6 +788,21 @@
     (.update digest (isn/->bytes isn))
     (uuid-util/<-bytes (.digest digest))))
 
+(defn add-file-urls [app-id result]
+  (let [;; memoized function so that before and after
+        ;; get the same url if they have the same location-id
+        create-file-url (vmemoize (fn [location-id]
+                                    (s3/create-signed-download-url! app-id location-id)))]
+    (-> result
+        (update :before (fn [o]
+                          (if-let [location-id (get o "location-id")]
+                            (assoc o "url" (create-file-url location-id))
+                            o)))
+        (update :after (fn [o]
+                         (if-let [location-id (get o "location-id")]
+                           (assoc o "url" (create-file-url location-id))
+                           o))))))
+
 (defn webhook-data-for-wal-record
   "Returns a list of records:
    [{etype: <etype>
@@ -816,31 +832,37 @@
                         after (uuids->labels attrs ent)]
                   ;; Filters out the updates where we only add or remove a link,
                   ;; we currently don't support webhooks for linking
-                  :when (not= before after)]
-              {:etype etype
-               :action action
-               :id id
-               :before before
-               :after after
-               :idempotencyKey (record-idempotency-key {:etype etype
-                                                        :action action
-                                                        :id id
-                                                        :isn (:isn wal-record)})})
+                  :when (not= before after)
+                  :let [result {:etype etype
+                                :action action
+                                :id id
+                                :before before
+                                :after after
+                                :idempotencyKey (record-idempotency-key {:etype etype
+                                                                         :action action
+                                                                         :id id
+                                                                         :isn (:isn wal-record)})}]]
+              (if (= etype "$files")
+                (add-file-urls (:app-id wal-record) result)
+                result))
             (for [[etype ents] ents-before
                   [id ent] ents
                   :when (and (not (get-in ents-after [etype id]))
                              (etypes etype)
                              (actions "delete"))
-                  :let [id (parse-uuid id)]]
-              {:etype etype
-               :action "delete"
-               :id id
-               :before (uuids->labels attrs ent)
-               :after nil
-               :idempotencyKey (record-idempotency-key {:etype etype
-                                                        :action "delete"
-                                                        :id id
-                                                        :isn (:isn wal-record)})}))))
+                  :let [id (parse-uuid id)
+                        result {:etype etype
+                                :action "delete"
+                                :id id
+                                :before (uuids->labels attrs ent)
+                                :after nil
+                                :idempotencyKey (record-idempotency-key {:etype etype
+                                                                         :action "delete"
+                                                                         :id id
+                                                                         :isn (:isn wal-record)})}]]
+              (if (= etype "$files")
+                (add-file-urls (:app-id wal-record) result)
+                result)))))
 
 (defn webhook-data-for-isn
   "Returns a list of records:

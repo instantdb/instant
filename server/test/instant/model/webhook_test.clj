@@ -11,6 +11,7 @@
    [instant.jdbc.sql :as sql]
    [instant.model.history :as history]
    [instant.model.webhook :as webhook]
+   [instant.system-catalog :as system-catalog]
    [instant.util.crypt :as crypt-util]
    [instant.util.hsql :as uhsql]
    [instant.util.json :as json]
@@ -852,6 +853,211 @@
                                 :actions ["delete"]}]
                       (is (empty? (webhook/webhook-data-for-wal-record hook insert-rec)))
                       (is (empty? (webhook/webhook-data-for-wal-record hook update-rec))))))))))))))
+
+(deftest webhook-matches?-system-catalog-test
+  (with-empty-app
+    (fn [app]
+      (let [enable-wal-entity-log? (var-get #'flags/enable-wal-entity-log?)]
+        (with-redefs [flags/enable-wal-entity-log?
+                      (fn [aid]
+                        (or (= aid (:id app)) (enable-wal-entity-log? aid)))
+                      flags/log-to-wal-log-table?
+                      (constantly true)]
+         (test-util/with-s3-mock {:location-id-url
+                                  (fn [_app-id location-id]
+                                    (str "https://test.invalid/" location-id))}
+          (let [attrs (attr-model/get-by-app-id (:id app))
+                users-id-aid (system-catalog/get-attr-id "$users" "id")
+                users-email-aid (system-catalog/get-attr-id "$users" "email")
+                files-id-aid (system-catalog/get-attr-id "$files" "id")
+                files-path-aid (system-catalog/get-attr-id "$files" "path")
+                files-size-aid (system-catalog/get-attr-id "$files" "size")
+                files-loc-aid (system-catalog/get-attr-id "$files" "location-id")
+                user-id (test-util/stuid "ua")
+                file-id (test-util/stuid "fa")
+                other-aid (random-uuid)
+                for-app (fn [recs] (filter #(= (:id app) (:app-id %)) recs))]
+            (test-util/with-test-replication-slot [records]
+              ;; --- $users txs ---
+              ;; Tx 1: insert $users (id + email)
+              (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                            [[:add-triple user-id users-id-aid (str user-id)]
+                             [:add-triple user-id users-email-aid "alice@example.com"]])
+              ;; Tx 2: update email
+              (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                            [[:add-triple user-id users-email-aid "bob@example.com"]])
+              ;; Tx 3: delete user
+              (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                            [[:delete-entity user-id "$users"]])
+              ;; --- $files txs ---
+              ;; Tx 4: insert $files (id + path + size + location-id)
+              (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                            [[:add-triple file-id files-id-aid (str file-id)]
+                             [:add-triple file-id files-path-aid "first.png"]
+                             [:add-triple file-id files-size-aid 100]
+                             [:add-triple file-id files-loc-aid "loc-1"]])
+              ;; Tx 5: update path
+              (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                            [[:add-triple file-id files-path-aid "second.png"]])
+              ;; Tx 6: delete file
+              (tx/transact! (aurora/conn-pool :write) attrs (:id app)
+                            [[:delete-entity file-id "$files"]])
+              (test-util/wait-for #(<= 6 (count (for-app @records))) 5000)
+              (let [[user-insert user-update user-delete
+                     file-insert file-update file-delete] (vec (for-app @records))]
+                (testing "$users"
+                  (testing "create matches insert touching $users.id"
+                    (is (boolean (webhook/webhook-matches?
+                                  user-insert
+                                  {:id_attr_ids [users-id-aid]
+                                   :actions ["create"]}))))
+                  (testing "create does not match other txs"
+                    (is (nil? (webhook/webhook-matches?
+                               user-update
+                               {:id_attr_ids [users-id-aid]
+                                :actions ["create"]})))
+                    (is (nil? (webhook/webhook-matches?
+                               user-delete
+                               {:id_attr_ids [users-id-aid]
+                                :actions ["create"]}))))
+                  (testing "create does not match when id_attr_ids excludes touched attrs"
+                    (is (nil? (webhook/webhook-matches?
+                               user-insert
+                               {:id_attr_ids [other-aid]
+                                :actions ["create"]}))))
+                  (testing "update matches update touching $users.email"
+                    (is (boolean (webhook/webhook-matches?
+                                  user-update
+                                  {:id_attr_ids [users-email-aid]
+                                   :actions ["update"]}))))
+                  (testing "update does not match when id_attr_ids only references untouched attrs"
+                    (is (nil? (webhook/webhook-matches?
+                               user-update
+                               {:id_attr_ids [users-id-aid]
+                                :actions ["update"]}))))
+                  (testing "delete matches delete touching $users.id"
+                    (is (boolean (webhook/webhook-matches?
+                                  user-delete
+                                  {:id_attr_ids [users-id-aid]
+                                   :actions ["delete"]})))))
+
+                (testing "$files"
+                  (testing "create matches insert touching $files.id"
+                    (is (boolean (webhook/webhook-matches?
+                                  file-insert
+                                  {:id_attr_ids [files-id-aid]
+                                   :actions ["create"]}))))
+                  (testing "create does not match other txs"
+                    (is (nil? (webhook/webhook-matches?
+                               file-update
+                               {:id_attr_ids [files-id-aid]
+                                :actions ["create"]})))
+                    (is (nil? (webhook/webhook-matches?
+                               file-delete
+                               {:id_attr_ids [files-id-aid]
+                                :actions ["create"]}))))
+                  (testing "update matches update touching $files.path"
+                    (is (boolean (webhook/webhook-matches?
+                                  file-update
+                                  {:id_attr_ids [files-path-aid]
+                                   :actions ["update"]}))))
+                  (testing "update does not match when id_attr_ids only references untouched attrs"
+                    (is (nil? (webhook/webhook-matches?
+                               file-update
+                               {:id_attr_ids [files-size-aid]
+                                :actions ["update"]}))))
+                  (testing "delete matches delete touching $files.id"
+                    (is (boolean (webhook/webhook-matches?
+                                  file-delete
+                                  {:id_attr_ids [files-id-aid]
+                                   :actions ["delete"]})))))
+
+                (testing "webhook-data-for-wal-record on $users"
+                  (let [hook {:etypes ["$users"]
+                              :actions ["create" "update" "delete"]}]
+                    (testing "insert produces a create record"
+                      (let [data (webhook/webhook-data-for-wal-record hook user-insert)]
+                        (is (= 1 (count data)))
+                        (let [{:keys [etype action id before after]} (first data)]
+                          (is (= "$users" etype))
+                          (is (= "create" action))
+                          (is (= user-id id))
+                          (is (nil? before))
+                          (is (= {"id" (str user-id) "email" "alice@example.com"} after)))))
+                    (testing "update produces an update record"
+                      (let [data (webhook/webhook-data-for-wal-record hook user-update)]
+                        (is (= 1 (count data)))
+                        (let [{:keys [etype action id before after]} (first data)]
+                          (is (= "$users" etype))
+                          (is (= "update" action))
+                          (is (= user-id id))
+                          (is (= {"id" (str user-id) "email" "alice@example.com"} before))
+                          (is (= {"id" (str user-id) "email" "bob@example.com"} after)))))
+                    (testing "delete produces a delete record"
+                      (let [data (webhook/webhook-data-for-wal-record hook user-delete)]
+                        (is (= 1 (count data)))
+                        (let [{:keys [etype action id before after]} (first data)]
+                          (is (= "$users" etype))
+                          (is (= "delete" action))
+                          (is (= user-id id))
+                          (is (= {"id" (str user-id) "email" "bob@example.com"} before))
+                          (is (nil? after)))))))
+
+                (testing "webhook-data-for-wal-record on $files"
+                  (let [hook {:etypes ["$files"]
+                              :actions ["create" "update" "delete"]}
+                        full-file {"id" (str file-id)
+                                   "path" "first.png"
+                                   "size" 100
+                                   "location-id" "loc-1"}]
+                    (testing "insert produces a create record"
+                      (let [data (webhook/webhook-data-for-wal-record hook file-insert)]
+                        (is (= 1 (count data)))
+                        (let [{:keys [etype action id before after]} (first data)]
+                          (is (= "$files" etype))
+                          (is (= "create" action))
+                          (is (= file-id id))
+                          (is (nil? before))
+                          (is (string? (get after "url")))
+                          (is (= full-file (dissoc after "url"))))))
+                    (testing "update produces an update record"
+                      (let [data (webhook/webhook-data-for-wal-record hook file-update)]
+                        (is (= 1 (count data)))
+                        (let [{:keys [etype action id before after]} (first data)]
+                          (is (= "$files" etype))
+                          (is (= "update" action))
+                          (is (= file-id id))
+                          (is (string? (get before "url")))
+                          (is (= full-file (dissoc before "url")))
+                          (is (string? (get after "url")))
+                          (is (= (get after "url")
+                                 (get before "url")))
+                          (is (= (assoc full-file "path" "second.png") (dissoc after "url"))))))
+                    (testing "delete produces a delete record"
+                      (let [data (webhook/webhook-data-for-wal-record hook file-delete)]
+                        (is (= 1 (count data)))
+                        (let [{:keys [etype action id before after]} (first data)]
+                          (is (= "$files" etype))
+                          (is (= "delete" action))
+                          (is (= file-id id))
+                          (is (string? (get before "url")))
+                          (is (= (assoc full-file "path" "second.png") (dissoc before "url")))
+                          (is (nil? after)))))))
+
+                (testing "non-matching etype returns no records"
+                  (let [hook {:etypes ["other"]
+                              :actions ["create" "update" "delete"]}]
+                    (doseq [rec [user-insert user-update user-delete
+                                 file-insert file-update file-delete]]
+                      (is (empty? (webhook/webhook-data-for-wal-record hook rec))))))
+
+                (testing "etype filter isolates $users from $files"
+                  (let [users-only {:etypes ["$users"]
+                                    :actions ["create" "update" "delete"]}
+                        files-only {:etypes ["$files"]
+                                    :actions ["create" "update" "delete"]}]
+                    (is (empty? (webhook/webhook-data-for-wal-record users-only file-insert)))
+                    (is (empty? (webhook/webhook-data-for-wal-record files-only user-insert))))))))))))))
 
 ;; We don't support links yet
 (deftest webhook-matches?-doesn't-match-for-links
