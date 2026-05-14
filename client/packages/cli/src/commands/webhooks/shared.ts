@@ -27,6 +27,27 @@ type PickerParams = {
 export const joinEtypes = (etypes: readonly string[]) =>
   [...etypes].sort().join(', ');
 
+/**
+ * Validates a webhook URL: must be non-empty after trim, parse as a URL, and
+ * use the `https:` scheme (matches the server's requirement). Returns an error
+ * message or undefined. Pass to `Args.prompt({ validate })` for inline
+ * feedback, and `Args.validate(...)` to also cover flag-supplied values.
+ */
+export const validateWebhookUrl = (raw: string): string | undefined => {
+  const trimmed = raw.trim();
+  if (!trimmed) return 'URL cannot be empty';
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return `Invalid URL: ${raw}`;
+  }
+  if (parsed.protocol !== 'https:') {
+    return 'URL must use https://';
+  }
+  return undefined;
+};
+
 export const joinActions = (actions: readonly string[]) =>
   [...actions]
     .sort(

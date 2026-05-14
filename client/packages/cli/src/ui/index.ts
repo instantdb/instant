@@ -733,6 +733,8 @@ ${inputDisplay}`;
             const validationResult = this.props.validate(this.value);
             if (validationResult) {
               this.errorText = validationResult;
+              this.requestLayout();
+              return;
             } else {
               return this.terminal?.resolve({
                 data: this.value,
@@ -748,12 +750,16 @@ ${inputDisplay}`;
         }
         if (keyInfo.name === 'backspace') {
           this.value = this.value.slice(0, -1);
+          this.errorText = undefined;
         } else if (keyInfo.name?.length === 1) {
           this.value += input;
+          this.errorText = undefined;
         } else if (keyInfo.name === 'space') {
           this.value += ' ';
+          this.errorText = undefined;
         } else if (input !== undefined) {
           this.value += input;
+          this.errorText = undefined;
         }
         this.requestLayout();
       });

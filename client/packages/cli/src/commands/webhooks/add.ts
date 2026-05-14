@@ -14,7 +14,7 @@ import {
 } from '../../lib/webhooks.ts';
 import { BadArgsError } from '../../errors.ts';
 import { GlobalOpts } from '../../context/globalOpts.ts';
-import { logWebhookEvent } from './shared.ts';
+import { logWebhookEvent, validateWebhookUrl } from './shared.ts';
 
 export const webhooksAddCmd = Effect.fn(
   function* (opts: OptsFromCommand<typeof webhooksAddDef>) {
@@ -24,11 +24,13 @@ export const webhooksAddCmd = Effect.fn(
       Args.prompt({
         prompt: 'Webhook URL:',
         placeholder: 'https://...',
+        validate: validateWebhookUrl,
         modifyOutput: UI.modifiers.piped([
           UI.modifiers.topPadding,
           UI.modifiers.dimOnComplete,
         ]),
       }),
+      Args.validate(validateWebhookUrl),
       Args.required(),
     );
 

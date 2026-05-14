@@ -23,6 +23,7 @@ import {
   logWebhookEvent,
   resolveWebhook,
   resolveWebhookId,
+  validateWebhookUrl,
 } from './shared.ts';
 
 type MenuChoice = 'url' | 'etypes' | 'actions' | 'save' | 'cancel';
@@ -65,7 +66,11 @@ export const webhooksUpdateCmd = Effect.fn(
         });
       }
       const params: UpdateWebhookParams<any> = {};
-      if (opts.url) params.url = opts.url;
+      if (opts.url) {
+        const err = validateWebhookUrl(opts.url);
+        if (err) return yield* BadArgsError.make({ message: err });
+        params.url = opts.url.trim();
+      }
       if (optsEtypes) params.etypes = optsEtypes;
       if (optsActions) params.actions = optsActions;
       const webhook = yield* useWebhooksManager(
@@ -86,7 +91,11 @@ export const webhooksUpdateCmd = Effect.fn(
       });
       if (!id) return;
       const params: UpdateWebhookParams<any> = {};
-      if (opts.url) params.url = opts.url;
+      if (opts.url) {
+        const err = validateWebhookUrl(opts.url);
+        if (err) return yield* BadArgsError.make({ message: err });
+        params.url = opts.url.trim();
+      }
       if (optsEtypes) params.etypes = optsEtypes;
       if (optsActions) params.actions = optsActions;
       const webhook = yield* useWebhooksManager(
@@ -150,17 +159,19 @@ export const webhooksUpdateCmd = Effect.fn(
 
       if (choice === 'url') {
         const seed = pending.url ?? current.sink.url;
-        pending.url = yield* runUIEffect(
+        const rawUrl = yield* runUIEffect(
           new UI.TextInput({
             prompt: 'Webhook URL:',
             defaultValue: seed,
             placeholder: seed,
+            validate: validateWebhookUrl,
             modifyOutput: UI.modifiers.piped([
               UI.modifiers.topPadding,
               UI.modifiers.dimOnComplete,
             ]),
           }),
         );
+        pending.url = rawUrl.trim();
       } else if (choice === 'etypes') {
         pending.etypes = yield* promptEtypes(pending.etypes ?? current.etypes);
       } else if (choice === 'actions') {
