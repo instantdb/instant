@@ -31,13 +31,13 @@ function ItemSeparator({
 }
 
 const itemVariants = cva(
-  'group/item [a]:hover:bg-gray-100/50 focus-visible:border-gray-950 focus-visible:ring-gray-950/50 [a]:transition-colors flex flex-wrap items-center rounded-md border border-gray-200 border-transparent text-sm outline-none transition-colors duration-100 focus-visible:ring-[3px] dark:[a]:hover:bg-gray-800/50 dark:focus-visible:border-gray-300 dark:focus-visible:ring-gray-300/50 dark:border-gray-800',
+  'group/item [a]:hover:bg-gray-100/50 focus-visible:border-gray-950 focus-visible:ring-gray-950/50 [a]:transition-colors flex flex-wrap items-center rounded-md border border-gray-200 border-transparent text-sm outline-none transition-colors duration-100 focus-visible:ring-[3px] dark:[a]:hover:bg-neutral-800/50 dark:focus-visible:border-gray-300 dark:focus-visible:ring-gray-300/50 dark:border-neutral-800',
   {
     variants: {
       variant: {
         default: 'bg-transparent',
-        outline: 'border-gray-200 dark:border-gray-800',
-        muted: 'bg-gray-100/50 dark:bg-gray-800/50',
+        outline: 'border-gray-200 dark:border-neutral-800',
+        muted: 'bg-gray-100/50 dark:bg-neutral-800/50',
       },
       size: {
         default: 'gap-4 p-4',

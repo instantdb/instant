@@ -642,7 +642,10 @@ function WebhookRow({
   };
 
   return (
-    <Item variant="outline" className="bg-white dark:bg-neutral-900">
+    <Item
+      variant="outline"
+      className="bg-white dark:border-neutral-700 dark:bg-neutral-800"
+    >
       <ItemContent>
         <ItemTitle className="block max-w-full truncate font-mono">
           <CopyableText value={webhook.sink.url} className="block truncate" />
