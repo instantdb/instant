@@ -20,8 +20,6 @@ INSTANT_ADMIN_TOKEN=${app.adminToken}
 
 Now you can use this to build a full-stack app.
 
-If you can't use npx/pnpm dlx/bunx to install packages you can use the unpkg CDN url: https://www.unpkg.com/@instantdb/react@latest/dist/standalone/index.umd.cjs
-
 What follows are instructions for using Instant. Follow them, and you are golden!
 ---
 
