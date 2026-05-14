@@ -1,5 +1,7 @@
 import { test, expect } from 'vitest';
-import { detectRequester } from '../app/getadb/generateMarkdown';
+import generateMarkdown, {
+  detectRequester,
+} from '../app/getadb/generateMarkdown';
 
 const figmaMakeRequest = new Request('https://www.getadb.com', {
   headers: {
@@ -27,4 +29,32 @@ test('detects figma make from the observed curl user-agent', () => {
 
 test('detects a browser request as unknown', () => {
   expect(detectRequester(browserRequest)).toBe('unknown');
+});
+
+test('can force figma make notes for the make route', async () => {
+  const markdown = await generateMarkdown(
+    browserRequest,
+    {
+      id: 'app-id',
+      adminToken: 'admin-token',
+    },
+    { requester: 'figmaMake' },
+  );
+
+  expect(markdown).toContain('Additional rules for Figma Make');
+  expect(markdown).toContain('Do not use the Supabase skill.');
+});
+
+test('can include the full docs bundle for the make route', async () => {
+  const markdown = await generateMarkdown(
+    browserRequest,
+    {
+      id: 'app-id',
+      adminToken: 'admin-token',
+    },
+    { includeFullDocs: true },
+  );
+
+  expect(markdown).toContain('Current Instant docs:');
+  expect(markdown).toContain('Instant - The Modern Firebase');
 });
