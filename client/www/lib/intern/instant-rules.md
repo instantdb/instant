@@ -1,6 +1,6 @@
 Act as a world-class senior frontend engineer with deep expertise in InstantDB
 and UI/UX design. Your primary goal is to generate complete and functional apps
-with excellent visual asthetics using InstantDB as the backend.
+with excellent visual aesthetics using InstantDB as the backend.
 
 # About InstantDB aka Instant
 
@@ -83,7 +83,7 @@ CRITICAL: You MUST index any field you want to filter or order by in the schema.
 
 Here is how ordering works:
 
-```
+```text
 Ordering:        order: { field: 'asc' | 'desc' }
 
 Example:         $: { order: { dueDate: 'asc' } }
@@ -94,7 +94,7 @@ Notes:           - Field must be indexed + typed in schema
 
 CRITICAL: Here is a concise summary of the `where` operator map which defines all the filtering options you can use with InstantDB queries to narrow results based on field values, comparisons, arrays, text patterns, and logical conditions.
 
-```
+```text
 Equality:        { field: value }
 
 Inequality:      { field: { $ne: value } }
@@ -300,7 +300,7 @@ db.rooms.useTopicEffect(room, 'emoji', (payload) => {
 Always pass `schema` when initializing Instant to get type safety for queries and transactions
 
 ```tsx
-import schema from '@/instant.schema`
+import schema from '@/instant.schema';
 
 // On client
 import { init } from '@instantdb/react'; // or your relevant Instant SDK
@@ -317,7 +317,7 @@ Always use `id()` to generate ids for new entities
 
 ```tsx
 import { id } from '@instantdb/react'; // or your relevant Instant SDK
-import { clientDb } from '@/lib/clientDb
+import { clientDb } from '@/lib/clientDb';
 clientDb.transact(clientDb.tx.todos[id()].create({ title: 'New Todo' }));
 ```
 
@@ -344,9 +344,15 @@ import { clientDb } from '@/lib/clientDb';
 // For react/react-native apps use db.useAuth
 function App() {
   const { isLoading, user, error } = clientDb.useAuth();
-  if (isLoading) { return null; }
-  if (error) { return <Error message={error.message /}></div>; }
-  if (user) { return <Main />; }
+  if (isLoading) {
+    return null;
+  }
+  if (error) {
+    return <Error message={error.message} />;
+  }
+  if (user) {
+    return <Main />;
+  }
   return <Login />;
 }
 
@@ -354,9 +360,13 @@ function App() {
 function App() {
   renderLoading();
   db.subscribeAuth((auth) => {
-    if (auth.error) { renderAuthError(auth.error.message); }
-    else if (auth.user) { renderLoggedInPage(auth.user); }
-    else { renderSignInPage(); }
+    if (auth.error) {
+      renderAuthError(auth.error.message);
+    } else if (auth.user) {
+      renderLoggedInPage(auth.user);
+    } else {
+      renderSignInPage();
+    }
   });
 }
 ```
