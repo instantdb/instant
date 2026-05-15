@@ -10,23 +10,23 @@ import { GlobalOpts } from '../../context/globalOpts.ts';
 import { BadArgsError } from '../../errors.ts';
 import { runUIEffect } from '../../lib/ui.ts';
 import {
-  getRemoteEtypes,
+  getRemoteNamespaces,
   parseActions,
-  parseEtypes,
+  parseNamespaces,
   useWebhooksManager,
   WEBHOOK_ACTIONS,
 } from '../../lib/webhooks.ts';
 import { UI } from '../../ui/index.ts';
 import {
   joinActions,
-  joinEtypes,
+  joinNamespaces,
   logWebhookEvent,
   resolveWebhook,
   resolveWebhookId,
   validateWebhookUrl,
 } from './shared.ts';
 
-type MenuChoice = 'url' | 'etypes' | 'actions' | 'save' | 'cancel';
+type MenuChoice = 'url' | 'namespaces' | 'actions' | 'save' | 'cancel';
 
 const sortedEq = (a: readonly string[], b: readonly string[]) => {
   if (a.length !== b.length) return false;
@@ -52,9 +52,9 @@ const fmtList = (
 export const webhooksUpdateCmd = Effect.fn(
   function* (opts: OptsFromCommand<typeof webhooksUpdateDef>) {
     const { yes } = yield* GlobalOpts;
-    const optsEtypes = yield* parseEtypes(opts.etypes);
+    const optsNamespaces = yield* parseNamespaces(opts.namespaces);
     const optsActions = yield* parseActions(opts.actions);
-    const hasAnyFieldFlag = !!opts.url || !!optsEtypes || !!optsActions;
+    const hasAnyFieldFlag = !!opts.url || !!optsNamespaces || !!optsActions;
 
     if (yes) {
       if (!opts.id) {
@@ -62,7 +62,8 @@ export const webhooksUpdateCmd = Effect.fn(
       }
       if (!hasAnyFieldFlag) {
         return yield* BadArgsError.make({
-          message: 'Must specify at least one of --url, --etypes, or --actions',
+          message:
+            'Must specify at least one of --url, --namespaces, or --actions',
         });
       }
       const params: UpdateWebhookParams<any> = {};
@@ -71,7 +72,7 @@ export const webhooksUpdateCmd = Effect.fn(
         if (err) return yield* BadArgsError.make({ message: err });
         params.url = opts.url.trim();
       }
-      if (optsEtypes) params.etypes = optsEtypes;
+      if (optsNamespaces) params.namespaces = optsNamespaces;
       if (optsActions) params.actions = optsActions;
       const webhook = yield* useWebhooksManager(
         (m) => m.update(opts.id!, params),
@@ -96,7 +97,7 @@ export const webhooksUpdateCmd = Effect.fn(
         if (err) return yield* BadArgsError.make({ message: err });
         params.url = opts.url.trim();
       }
-      if (optsEtypes) params.etypes = optsEtypes;
+      if (optsNamespaces) params.namespaces = optsNamespaces;
       if (optsActions) params.actions = optsActions;
       const webhook = yield* useWebhooksManager(
         (m) => m.update(id, params),
@@ -134,8 +135,8 @@ export const webhooksUpdateCmd = Effect.fn(
               label: `Actions: ${fmtList(current.actions, pending.actions, joinActions)}`,
             },
             {
-              value: 'etypes',
-              label: `Entity types: ${fmtList(current.etypes, pending.etypes, joinEtypes)}`,
+              value: 'namespaces',
+              label: `Namespaces: ${fmtList(current.namespaces, pending.namespaces, joinNamespaces)}`,
             },
             { value: 'save', label: 'Save changes', secondary: true },
             { value: 'cancel', label: 'Cancel', secondary: true },
@@ -172,8 +173,10 @@ export const webhooksUpdateCmd = Effect.fn(
           }),
         );
         pending.url = rawUrl.trim();
-      } else if (choice === 'etypes') {
-        pending.etypes = yield* promptEtypes(pending.etypes ?? current.etypes);
+      } else if (choice === 'namespaces') {
+        pending.namespaces = yield* promptNamespaces(
+          pending.namespaces ?? current.namespaces,
+        );
       } else if (choice === 'actions') {
         pending.actions = yield* runUIEffect(
           new UI.MultiSelect<WebhookAction>({
@@ -205,13 +208,13 @@ export const webhooksUpdateCmd = Effect.fn(
   ),
 );
 
-const promptEtypes = Effect.fn(function* (initial: readonly string[]) {
-  const available = yield* getRemoteEtypes;
+const promptNamespaces = Effect.fn(function* (initial: readonly string[]) {
+  const available = yield* getRemoteNamespaces;
   if (available && available.length > 0) {
     return yield* runUIEffect(
       new UI.MultiSelect<string>({
         options: available.map((name) => ({ value: name, label: name })),
-        promptText: 'Entity types to listen to:',
+        promptText: 'Namespaces to listen to:',
         initialSelected: [...initial],
         minSelected: 1,
         modifyOutput: UI.modifiers.vanishOnComplete,
@@ -220,7 +223,7 @@ const promptEtypes = Effect.fn(function* (initial: readonly string[]) {
   }
   const raw = yield* runUIEffect(
     new UI.TextInput({
-      prompt: 'Entity types (comma-separated):',
+      prompt: 'Namespaces (comma-separated):',
       defaultValue: initial.join(','),
       placeholder: initial.join(','),
       modifyOutput: UI.modifiers.piped([
@@ -229,10 +232,10 @@ const promptEtypes = Effect.fn(function* (initial: readonly string[]) {
       ]),
     }),
   );
-  const parsed = yield* parseEtypes(raw);
+  const parsed = yield* parseNamespaces(raw);
   if (!parsed) {
     return yield* BadArgsError.make({
-      message: '--etypes must include at least one entity type',
+      message: '--namespaces must include at least one namespace',
     });
   }
   return parsed;
@@ -244,7 +247,10 @@ const hasPending = (
 ) => {
   if (pending.url !== undefined && pending.url !== current.sink.url)
     return true;
-  if (pending.etypes !== undefined && !sortedEq(pending.etypes, current.etypes))
+  if (
+    pending.namespaces !== undefined &&
+    !sortedEq(pending.namespaces, current.namespaces)
+  )
     return true;
   if (
     pending.actions !== undefined &&

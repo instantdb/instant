@@ -433,8 +433,8 @@ export const webhooksAddDef = webhooks
   .description('Add a webhook to an app')
   .option('--url <url>', 'HTTPS endpoint to deliver events to')
   .option(
-    '--etypes <e1,e2>',
-    'Comma-separated list of entity types to listen on',
+    '--namespaces <e1,e2>',
+    'Comma-separated list of namespaces to listen on',
   )
   .option(
     '--actions <a1,a2>',
@@ -464,7 +464,7 @@ export const webhooksUpdateDef = webhooks
   .description('Update a webhook')
   .option('--id <webhook-id>', 'Webhook ID to update')
   .option('--url <url>', 'New HTTPS endpoint')
-  .option('--etypes <e1,e2>', 'New comma-separated entity types')
+  .option('--namespaces <e1,e2>', 'New comma-separated namespaces')
   .option(
     '--actions <a1,a2>',
     'New comma-separated actions (create, update, delete)',

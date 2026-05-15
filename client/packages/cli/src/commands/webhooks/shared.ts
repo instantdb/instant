@@ -24,8 +24,8 @@ type PickerParams = {
   filter?: (w: WebhookInfo) => boolean;
 };
 
-export const joinEtypes = (etypes: readonly string[]) =>
-  [...etypes].sort().join(', ');
+export const joinNamespaces = (namespaces: readonly string[]) =>
+  [...namespaces].sort().join(', ');
 
 /**
  * Validates a webhook URL: must be non-empty after trim, parse as a URL, and
@@ -62,7 +62,7 @@ const renderWebhookLabel = (w: WebhookInfo) =>
     `${w.sink.url} ${chalk.dim(`(${w.id})`)}`,
     chalk.dim(`  status: ${w.status}`),
     chalk.dim(`  actions: ${joinActions(w.actions)}`),
-    chalk.dim(`  etypes: ${joinEtypes(w.etypes)}`),
+    chalk.dim(`  namespaces: ${joinNamespaces(w.namespaces)}`),
   ].join('\n');
 
 const pickWebhook = (params: PickerParams) =>
@@ -111,7 +111,7 @@ export const logWebhookEvent = (action: string, webhook: WebhookInfo) => {
     `ID: ${webhook.id}`,
     `Status: ${webhook.status}`,
     `Actions: ${joinActions(webhook.actions)}`,
-    `Etypes: ${joinEtypes(webhook.etypes)}`,
+    `Namespaces: ${joinNamespaces(webhook.namespaces)}`,
   ];
   if (webhook.disabledReason) {
     lines.push(`Disabled reason: ${webhook.disabledReason}`);

@@ -53,11 +53,11 @@ export const buildWebhooksManager = Effect.gen(function* () {
 });
 
 /**
- * Fetches the app's schema and returns the sorted list of etype names. Returns
+ * Fetches the app's schema and returns the sorted list of namespace names. Returns
  * `null` if the schema can't be fetched (network, auth, missing app, etc.) so
  * callers can fall back to a plain text prompt.
  */
-export const getRemoteEtypes = Effect.gen(function* () {
+export const getRemoteNamespaces = Effect.gen(function* () {
   const api = yield* getAuthedPlatformApi;
   const { appId } = yield* CurrentApp;
   const result = yield* Effect.tryPromise(() => api.getSchema(appId)).pipe(
@@ -94,16 +94,16 @@ const splitCsv = (s: string) =>
     .map((t) => t.trim())
     .filter((t) => t.length > 0);
 
-export const parseEtypes = (raw: string | undefined) =>
+export const parseNamespaces = (raw: string | undefined) =>
   Effect.gen(function* () {
     if (raw === undefined) return undefined;
-    const etypes = splitCsv(raw);
-    if (etypes.length === 0) {
+    const namespaces = splitCsv(raw);
+    if (namespaces.length === 0) {
       return yield* BadArgsError.make({
-        message: '--etypes must include at least one entity type',
+        message: '--namespaces must include at least one namespace',
       });
     }
-    return etypes;
+    return namespaces;
   });
 
 export const parseActions = (raw: string | undefined) =>

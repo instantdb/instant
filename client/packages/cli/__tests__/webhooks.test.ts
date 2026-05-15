@@ -8,14 +8,14 @@ vi.mock('../src/index.ts', () => ({}));
 
 const state = vi.hoisted(() => ({
   manager: undefined as any,
-  etypes: ['posts', 'comments', 'authors'] as string[] | null,
+  namespaces: ['posts', 'comments', 'authors'] as string[] | null,
   promptResponses: [] as unknown[],
 }));
 
 // Mock at the SDK boundary: any `new InstantPlatformApi(...)` returns a stub
 // whose `.webhooks(appId).manager` is the per-test fake manager, and whose
-// `getSchema` reflects state.etypes (null → reject, simulating an auth /
-// network / missing-app failure that getRemoteEtypes catches).
+// `getSchema` reflects state.namespaces (null → reject, simulating an auth /
+// network / missing-app failure that getRemoteNamespaces catches).
 vi.mock('@instantdb/platform', async (importOriginal) => {
   const orig: any = await importOriginal();
   return {
@@ -25,11 +25,11 @@ vi.mock('@instantdb/platform', async (importOriginal) => {
         return { manager: state.manager };
       }
       async getSchema(_appId: string) {
-        if (state.etypes === null) {
+        if (state.namespaces === null) {
           throw new Error('schema unavailable');
         }
         const entities = Object.fromEntries(
-          state.etypes.map((name) => [name, {}]),
+          state.namespaces.map((name) => [name, {}]),
         );
         return { schema: { entities } };
       }
@@ -50,10 +50,10 @@ vi.mock('../src/ui/lib.ts', async (importOriginal) => {
   };
 });
 
-const { parseEtypes, parseActions, fetchRecentEvents } = await import(
+const { parseNamespaces, parseActions, fetchRecentEvents } = await import(
   '../src/lib/webhooks.ts'
 );
-const { joinEtypes, joinActions } = await import(
+const { joinNamespaces, joinActions } = await import(
   '../src/commands/webhooks/shared.ts'
 );
 const { webhooksListCmd } = await import('../src/commands/webhooks/list.ts');
@@ -85,7 +85,7 @@ let logs: string[] = [];
 const makeWebhook = (overrides: any = {}) => ({
   id: 'wh1',
   sink: { url: 'https://example.com' },
-  etypes: ['posts'],
+  namespaces: ['posts'],
   actions: ['create'],
   status: 'active' as const,
   disabledReason: null,
@@ -166,7 +166,7 @@ const buildManager = (
   getPayload: vi.fn(
     async (_webhookId: string, _isn: string) =>
       overrides.payloadReturns ?? {
-        records: [{ etype: 'posts', action: 'create' }],
+        records: [{ namespace: 'posts', action: 'create' }],
       },
   ),
 });
@@ -200,28 +200,28 @@ const run = (effect: any, opts: { yes: boolean }) =>
 beforeEach(() => {
   logs = [];
   state.manager = buildManager();
-  state.etypes = ['posts', 'comments', 'authors'];
+  state.namespaces = ['posts', 'comments', 'authors'];
   state.promptResponses = [];
 });
 
-describe('parseEtypes', () => {
+describe('parseNamespaces', () => {
   test('undefined input returns undefined', async () => {
-    expect(await Effect.runPromise(parseEtypes(undefined))).toBeUndefined();
+    expect(await Effect.runPromise(parseNamespaces(undefined))).toBeUndefined();
   });
   test('parses CSV', async () => {
-    expect(await Effect.runPromise(parseEtypes('posts,comments'))).toEqual([
+    expect(await Effect.runPromise(parseNamespaces('posts,comments'))).toEqual([
       'posts',
       'comments',
     ]);
   });
   test('trims whitespace and drops empties', async () => {
     expect(
-      await Effect.runPromise(parseEtypes(' posts , , comments ')),
+      await Effect.runPromise(parseNamespaces(' posts , , comments ')),
     ).toEqual(['posts', 'comments']);
   });
   test('empty string errors', async () => {
-    const err: any = await Effect.runPromise(Effect.flip(parseEtypes('')));
-    expect(err.message).toMatch(/at least one entity type/);
+    const err: any = await Effect.runPromise(Effect.flip(parseNamespaces('')));
+    expect(err.message).toMatch(/at least one namespace/);
   });
 });
 
@@ -260,7 +260,7 @@ describe('webhooks list', () => {
     const out = logs.join('\n');
     expect(out).toContain('https://example.com');
     expect(out).toContain('ID: wh1');
-    expect(out).toContain('Etypes: posts');
+    expect(out).toContain('Namespaces: posts');
     expect(out).toContain('Actions: create');
     expect(out).toContain('Status: active');
   });
@@ -281,19 +281,19 @@ describe('webhooks add --yes', () => {
     await run(
       webhooksAddCmd({
         url: 'https://hook.example.com',
-        etypes: 'posts,comments',
+        namespaces: 'posts,comments',
         actions: 'create,update',
       } as any),
       { yes: true },
     );
     expect(state.manager.create).toHaveBeenCalledWith({
       url: 'https://hook.example.com',
-      etypes: ['posts', 'comments'],
+      namespaces: ['posts', 'comments'],
       actions: ['create', 'update'],
     });
     expect(logs.join('\n')).toContain('Webhook added');
   });
-  test('missing --etypes errors and does not call create', async () => {
+  test('missing --namespaces errors and does not call create', async () => {
     await run(
       webhooksAddCmd({
         url: 'https://hook.example.com',
@@ -302,13 +302,13 @@ describe('webhooks add --yes', () => {
       { yes: true },
     );
     expect(state.manager.create).not.toHaveBeenCalled();
-    expect(logs.join('\n')).toMatch(/--etypes/);
+    expect(logs.join('\n')).toMatch(/--namespaces/);
   });
   test('missing --actions errors and does not call create', async () => {
     await run(
       webhooksAddCmd({
         url: 'https://hook.example.com',
-        etypes: 'posts',
+        namespaces: 'posts',
       } as any),
       { yes: true },
     );
@@ -368,14 +368,14 @@ describe('webhooks update --yes', () => {
       webhooksUpdateCmd({
         id: 'wh1',
         url: 'https://new.example.com',
-        etypes: 'foo',
+        namespaces: 'foo',
         actions: 'create,delete',
       } as any),
       { yes: true },
     );
     expect(state.manager.update).toHaveBeenCalledWith('wh1', {
       url: 'https://new.example.com',
-      etypes: ['foo'],
+      namespaces: ['foo'],
       actions: ['create', 'delete'],
     });
   });
@@ -394,31 +394,31 @@ describe('webhooks update --yes', () => {
 });
 
 describe('interactive flows', () => {
-  test('webhooks add prompts for missing url/etypes/actions', async () => {
+  test('webhooks add prompts for missing url/namespaces/actions', async () => {
     state.promptResponses = [
       'https://my-hook.example.com', // URL TextInput
-      ['posts', 'authors'], // etypes MultiSelect
+      ['posts', 'authors'], // namespaces MultiSelect
       ['create', 'update'], // actions MultiSelect
     ];
     await run(webhooksAddCmd({} as any), { yes: false });
     expect(state.manager.create).toHaveBeenCalledWith({
       url: 'https://my-hook.example.com',
-      etypes: ['posts', 'authors'],
+      namespaces: ['posts', 'authors'],
       actions: ['create', 'update'],
     });
   });
 
-  test('webhooks add falls back to text-input for etypes when schema unavailable', async () => {
-    state.etypes = null;
+  test('webhooks add falls back to text-input for namespaces when schema unavailable', async () => {
+    state.namespaces = null;
     state.promptResponses = [
       'https://x.example.com',
-      'foo,bar', // etypes TextInput
+      'foo,bar', // namespaces TextInput
       ['create'], // actions MultiSelect
     ];
     await run(webhooksAddCmd({} as any), { yes: false });
     expect(state.manager.create).toHaveBeenCalledWith({
       url: 'https://x.example.com',
-      etypes: ['foo', 'bar'],
+      namespaces: ['foo', 'bar'],
       actions: ['create'],
     });
   });
@@ -480,17 +480,17 @@ describe('interactive flows', () => {
   });
 });
 
-describe('joinEtypes', () => {
+describe('joinNamespaces', () => {
   test('sorts alphabetically', () => {
-    expect(joinEtypes(['posts', 'authors', 'comments'])).toBe(
+    expect(joinNamespaces(['posts', 'authors', 'comments'])).toBe(
       'authors, comments, posts',
     );
   });
-  test('handles single etype', () => {
-    expect(joinEtypes(['posts'])).toBe('posts');
+  test('handles single namespace', () => {
+    expect(joinNamespaces(['posts'])).toBe('posts');
   });
   test('handles empty list', () => {
-    expect(joinEtypes([])).toBe('');
+    expect(joinNamespaces([])).toBe('');
   });
 });
 
@@ -674,7 +674,7 @@ describe('webhooks events resend', () => {
 describe('webhooks events payload', () => {
   test('--yes prints prettified JSON', async () => {
     state.manager.getPayload = vi.fn().mockResolvedValueOnce({
-      records: [{ etype: 'posts', action: 'create' }],
+      records: [{ namespace: 'posts', action: 'create' }],
     });
     await run(
       webhooksEventsPayloadCmd({ webhookId: 'wh1', isn: 'evt-1' } as any),
@@ -683,7 +683,7 @@ describe('webhooks events payload', () => {
     expect(state.manager.getPayload).toHaveBeenCalledWith('wh1', 'evt-1');
     const parsed = JSON.parse(logs.join('\n'));
     expect(parsed).toMatchObject({
-      records: [{ etype: 'posts', action: 'create' }],
+      records: [{ namespace: 'posts', action: 'create' }],
     });
   });
 

@@ -6,9 +6,9 @@ import { Args } from '../../lib/args.ts';
 import { runUIEffect } from '../../lib/ui.ts';
 import { clearPromptTrail, UI } from '../../ui/index.ts';
 import {
-  getRemoteEtypes,
+  getRemoteNamespaces,
   parseActions,
-  parseEtypes,
+  parseNamespaces,
   useWebhooksManager,
   WEBHOOK_ACTIONS,
 } from '../../lib/webhooks.ts';
@@ -34,19 +34,20 @@ export const webhooksAddCmd = Effect.fn(
       Args.required(),
     );
 
-    let etypes = yield* parseEtypes(opts.etypes);
-    if (!etypes) {
+    let namespaces = yield* parseNamespaces(opts.namespaces);
+    if (!namespaces) {
       if (yes) {
         return yield* BadArgsError.make({
-          message: 'Missing required value for --etypes (comma-separated list)',
+          message:
+            'Missing required value for --namespaces (comma-separated list)',
         });
       }
-      const available = yield* getRemoteEtypes;
+      const available = yield* getRemoteNamespaces;
       if (available && available.length > 0) {
-        etypes = yield* runUIEffect(
+        namespaces = yield* runUIEffect(
           new UI.MultiSelect<string>({
             options: available.map((name) => ({ value: name, label: name })),
-            promptText: 'Entity types to listen to:',
+            promptText: 'Namespaces to listen to:',
             minSelected: 1,
             modifyOutput: UI.modifiers.dimOnComplete,
           }),
@@ -54,7 +55,7 @@ export const webhooksAddCmd = Effect.fn(
       } else {
         const raw = yield* runUIEffect(
           new UI.TextInput({
-            prompt: 'Entity types (comma-separated):',
+            prompt: 'Namespaces (comma-separated):',
             placeholder: 'posts,comments',
             modifyOutput: UI.modifiers.piped([
               UI.modifiers.topPadding,
@@ -62,10 +63,10 @@ export const webhooksAddCmd = Effect.fn(
             ]),
           }),
         );
-        etypes = yield* parseEtypes(raw);
-        if (!etypes) {
+        namespaces = yield* parseNamespaces(raw);
+        if (!namespaces) {
           return yield* BadArgsError.make({
-            message: '--etypes must include at least one entity type',
+            message: '--namespaces must include at least one namespace',
           });
         }
       }
@@ -90,7 +91,7 @@ export const webhooksAddCmd = Effect.fn(
     }
 
     const webhook = yield* useWebhooksManager(
-      (m) => m.create({ url, etypes, actions }),
+      (m) => m.create({ url, namespaces, actions }),
       'Error creating webhook',
     );
 
