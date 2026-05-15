@@ -1,8 +1,9 @@
 @import 'tailwindcss';
 
 @theme {
-  --default-mono-font-family: 'Berkeley Mono', ui-monospace, SFMono-Regular,
-    Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --default-mono-font-family:
+    'Berkeley Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
   --font-mono: var(--default-mono-font-family);
 }
 
@@ -33,8 +34,9 @@
   *,
   html {
     --default-font-family: 'Switzer', 'IBM Plex Sans', sans-serif;
-    --default-mono-font-family: 'Berkeley Mono', ui-monospace, SFMono-Regular,
-      Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    --default-mono-font-family:
+      'Berkeley Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      'Liberation Mono', 'Courier New', monospace;
   }
   ::cue {
     font-family: var(--default-font-family);
@@ -58,14 +60,45 @@
   /* Firefox */
 }
 
+@keyframes filter-shadow-r-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes filter-shadow-l-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility filter-shadow-r {
+  opacity: 0;
+  animation: filter-shadow-r-fade linear backwards;
+  animation-timeline: --filter-scroll;
+  animation-range: calc(100% - 16px) 100%;
+}
+
+@utility filter-shadow-l {
+  opacity: 0;
+  animation: filter-shadow-l-fade linear forwards;
+  animation-timeline: --filter-scroll;
+  animation-range: 0% 16px;
+}
+
 @layer base {
   @font-face {
     font-family: 'Berkeley Mono';
     font-weight: normal;
     font-style: normal;
     font-stretch: normal;
-    src: url('/fonts/BerkeleyMono-Regular.woff2')
-      format('woff2');
+    src: url('/fonts/BerkeleyMono-Regular.woff2') format('woff2');
     font-display: block;
   }
 
@@ -74,8 +107,7 @@
     font-weight: normal;
     font-style: italic;
     font-stretch: normal;
-    src: url('/fonts/BerkeleyMono-Italic.woff2')
-      format('woff2');
+    src: url('/fonts/BerkeleyMono-Italic.woff2') format('woff2');
     font-display: block;
   }
 
@@ -84,8 +116,7 @@
     font-weight: bold;
     font-style: normal;
     font-stretch: normal;
-    src: url('/fonts/BerkeleyMono-Bold.woff2')
-      format('woff2');
+    src: url('/fonts/BerkeleyMono-Bold.woff2') format('woff2');
     font-display: block;
   }
 
@@ -94,8 +125,7 @@
     font-weight: bold;
     font-style: italic;
     font-stretch: normal;
-    src: url('/fonts/BerkeleyMono-BoldItalic.woff2')
-      format('woff2');
+    src: url('/fonts/BerkeleyMono-BoldItalic.woff2') format('woff2');
     font-display: block;
   }
 
@@ -142,9 +172,10 @@
 
 html {
   height: 100%;
-  background-color: #FBF9F6;
-  --default-mono-font-family: 'Berkeley Mono', ui-monospace, SFMono-Regular,
-    Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  background-color: #fbf9f6;
+  --default-mono-font-family:
+    'Berkeley Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
 }
 
 body {

@@ -74,3 +74,35 @@
 html {
   --default-mono-font-family: 'Berk Mono', var(--font-berk-mono), 'monospace';
 }
+
+@keyframes filter-shadow-r-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes filter-shadow-l-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility filter-shadow-r {
+  opacity: 0;
+  animation: filter-shadow-r-fade linear backwards;
+  animation-timeline: --filter-scroll;
+  animation-range: calc(100% - 16px) 100%;
+}
+
+@utility filter-shadow-l {
+  opacity: 0;
+  animation: filter-shadow-l-fade linear forwards;
+  animation-timeline: --filter-scroll;
+  animation-range: 0% 16px;
+}
