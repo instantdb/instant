@@ -944,8 +944,8 @@ export const InnerExplorer: React.FC<{
       </Dialog>
       <div className="flex flex-1 grow flex-col overflow-hidden bg-white dark:bg-neutral-800">
         <div className="flex items-center overflow-hidden border-b border-b-gray-200 dark:border-neutral-700">
-          <div className="flex flex-1 flex-col justify-between py-2 md:flex-row md:items-center">
-            <div className="flex items-center overflow-hidden border-b px-2 py-1 pl-4 md:border-b-0 dark:border-neutral-700">
+          <div className="flex min-w-0 flex-1 flex-col justify-between py-2 md:flex-row md:items-center">
+            <div className="flex min-w-0 flex-1 items-center overflow-hidden border-b px-2 py-1 pl-4 md:border-b-0 dark:border-neutral-700">
               {showBackButton ? (
                 <ArrowLeftIcon
                   className="mr-4 inline cursor-pointer"
@@ -967,7 +967,7 @@ export const InnerExplorer: React.FC<{
                   }}
                 />
               ) : null}
-              <div className="text-ellipses shrink truncate overflow-hidden font-mono text-xs whitespace-nowrap dark:text-white">
+              <div className="min-w-0 flex-1 overflow-x-auto font-mono text-xs whitespace-nowrap dark:text-white">
                 <strong>{selectedNamespace.name}</strong>{' '}
                 {currentNav.where ? (
                   <>
