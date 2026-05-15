@@ -478,6 +478,16 @@
                   :before :after :beforeInclusive :afterInclusive
                   :aggregate :fields)]
 
+    (when (and fields
+               (or (not (sequential? fields))
+                   (map? fields)))
+      (ex/throw-validation-err!
+       :query
+       (:root state)
+       [{:expected 'array?
+         :in (conj (:in state) :fields)
+         :message "The `fields` property should be an array of field names."}]))
+
     (when (seq x)
       (ex/throw-validation-err!
        :query

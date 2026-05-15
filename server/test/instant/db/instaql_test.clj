@@ -315,7 +315,14 @@
                  (validation-err (assoc ctx :admin? true)
                                  {:users
                                   {:$ {:aggregate :count}
-                                   :bookshelves {}}}))))))))
+                                   :bookshelves {}}}))))
+
+        (testing "fields"
+          (is (= {:expected 'array?,
+                  :in [:users :$ :fields],
+                  :message "The `fields` property should be an array of field names."}
+                 (validation-err ctx
+                                 {:users {:$ {:fields {}}}}))))))))
 
 (deftest validations-on-checked-data
   (with-empty-app
