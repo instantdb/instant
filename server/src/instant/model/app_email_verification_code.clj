@@ -23,6 +23,6 @@
   ([params] (consume! (aurora/conn-pool :write) params))
   ([conn {:keys [code verification-id]}]
    (sql/execute-one! conn ["DELETE FROM app_email_verification_codes
-          WHERE code = ? AND verification_id = ?
+          WHERE code = ? AND verification_id = ?::uuid
           RETURNING *"
                            code verification-id])))

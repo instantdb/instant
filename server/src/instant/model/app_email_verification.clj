@@ -18,6 +18,15 @@
   [app-id sender-id]
   (sql/execute-one! (aurora/conn-pool :read) ["SELECT * FROM app_email_verifications WHERE app_id = ? AND sender_id = ?" app-id sender-id]))
 
+(defn verify!
+  ([params] (verify! (aurora/conn-pool :write) params))
+  ([conn {:keys [id]}]
+   (sql/execute-one! conn ["UPDATE app_email_verifications
+          SET verified = true
+          WHERE id = ?::uuid
+          RETURNING *"
+                           id])))
+
 (defn get-by-app-id-and-email-type-with-template
   ([params] (get-by-app-id-and-email-type-with-template
              (aurora/conn-pool :read) params))

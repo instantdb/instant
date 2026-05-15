@@ -1343,8 +1343,8 @@
 (defn sender-verification-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :admin req)
         {postmark-id :postmark_id verification :verification_verified}
-        (tool/inspect (verification/get-by-app-id-and-email-type-with-template
-                       {:app-id app-id :email-type "magic-code"}))]
+        (verification/get-by-app-id-and-email-type-with-template
+         {:app-id app-id :email-type "magic-code"})]
     (response/ok {:sender-verification verification
                   :verification (when postmark-id
                                   (-> (postmark/get-sender! {:id postmark-id})
@@ -1397,17 +1397,28 @@
 
 (defn email-sender-verification-verify
   "verify the code after receiving the email"
-  [req] (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
-              submitted-code (get-in req [:body :code])
-              verification-info (verification/get-by-app-id-and-email-type-with-template
-                                 {:app-id app-id :email-type "magic-code"})
-              valid-codes (app-email-verification-code/get-all-by-verification-id
-                           {:verification-id (:verification_id verification-info)})]
-          (tool/def-locals) (response/ok {:verified valid-codes})))
-
-(comment
-  (do -verification-info)
-  (do -valid-codes))
+  [req]
+  (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
+        submitted-code (ex/get-param! req [:body :code] string-util/coerce-non-blank-str)
+        verification-info (verification/get-by-app-id-and-email-type-with-template
+                           {:app-id app-id :email-type "magic-code"})
+        verification-id (:verification_id verification-info)
+        _ (ex/assert-record! verification-id
+                             :app-email-verification
+                             {:args [{:app-id app-id
+                                      :email-type "magic-code"}]})
+        verified (next-jdbc/with-transaction [tx-conn (aurora/conn-pool :write)]
+                   (when (app-email-verification-code/consume!
+                          tx-conn
+                          {:code submitted-code
+                           :verification-id verification-id})
+                     (verification/verify! tx-conn {:id verification-id})))]
+    (when-not verified
+      (ex/throw-validation-err!
+       :code
+       submitted-code
+       [{:message "Invalid verification code."}]))
+    (response/ok {:verified true})))
 
 (comment
   (def any-app (app-model/get-by-id {:id "d8f9e0a9-b6f5-49e9-a186-eabc7fe4ddac"}))
