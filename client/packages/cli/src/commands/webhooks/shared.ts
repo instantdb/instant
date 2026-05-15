@@ -291,7 +291,7 @@ export const pickEvent = (params: {
                 truncationHint =
                   '\n' +
                   chalk.dim(
-                    `    … ${omitted} more lines · run \`instant-cli webhook event payload --isn ${e.isn}\` for full output`,
+                    `    … ${omitted} more lines · run \`instant-cli webhook event payload --webhook-id ${params.webhookId} --isn ${e.isn}\` for full output`,
                   );
               }
 

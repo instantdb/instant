@@ -28,6 +28,23 @@ import {
 
 type MenuChoice = 'url' | 'namespaces' | 'actions' | 'save' | 'cancel';
 
+const buildUpdateWebhookParams = Effect.fn(function* (
+  url: string | undefined,
+  namespaces: string[] | undefined,
+  actions: WebhookAction[] | undefined,
+) {
+  const params: UpdateWebhookParams<any> = {};
+  if (url) {
+    const trimmed = url.trim();
+    const err = validateWebhookUrl(trimmed);
+    if (err) return yield* BadArgsError.make({ message: err });
+    params.url = trimmed;
+  }
+  if (namespaces) params.namespaces = namespaces;
+  if (actions) params.actions = actions;
+  return params;
+});
+
 const sortedEq = (a: readonly string[], b: readonly string[]) => {
   if (a.length !== b.length) return false;
   const aa = [...a].sort();
@@ -66,15 +83,11 @@ export const webhooksUpdateCmd = Effect.fn(
             'Must specify at least one of --url, --namespaces, or --actions',
         });
       }
-      const params: UpdateWebhookParams<any> = {};
-      if (opts.url) {
-        const trimmedUrl = opts.url.trim();
-        const err = validateWebhookUrl(trimmedUrl);
-        if (err) return yield* BadArgsError.make({ message: err });
-        params.url = trimmedUrl;
-      }
-      if (optsNamespaces) params.namespaces = optsNamespaces;
-      if (optsActions) params.actions = optsActions;
+      const params = yield* buildUpdateWebhookParams(
+        opts.url,
+        optsNamespaces,
+        optsActions,
+      );
       const webhook = yield* useWebhooksManager(
         (m) => m.update(opts.id!, params),
         'Error updating webhook',
@@ -92,15 +105,11 @@ export const webhooksUpdateCmd = Effect.fn(
         },
       });
       if (!id) return;
-      const params: UpdateWebhookParams<any> = {};
-      if (opts.url) {
-        const trimmedUrl = opts.url.trim();
-        const err = validateWebhookUrl(trimmedUrl);
-        if (err) return yield* BadArgsError.make({ message: err });
-        params.url = trimmedUrl;
-      }
-      if (optsNamespaces) params.namespaces = optsNamespaces;
-      if (optsActions) params.actions = optsActions;
+      const params = yield* buildUpdateWebhookParams(
+        opts.url,
+        optsNamespaces,
+        optsActions,
+      );
       const webhook = yield* useWebhooksManager(
         (m) => m.update(id, params),
         'Error updating webhook',
