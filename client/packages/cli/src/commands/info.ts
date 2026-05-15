@@ -1,10 +1,6 @@
-import {
-  HttpClient,
-  HttpClientRequest,
-  HttpClientResponse,
-} from '@effect/platform';
+import { HttpClientResponse } from '@effect/platform';
 import { Effect, Schema, Option } from 'effect';
-import { InstantHttp, InstantHttpAuthed } from '../lib/http.ts';
+import { InstantHttpAuthed } from '../lib/http.ts';
 import { version } from '@instantdb/version';
 import { CurrentApp } from '../context/currentApp.ts';
 
@@ -28,9 +24,6 @@ export const infoCommand = () =>
     const authedHttp = yield* Effect.serviceOption(InstantHttpAuthed).pipe(
       Effect.map(Option.getOrNull),
     );
-    const http = yield* Effect.serviceOption(InstantHttp).pipe(
-      Effect.map(Option.getOrNull),
-    );
     const maybeApp = yield* Effect.serviceOption(CurrentApp);
 
     yield* Effect.log('CLI Version:', version);
@@ -48,35 +41,13 @@ export const infoCommand = () =>
       yield* Effect.log('Not logged in.');
     }
 
-    if (Option.isSome(maybeApp) && (authedHttp || http)) {
-      const app = maybeApp.value;
-      const appHttp =
-        app.adminToken && http
-          ? http.pipe(
-              HttpClient.mapRequest((request) =>
-                request.pipe(
-                  HttpClientRequest.setHeader(
-                    'Authorization',
-                    `Bearer ${app.adminToken}`,
-                  ),
-                ),
-              ),
-            )
-          : authedHttp;
-
-      if (!appHttp) return;
-
-      const appInfo = yield* appHttp
-        .get(`/dash/apps/${app.appId}`)
+    if (Option.isSome(maybeApp) && authedHttp) {
+      const appInfo = yield* authedHttp
+        .get(`/dash/apps/${maybeApp.value.appId}`)
         .pipe(
           Effect.flatMap(HttpClientResponse.schemaBodyJson(DashAppResponse)),
-          Effect.option,
         );
 
-      if (Option.isSome(appInfo)) {
-        yield* Effect.log(
-          `App: ${appInfo.value.app.title} (${appInfo.value.app.id})`,
-        );
-      }
+      yield* Effect.log(`App: ${appInfo.app.title} (${appInfo.app.id})`);
     }
   });
