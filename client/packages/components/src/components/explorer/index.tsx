@@ -105,6 +105,13 @@ export type SearchFilterOp =
 
 export type SearchFilter = [string, SearchFilterOp, any];
 
+export type ExplorerDialog =
+  | { type: 'add-row' }
+  | { type: 'edit-row'; rowId: string }
+  | { type: 'edit-schema' }
+  | { type: 'new-namespace' }
+  | { type: 'recently-deleted-ns' };
+
 export interface ExplorerNav {
   namespace: string;
   where?: [string, any];
@@ -113,6 +120,7 @@ export interface ExplorerNav {
   filters?: SearchFilter[];
   limit?: number;
   page?: number;
+  dialog?: ExplorerDialog | null;
 }
 
 export const Explorer = (_props: WithOptional<ExplorerProps>) => {

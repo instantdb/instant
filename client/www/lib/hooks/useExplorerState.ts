@@ -1,4 +1,4 @@
-import { Explorer, ExplorerNav } from '@instantdb/components';
+import { Explorer, ExplorerDialog, ExplorerNav } from '@instantdb/components';
 import { useCallback, useMemo } from 'react';
 import {
   parseAsBoolean,
@@ -32,12 +32,36 @@ const explorerParsers = {
   filters: parseAsFilters,
   limit: parseAsInteger,
   page: parseAsInteger,
+  dialog: parseAsString,
+  dialogRowId: parseAsString,
 };
 
 const explorerParserOptions = {
   // Use shallow routing to avoid full page re-renders
   shallow: true,
 };
+
+const VALID_DIALOG_TYPES = [
+  'add-row',
+  'edit-row',
+  'edit-schema',
+  'new-namespace',
+  'recently-deleted-ns',
+] as const;
+
+function parseDialog(
+  dialogType: string | null,
+  rowId: string | null,
+): ExplorerDialog | null {
+  if (!dialogType) return null;
+  if (!(VALID_DIALOG_TYPES as readonly string[]).includes(dialogType))
+    return null;
+  if (dialogType === 'edit-row') {
+    if (!rowId) return null;
+    return { type: 'edit-row', rowId };
+  }
+  return { type: dialogType } as ExplorerDialog;
+}
 
 export const useExplorerState = (): ExplorerState => {
   const [state, setState] = useQueryStates(
@@ -46,15 +70,17 @@ export const useExplorerState = (): ExplorerState => {
   );
 
   const explorerState: ExplorerNav | null = useMemo(() => {
-    if (!state.ns) return null;
+    const dialog = parseDialog(state.dialog, state.dialogRowId);
+    if (!state.ns && !dialog) return null;
     return {
-      namespace: state.ns,
+      namespace: state.ns ?? '',
       ...(state.where && { where: state.where }),
       ...(state.sortAttr && { sortAttr: state.sortAttr }),
       ...(state.sortAsc !== null && { sortAsc: state.sortAsc }),
       ...(state.filters && { filters: state.filters }),
       ...(state.limit !== null && { limit: state.limit }),
       ...(state.page !== null && { page: state.page }),
+      ...(dialog && { dialog }),
     };
   }, [state]);
 
@@ -62,17 +88,20 @@ export const useExplorerState = (): ExplorerState => {
     (action: React.SetStateAction<ExplorerNav | null>) => {
       setState(
         (prev) => {
-          const prevNav: ExplorerNav | null = prev.ns
-            ? {
-                namespace: prev.ns,
-                ...(prev.where && { where: prev.where }),
-                ...(prev.sortAttr && { sortAttr: prev.sortAttr }),
-                ...(prev.sortAsc !== null && { sortAsc: prev.sortAsc }),
-                ...(prev.filters && { filters: prev.filters }),
-                ...(prev.limit !== null && { limit: prev.limit }),
-                ...(prev.page !== null && { page: prev.page }),
-              }
-            : null;
+          const prevDialog = parseDialog(prev.dialog, prev.dialogRowId);
+          const prevNav: ExplorerNav | null =
+            prev.ns || prevDialog
+              ? {
+                  namespace: prev.ns ?? '',
+                  ...(prev.where && { where: prev.where }),
+                  ...(prev.sortAttr && { sortAttr: prev.sortAttr }),
+                  ...(prev.sortAsc !== null && { sortAsc: prev.sortAsc }),
+                  ...(prev.filters && { filters: prev.filters }),
+                  ...(prev.limit !== null && { limit: prev.limit }),
+                  ...(prev.page !== null && { page: prev.page }),
+                  ...(prevDialog && { dialog: prevDialog }),
+                }
+              : null;
 
           const next = typeof action === 'function' ? action(prevNav) : action;
 
@@ -85,17 +114,22 @@ export const useExplorerState = (): ExplorerState => {
               filters: null,
               limit: null,
               page: null,
+              dialog: null,
+              dialogRowId: null,
             };
           }
 
           return {
-            ns: next.namespace,
+            ns: next.namespace ? next.namespace : null,
             where: next.where ?? null,
             sortAttr: next.sortAttr ?? null,
             sortAsc: next.sortAsc ?? null,
             filters: next.filters ?? null,
             limit: next.limit ?? null,
             page: next.page ?? null,
+            dialog: next.dialog?.type ?? null,
+            dialogRowId:
+              next.dialog?.type === 'edit-row' ? next.dialog.rowId : null,
           };
         },
         { history: 'push' },

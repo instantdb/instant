@@ -47,7 +47,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { useExplorerProps, useExplorerState } from '.';
+import { ExplorerDialog, useExplorerProps, useExplorerState } from '.';
 import { SearchInput } from './search-input';
 
 import { errorToast, successToast } from '@lib/components/toast';
@@ -256,9 +256,17 @@ export const InnerExplorer: React.FC<{
   const [customPath, setCustomPath] = useState('');
   const [deleteDataConfirmationOpen, setDeleteDataConfirmationOpen] =
     useState(false);
-  const [editNs, setEditNs] = useState<SchemaNamespace | null>(null);
-  const [editableRowId, setEditableRowId] = useState<string | null>(null);
-  const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
+  const setDialog = (d: ExplorerDialog | null) => {
+    explorerProps.setExplorerState((prev) => ({
+      ...(prev ?? { namespace: '' }),
+      dialog: d,
+    }));
+  };
+  const dialog = currentNav?.dialog ?? null;
+  const editNs =
+    dialog?.type === 'edit-schema' ? (selectedNamespace ?? null) : null;
+  const editableRowId = dialog?.type === 'edit-row' ? dialog.rowId : null;
+  const addItemDialogOpen = dialog?.type === 'add-row';
   const lastSelectedIdRef = useRef<string | null>(null);
   const [offsets, setOffsets] = useState<{ [namespace: string]: number }>({});
 
@@ -457,7 +465,9 @@ export const InnerExplorer: React.FC<{
             {readOnlyNs ? null : (
               <button
                 className="translate-y-0.5 opacity-0 transition-opacity group-hover:opacity-100"
-                onClick={() => setEditableRowId(row.id)}
+                onClick={() =>
+                  setDialog({ type: 'edit-row', rowId: row.id })
+                }
               >
                 <PencilSquareIcon className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
               </button>
@@ -895,28 +905,28 @@ export const InnerExplorer: React.FC<{
       <Dialog
         title="Edit Row"
         open={addItemDialogOpen}
-        onClose={() => setAddItemDialogOpen(false)}
+        onClose={() => setDialog(null)}
       >
         {selectedNamespace ? (
           <EditRowDialog
             db={db}
             item={{}}
             namespace={selectedNamespace}
-            onClose={() => setAddItemDialogOpen(false)}
+            onClose={() => setDialog(null)}
           />
         ) : null}
       </Dialog>
       <Dialog
         title="Edit Row"
         open={!!selectedEditableItem}
-        onClose={() => setEditableRowId(null)}
+        onClose={() => setDialog(null)}
       >
         {!!selectedNamespace && !!selectedEditableItem ? (
           <EditRowDialog
             db={db}
             namespace={selectedNamespace}
             item={selectedEditableItem}
-            onClose={() => setEditableRowId(null)}
+            onClose={() => setDialog(null)}
           />
         ) : null}
       </Dialog>
@@ -924,7 +934,7 @@ export const InnerExplorer: React.FC<{
         title="Edit Namespace"
         stopFocusPropagation={true}
         open={Boolean(editNs)}
-        onClose={() => setEditNs(null)}
+        onClose={() => setDialog(null)}
       >
         {selectedNamespace ? (
           <EditNamespaceDialog
@@ -934,7 +944,7 @@ export const InnerExplorer: React.FC<{
             namespace={selectedNamespace}
             namespaces={namespaces ?? []}
             onClose={(p) => {
-              setEditNs(null);
+              setDialog(null);
               if (p?.ok) {
                 history.push({ namespace: namespaces?.[0].id });
               }
@@ -1005,7 +1015,7 @@ export const InnerExplorer: React.FC<{
                 variant="secondary"
                 size="mini"
                 onClick={() => {
-                  setEditNs(selectedNamespace);
+                  setDialog({ type: 'edit-schema' });
                 }}
               >
                 Edit Schema
@@ -1082,7 +1092,7 @@ export const InnerExplorer: React.FC<{
               size="mini"
               variant="secondary"
               onClick={() => {
-                setAddItemDialogOpen(true);
+                setDialog({ type: 'add-row' });
               }}
             >
               <PlusIcon width={12} />
