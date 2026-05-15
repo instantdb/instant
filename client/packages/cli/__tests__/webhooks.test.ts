@@ -315,6 +315,17 @@ describe('webhook add --yes', () => {
     expect(state.manager.create).not.toHaveBeenCalled();
     expect(logs.join('\n')).toMatch(/--actions/);
   });
+  test('missing --url errors and does not call create', async () => {
+    await run(
+      webhooksAddCmd({
+        namespaces: 'posts',
+        actions: 'create',
+      } as any),
+      { yes: true },
+    );
+    expect(state.manager.create).not.toHaveBeenCalled();
+    expect(logs.join('\n')).toMatch(/--url/);
+  });
 });
 
 describe('webhook delete', () => {
