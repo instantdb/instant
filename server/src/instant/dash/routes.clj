@@ -1401,10 +1401,13 @@
               submitted-code (get-in req [:body :code])
               verification-info (verification/get-by-app-id-and-email-type-with-template
                                  {:app-id app-id :email-type "magic-code"})
-              _ (app-email-verification-code/put!
-                 {:code (app-user-magic-code-model/rand-code)
-                  :verification-id (:verification_id verification-info)})]
-          (response/ok {:verified submitted-code})))
+              valid-codes (app-email-verification-code/get-all-by-verification-id
+                           {:verification-id (:verification_id verification-info)})]
+          (tool/def-locals) (response/ok {:verified valid-codes})))
+
+(comment
+  (do -verification-info)
+  (do -valid-codes))
 
 (comment
   (def any-app (app-model/get-by-id {:id "d8f9e0a9-b6f5-49e9-a186-eabc7fe4ddac"}))

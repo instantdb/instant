@@ -12,6 +12,13 @@
           RETURNING *"
                            (random-uuid) code verification-id])))
 
+(defn get-all-by-verification-id
+  ([params] (get-all-by-verification-id (aurora/conn-pool :read) params))
+  ([conn {:keys [verification-id]}]
+   (sql/select conn ["SELECT * FROM app_email_verification_codes
+          WHERE verification_id = ?::uuid"
+                     verification-id])))
+
 (defn consume!
   ([params] (consume! (aurora/conn-pool :write) params))
   ([conn {:keys [code verification-id]}]
