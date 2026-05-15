@@ -6,6 +6,7 @@
    [clojure.walk :as w]
    [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
    [hiccup2.core :as h]
+   [instant.app-email-verification :as app-email-verification]
    [instant.cloudwatch :as cloudwatch]
    [instant.config :as config]
    [instant.dash.admin :as dash-admin]
@@ -1387,13 +1388,23 @@
 
 (defn email-sender-verification-send
   "sends the email"
-  [req] (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
-              verification-info (verification/get-by-app-id-and-email-type-with-template
-                                 {:app-id app-id :email-type "magic-code"})
-              _ (app-email-verification-code/put!
-                 {:code (app-user-magic-code-model/rand-code)
-                  :verification-id (:verification_id verification-info)})]
-          (response/ok {:sent true})))
+  [req]
+  (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
+        verification-info (verification/get-by-app-id-and-email-type-with-template
+                           {:app-id app-id :email-type "magic-code"})
+        verification-id (:verification_id verification-info)
+        sender-email (:email verification-info)
+        _ (ex/assert-record! verification-id
+                             :app-email-verification
+                             {:args [{:app-id app-id
+                                      :email-type "magic-code"}]})
+        code (app-user-magic-code-model/rand-code)
+        _ (app-email-verification-code/put!
+           {:code code
+            :verification-id verification-id})]
+    (app-email-verification/send-code-email! {:code code
+                                              :sender-email sender-email})
+    (response/ok {:sent true})))
 
 (defn email-sender-verification-verify
   "verify the code after receiving the email"
