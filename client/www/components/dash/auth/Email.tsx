@@ -48,8 +48,8 @@ export function getSenderVerification({
   token: string;
   appId: string;
 }): Promise<{
-  senderEmail: string;
   verification: SenderVerificationInfo | null;
+  'sender-verification': boolean | null;
 }> {
   return jsonFetch(`${config.apiURI}/dash/apps/${appId}/sender-verification`, {
     method: 'GET',
@@ -65,13 +65,16 @@ export function Email({ app }: { app: InstantApp }) {
   const template = app.magic_code_email_template;
   const token = useContext(TokenContext);
   const [isEditing, setIsEditing] = useState(Boolean(template) ?? false);
-  const [{ isVerifying, verification }, setVerification] = useState<{
-    isVerifying: boolean;
-    verification: SenderVerificationInfo | null;
-  }>({
-    isVerifying: false,
-    verification: null,
-  });
+  const [{ isVerifying, verification, senderVerified }, setVerification] =
+    useState<{
+      isVerifying: boolean;
+      verification: SenderVerificationInfo | null;
+      senderVerified: boolean | null;
+    }>({
+      isVerifying: false,
+      verification: null,
+      senderVerified: null,
+    });
 
   const { darkMode } = useDarkMode();
 
@@ -85,6 +88,7 @@ export function Email({ app }: { app: InstantApp }) {
       setVerification((prev) => ({
         ...prev,
         verification: response.verification,
+        senderVerified: response['sender-verification'],
       }));
     } catch (error) {
       console.error('Failed to check verification:', error);
@@ -261,13 +265,35 @@ export function Email({ app }: { app: InstantApp }) {
 
             <div className="rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-700/60">
               <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-medium">Email Confirmation</div>
+                <div className="text-sm font-medium">
+                  Postmark Email Confirmation
+                </div>
                 <div className="flex items-center gap-2">
                   <StatusCircle
                     isLoading={isVerifying}
                     isSuccess={verification.Confirmed}
                   />
                   {verification.Confirmed ? (
+                    <div className="text-xs font-medium text-green-600">
+                      Confirmed
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-500 dark:text-neutral-400">
+                      Pending confirmation
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-sm font-medium">
+                  Instant Email Confirmation
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusCircle
+                    isLoading={isVerifying}
+                    isSuccess={senderVerified || false}
+                  />
+                  {senderVerified ? (
                     <div className="text-xs font-medium text-green-600">
                       Confirmed
                     </div>
