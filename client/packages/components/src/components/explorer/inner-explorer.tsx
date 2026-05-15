@@ -944,8 +944,8 @@ export const InnerExplorer: React.FC<{
       </Dialog>
       <div className="flex flex-1 grow flex-col overflow-hidden bg-white dark:bg-neutral-800">
         <div className="flex items-center overflow-hidden border-b border-b-gray-200 dark:border-neutral-700">
-          <div className="flex flex-1 flex-col justify-between py-2 md:flex-row md:items-center">
-            <div className="flex items-center overflow-hidden border-b px-2 py-1 pl-4 md:border-b-0 dark:border-neutral-700">
+          <div className="flex min-w-0 flex-1 flex-col justify-between py-2 md:flex-row md:items-center">
+            <div className="flex min-w-0 flex-1 items-center self-stretch overflow-hidden border-b px-2 py-1 pl-4 md:border-b-0 dark:border-neutral-700">
               {showBackButton ? (
                 <ArrowLeftIcon
                   className="mr-4 inline cursor-pointer"
@@ -967,36 +967,46 @@ export const InnerExplorer: React.FC<{
                   }}
                 />
               ) : null}
-              <div className="text-ellipses shrink truncate overflow-hidden font-mono text-xs whitespace-nowrap dark:text-white">
-                <strong>{selectedNamespace.name}</strong>{' '}
-                {currentNav.where ? (
-                  <>
-                    {' '}
-                    where <strong>{currentNav.where[0]}</strong> ={' '}
-                    <em className="rounded-xs border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
-                      {JSON.stringify(currentNav.where[1])}
-                    </em>
-                  </>
-                ) : null}
-                {currentNav?.filters?.length ? (
-                  <span
-                    title={currentNav.filters
-                      .map(([attr, op, search]) => `${attr} ${op} ${search}`)
-                      .join(' || ')}
-                  >
-                    {currentNav.filters.map(([attr, op, search], i) => (
-                      <span key={attr}>
-                        <em className="rounded-xs border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
-                          {attr} {op} {search}
-                        </em>
-                        {currentNav?.filters?.length &&
-                        i < currentNav.filters.length - 1
-                          ? ' || '
-                          : null}
-                      </span>
-                    ))}
-                  </span>
-                ) : null}
+              <div className="relative min-w-0 flex-1 self-stretch [timeline-scope:--filter-scroll]">
+                <div className="flex h-full items-center overflow-x-auto font-mono text-xs whitespace-nowrap [scroll-timeline:--filter-scroll_inline] dark:text-white">
+                  <strong>{selectedNamespace.name}</strong>{' '}
+                  {currentNav.where ? (
+                    <>
+                      {' '}
+                      where <strong>{currentNav.where[0]}</strong> ={' '}
+                      <em className="rounded-xs border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
+                        {JSON.stringify(currentNav.where[1])}
+                      </em>
+                    </>
+                  ) : null}
+                  {currentNav?.filters?.length ? (
+                    <span
+                      title={currentNav.filters
+                        .map(([attr, op, search]) => `${attr} ${op} ${search}`)
+                        .join(' || ')}
+                    >
+                      {currentNav.filters.map(([attr, op, search], i) => (
+                        <span key={attr}>
+                          <em className="rounded-xs border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
+                            {attr} {op} {search}
+                          </em>
+                          {currentNav?.filters?.length &&
+                          i < currentNav.filters.length - 1
+                            ? ' || '
+                            : null}
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
+                </div>
+                <div
+                  aria-hidden="true"
+                  className="filter-shadow-l pointer-events-none absolute top-0 bottom-0 left-0 w-[30px] bg-linear-to-r from-black/10 via-black/0 to-transparent"
+                />
+                <div
+                  aria-hidden="true"
+                  className="filter-shadow-r pointer-events-none absolute top-0 right-0 bottom-0 w-[30px] bg-linear-to-l from-black/20 via-black/5 to-transparent"
+                />
               </div>
             </div>
             <div className="flex justify-between gap-2 px-2 py-1 md:justify-start">
