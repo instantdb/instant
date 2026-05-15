@@ -75,7 +75,6 @@ import {
   twel,
 } from '@/components/ui';
 import { SearchFilter, useSchemaQuery } from '@/lib/hooks/explorer';
-import { useFlag } from '@/lib/hooks/useFlag';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 import clsx from 'clsx';
@@ -266,7 +265,6 @@ function Dashboard() {
   const fetchedDash = useFetchedDash();
   const posthog = usePostHog();
   const apps = fetchedDash.data.apps;
-  const webhooksEnabled = useFlag('webhooks');
 
   const appId =
     (router.query.app as string) ||
@@ -558,7 +556,6 @@ function Dashboard() {
   const role = getRole(dashResponse.data, app);
   const availableTabs: TabItem[] = mainTabs
     .filter((t) => isTabAvailable(t, role))
-    .filter((t) => t.id !== 'webhooks' || webhooksEnabled)
     .map((t) => {
       return {
         id: t.id,
@@ -953,7 +950,6 @@ function DashboardContent({
   // Subscribe to schema changes at the dashboard level
   const schemaData = useSchemaQuery(connection.db);
   const token = useContext(TokenContext)!;
-  const webhooksEnabled = useFlag('webhooks');
 
   return (
     <>
@@ -991,7 +987,7 @@ function DashboardContent({
         />
       ) : tab === 'auth' ? (
         <AppAuth app={app} key={app.id} nav={nav} />
-      ) : tab === 'webhooks' && webhooksEnabled ? (
+      ) : tab === 'webhooks' ? (
         <Webhooks app={app} namespaces={schemaData.namespaces} />
       ) : tab === 'admin' && isMinRole('admin', role) ? (
         <Admin

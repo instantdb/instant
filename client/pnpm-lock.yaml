@@ -26226,6 +26226,24 @@ snapshots:
       - utf-8-validate
       - vite
 
+  '@vitest/browser@4.0.18(vite@5.4.14(@types/node@22.13.0)(lightningcss@1.30.2)(terser@5.46.2))(vitest@0.21.1)':
+    dependencies:
+      '@vitest/mocker': 4.0.18(vite@5.4.14(@types/node@22.13.0)(lightningcss@1.30.2)(terser@5.46.2))
+      '@vitest/utils': 4.0.18
+      magic-string: 0.30.21
+      pixelmatch: 7.1.0
+      pngjs: 7.0.0
+      sirv: 3.0.2
+      tinyrainbow: 3.0.3
+      vitest: 0.21.1(@vitest/browser@4.0.18)(@vitest/ui@4.0.18)(jsdom@25.0.1)(terser@5.46.2)
+      ws: 8.19.0
+    transitivePeerDependencies:
+      - bufferutil
+      - msw
+      - utf-8-validate
+      - vite
+    optional: true
+
   '@vitest/browser@4.0.18(vite@7.3.1(@types/node@18.19.74)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.2)(tsx@4.19.3)(yaml@2.8.3))(vitest@4.0.18)':
     dependencies:
       '@vitest/mocker': 4.0.18(vite@7.3.1(@types/node@18.19.74)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.2)(tsx@4.19.3)(yaml@2.8.3))
@@ -26242,24 +26260,6 @@ snapshots:
       - msw
       - utf-8-validate
       - vite
-
-  '@vitest/browser@4.0.18(vite@7.3.1(@types/node@22.13.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.2)(tsx@4.19.3)(yaml@2.8.3))(vitest@0.21.1)':
-    dependencies:
-      '@vitest/mocker': 4.0.18(vite@7.3.1(@types/node@22.13.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.2)(tsx@4.19.3)(yaml@2.8.3))
-      '@vitest/utils': 4.0.18
-      magic-string: 0.30.21
-      pixelmatch: 7.1.0
-      pngjs: 7.0.0
-      sirv: 3.0.2
-      tinyrainbow: 3.0.3
-      vitest: 0.21.1(@vitest/browser@4.0.18)(@vitest/ui@4.0.18)(jsdom@25.0.1)(terser@5.46.2)
-      ws: 8.19.0
-    transitivePeerDependencies:
-      - bufferutil
-      - msw
-      - utf-8-validate
-      - vite
-    optional: true
 
   '@vitest/expect@1.6.1':
     dependencies:
@@ -26333,6 +26333,15 @@ snapshots:
     optionalDependencies:
       vite: 5.4.14(@types/node@22.13.0)(lightningcss@1.30.2)(terser@5.46.2)
 
+  '@vitest/mocker@4.0.18(vite@5.4.14(@types/node@22.13.0)(lightningcss@1.30.2)(terser@5.46.2))':
+    dependencies:
+      '@vitest/spy': 4.0.18
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 5.4.14(@types/node@22.13.0)(lightningcss@1.30.2)(terser@5.46.2)
+    optional: true
+
   '@vitest/mocker@4.0.18(vite@7.3.1(@types/node@18.19.74)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.2)(tsx@4.19.3)(yaml@2.8.3))':
     dependencies:
       '@vitest/spy': 4.0.18
@@ -26340,15 +26349,6 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 7.3.1(@types/node@18.19.74)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.2)(tsx@4.19.3)(yaml@2.8.3)
-
-  '@vitest/mocker@4.0.18(vite@7.3.1(@types/node@22.13.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.2)(tsx@4.19.3)(yaml@2.8.3))':
-    dependencies:
-      '@vitest/spy': 4.0.18
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 7.3.1(@types/node@22.13.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.2)(tsx@4.19.3)(yaml@2.8.3)
-    optional: true
 
   '@vitest/mocker@4.1.1(vite@7.3.1(@types/node@17.0.4)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.2)(tsx@4.19.3)(yaml@2.8.3))':
     dependencies:
@@ -37420,7 +37420,7 @@ snapshots:
       tinyspy: 1.1.1
       vite: 3.2.11(@types/node@22.13.0)(terser@5.46.2)
     optionalDependencies:
-      '@vitest/browser': 4.0.18(vite@7.3.1(@types/node@22.13.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.2)(tsx@4.19.3)(yaml@2.8.3))(vitest@0.21.1)
+      '@vitest/browser': 4.0.18(vite@5.4.14(@types/node@22.13.0)(lightningcss@1.30.2)(terser@5.46.2))(vitest@0.21.1)
       '@vitest/ui': 4.0.18(vitest@0.21.1)
       jsdom: 25.0.1
     transitivePeerDependencies:
