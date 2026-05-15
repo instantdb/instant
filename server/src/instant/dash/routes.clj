@@ -1398,12 +1398,14 @@
 (defn email-sender-verification-verify
   "verify the code after receiving the email"
   [req] (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
+              submitted-code (get-in req [:body :code])
               verification-info (verification/get-by-app-id-and-email-type-with-template
                                  {:app-id app-id :email-type "magic-code"})
               _ (app-email-verification-code/put!
                  {:code (app-user-magic-code-model/rand-code)
                   :verification-id (:verification_id verification-info)})]
-          (response/ok {:sent true})))
+          (response/ok {:verified submitted-code})))
+
 (comment
   (def any-app (app-model/get-by-id {:id "d8f9e0a9-b6f5-49e9-a186-eabc7fe4ddac"}))
   (def tmpl-res (email-template-post (assoc (fixtures/mock-app-req any-app) :body {:email-type "magic-code"

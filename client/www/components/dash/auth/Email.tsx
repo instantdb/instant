@@ -75,10 +75,11 @@ export function Email({ app }: { app: InstantApp }) {
       verification: null,
       senderVerified: null,
     });
+  const [hasSentCode, setHasSentCode] = useState(false);
 
   const { darkMode } = useDarkMode();
 
-  const checkVerification = async () => {
+  const checkVerification = async (afterUpdate: boolean) => {
     setVerification((prev) => ({ ...prev, isVerifying: true }));
     try {
       const response = await getSenderVerification({
@@ -90,6 +91,10 @@ export function Email({ app }: { app: InstantApp }) {
         verification: response.verification,
         senderVerified: response['sender-verification'],
       }));
+
+      if (afterUpdate) {
+        // do a send code if necessary
+      }
     } catch (error) {
       console.error('Failed to check verification:', error);
       errorToast('Failed to check verification status');
@@ -119,7 +124,7 @@ export function Email({ app }: { app: InstantApp }) {
         () => {
           successToast('Email template saved!');
           if (values.senderEmail) {
-            checkVerification();
+            checkVerification(true);
           }
         },
         (errorRes) =>
@@ -150,7 +155,7 @@ export function Email({ app }: { app: InstantApp }) {
 
   useEffect(() => {
     if (template?.email) {
-      checkVerification();
+      checkVerification(false);
     }
   }, []);
 

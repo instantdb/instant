@@ -11,3 +11,11 @@
           VALUES (?::uuid, ?, ?)
           RETURNING *"
                            (random-uuid) code verification-id])))
+
+(defn consume!
+  ([params] (consume! (aurora/conn-pool :write) params))
+  ([conn {:keys [code verification-id]}]
+   (sql/execute-one! conn ["DELETE FROM app_email_verification_codes
+          WHERE code = ? AND verification_id = ?
+          RETURNING *"
+                           code verification-id])))
