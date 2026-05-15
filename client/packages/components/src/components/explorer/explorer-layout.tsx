@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ExplorerDialog, useExplorerProps } from '.';
+import { useExplorerDialog, useExplorerProps } from '.';
 import { SchemaNamespace } from '@lib/types';
 import { Button, cn, Dialog, ToggleCollection } from '../ui';
 import {
@@ -28,22 +28,16 @@ export const ExplorerLayout = ({
   appId: string;
 }) => {
   const props = useExplorerProps();
-
-  const setDialog = (dialog: ExplorerDialog | null) => {
-    props.setExplorerState((prev) => ({
-      ...(prev ?? { namespace: '' }),
-      dialog,
-    }));
-  };
+  const { dialog, setDialog } = useExplorerDialog();
 
   const recentlyDeletedNsDialog = {
-    open: props.explorerState?.dialog?.type === 'recently-deleted-ns',
+    open: dialog?.type === 'recently-deleted-ns',
     onOpen: () => setDialog({ type: 'recently-deleted-ns' }),
     onClose: () => setDialog(null),
   };
 
   const newNsDialog = {
-    open: props.explorerState?.dialog?.type === 'new-namespace',
+    open: dialog?.type === 'new-namespace',
     onOpen: () => setDialog({ type: 'new-namespace' }),
     onClose: () => setDialog(null),
   };
@@ -74,18 +68,24 @@ export const ExplorerLayout = ({
   );
 
   // Auto-select first namespace if none selected
+  const { setExplorerState } = props;
   useEffect(() => {
     if (!selectedNamespace && namespaces.length > 0) {
       const savedNamespace = recentExplorerNamespaceId
         ? namespaces.find((ns) => ns.id === recentExplorerNamespaceId)
         : undefined;
       const namespaceId = savedNamespace?.id ?? namespaces[0].id;
-      props.setExplorerState((prev) => ({
+      setExplorerState((prev) => ({
         ...(prev ?? {}),
         namespace: namespaceId,
       }));
     }
-  }, [selectedNamespace, namespaces, props]);
+  }, [
+    selectedNamespace,
+    namespaces,
+    recentExplorerNamespaceId,
+    setExplorerState,
+  ]);
 
   const deletedNamespaces = useRecentlyDeletedNamespaces(props.appId);
 
@@ -103,10 +103,9 @@ export const ExplorerLayout = ({
         <NewNamespaceDialog
           db={db}
           onClose={(p) => {
+            newNsDialog.onClose();
             if (p?.name) {
               props.setExplorerState({ namespace: p.name });
-            } else {
-              newNsDialog.onClose();
             }
           }}
         />
@@ -191,9 +190,7 @@ export const ExplorerLayout = ({
         </button>
       </div>
 
-      {props.explorerState?.namespace && (
-        <InnerExplorer namespaces={namespaces} db={db} />
-      )}
+      {props.explorerState && <InnerExplorer namespaces={namespaces} db={db} />}
     </div>
   );
 };

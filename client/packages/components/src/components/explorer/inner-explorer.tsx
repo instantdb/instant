@@ -47,7 +47,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { ExplorerDialog, useExplorerProps, useExplorerState } from '.';
+import { useExplorerDialog, useExplorerProps, useExplorerState } from '.';
 import { SearchInput } from './search-input';
 
 import { errorToast, successToast } from '@lib/components/toast';
@@ -256,13 +256,7 @@ export const InnerExplorer: React.FC<{
   const [customPath, setCustomPath] = useState('');
   const [deleteDataConfirmationOpen, setDeleteDataConfirmationOpen] =
     useState(false);
-  const setDialog = (d: ExplorerDialog | null) => {
-    explorerProps.setExplorerState((prev) => ({
-      ...(prev ?? { namespace: '' }),
-      dialog: d,
-    }));
-  };
-  const dialog = currentNav?.dialog ?? null;
+  const { dialog, setDialog } = useExplorerDialog();
   const editNs =
     dialog?.type === 'edit-schema' ? (selectedNamespace ?? null) : null;
   const editableRowId = dialog?.type === 'edit-row' ? dialog.rowId : null;
@@ -903,7 +897,7 @@ export const InnerExplorer: React.FC<{
         ) : null}
       </Dialog>
       <Dialog
-        title="Edit Row"
+        title="Add Row"
         open={addItemDialogOpen}
         onClose={() => setDialog(null)}
       >
@@ -943,6 +937,14 @@ export const InnerExplorer: React.FC<{
             db={db}
             namespace={selectedNamespace}
             namespaces={namespaces ?? []}
+            screen={
+              dialog?.type === 'edit-schema'
+                ? dialog.screen
+                : { kind: 'main' }
+            }
+            onScreenChange={(s) =>
+              setDialog({ type: 'edit-schema', screen: s })
+            }
             onClose={(p) => {
               setDialog(null);
               if (p?.ok) {
@@ -1015,7 +1017,10 @@ export const InnerExplorer: React.FC<{
                 variant="secondary"
                 size="mini"
                 onClick={() => {
-                  setDialog({ type: 'edit-schema' });
+                  setDialog({
+                    type: 'edit-schema',
+                    screen: { kind: 'main' },
+                  });
                 }}
               >
                 Edit Schema

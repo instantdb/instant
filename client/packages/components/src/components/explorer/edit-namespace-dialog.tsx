@@ -52,7 +52,7 @@ import {
   jobIsCompleted,
   jobIsErrored,
 } from '@lib/utils/indexingJobs';
-import { useExplorerProps, useExplorerState } from './index';
+import { EditSchemaScreen, useExplorerProps, useExplorerState } from './index';
 import { useClose } from '@headlessui/react';
 import {
   PendingJob,
@@ -69,6 +69,8 @@ export function EditNamespaceDialog({
   namespaces,
   onClose,
   isSystemCatalogNs,
+  screen,
+  onScreenChange,
 }: {
   db: InstantReactWebDatabase<any>;
   namespace: SchemaNamespace;
@@ -76,18 +78,20 @@ export function EditNamespaceDialog({
   onClose: (p?: { ok: boolean }) => void;
   readOnly: boolean;
   isSystemCatalogNs: boolean;
+  screen: EditSchemaScreen;
+  onScreenChange: (screen: EditSchemaScreen) => void;
 }) {
   const props = useExplorerProps();
   const appId = props.appId;
   const { history, explorerState } = useExplorerState();
   const { mutate } = useSWRConfig();
-  const [screen, setScreen] = useState<
-    | { type: 'main' }
-    | { type: 'delete' }
-    | { type: 'rename' }
-    | { type: 'add' }
-    | { type: 'edit'; attrId: string; isForward: boolean }
-  >({ type: 'main' });
+
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const setScreen = (s: EditSchemaScreen) => {
+    setIsDeleting(false);
+    onScreenChange(s);
+  };
 
   const [renameNsInput, setRenameNsInput] = useState(namespace.name);
   const [renameNsErrorText, setRenameNsErrorText] = useState<string | null>(
@@ -121,70 +125,69 @@ export function EditNamespaceDialog({
     );
     successToast('Renamed namespace to ' + newName);
     setRenameNsInput('');
-    setScreen({ type: 'main' });
+    setScreen({ kind: 'main' });
   }
 
   const notes = useAttrNotes();
 
   const screenAttr = useMemo(() => {
-    return (
-      screen.type === 'edit' &&
-      namespace.attrs.find(
-        (a) => a.id === screen.attrId && a.isForward === screen.isForward,
-      )
+    if (screen.kind !== 'edit-attr') return undefined;
+    return namespace.attrs.find(
+      (a) => a.id === screen.attrId && a.isForward === screen.isForward,
     );
   }, [
-    screen.type === 'edit' ? screen.attrId : null,
-    screen.type === 'edit' ? screen.isForward : null,
+    screen.kind === 'edit-attr' ? screen.attrId : null,
+    screen.kind === 'edit-attr' ? screen.isForward : null,
     namespace.attrs,
   ]);
 
-  return (
-    <>
-      {screen.type === 'rename' && (
-        <div className="px-2">
-          <button
-            onClick={() => {
-              setScreen({
-                type: 'main',
-              });
-            }}
-            className="mb-3"
+  return isDeleting ? (
+    <DeleteForm
+      name={namespace.name}
+      type="namespace"
+      onClose={onClose}
+      onConfirm={deleteNs}
+    />
+  ) : screen.kind === 'rename' ? (
+    <div className="px-2">
+      <button
+        onClick={() => {
+          setScreen({ kind: 'main' });
+        }}
+        className="mb-3"
+      >
+        <ArrowLeftIcon className="h-4 w-4 cursor-pointer" />
+      </button>
+      <h6 className="text-md pb-2 font-bold">Rename {namespace.name}</h6>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          renameNs(renameNsInput);
+        }}
+      >
+        <Content className="pb-2 text-sm">
+          This will immediately rename the namespace. You'll need to{' '}
+          <strong className="dark:text-white">update your code</strong> to the
+          new name.
+        </Content>
+        <TextInput
+          disabled={isSystemCatalogNs}
+          value={renameNsInput}
+          onChange={(n) => setRenameNsInput(n)}
+        />
+        <div className="flex flex-col gap-2 rounded-sm py-2">
+          <Button
+            type="submit"
+            disabled={
+              renameNsInput.startsWith('$') || renameNsInput.length === 0
+            }
           >
-            <ArrowLeftIcon className="h-4 w-4 cursor-pointer" />
-          </button>
-          <h6 className="text-md pb-2 font-bold">Rename {namespace.name}</h6>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              renameNs(renameNsInput);
-            }}
-          >
-            <Content className="pb-2 text-sm">
-              This will immediately rename the namespace. You'll need to{' '}
-              <strong className="dark:text-white">update your code</strong> to
-              the new name.
-            </Content>
-            <TextInput
-              disabled={isSystemCatalogNs}
-              value={renameNsInput}
-              onChange={(n) => setRenameNsInput(n)}
-            />
-            <div className="flex flex-col gap-2 rounded-sm py-2">
-              <Button
-                type="submit"
-                disabled={
-                  renameNsInput.startsWith('$') || renameNsInput.length === 0
-                }
-              >
-                Rename {namespace.name} → {renameNsInput}
-              </Button>
-            </div>
-          </form>{' '}
+            Rename {namespace.name} → {renameNsInput}
+          </Button>
         </div>
-      )}
-
-      {screen.type === 'main' ? (
+      </form>
+    </div>
+  ) : screen.kind === 'main' ? (
         <div className="flex flex-col gap-4 px-2">
           <div className="mr-8 flex gap-1">
             <h5 className="flex items-center text-lg font-bold">
@@ -193,7 +196,7 @@ export function EditNamespaceDialog({
             <IconButton
               variant="subtle"
               onClick={() => {
-                setScreen({ type: 'rename' });
+                setScreen({ kind: 'rename' });
               }}
               icon={
                 <PencilSquareIcon className="h-4 w-4 opacity-50"></PencilSquareIcon>
@@ -211,7 +214,7 @@ export function EditNamespaceDialog({
               }
               size="mini"
               variant="secondary"
-              onClick={() => setScreen({ type: 'delete' })}
+              onClick={() => setIsDeleting(true)}
             >
               <TrashIcon className="inline" height="1rem" />
               Delete
@@ -242,7 +245,7 @@ export function EditNamespaceDialog({
                     onClick={() => {
                       notes.removeNote(attr.id);
                       setScreen({
-                        type: 'edit',
+                        kind: 'edit-attr',
                         attrId: attr.id,
                         isForward: attr.isForward,
                       });
@@ -259,7 +262,9 @@ export function EditNamespaceDialog({
             <Button
               size="mini"
               variant="secondary"
-              onClick={() => setScreen({ type: 'add' })}
+              onClick={() =>
+                setScreen({ kind: 'add-attr', attrKind: 'data' })
+              }
             >
               <PlusIcon className="inline" height="12px" />
               New attribute
@@ -272,38 +277,36 @@ export function EditNamespaceDialog({
             namespace={namespace}
           />
         </div>
-      ) : screen.type === 'add' ? (
+      ) : screen.kind === 'add-attr' ? (
         <AddAttrForm
           db={db}
           namespace={namespace}
           namespaces={namespaces}
-          onClose={() => setScreen({ type: 'main' })}
+          onClose={() => setScreen({ kind: 'main' })}
           constraints={getSystemConstraints({
             namespaceName: namespace.name,
             isSystemCatalogNs,
           })}
+          attrType={screen.attrKind === 'link' ? 'ref' : 'blob'}
+          onAttrTypeChange={(t) =>
+            onScreenChange({
+              kind: 'add-attr',
+              attrKind: t === 'ref' ? 'link' : 'data',
+            })
+          }
         />
-      ) : screen.type === 'delete' ? (
-        <DeleteForm
-          name={namespace.name}
-          type="namespace"
-          onClose={onClose}
-          onConfirm={deleteNs}
-        />
-      ) : screen.type === 'edit' && screenAttr ? (
+      ) : screen.kind === 'edit-attr' && screenAttr ? (
         <EditAttrForm
           db={db}
           attr={screenAttr}
-          onClose={() => setScreen({ type: 'main' })}
+          onClose={() => setScreen({ kind: 'main' })}
           constraints={getSystemConstraints({
             namespaceName: namespace.name,
             isSystemCatalogNs: isSystemCatalogNs,
             attr: screenAttr,
           })}
         />
-      ) : null}
-    </>
-  );
+      ) : null;
 }
 
 function DeleteForm({
@@ -350,12 +353,16 @@ function AddAttrForm({
   namespaces,
   onClose,
   constraints,
+  attrType,
+  onAttrTypeChange,
 }: {
   db: InstantReactWebDatabase<any>;
   namespace: SchemaNamespace;
   namespaces: SchemaNamespace[];
   onClose: () => void;
   constraints: SystemConstraints;
+  attrType: 'blob' | 'ref';
+  onAttrTypeChange: (attrType: 'blob' | 'ref') => void;
 }) {
   const [isRequired, setIsRequired] = useState(false);
   const [isIndex, setIsIndex] = useState(false);
@@ -364,7 +371,6 @@ function AddAttrForm({
   const [isCascadeReverse, setIsCascadeReverse] = useState(false);
   const [checkedDataType, setCheckedDataType] =
     useState<CheckedDataType | null>(null);
-  const [attrType, setAttrType] = useState<'blob' | 'ref'>('blob');
   const [relationship, setRelationship] =
     useState<RelationshipKinds>('many-many');
 
@@ -455,7 +461,9 @@ function AddAttrForm({
             { id: 'blob', label: 'Data' },
             { id: 'ref', label: 'Link' },
           ]}
-          onChange={(item) => setAttrType(item.id as 'blob' | 'ref')}
+          onChange={(item) =>
+            onAttrTypeChange(item.id as 'blob' | 'ref')
+          }
         />
       </div>
       {attrType === 'blob' ? (

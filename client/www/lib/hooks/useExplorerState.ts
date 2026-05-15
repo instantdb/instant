@@ -1,4 +1,9 @@
-import { Explorer, ExplorerDialog, ExplorerNav } from '@instantdb/components';
+import {
+  EditSchemaScreen,
+  Explorer,
+  ExplorerDialog,
+  ExplorerNav,
+} from '@instantdb/components';
 import { useCallback, useMemo } from 'react';
 import {
   parseAsBoolean,
@@ -10,7 +15,7 @@ import {
 
 type ExplorerState = [
   Parameters<typeof Explorer>[0]['explorerState'],
-  Parameters<typeof Explorer>[0]['setExplorerState'],
+  NonNullable<Parameters<typeof Explorer>[0]['setExplorerState']>,
 ];
 
 type SearchFilterOp = '=' | '$ilike' | '$like' | '$gt' | '$lt' | '$isNull';
@@ -24,6 +29,57 @@ const parseAsFilters = parseAsJson<SearchFilter[]>((v) =>
   Array.isArray(v) ? (v as SearchFilter[]) : null,
 );
 
+function validateEditSchemaScreen(v: unknown): EditSchemaScreen | null {
+  if (!v || typeof v !== 'object') return null;
+  const obj = v as Record<string, unknown>;
+  switch (obj.kind) {
+    case 'main':
+      return { kind: 'main' };
+    case 'rename':
+      return { kind: 'rename' };
+    case 'add-attr':
+      if (obj.attrKind !== 'data' && obj.attrKind !== 'link') return null;
+      return { kind: 'add-attr', attrKind: obj.attrKind };
+    case 'edit-attr':
+      if (typeof obj.attrId !== 'string') return null;
+      if (typeof obj.isForward !== 'boolean') return null;
+      return {
+        kind: 'edit-attr',
+        attrId: obj.attrId,
+        isForward: obj.isForward,
+      };
+    default:
+      return null;
+  }
+}
+
+function validateExplorerDialog(v: unknown): ExplorerDialog | null {
+  if (!v || typeof v !== 'object') return null;
+  const obj = v as Record<string, unknown>;
+  switch (obj.type) {
+    case 'add-row':
+      return { type: 'add-row' };
+    case 'new-namespace':
+      return { type: 'new-namespace' };
+    case 'recently-deleted-ns':
+      return { type: 'recently-deleted-ns' };
+    case 'edit-row':
+      if (typeof obj.rowId !== 'string') return null;
+      return { type: 'edit-row', rowId: obj.rowId };
+    case 'edit-schema': {
+      const screen = validateEditSchemaScreen(obj.screen);
+      if (!screen) return null;
+      return { type: 'edit-schema', screen };
+    }
+    default:
+      return null;
+  }
+}
+
+const parseAsExplorerDialog = parseAsJson<ExplorerDialog>(
+  validateExplorerDialog,
+);
+
 const explorerParsers = {
   ns: parseAsString, // namespace
   where: parseAsWhere,
@@ -32,36 +88,13 @@ const explorerParsers = {
   filters: parseAsFilters,
   limit: parseAsInteger,
   page: parseAsInteger,
-  dialog: parseAsString,
-  dialogRowId: parseAsString,
+  dialog: parseAsExplorerDialog,
 };
 
 const explorerParserOptions = {
   // Use shallow routing to avoid full page re-renders
   shallow: true,
 };
-
-const VALID_DIALOG_TYPES = [
-  'add-row',
-  'edit-row',
-  'edit-schema',
-  'new-namespace',
-  'recently-deleted-ns',
-] as const;
-
-function parseDialog(
-  dialogType: string | null,
-  rowId: string | null,
-): ExplorerDialog | null {
-  if (!dialogType) return null;
-  if (!(VALID_DIALOG_TYPES as readonly string[]).includes(dialogType))
-    return null;
-  if (dialogType === 'edit-row') {
-    if (!rowId) return null;
-    return { type: 'edit-row', rowId };
-  }
-  return { type: dialogType } as ExplorerDialog;
-}
 
 export const useExplorerState = (): ExplorerState => {
   const [state, setState] = useQueryStates(
@@ -70,17 +103,16 @@ export const useExplorerState = (): ExplorerState => {
   );
 
   const explorerState: ExplorerNav | null = useMemo(() => {
-    const dialog = parseDialog(state.dialog, state.dialogRowId);
-    if (!state.ns && !dialog) return null;
+    if (!state.ns) return null;
     return {
-      namespace: state.ns ?? '',
+      namespace: state.ns,
       ...(state.where && { where: state.where }),
       ...(state.sortAttr && { sortAttr: state.sortAttr }),
       ...(state.sortAsc !== null && { sortAsc: state.sortAsc }),
       ...(state.filters && { filters: state.filters }),
       ...(state.limit !== null && { limit: state.limit }),
       ...(state.page !== null && { page: state.page }),
-      ...(dialog && { dialog }),
+      ...(state.dialog && { dialog: state.dialog }),
     };
   }, [state]);
 
@@ -88,20 +120,18 @@ export const useExplorerState = (): ExplorerState => {
     (action: React.SetStateAction<ExplorerNav | null>) => {
       setState(
         (prev) => {
-          const prevDialog = parseDialog(prev.dialog, prev.dialogRowId);
-          const prevNav: ExplorerNav | null =
-            prev.ns || prevDialog
-              ? {
-                  namespace: prev.ns ?? '',
-                  ...(prev.where && { where: prev.where }),
-                  ...(prev.sortAttr && { sortAttr: prev.sortAttr }),
-                  ...(prev.sortAsc !== null && { sortAsc: prev.sortAsc }),
-                  ...(prev.filters && { filters: prev.filters }),
-                  ...(prev.limit !== null && { limit: prev.limit }),
-                  ...(prev.page !== null && { page: prev.page }),
-                  ...(prevDialog && { dialog: prevDialog }),
-                }
-              : null;
+          const prevNav: ExplorerNav | null = prev.ns
+            ? {
+                namespace: prev.ns,
+                ...(prev.where && { where: prev.where }),
+                ...(prev.sortAttr && { sortAttr: prev.sortAttr }),
+                ...(prev.sortAsc !== null && { sortAsc: prev.sortAsc }),
+                ...(prev.filters && { filters: prev.filters }),
+                ...(prev.limit !== null && { limit: prev.limit }),
+                ...(prev.page !== null && { page: prev.page }),
+                ...(prev.dialog && { dialog: prev.dialog }),
+              }
+            : null;
 
           const next = typeof action === 'function' ? action(prevNav) : action;
 
@@ -115,21 +145,18 @@ export const useExplorerState = (): ExplorerState => {
               limit: null,
               page: null,
               dialog: null,
-              dialogRowId: null,
             };
           }
 
           return {
-            ns: next.namespace ? next.namespace : null,
+            ns: next.namespace,
             where: next.where ?? null,
             sortAttr: next.sortAttr ?? null,
             sortAsc: next.sortAsc ?? null,
             filters: next.filters ?? null,
             limit: next.limit ?? null,
             page: next.page ?? null,
-            dialog: next.dialog?.type ?? null,
-            dialogRowId:
-              next.dialog?.type === 'edit-row' ? next.dialog.rowId : null,
+            dialog: next.dialog ?? null,
           };
         },
         { history: 'push' },
