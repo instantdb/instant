@@ -34,7 +34,7 @@ const buildUpdateWebhookParams = Effect.fn(function* (
   actions: WebhookAction[] | undefined,
 ) {
   const params: UpdateWebhookParams<any> = {};
-  if (url) {
+  if (url !== undefined) {
     const trimmed = url.trim();
     const err = validateWebhookUrl(trimmed);
     if (err) return yield* BadArgsError.make({ message: err });
@@ -71,7 +71,8 @@ export const webhooksUpdateCmd = Effect.fn(
     const { yes } = yield* GlobalOpts;
     const optsNamespaces = yield* parseNamespaces(opts.namespaces);
     const optsActions = yield* parseActions(opts.actions);
-    const hasAnyFieldFlag = !!opts.url || !!optsNamespaces || !!optsActions;
+    const hasAnyFieldFlag =
+      opts.url !== undefined || !!optsNamespaces || !!optsActions;
 
     if (yes) {
       if (!opts.id) {

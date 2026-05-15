@@ -391,6 +391,13 @@ describe('webhook update --yes', () => {
     expect(state.manager.update).not.toHaveBeenCalled();
     expect(logs.join('\n')).toMatch(/--id/);
   });
+  test('explicit --url "" errors with URL-cannot-be-empty', async () => {
+    await run(webhooksUpdateCmd({ id: 'wh1', url: '' } as any), {
+      yes: true,
+    });
+    expect(state.manager.update).not.toHaveBeenCalled();
+    expect(logs.join('\n')).toMatch(/URL cannot be empty/);
+  });
 });
 
 describe('interactive flows', () => {
