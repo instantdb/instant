@@ -80,17 +80,28 @@
 }
 
 @utility filter-shadow-r {
-  opacity: 0;
-  animation: filter-shadow-r-fade linear backwards;
-  animation-timeline: --filter-scroll;
-  animation-range: calc(100% - 16px) 100%;
+  opacity: 1;
+
+  @supports (animation-timeline: scroll()) {
+    @media (prefers-reduced-motion: no-preference) {
+      opacity: 0;
+      animation: filter-shadow-r-fade linear backwards;
+      animation-timeline: --filter-scroll;
+      animation-range: calc(100% - 16px) 100%;
+    }
+  }
 }
 
 @utility filter-shadow-l {
   opacity: 0;
-  animation: filter-shadow-l-fade linear forwards;
-  animation-timeline: --filter-scroll;
-  animation-range: 0% 16px;
+
+  @supports (animation-timeline: scroll()) {
+    @media (prefers-reduced-motion: no-preference) {
+      animation: filter-shadow-l-fade linear forwards;
+      animation-timeline: --filter-scroll;
+      animation-range: 0% 16px;
+    }
+  }
 }
 
 @layer base {
