@@ -54,14 +54,14 @@
                                          (when-not (.isEmpty webhook-ids)
                                            webhook-ids))))))
 
-(def ^{:tag Cache} webhook-with-etypes-cache
+(def ^{:tag Cache} webhook-with-namespaces-cache
   (cache/make {:max-size 2048
                :on-remove (fn [_k webhook _]
                             (remove-attr-listener webhook))}))
 
 (defn evict-webhook-from-cache [{:keys [app-id webhook-id]}]
-  (cache/invalidate webhook-with-etypes-cache {:app-id app-id
-                                               :webhook-id webhook-id}))
+  (cache/invalidate webhook-with-namespaces-cache {:app-id app-id
+                                                   :webhook-id webhook-id}))
 
 (defmacro with-cache-invalidation [cache-key & body]
   `(let [cache-key# ~cache-key]
@@ -82,7 +82,7 @@
                                            [:= :app_id :?app-id]
                                            [:= :app_id [:cast [:inline (str system-catalog/system-catalog-app-id)] :uuid]]]
                                           [:= :id [:any :id-attr-ids]]]}
-                                 :etypes]]
+                                 :namespaces]]
                     :from :webhooks
                     :where [:and
                             [:= :app_id :?app-id]
@@ -102,9 +102,9 @@
 (defn get-by-app-id-and-webhook-id!
   ([params]
    ;; Use this approach so that we can invalidate the webhook if the
-   ;; attrs changes, since we rely on the attrs to get the etype
+   ;; attrs changes, since we rely on the attrs to get the namespace
    ;; https://github.com/ben-manes/caffeine/wiki/Compute
-   (->  webhook-with-etypes-cache
+   (->  webhook-with-namespaces-cache
         (.asMap)
         (.computeIfAbsent params (fn [params]
                                    (let [res (get-by-app-id-and-webhook-id!* params)]
@@ -124,7 +124,7 @@
                                            [:= :app_id :?app-id]
                                            [:= :app_id [:cast [:inline (str system-catalog/system-catalog-app-id)] :uuid]]]
                                           [:= :id [:any :id-attr-ids]]]}
-                                 :etypes]]
+                                 :namespaces]]
                     :from :webhooks
                     :where [:= :app_id :?app-id]
                     :order-by [[:created-at :desc]]}))
@@ -302,37 +302,37 @@
                               :status [:inline [:cast [:inline "active"] :webhook_status]]
                               :sink :?sink}]}))
 
-(defn etypes->id-attr-ids+topics!
-  "Resolves etypes to a set of id-attr-ids (the `id` attr for each etype) and a
-   bloom-filter `topics` value. Throws a validation error if any etype is unknown."
-  [app-id etypes]
+(defn namespaces->id-attr-ids+topics!
+  "Resolves namespaces to a set of id-attr-ids (the `id` attr for each namespace) and a
+   bloom-filter `topics` value. Throws a validation error if any namespace is unknown."
+  [app-id namespaces]
   (let [attrs (attr-model/get-by-app-id app-id)
-        id-attr-ids (reduce (fn [attr-ids etype]
-                              (let [attr-id (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))]
+        id-attr-ids (reduce (fn [attr-ids namespace]
+                              (let [attr-id (:id (attr-model/seek-by-fwd-ident-name [namespace "id"] attrs))]
                                 (when-not attr-id
                                   (ex/throw-validation-err!
                                    :webhook
-                                   {:etype etype}
-                                   [{:message (format "Could not find matching table for %s" etype)}]))
+                                   {:namespace namespace}
+                                   [{:message (format "Could not find matching table for %s" namespace)}]))
                                 (conj attr-ids attr-id)))
                             #{}
-                            etypes)
+                            namespaces)
         topics (reduce (fn [acc id]
                          (bit-or acc (history/bloom-bit id)))
                        0
                        id-attr-ids)]
     (when-not (seq id-attr-ids)
-      (ex/throw-validation-err! :webhook {:etypes etypes} [{:message "Webhook must have at least one table."}]))
+      (ex/throw-validation-err! :webhook {:namespaces namespaces} [{:message "Webhook must have at least one table."}]))
     {:id-attr-ids id-attr-ids
      :topics topics}))
 
 (defn create!
-  "Creates a new webhook, validating that the etypes are valid, the webhook url is valid,
+  "Creates a new webhook, validating that the namespaces are valid, the webhook url is valid,
    and that the app has not exceeded the maximum number of webhooks."
   ([params] (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id etypes actions url]}]
+  ([conn {:keys [app-id namespaces actions url]}]
    (assert-valid-url! url)
-   (let [{:keys [id-attr-ids topics]} (etypes->id-attr-ids+topics! app-id etypes)]
+   (let [{:keys [id-attr-ids topics]} (namespaces->id-attr-ids+topics! app-id namespaces)]
      (when-not (seq actions)
        (ex/throw-validation-err! :webhook {:actions actions} [{:message "Webhook must have at least one action."}]))
      (next.jdbc/with-transaction [conn conn]
@@ -408,10 +408,10 @@
             [:= :id :?webhook-id]]}))
 
 (defn update!
-  "Partial update of a webhook's url, etypes, and/or actions. Pass only the
+  "Partial update of a webhook's url, namespaces, and/or actions. Pass only the
    fields you want to change. Does not touch status — use disable!/enable!."
   ([params] (update! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id webhook-id url etypes actions] :as params}]
+  ([conn {:keys [app-id webhook-id url namespaces actions] :as params}]
    (when (contains? params :url)
      (assert-valid-url! url))
    (when (contains? params :actions)
@@ -420,8 +420,8 @@
                                  {:actions actions}
                                  [{:message "Webhook must have at least one action."}])))
    (let [{new-id-attr-ids :id-attr-ids
-          new-topics :topics} (when (contains? params :etypes)
-                                (etypes->id-attr-ids+topics! app-id etypes))]
+          new-topics :topics} (when (contains? params :namespaces)
+                                (namespaces->id-attr-ids+topics! app-id namespaces))]
      (with-cache-invalidation {:app-id app-id
                                :webhook-id webhook-id}
        (next.jdbc/with-transaction [conn conn]
@@ -770,9 +770,9 @@
   "Creates a sha-256 hash of the inputs and generates a UUID from the first
    128 bits. Clients can use it to ensure that they don't handle the same
    record twice."
-  [{:keys [^String etype ^String action ^UUID id ^ISN isn]}]
+  [{:keys [^String namespace ^String action ^UUID id ^ISN isn]}]
   (let [digest (MessageDigest/getInstance "SHA-256")]
-    (.update digest (.getBytes etype StandardCharsets/UTF_8))
+    (.update digest (.getBytes namespace StandardCharsets/UTF_8))
     (.update digest (.getBytes action StandardCharsets/UTF_8))
     (.update digest (uuid-util/->bytes id))
     (.update digest (isn/->bytes isn))
@@ -805,7 +805,7 @@
 
 (defn webhook-data-for-wal-record
   "Returns a list of records:
-   [{etype: <etype>
+   [{namespace: <namespace>
      id: <uuid>
      action: <create|update|delete>}
      before: <?ent>
@@ -816,15 +816,15 @@
         ents-before (topics/extract-entities-before attrs
                                                     ents-after
                                                     wal-record)
-        etypes (fn [etype]
-                 (not (nil? (ucoll/index-of etype (:etypes webhook)))))
+        namespaces (fn [namespace]
+                     (not (nil? (ucoll/index-of namespace (:namespaces webhook)))))
         actions (fn [action]
                   (not (nil? (ucoll/index-of action (:actions webhook)))))]
-    (concat (for [[etype ents] ents-after
+    (concat (for [[namespace ents] ents-after
                   [id ent] ents
-                  :let [ent-before (get-in ents-before [etype id])
+                  :let [ent-before (get-in ents-before [namespace id])
                         action (if ent-before "update" "create")]
-                  :when (and (etypes etype)
+                  :when (and (namespaces namespace)
                              (actions action))
                   :let [id (parse-uuid id)
                         before (when (= action "update")
@@ -833,40 +833,40 @@
                   ;; Filters out the updates where we only add or remove a link,
                   ;; we currently don't support webhooks for linking
                   :when (not= before after)
-                  :let [result {:etype etype
+                  :let [result {:namespace namespace
                                 :action action
                                 :id id
                                 :before before
                                 :after after
-                                :idempotencyKey (record-idempotency-key {:etype etype
+                                :idempotencyKey (record-idempotency-key {:namespace namespace
                                                                          :action action
                                                                          :id id
                                                                          :isn (:isn wal-record)})}]]
-              (if (= etype "$files")
+              (if (= namespace "$files")
                 (add-file-urls (:app-id wal-record) result)
                 result))
-            (for [[etype ents] ents-before
+            (for [[namespace ents] ents-before
                   [id ent] ents
-                  :when (and (not (get-in ents-after [etype id]))
-                             (etypes etype)
+                  :when (and (not (get-in ents-after [namespace id]))
+                             (namespaces namespace)
                              (actions "delete"))
                   :let [id (parse-uuid id)
-                        result {:etype etype
+                        result {:namespace namespace
                                 :action "delete"
                                 :id id
                                 :before (uuids->labels attrs ent)
                                 :after nil
-                                :idempotencyKey (record-idempotency-key {:etype etype
+                                :idempotencyKey (record-idempotency-key {:namespace namespace
                                                                          :action "delete"
                                                                          :id id
                                                                          :isn (:isn wal-record)})}]]
-              (if (= etype "$files")
+              (if (= namespace "$files")
                 (add-file-urls (:app-id wal-record) result)
                 result)))))
 
 (defn webhook-data-for-isn
   "Returns a list of records:
-   [{etype: <etype>
+   [{namespace: <namespace>
      id: <uuid>
      action: <create|update|delete>}
      before: <?ent>

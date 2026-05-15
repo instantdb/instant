@@ -74,8 +74,8 @@
                   records (-> resp :body :data)]
               (is (= 200 (:status resp)))
               (is (= 1 (count records)))
-              (let [{:keys [etype action id after]} (first records)]
-                (is (= "users" etype))
+              (let [{:keys [namespace action id after]} (first records)]
+                (is (= "users" namespace))
                 (is (= "create" action))
                 (is (= (str user-id) id))
                 (is (= {:id (str user-id) :name "alice"} after)))))

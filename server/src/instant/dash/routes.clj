@@ -1626,7 +1626,7 @@
 ;; Webhooks
 
 (defn webhook-row->response [webhook]
-  (select-keys webhook [:id :sink :etypes :actions :status
+  (select-keys webhook [:id :sink :namespaces :actions :status
                         :disabled_reason :created_at :updated_at]))
 
 (defn coerce-string-vec [x]
@@ -1646,11 +1646,11 @@
                                                                          :data/write
                                                                          req)
         url (ex/get-param! req [:body :url] string-util/coerce-non-blank-str)
-        etypes (ex/get-param! req [:body :etypes] coerce-string-vec)
+        namespaces (ex/get-param! req [:body :namespaces] coerce-string-vec)
         actions (ex/get-param! req [:body :actions] coerce-string-vec)
         {webhook-id :id} (webhook-model/create! {:app-id app-id
                                                  :url url
-                                                 :etypes etypes
+                                                 :namespaces namespaces
                                                  :actions actions})
         webhook (webhook-model/get-by-app-id-and-webhook-id! {:app-id app-id
                                                               :webhook-id webhook-id})]
@@ -1667,8 +1667,8 @@
                  (contains? body :url)
                  (assoc :url (ex/get-param! req [:body :url] string-util/coerce-non-blank-str))
 
-                 (contains? body :etypes)
-                 (assoc :etypes (ex/get-param! req [:body :etypes] coerce-string-vec))
+                 (contains? body :namespaces)
+                 (assoc :namespaces (ex/get-param! req [:body :namespaces] coerce-string-vec))
 
                  (contains? body :actions)
                  (assoc :actions (ex/get-param! req [:body :actions] coerce-string-vec)))]

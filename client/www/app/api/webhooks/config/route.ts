@@ -16,7 +16,7 @@ const getDb = () => {
 type Action = 'create' | 'update' | 'delete';
 
 type Record_ = {
-  etype: string;
+  namespace: string;
   action: Action;
   id: string;
   before: Record<string, unknown> | null;
@@ -76,7 +76,7 @@ const codeBlock = (lang: string, body: string) =>
 
 const baseEmbed = (record: Record_): Embed => ({
   title: 'instant-config changed',
-  footer: { text: `${record.etype} • ${record.action}` },
+  footer: { text: `${record.namespace} • ${record.action}` },
   timestamp: new Date().toISOString(),
 });
 
@@ -125,7 +125,7 @@ const flagEmbed = (record: Record_): Embed | null => {
 };
 
 const defaultEmbed = (record: Record_): Embed => {
-  const header = `\`${record.etype}\` ${record.action}`;
+  const header = `\`${record.namespace}\` ${record.action}`;
   let codeBody = '';
   if (record.action === 'create' && record.after) {
     codeBody = Object.entries(record.after)

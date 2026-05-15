@@ -102,7 +102,7 @@ export function CopyableText({
 
 type CreateBody = {
   url: string;
-  etypes: string[];
+  namespaces: string[];
   actions: InstantWebhookAction[];
 };
 
@@ -186,15 +186,19 @@ function WebhookForm({
 }: {
   heading: string;
   namespaces: SchemaNamespace[] | null;
-  initial?: { url: string; etypes: string[]; actions: InstantWebhookAction[] };
+  initial?: {
+    url: string;
+    namespaces: string[];
+    actions: InstantWebhookAction[];
+  };
   submitLabel: string;
   onSubmit: (body: CreateBody) => Promise<void>;
   onCancel: () => void;
   isLoading: boolean;
 }) {
   const [url, setUrl] = useState(initial?.url ?? '');
-  const [etypes, setEtypes] = useState<Set<string>>(
-    () => new Set(initial?.etypes ?? []),
+  const [selectedNamespaces, setSelectedNamespaces] = useState<Set<string>>(
+    () => new Set(initial?.namespaces ?? []),
   );
   const [actions, setActions] = useState<Set<InstantWebhookAction>>(
     () => new Set(initial?.actions ?? ['create']),
@@ -205,13 +209,13 @@ function WebhookForm({
     [namespaces],
   );
 
-  // Show any etype the webhook already references even if it's no longer in
-  // the schema (renamed/deleted), so the user can deselect it intentionally.
+  // Show any namespace the webhook already references even if it's no longer
+  // in the schema (renamed/deleted), so the user can deselect it intentionally.
   const allOptions = useMemo(() => {
     const set = new Set<string>(namespaceNames);
-    for (const e of initial?.etypes ?? []) set.add(e);
+    for (const e of initial?.namespaces ?? []) set.add(e);
     return [...set].sort();
-  }, [namespaceNames, initial?.etypes]);
+  }, [namespaceNames, initial?.namespaces]);
 
   const toggle = <T,>(set: Set<T>, value: T) => {
     const next = new Set(set);
@@ -244,8 +248,8 @@ function WebhookForm({
       });
       return;
     }
-    if (etypes.size === 0) {
-      errorToast('Select at least one entity.', { autoClose: 5000 });
+    if (selectedNamespaces.size === 0) {
+      errorToast('Select at least one namespace.', { autoClose: 5000 });
       return;
     }
     if (actions.size === 0) {
@@ -254,7 +258,7 @@ function WebhookForm({
     }
     await onSubmit({
       url: trimmed,
-      etypes: [...etypes],
+      namespaces: [...selectedNamespaces],
       actions: [...actions],
     });
   };
@@ -276,18 +280,18 @@ function WebhookForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <Label>Entities</Label>
+        <Label>Namespaces</Label>
         {allOptions.length === 0 ? (
           <Content className="text-xs text-gray-500 dark:text-neutral-500">
-            Define entities in your schema to enable webhooks.
+            Define namespaces in your schema to enable webhooks.
           </Content>
         ) : (
           <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-sm border bg-gray-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/50">
             {allOptions.map((n) => (
               <Checkbox
                 key={n}
-                checked={etypes.has(n)}
-                onChange={() => setEtypes((s) => toggle(s, n))}
+                checked={selectedNamespaces.has(n)}
+                onChange={() => setSelectedNamespaces((s) => toggle(s, n))}
                 label={n}
               />
             ))}
@@ -399,7 +403,7 @@ function EditDialog({
         namespaces={namespaces}
         initial={{
           url: webhook.sink.url,
-          etypes: webhook.etypes ?? [],
+          namespaces: webhook.namespaces ?? [],
           actions: webhook.actions,
         }}
         submitLabel="Save"
@@ -660,11 +664,11 @@ function WebhookRow({
           <dd>
             <CopyableText value={webhook.id} className="font-mono break-all" />
           </dd>
-          <dt className="text-gray-500 dark:text-neutral-500">Entities</dt>
+          <dt className="text-gray-500 dark:text-neutral-500">Namespaces</dt>
           <dd className="font-mono">
-            {(webhook.etypes ?? []).length === 0
+            {(webhook.namespaces ?? []).length === 0
               ? '(none)'
-              : [...(webhook.etypes ?? [])].sort().map((e, i, arr) => (
+              : [...(webhook.namespaces ?? [])].sort().map((e, i, arr) => (
                   <Fragment key={e}>
                     <span className="whitespace-nowrap">{e}</span>
                     {i < arr.length - 1 ? ', ' : ''}
@@ -755,8 +759,8 @@ export function Webhooks({
         <div className="flex flex-col gap-1">
           <SectionHeading>Webhooks</SectionHeading>
           <Content className="text-sm text-gray-500 dark:text-neutral-500">
-            Receive HTTP callbacks when entities are created, updated, or
-            deleted.
+            Receive HTTP callbacks when entries in a namespace are created,
+            updated, or deleted.
           </Content>
         </div>
         <Button variant="primary" onClick={createDialog.onOpen}>

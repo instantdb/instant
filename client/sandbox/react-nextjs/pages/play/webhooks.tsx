@@ -22,7 +22,7 @@ const schema = i.schema({
     }),
     webhookEvents: i.entity({
       receivedAt: i.number().indexed(),
-      etype: i.string(),
+      namespace: i.string(),
       action: i.string(),
       payload: i.json(),
     }),
@@ -33,7 +33,10 @@ const schema = i.schema({
 });
 
 type Schema = typeof schema;
-type EtypeName = Exclude<keyof Schema['entities'] & string, 'webhookEvents'>;
+type NamespaceName = Exclude<
+  keyof Schema['entities'] & string,
+  'webhookEvents'
+>;
 
 const NGROK_KEY = 'webhooks-ngrok';
 const CONFIG_ID = '11111111-1111-4111-9111-111111111111';
@@ -49,7 +52,7 @@ const dangerBtn =
 const subtleBtn =
   'px-2 py-0.5 text-xs bg-white text-gray-700 border rounded hover:bg-gray-50 disabled:opacity-50';
 
-const ALL_ETYPES: EtypeName[] = ['colors', 'items'];
+const ALL_NAMESPACES: NamespaceName[] = ['colors', 'items'];
 const ALL_ACTIONS: WebhookAction[] = ['create', 'update', 'delete'];
 
 function statusColor(status: WebhookEventInfo['status']) {
@@ -166,7 +169,7 @@ function App({
     wrap(async () => {
       await manager.create({
         url: webhookUrl,
-        etypes: ['colors'],
+        namespaces: ['colors'],
         actions: ['create', 'update', 'delete'],
       });
       await refreshWebhooks();
@@ -192,7 +195,11 @@ function App({
 
   const saveEdit = (
     webhookId: string,
-    params: { url: string; etypes: EtypeName[]; actions: WebhookAction[] },
+    params: {
+      url: string;
+      namespaces: NamespaceName[];
+      actions: WebhookAction[];
+    },
   ) =>
     wrap(async () => {
       await manager.update(webhookId, params);
@@ -210,10 +217,10 @@ function App({
     webhookEvents: { $: { order: { receivedAt: 'desc' }, limit: 50 } },
   });
 
-  const addRow = (etype: EtypeName) =>
+  const addRow = (namespace: NamespaceName) =>
     tryFire(async () => {
       const createdAt = Date.now();
-      if (etype === 'colors') {
+      if (namespace === 'colors') {
         await adminDb.transact(
           adminDb.tx.colors[id()].update({
             color: pick(colorOptions),
@@ -230,9 +237,9 @@ function App({
       }
     });
 
-  const updateFirstRow = (etype: EtypeName) =>
+  const updateFirstRow = (namespace: NamespaceName) =>
     tryFire(async () => {
-      if (etype === 'colors') {
+      if (namespace === 'colors') {
         const first = colorsData?.colors?.[0];
         if (!first) return;
         await adminDb.transact(
@@ -249,9 +256,9 @@ function App({
       }
     });
 
-  const deleteFirstRow = (etype: EtypeName) =>
+  const deleteFirstRow = (namespace: NamespaceName) =>
     tryFire(async () => {
-      if (etype === 'colors') {
+      if (namespace === 'colors') {
         const first = colorsData?.colors?.[0];
         if (!first) return;
         await adminDb.transact(adminDb.tx.colors[first.id].delete());
@@ -413,7 +420,7 @@ function App({
                         {w.status}
                       </span>
                       {' · '}
-                      etypes: {(w.etypes ?? []).join(', ') || '—'}
+                      namespaces: {(w.namespaces ?? []).join(', ') || '—'}
                       {' · '}
                       actions: {w.actions.join(', ')}
                       {w.disabledReason && (
@@ -469,7 +476,7 @@ function App({
       <section className="rounded border p-4">
         <h2 className="font-semibold">3. Trigger some events</h2>
         <div className="mt-3 grid grid-cols-2 gap-4">
-          <EtypeControls
+          <NamespaceControls
             label="colors"
             rows={(colorsData?.colors ?? []).map((c: any) => ({
               id: c.id,
@@ -479,7 +486,7 @@ function App({
             onUpdate={() => updateFirstRow('colors')}
             onDelete={() => deleteFirstRow('colors')}
           />
-          <EtypeControls
+          <NamespaceControls
             label="items"
             rows={(itemsData?.items ?? []).map((it: any) => ({
               id: it.id,
@@ -546,7 +553,7 @@ function App({
           {(handlerEventsData?.webhookEvents ?? []).map((e: any) => (
             <li key={e.id} className="rounded border bg-gray-50 p-2">
               <div>
-                <span className="font-mono">{e.etype}</span> /{' '}
+                <span className="font-mono">{e.namespace}</span> /{' '}
                 <span className="font-mono">{e.action}</span>{' '}
                 <span className="text-xs text-gray-500">
                   {new Date(e.receivedAt).toLocaleTimeString()}
@@ -569,7 +576,7 @@ function App({
   );
 }
 
-function EtypeControls({
+function NamespaceControls({
   label,
   rows,
   onAdd,
@@ -621,16 +628,16 @@ function WebhookEditor({
   webhook: WebhookInfo;
   onSave: (params: {
     url: string;
-    etypes: EtypeName[];
+    namespaces: NamespaceName[];
     actions: WebhookAction[];
   }) => void;
   onCancel: () => void;
   disabled: boolean;
 }) {
   const [url, setUrl] = useState(webhook.sink.url);
-  const [etypes, setEtypes] = useState<Set<EtypeName>>(
-    () => new Set((webhook.etypes ?? []) as EtypeName[]),
-  );
+  const [selectedNamespaces, setSelectedNamespaces] = useState<
+    Set<NamespaceName>
+  >(() => new Set((webhook.namespaces ?? []) as NamespaceName[]));
   const [actions, setActions] = useState<Set<WebhookAction>>(
     () => new Set(webhook.actions),
   );
@@ -652,14 +659,14 @@ function WebhookEditor({
       />
       <div className="flex flex-wrap gap-3">
         <div>
-          <div className="text-xs text-gray-600">etypes</div>
+          <div className="text-xs text-gray-600">namespaces</div>
           <div className="mt-1 flex gap-2">
-            {ALL_ETYPES.map((e) => (
+            {ALL_NAMESPACES.map((e) => (
               <label key={e} className="text-xs">
                 <input
                   type="checkbox"
-                  checked={etypes.has(e)}
-                  onChange={() => setEtypes((s) => toggle(s, e))}
+                  checked={selectedNamespaces.has(e)}
+                  onChange={() => setSelectedNamespaces((s) => toggle(s, e))}
                 />{' '}
                 {e}
               </label>
@@ -689,7 +696,7 @@ function WebhookEditor({
           onClick={() =>
             onSave({
               url,
-              etypes: Array.from(etypes),
+              namespaces: Array.from(selectedNamespaces),
               actions: Array.from(actions),
             })
           }
