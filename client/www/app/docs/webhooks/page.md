@@ -9,7 +9,7 @@ Webhooks allow you to subscribe to changes to your entities via POST requests to
 
 ## How webhooks work
 
-A webhook subscribes to one or more **entity types** (namespaces) and **actions** (`create`, `update`, `delete`). Whenever a matching write commits, Instant queues an event and POSTs it to your endpoint.
+A webhook subscribes to one or more **namespaces** and **actions** (`create`, `update`, `delete`). Whenever a matching write commits, Instant queues an event and POSTs it to your endpoint.
 
 Each request carries an `Instant-Signature` header and a small body. The body holds a short-lived URL and a JWT — you exchange them for the full payload of records:
 
@@ -17,7 +17,7 @@ Each request carries an `Instant-Signature` header and a small body. The body ho
 {
   "data": [
     {
-      "etype": "posts",
+      "namespace": "posts",
       "id": "<entity-id>",
       "action": "update",
       "before": { "id": "<entity-id>", "title": "Old title" },
@@ -47,7 +47,7 @@ A webhook that fails too many times in a row is automatically disabled. You can 
 
 ## Setting up a webhook
 
-The easiest way to create a webhook is from the **Webhooks** tab in the dashboard: pick the entity types, the actions, and the URL Instant should POST to.
+The easiest way to create a webhook is from the **Webhooks** tab in the dashboard: pick the namespaces, the actions, and the URL Instant should POST to.
 
 You can also create webhooks programmatically from the admin SDK:
 
@@ -64,7 +64,7 @@ const db = init({
 
 const webhook = await db.webhooks.manager.create({
   url: 'https://example.com/api/instant-webhook',
-  etypes: ['posts', 'comments'],
+  namespaces: ['posts', 'comments'],
   actions: ['create', 'update'],
 });
 ```
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
 
 `Webhooks.helpers<typeof schema>()` gives you `typedHandlers` and `combineHandlers`. Inside each handler, `record.before` and `record.after` are typed according to your schema — TypeScript will autocomplete fields and narrow on `action`.
 
-Handler resolution is most-specific-wins: `etype` + `action`, then the `etype`'s `$default`, then the top-level `$default`. Records with no matching handler are skipped.
+Handler resolution is most-specific-wins: `namespace` + `action`, then the `namespace`'s `$default`, then the top-level `$default`. Records with no matching handler are skipped.
 
 Handlers run concurrently. `processRequest` resolves once every handler resolves or a handler rejects; if any handler rejects, the call rejects too — return a non-2xx response so Instant retries.
 
@@ -224,7 +224,7 @@ const webhooks = await db.webhooks.manager.list();
 // Create
 const hook = await db.webhooks.manager.create({
   url: 'https://example.com/instant',
-  etypes: ['posts'],
+  namespaces: ['posts'],
   actions: ['create', 'update', 'delete'],
 });
 
