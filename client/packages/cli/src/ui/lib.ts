@@ -169,6 +169,26 @@ type Prompted<T> =
       status: 'submitted';
     };
 
+/**
+ * Module-level counter that tracks the cumulative line count of submitted
+ * prompts. A command opts in to "erase the trail at the very end" by calling
+ * {@link clearPromptTrail} right before printing its final summary.
+ */
+let promptTrailLineCount = 0;
+
+/**
+ * Walk the cursor up by however many lines submitted prompts have written, and
+ * erase from there to the end of the screen. Resets the counter. No-op on a
+ * non-TTY stdout (e.g. when output is piped). Vanished prompts don't
+ * contribute, so calling this only erases the dimmed trail.
+ */
+export function clearPromptTrail(): void {
+  if (process.stdout.isTTY && promptTrailLineCount > 0) {
+    process.stdout.write(cursor.up(promptTrailLineCount) + erase.down());
+  }
+  promptTrailLineCount = 0;
+}
+
 export class Terminal implements ITerminal {
   private text = '';
   private status: 'idle' | 'submitted' | 'aborted' = 'idle';
@@ -254,6 +274,23 @@ export class Terminal implements ITerminal {
     this.stdin.removeListener('keypress', keypress);
     if (this.stdin.isTTY) setRawModeWindowsFriendly(this.stdin, false);
     this.closable.close();
+    // Track rows the cursor advanced past so a command can erase the whole
+    // prompt trail at the end. Counts each \n plus wraps for lines wider than
+    // the terminal — mirrors `clear()`'s formula so wrapped output is still
+    // fully cleared. Skip vanished output (whitespace-only after the modifier
+    // ran).
+    if (this.status === 'submitted' && this.text.trim().length > 0) {
+      const cols = this.stdout.columns || 0;
+      const lines = this.text.split(/\r?\n/);
+      let rows = lines.length - 1; // one cursor-down per newline
+      if (cols > 0) {
+        for (const line of lines) {
+          const w = stringWidth(line);
+          if (w > 0) rows += Math.floor((w - 1) / cols);
+        }
+      }
+      promptTrailLineCount += rows;
+    }
   }
 
   result(): Promise<{}> {
@@ -271,7 +308,10 @@ export class Terminal implements ITerminal {
   requestLayout() {
     const string = this.view.fullRender(this.status);
     let realString = string;
-    if (!realString.endsWith('\n')) {
+    // Only ensure a trailing newline when there's content. Vanished renders
+    // (empty string after modifyOutput) would otherwise inject a phantom line
+    // that pushes the next prompt down on each iteration.
+    if (realString.length > 0 && !realString.endsWith('\n')) {
       realString += '\n';
     }
     const realText = this.text.endsWith('\n') ? this.text : `${this.text}\n`;

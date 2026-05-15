@@ -2,11 +2,12 @@ import * as NodeContext from '@effect/platform-node/NodeContext';
 import * as NodeHttpClient from '@effect/platform-node/NodeHttpClient';
 import { Cause, Effect, Layer, ManagedRuntime } from 'effect';
 import { UnknownException } from 'effect/Cause';
+import { inspect } from 'node:util';
 import chalk from 'chalk';
 import { AuthTokenLive } from './context/authToken.ts';
 import { CurrentAppLive } from './context/currentApp.ts';
 import { GlobalOptsLive } from './context/globalOpts.ts';
-import { PlatformApi } from './context/platformApi.ts';
+import { PlatformApi, PlatformApiError } from './context/platformApi.ts';
 import {
   PACKAGE_ALIAS_AND_FULL_NAMES,
   ProjectInfoLive,
@@ -20,6 +21,19 @@ import { SimpleLogLayer } from './logging.ts';
 import { RequestError } from '@effect/platform/HttpClientError';
 
 const runtime = ManagedRuntime.make(SimpleLogLayer);
+
+// Best-effort stringification for unknown error causes. Tries JSON first
+// (compact, readable) and falls back to util.inspect for circular refs or
+// values JSON can't serialize (functions, BigInt, etc.).
+function serializeCause(cause: unknown): string {
+  try {
+    const json = JSON.stringify(cause);
+    if (json !== undefined) return json;
+  } catch {
+    // fall through
+  }
+  return inspect(cause, { depth: 2, breakLength: Infinity });
+}
 
 export const runCommandEffect = <A, E, R extends never>(
   effect: Effect.Effect<A, E, R>,
@@ -45,6 +59,24 @@ export const printRedErrors = Effect.catchAllCause((cause) =>
     // crazy stack trace
     if (theError instanceof RequestError) {
       yield* Effect.logError(theError.toString());
+      return process.exit(1);
+    }
+
+    // Surface server-side validation messages instead of dumping a stack with
+    // the useful detail buried in [cause].
+    if (theError instanceof PlatformApiError) {
+      const cause = theError.cause;
+      const causeMessage =
+        cause instanceof Error
+          ? cause.message
+          : cause != null
+            ? serializeCause(cause)
+            : '';
+      yield* Effect.logError(
+        causeMessage
+          ? `${theError.message}: ${causeMessage}`
+          : theError.message,
+      );
       return process.exit(1);
     }
 
