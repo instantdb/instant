@@ -122,6 +122,7 @@ The Pages Router gives you a Node-style request, so use `processNodeRequest`. Yo
 // pages/api/instant-webhook.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { init, Webhooks } from '@instantdb/admin';
+import { sendNewPostEmail } from '@/lib/emails';
 import schema from '@/instant.schema';
 
 // Signature verification requires the raw bytes
