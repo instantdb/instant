@@ -1,6 +1,8 @@
 (ns instant.runtime.routes-test
   (:require
    [clojure.test :refer [deftest is testing]]
+   [instant.auth.jwt :as jwt]
+   [instant.auth.oauth :as oauth]
    [instant.core :as core]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -12,6 +14,7 @@
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
+   [instant.model.app-oauth-client :as app-oauth-client-model]
    [instant.model.app-oauth-service-provider :as provider-model]
    [instant.model.shared-oauth-client :refer [shared-credentials-user-limit]]
    [instant.model.app-user :as app-user-model]
@@ -28,8 +31,10 @@
    [instant.util.test :as test-util]
    [instant.util.tracer :as tracer])
   (:import
+   (com.auth0.jwt JWT)
    (clojure.lang ExceptionInfo)
-   (java.io ByteArrayInputStream)))
+   (java.io ByteArrayInputStream)
+   (java.util Base64)))
 
 (defn request [opts]
   (with-redefs [tracer/*silence-exceptions?* (atom true)]
@@ -46,6 +51,24 @@
       (if (not= 200 (:status resp))
         (throw (ex-info (str "status " (:status resp)) resp))
         resp))))
+
+(defn- base64url-json [value]
+  (.encodeToString
+   (.withoutPadding (Base64/getUrlEncoder))
+   (.getBytes ^String (->json value) "UTF-8")))
+
+(defn- unsigned-jwt [claims]
+  (str (base64url-json {:alg "RS256" :typ "JWT"})
+       "."
+       (base64url-json claims)
+       ".sig"))
+
+(def ^:private google-discovery
+  {:authorization_endpoint "https://accounts.google.com/o/oauth2/v2/auth"
+   :token_endpoint "https://oauth2.googleapis.com/token"
+   :jwks_uri "https://www.googleapis.com/oauth2/v3/certs"
+   :issuer "https://accounts.google.com"
+   :id_token_signing_alg_values_supported ["RS256"]})
 
 (defn send-code-runtime [app body]
   (let [letter (atom nil)]
@@ -452,6 +475,45 @@
         (is anon-link)
         (is (not= (:id email-user) (:user_id anon-link)))
         (is (= (:id email-user) (:user_id revealed-link)))))))
+
+(deftest google-id-token-callback-rejects-token-for-wrong-client
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [mint-client-id "mint-client.apps.googleusercontent.com"
+            instant-client-id "instant-client.apps.googleusercontent.com"
+            discovery-endpoint "https://accounts.google.com/.well-known/openid-configuration"
+            nonce "nonce"
+            id-token (unsigned-jwt {:iss "https://accounts.google.com"
+                                    :aud mint-client-id
+                                    :sub "google-sub"
+                                    :email "wrong-aud@example.com"
+                                    :email_verified true
+                                    :nonce nonce})]
+        (with-redefs [oauth/fetch-discovery (fn [_] {:data google-discovery})
+                      oauth/get-discovery (fn [_] google-discovery)
+                      jwt/verify-jwt (fn [{:keys [jwt]}]
+                                       (JWT/decode ^String jwt))]
+          (let [provider (provider-model/create! {:app-id app-id
+                                                  :provider-name "google"})]
+            (app-oauth-client-model/create! {:app-id app-id
+                                             :provider-id (:id provider)
+                                             :client-name "google"
+                                             :client-id instant-client-id
+                                             :discovery-endpoint discovery-endpoint
+                                             :meta {}})
+            (let [error (try
+                          (request {:method :post
+                                    :url "/runtime/oauth/id_token"
+                                    :body {:app_id app-id
+                                           :client_name "google"
+                                           :id_token id-token
+                                           :nonce nonce}})
+                          nil
+                          (catch ExceptionInfo e
+                            e))]
+              (is (= 400 (-> error ex-data :status)))
+              (is (re-find #"wrong OAuth client"
+                           (str (-> error ex-data :body :message)))))))))))
 
 ;; -----
 ;; Extra fields on signup
@@ -899,4 +961,3 @@
           (is (thrown-with-msg?
                ExceptionInfo #"Unauthorized origin"
                (route/assert-authorized-request-origin! shared-client "https://attacker.com"))))))))
-
