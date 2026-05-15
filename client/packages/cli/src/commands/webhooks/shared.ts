@@ -221,6 +221,8 @@ const formatExpandedEvent = (
       }
       if (a.responseText) {
         const trimmed = a.responseText.replace(/\s+/g, ' ').trim();
+        // 13 reserves the visible prefix on the printed line: 9 spaces of
+        // indent + 'body: ' (4 chars including the trailing space).
         const max = Math.max(20, (process.stdout.columns ?? 80) - 13);
         const body =
           trimmed.length > max ? trimmed.slice(0, max - 1) + '…' : trimmed;
@@ -297,7 +299,7 @@ export const pickEvent = (params: {
 
               return `${base}\n${chalk.dim('    Payload:')}\n${chalk.dim(payloadLines.join('\n'))}${truncationHint}`;
             } catch (err: any) {
-              return `${base}\n${chalk.red(`    Payload error: ${err?.message ?? err}`)}`;
+              return `${base}\n${chalk.red(`    Payload error: ${err instanceof Error ? err.message : String(err)}`)}`;
             }
           },
           value: e,
