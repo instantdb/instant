@@ -4,7 +4,12 @@ import stringWidth from 'string-width';
 import { Prompt, SelectState } from './lib.ts';
 import type { AnyKey, ModifyOutputFn } from './lib.ts';
 
-export { render, renderUnwrap, setRawModeWindowsFriendly } from './lib.ts';
+export {
+  clearPromptTrail,
+  render,
+  renderUnwrap,
+  setRawModeWindowsFriendly,
+} from './lib.ts';
 
 export namespace UI {
   type Status = 'idle' | 'submitted' | 'aborted';
@@ -92,6 +97,7 @@ export namespace UI {
     options: {
       value: T;
       label: string;
+      expandableLabel?: string | (() => string | Promise<string>);
       secondary?: boolean;
     }[];
     promptText: string;
@@ -100,25 +106,30 @@ export namespace UI {
   };
   export class Select<T> extends Prompt<T> {
     config(status: 'idle' | 'submitted' | 'aborted'): string {
-      console.log('config', status);
       return status;
     }
 
     private readonly data: SelectState<T>;
     private readonly options: SelectProps<T>['options'];
     private readonly params: SelectProps<T>;
+    private expandedIdx: number | null = null;
+    private stickyExpanded = false;
+    private readonly expansionCache: Map<number, string> = new Map();
+    private readonly expansionLoading: Set<number> = new Set();
 
     constructor(params: SelectProps<T>) {
       super(params.modifyOutput);
       this.on('attach', (terminal) => terminal.toggleCursor('hide'));
-      this.on('input', (input) => {
-        if (input === 'j') {
+      this.on('input', (input, key) => {
+        if (input === 'j' || (key?.ctrl && key.name === 'n')) {
           this.data.selectedIdx =
             (this.data.selectedIdx + 1) % this.options.length;
-        } else if (input === 'k') {
+          this.applyNavigation();
+        } else if (input === 'k' || (key?.ctrl && key.name === 'p')) {
           this.data.selectedIdx =
             (this.data.selectedIdx - 1 + this.options.length) %
             this.options.length;
+          this.applyNavigation();
         }
         this.requestLayout();
       });
@@ -142,6 +153,82 @@ export namespace UI {
       }
 
       this.data.bind(this as any);
+
+      this.on('input', (_input, key) => {
+        if (key?.name === 'tab') {
+          const hasExpandable = this.options.some((o) => o.expandableLabel);
+          if (!hasExpandable) return;
+          this.stickyExpanded = !this.stickyExpanded;
+          if (this.stickyExpanded) {
+            this.expandFocused();
+          } else {
+            this.expandedIdx = null;
+          }
+          this.requestLayout();
+          return;
+        }
+        if (key?.name === 'up' || key?.name === 'down') {
+          this.applyNavigation();
+          this.requestLayout();
+        }
+      });
+    }
+
+    private applyNavigation() {
+      if (this.stickyExpanded) {
+        this.expandFocused();
+      } else {
+        this.expandedIdx = null;
+      }
+    }
+
+    private expandFocused() {
+      const focused = this.data.selectedIdx;
+      const focusedOption = this.options[focused];
+      const exp = focusedOption?.expandableLabel;
+      if (!exp) {
+        this.expandedIdx = null;
+        return;
+      }
+      this.expandedIdx = focused;
+      if (
+        typeof exp === 'function' &&
+        !this.expansionCache.has(focused) &&
+        !this.expansionLoading.has(focused)
+      ) {
+        this.expansionLoading.add(focused);
+        Promise.resolve()
+          .then(() => (exp as () => string | Promise<string>)())
+          .then(
+            (content) => {
+              this.expansionLoading.delete(focused);
+              this.expansionCache.set(focused, content);
+              if (this.expandedIdx === focused) this.requestLayout();
+            },
+            (err) => {
+              this.expansionLoading.delete(focused);
+              this.expansionCache.set(
+                focused,
+                chalk.red(
+                  `    Error loading expansion: ${err?.message ?? err}`,
+                ),
+              );
+              if (this.expandedIdx === focused) this.requestLayout();
+            },
+          );
+      }
+    }
+
+    private getExpansionContent(
+      option: SelectProps<T>['options'][number],
+      idx: number,
+    ): string | null {
+      const exp = option.expandableLabel;
+      if (!exp) return null;
+      if (typeof exp === 'string') return exp;
+      if (this.expansionLoading.has(idx)) return chalk.dim('    Loading…');
+      const cached = this.expansionCache.get(idx);
+      return cached ?? chalk.dim('    Loading…');
     }
 
     result(): T {
@@ -154,35 +241,375 @@ export namespace UI {
 ${chalk.hex('#EA570B').bold('●')} ${this.params.options[this.data.selectedIdx]?.label}`;
       }
 
-      const mainOptionsList = this.options
-        .filter((option) => !option.secondary)
-        .map((option, idx) => {
-          const isSelected = idx === this.data.selectedIdx;
-          const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
-          const label = isSelected
-            ? chalk.bold(option.label)
-            : chalk.dim(option.label);
+      const renderRow = (
+        option: SelectProps<T>['options'][number],
+        originalIdx: number,
+      ) => {
+        const isSelected = originalIdx === this.data.selectedIdx;
+        const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
+        const label = isSelected
+          ? chalk.bold(option.label)
+          : chalk.dim(option.label);
+        const expandedContent =
+          isSelected && this.expandedIdx === originalIdx
+            ? this.getExpansionContent(option, originalIdx)
+            : null;
+        const expanded = expandedContent !== null ? '\n' + expandedContent : '';
+        return `${cursor} ${label}${expanded}`;
+      };
 
-          return `${cursor} ${label}`;
-        })
-        .join('\n');
+      const rowLineCount = (originalIdx: number) => {
+        const opt = this.options[originalIdx]!;
+        const labelLines = opt.label.split('\n').length;
+        const isFocused = originalIdx === this.data.selectedIdx;
+        const expContent =
+          isFocused && this.expandedIdx === originalIdx
+            ? this.getExpansionContent(opt, originalIdx)
+            : null;
+        const expLines =
+          expContent !== null ? expContent.split('\n').length : 0;
+        return labelLines + expLines;
+      };
 
-      const secondaryOptionsList = this.options
-        .filter((option) => option.secondary)
-        .map((option, idx) => {
-          const realIdx = idx + this.options.filter((o) => !o.secondary).length;
-          const isSelected = realIdx === this.data.selectedIdx;
-          const cursor = isSelected ? chalk.hex('#EA570B').bold('●') : '○';
-          const label = isSelected
-            ? chalk.bold(option.label)
-            : chalk.dim(option.label);
+      const mainEntries: {
+        opt: SelectProps<T>['options'][number];
+        originalIdx: number;
+      }[] = [];
+      const secondaryEntries: typeof mainEntries = [];
+      this.options.forEach((o, i) => {
+        if (o.secondary) secondaryEntries.push({ opt: o, originalIdx: i });
+        else mainEntries.push({ opt: o, originalIdx: i });
+      });
 
-          return `${cursor} ${label}`;
-        })
-        .join('\n');
+      const totalRows = process.stdout.rows ?? 24;
+      const secondaryHeight =
+        secondaryEntries.length === 0
+          ? 0
+          : secondaryEntries.reduce(
+              (acc, { originalIdx }) => acc + rowLineCount(originalIdx),
+              0,
+            ) + 1; // +1 for divider
+      const hasExpandable = this.options.some((o) => o.expandableLabel);
+      // chrome = prompt(1) + secondaries(+divider) + hint + safety(2)
+      const chrome = 1 + secondaryHeight + (hasExpandable ? 1 : 0) + 2;
+      const mainBudget = Math.max(3, totalRows - chrome);
+
+      const focusedMainPos = mainEntries.findIndex(
+        (e) => e.originalIdx === this.data.selectedIdx,
+      );
+      let visiblePositions: number[] = [];
+
+      if (focusedMainPos >= 0) {
+        let used = rowLineCount(mainEntries[focusedMainPos]!.originalIdx);
+        visiblePositions = [focusedMainPos];
+        let lo = focusedMainPos - 1;
+        let hi = focusedMainPos + 1;
+        while (lo >= 0 || hi < mainEntries.length) {
+          let progressed = false;
+          if (lo >= 0) {
+            const h = rowLineCount(mainEntries[lo]!.originalIdx);
+            if (used + h <= mainBudget) {
+              visiblePositions.unshift(lo);
+              used += h;
+              lo--;
+              progressed = true;
+            } else {
+              lo = -1;
+            }
+          }
+          if (hi < mainEntries.length) {
+            const h = rowLineCount(mainEntries[hi]!.originalIdx);
+            if (used + h <= mainBudget) {
+              visiblePositions.push(hi);
+              used += h;
+              hi++;
+              progressed = true;
+            } else {
+              hi = mainEntries.length;
+            }
+          }
+          if (!progressed) break;
+        }
+      } else {
+        // Cursor is on a secondary — show as many mains as fit, top-down.
+        let used = 0;
+        for (let i = 0; i < mainEntries.length; i++) {
+          const h = rowLineCount(mainEntries[i]!.originalIdx);
+          if (used + h > mainBudget) break;
+          visiblePositions.push(i);
+          used += h;
+        }
+      }
+
+      const firstVisible = visiblePositions[0] ?? 0;
+      const lastVisible =
+        visiblePositions[visiblePositions.length - 1] ?? mainEntries.length - 1;
+      const aboveCount = firstVisible;
+      const belowCount = Math.max(0, mainEntries.length - 1 - lastVisible);
+
+      const mainLines: string[] = [];
+      if (aboveCount > 0) mainLines.push(chalk.dim(`  ↑ ${aboveCount} more`));
+      for (const pos of visiblePositions) {
+        mainLines.push(
+          renderRow(mainEntries[pos]!.opt, mainEntries[pos]!.originalIdx),
+        );
+      }
+      if (belowCount > 0) mainLines.push(chalk.dim(`  ↓ ${belowCount} more`));
+      const mainBlock = mainLines.join('\n');
+
+      const secondaryBlock =
+        secondaryEntries.length === 0
+          ? ''
+          : chalk.gray(
+              '\n───────────────── Additional Options ─────────────────\n',
+            ) +
+            secondaryEntries
+              .map((e) => renderRow(e.opt, e.originalIdx))
+              .join('\n');
+
+      const expandHint = hasExpandable
+        ? '\n' +
+          chalk.dim(
+            this.stickyExpanded ? '  (tab to collapse)' : '  (tab to expand)',
+          )
+        : '';
 
       return `${this.params.promptText}
-${mainOptionsList}${secondaryOptionsList.length ? chalk.gray('\n───────────────── Additional Options ─────────────────\n') + secondaryOptionsList : ''}`;
+${mainBlock}${secondaryBlock}${expandHint}`;
+    }
+  }
+
+  export type MultiSelectOption<T> = {
+    value: T;
+    label: string;
+  };
+
+  type MultiSelectProps<T> = {
+    options: MultiSelectOption<T>[];
+    promptText: string;
+    initialSelected?: T[];
+    filter?: (filter: string, option: MultiSelectOption<T>) => boolean;
+    minSelected?: number;
+    pageSize?: number;
+    modifyOutput?: ModifyOutputFn;
+  };
+
+  const DEFAULT_MULTI_SELECT_PAGE_SIZE = 10;
+
+  const defaultMultiSelectFilter = <T>(
+    filter: string,
+    option: MultiSelectOption<T>,
+  ) => option.label.toLowerCase().includes(filter.toLowerCase());
+
+  export class MultiSelect<T> extends Prompt<T[]> {
+    private filterText = '';
+    private cursorIdx = 0;
+    private windowStart = 0;
+    private selected: Set<number>;
+    private errorText: string | undefined;
+    private readonly props: MultiSelectProps<T>;
+    private readonly pageSize: number;
+
+    constructor(props: MultiSelectProps<T>) {
+      super(props.modifyOutput);
+      this.props = props;
+      this.pageSize = props.pageSize ?? DEFAULT_MULTI_SELECT_PAGE_SIZE;
+      this.selected = new Set(
+        (props.initialSelected ?? [])
+          .map((v) => props.options.findIndex((o) => o.value === v))
+          .filter((i) => i >= 0),
+      );
+      this.on('attach', (terminal) => {
+        terminal.setAllowInteraction(false);
+        terminal.toggleCursor('hide');
+      });
+      this.on('detach', (terminal) => terminal.toggleCursor('show'));
+      this.on('input', (input, key) => this.handleKey(input, key));
+    }
+
+    private visibleIndices(): number[] {
+      const fn = this.props.filter ?? defaultMultiSelectFilter;
+      if (!this.filterText) return this.props.options.map((_, i) => i);
+      return this.props.options
+        .map((opt, i) => ({ opt, i }))
+        .filter(({ opt }) => fn(this.filterText, opt))
+        .map(({ i }) => i);
+    }
+
+    private clampCursor(visible: number[]) {
+      if (visible.length === 0) {
+        this.cursorIdx = 0;
+      } else if (this.cursorIdx >= visible.length) {
+        this.cursorIdx = visible.length - 1;
+      } else if (this.cursorIdx < 0) {
+        this.cursorIdx = visible.length - 1;
+      }
+    }
+
+    private adjustWindow(visible: number[]) {
+      if (visible.length <= this.pageSize) {
+        this.windowStart = 0;
+        return;
+      }
+      if (this.cursorIdx < this.windowStart) {
+        this.windowStart = this.cursorIdx;
+      } else if (this.cursorIdx >= this.windowStart + this.pageSize) {
+        this.windowStart = this.cursorIdx - this.pageSize + 1;
+      }
+      const maxStart = Math.max(0, visible.length - this.pageSize);
+      if (this.windowStart > maxStart) this.windowStart = maxStart;
+      if (this.windowStart < 0) this.windowStart = 0;
+    }
+
+    private handleKey(input: string | undefined, key: AnyKey) {
+      if (key.name === 'escape') {
+        return this.terminal?.resolve({ data: undefined, status: 'aborted' });
+      }
+      if (key.name === 'return') {
+        const min = this.props.minSelected ?? 0;
+        if (this.selected.size < min) {
+          this.errorText =
+            min === 1
+              ? 'Select at least one option.'
+              : `Select at least ${min} options.`;
+          this.requestLayout();
+          return;
+        }
+        return this.terminal?.resolve({
+          data: this.result(),
+          status: 'submitted',
+        });
+      }
+
+      const visible = this.visibleIndices();
+
+      if (key.name === 'up' || (key.ctrl && key.name === 'p')) {
+        this.cursorIdx -= 1;
+        this.clampCursor(visible);
+        this.adjustWindow(visible);
+        this.requestLayout();
+        return;
+      }
+      if (key.name === 'down' || (key.ctrl && key.name === 'n')) {
+        this.cursorIdx += 1;
+        if (visible.length > 0) this.cursorIdx %= visible.length;
+        this.adjustWindow(visible);
+        this.requestLayout();
+        return;
+      }
+      if (key.name === 'pageup' || (key.ctrl && key.name === 'u')) {
+        this.cursorIdx -= this.pageSize;
+        if (this.cursorIdx < 0) this.cursorIdx = 0;
+        this.adjustWindow(visible);
+        this.requestLayout();
+        return;
+      }
+      if (key.name === 'pagedown' || (key.ctrl && key.name === 'd')) {
+        this.cursorIdx += this.pageSize;
+        if (this.cursorIdx >= visible.length) {
+          this.cursorIdx = Math.max(0, visible.length - 1);
+        }
+        this.adjustWindow(visible);
+        this.requestLayout();
+        return;
+      }
+      if (key.name === 'space') {
+        if (visible.length === 0) return;
+        const optIdx = visible[this.cursorIdx]!;
+        if (this.selected.has(optIdx)) {
+          this.selected.delete(optIdx);
+        } else {
+          this.selected.add(optIdx);
+        }
+        this.errorText = undefined;
+        this.requestLayout();
+        return;
+      }
+      if (key.name === 'backspace') {
+        if (this.filterText.length > 0) {
+          this.filterText = this.filterText.slice(0, -1);
+          this.cursorIdx = 0;
+          this.windowStart = 0;
+          this.requestLayout();
+        }
+        return;
+      }
+      if (key.name?.length === 1 && !key.ctrl && !key.meta && input) {
+        this.filterText += input;
+        this.cursorIdx = 0;
+        this.windowStart = 0;
+        this.requestLayout();
+      }
+    }
+
+    result(): T[] {
+      return [...this.selected]
+        .sort((a, b) => a - b)
+        .map((i) => this.props.options[i]!.value);
+    }
+
+    private renderOption(optIdx: number, isCursor: boolean) {
+      const option = this.props.options[optIdx]!;
+      const isSelected = this.selected.has(optIdx);
+      const checkbox = isSelected ? chalk.green('◉') : '○';
+      const cursorMark = isCursor ? chalk.hex('#EA570B').bold('❯') : ' ';
+      const label = isCursor ? chalk.bold(option.label) : option.label;
+      return `${cursorMark} ${checkbox} ${label}`;
+    }
+
+    render(status: 'idle' | 'submitted' | 'aborted'): string {
+      if (status === 'submitted') {
+        const labels = [...this.selected]
+          .sort((a, b) => a - b)
+          .map((i) => this.props.options[i]!.label);
+        return `${this.props.promptText}
+${chalk.hex('#EA570B').bold('●')} ${labels.length === 0 ? chalk.dim('(none)') : labels.join(', ')}`;
+      }
+
+      const visible = this.visibleIndices();
+      this.adjustWindow(visible);
+      const filterLine = `${chalk.dim('filter:')} ${this.filterText}${chalk.inverse(' ')}`;
+      const errorLine = this.errorText ? `  ${chalk.red(this.errorText)}` : '';
+
+      let optionsBlock: string;
+      if (visible.length === 0) {
+        optionsBlock = chalk.dim('  (no matches)');
+      } else {
+        const windowEnd = Math.min(
+          this.windowStart + this.pageSize,
+          visible.length,
+        );
+        const aboveCount = this.windowStart;
+        const belowCount = visible.length - windowEnd;
+        const lines: string[] = [];
+        lines.push(
+          aboveCount > 0
+            ? chalk.dim(`  ↑ ${aboveCount} more`)
+            : chalk.dim('   '),
+        );
+        for (let i = this.windowStart; i < windowEnd; i++) {
+          lines.push(this.renderOption(visible[i]!, i === this.cursorIdx));
+        }
+        lines.push(
+          belowCount > 0
+            ? chalk.dim(`  ↓ ${belowCount} more`)
+            : chalk.dim('   '),
+        );
+        optionsBlock = lines.join('\n');
+      }
+
+      const hint = chalk.dim(
+        `  ↑↓ or ctrl-n/p navigate · pgup/pgdn or ctrl-u/d page · space toggle · enter submit · esc cancel`,
+      );
+      const counts = chalk.dim(
+        `  ${visible.length} of ${this.props.options.length} shown · ${this.selected.size} selected`,
+      );
+
+      return `${this.props.promptText}${errorLine}
+${filterLine}
+${optionsBlock}
+${counts}
+${hint}`;
     }
   }
 
@@ -311,6 +738,8 @@ ${inputDisplay}`;
             const validationResult = this.props.validate(this.value);
             if (validationResult) {
               this.errorText = validationResult;
+              this.requestLayout();
+              return;
             } else {
               return this.terminal?.resolve({
                 data: this.value,
@@ -326,12 +755,16 @@ ${inputDisplay}`;
         }
         if (keyInfo.name === 'backspace') {
           this.value = this.value.slice(0, -1);
+          this.errorText = undefined;
         } else if (keyInfo.name?.length === 1) {
           this.value += input;
+          this.errorText = undefined;
         } else if (keyInfo.name === 'space') {
           this.value += ' ';
+          this.errorText = undefined;
         } else if (input !== undefined) {
           this.value += input;
+          this.errorText = undefined;
         }
         this.requestLayout();
       });
