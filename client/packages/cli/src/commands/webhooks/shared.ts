@@ -158,8 +158,7 @@ export const renderEventLabel = (e: WebhookEventInfo): string => {
   return `${e.isn}  ${colorStatus(e.status)}  ${chalk.dim(`${attemptsPart} · last: ${lastAttemptSummary(e)}`)}`;
 };
 
-const fmtTime = (d: Date | null) =>
-  d ? d.toISOString().replace('T', ' ').replace(/\..*$/, '') : 'n/a';
+const fmtTime = (d: Date | null) => (d ? d.toLocaleString() : 'n/a');
 
 export const logEventDetail = (e: WebhookEventInfo): string[] => {
   const lines = [
@@ -292,7 +291,7 @@ export const pickEvent = (params: {
                 truncationHint =
                   '\n' +
                   chalk.dim(
-                    `    … ${omitted} more lines · run \`instant-cli webhooks events payload --isn ${e.isn}\` for full output`,
+                    `    … ${omitted} more lines · run \`instant-cli webhook event payload --isn ${e.isn}\` for full output`,
                   );
               }
 

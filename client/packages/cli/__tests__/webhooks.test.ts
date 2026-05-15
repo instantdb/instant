@@ -253,7 +253,7 @@ describe('parseActions', () => {
   });
 });
 
-describe('webhooks list', () => {
+describe('webhook list', () => {
   test('lists webhooks in human format', async () => {
     state.manager = buildManager({ list: [makeWebhook()] });
     await run(webhooksListCmd({} as any), { yes: false });
@@ -276,7 +276,7 @@ describe('webhooks list', () => {
   });
 });
 
-describe('webhooks add --yes', () => {
+describe('webhook add --yes', () => {
   test('happy path calls create with parsed flags', async () => {
     await run(
       webhooksAddCmd({
@@ -317,7 +317,7 @@ describe('webhooks add --yes', () => {
   });
 });
 
-describe('webhooks delete', () => {
+describe('webhook delete', () => {
   test('deletes when --id provided', async () => {
     await run(webhooksDeleteCmd({ id: 'wh1' } as any), { yes: true });
     expect(state.manager.delete).toHaveBeenCalledWith('wh1');
@@ -325,7 +325,7 @@ describe('webhooks delete', () => {
   });
 });
 
-describe('webhooks enable', () => {
+describe('webhook enable', () => {
   test('enables when --id provided', async () => {
     await run(webhooksEnableCmd({ id: 'wh1' } as any), { yes: true });
     expect(state.manager.enable).toHaveBeenCalledWith('wh1');
@@ -333,7 +333,7 @@ describe('webhooks enable', () => {
   });
 });
 
-describe('webhooks disable', () => {
+describe('webhook disable', () => {
   test('without reason', async () => {
     await run(webhooksDisableCmd({ id: 'wh1' } as any), { yes: true });
     expect(state.manager.disable).toHaveBeenCalledWith('wh1', undefined);
@@ -350,7 +350,7 @@ describe('webhooks disable', () => {
   });
 });
 
-describe('webhooks update --yes', () => {
+describe('webhook update --yes', () => {
   test('partial url-only update', async () => {
     await run(
       webhooksUpdateCmd({
@@ -394,7 +394,7 @@ describe('webhooks update --yes', () => {
 });
 
 describe('interactive flows', () => {
-  test('webhooks add prompts for missing url/namespaces/actions', async () => {
+  test('webhook add prompts for missing url/namespaces/actions', async () => {
     state.promptResponses = [
       'https://my-hook.example.com', // URL TextInput
       ['posts', 'authors'], // namespaces MultiSelect
@@ -408,7 +408,7 @@ describe('interactive flows', () => {
     });
   });
 
-  test('webhooks add falls back to text-input for namespaces when schema unavailable', async () => {
+  test('webhook add falls back to text-input for namespaces when schema unavailable', async () => {
     state.namespaces = null;
     state.promptResponses = [
       'https://x.example.com',
@@ -423,7 +423,7 @@ describe('interactive flows', () => {
     });
   });
 
-  test('webhooks delete picker selects a webhook and deletes it', async () => {
+  test('webhook delete picker selects a webhook and deletes it', async () => {
     const wh = makeWebhook({ id: 'pick-me' });
     state.manager = buildManager({ list: [wh] });
     state.promptResponses = [wh];
@@ -431,7 +431,7 @@ describe('interactive flows', () => {
     expect(state.manager.delete).toHaveBeenCalledWith('pick-me');
   });
 
-  test('webhooks update menu edits URL then saves', async () => {
+  test('webhook update menu edits URL then saves', async () => {
     const initial = makeWebhook({
       id: 'wh1',
       sink: { url: 'https://old.example.com' },
@@ -449,7 +449,7 @@ describe('interactive flows', () => {
     });
   });
 
-  test('webhooks update menu cancel does not call update', async () => {
+  test('webhook update menu cancel does not call update', async () => {
     const initial = makeWebhook({ id: 'wh1' });
     state.manager = buildManager({ list: [initial] });
     state.promptResponses = [initial, 'cancel'];
@@ -458,7 +458,7 @@ describe('interactive flows', () => {
     expect(logs.join('\n')).toContain('Cancelled');
   });
 
-  test('webhooks update menu save with no changes does not call update', async () => {
+  test('webhook update menu save with no changes does not call update', async () => {
     const initial = makeWebhook({ id: 'wh1' });
     state.manager = buildManager({ list: [initial] });
     state.promptResponses = [initial, 'save'];
@@ -467,7 +467,7 @@ describe('interactive flows', () => {
     expect(logs.join('\n')).toContain('No changes to save');
   });
 
-  test('webhooks update with field flags skips the menu', async () => {
+  test('webhook update with field flags skips the menu', async () => {
     const initial = makeWebhook({ id: 'wh1' });
     state.manager = buildManager({ list: [initial] });
     state.promptResponses = [initial]; // only the picker
@@ -578,7 +578,7 @@ describe('fetchRecentEvents', () => {
   });
 });
 
-describe('webhooks events list', () => {
+describe('webhook event list', () => {
   test('--yes prints each event with status, attempts, timestamps', async () => {
     state.manager.listEvents = vi.fn().mockResolvedValueOnce(
       eventsPage(
@@ -637,7 +637,7 @@ describe('webhooks events list', () => {
   });
 });
 
-describe('webhooks events resend', () => {
+describe('webhook event resend', () => {
   test('--yes with --webhook-id and --isn calls resendEvent', async () => {
     await run(
       webhooksEventsResendCmd({ webhookId: 'wh1', isn: 'evt-1' } as any),
@@ -671,7 +671,7 @@ describe('webhooks events resend', () => {
   });
 });
 
-describe('webhooks events payload', () => {
+describe('webhook event payload', () => {
   test('--yes prints prettified JSON', async () => {
     state.manager.getPayload = vi.fn().mockResolvedValueOnce({
       records: [{ namespace: 'posts', action: 'create' }],

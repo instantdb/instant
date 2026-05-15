@@ -184,7 +184,7 @@ let promptTrailLineCount = 0;
  */
 export function clearPromptTrail(): void {
   if (process.stdout.isTTY && promptTrailLineCount > 0) {
-    process.stdout.write(`[${promptTrailLineCount}A[0J`);
+    process.stdout.write(cursor.up(promptTrailLineCount) + erase.down());
   }
   promptTrailLineCount = 0;
 }
@@ -274,10 +274,22 @@ export class Terminal implements ITerminal {
     this.stdin.removeListener('keypress', keypress);
     if (this.stdin.isTTY) setRawModeWindowsFriendly(this.stdin, false);
     this.closable.close();
-    // Track lines so a command can erase the whole prompt trail at the end.
-    // Skip vanished output (whitespace-only after the modifier ran).
+    // Track rows the cursor advanced past so a command can erase the whole
+    // prompt trail at the end. Counts each \n plus wraps for lines wider than
+    // the terminal — mirrors `clear()`'s formula so wrapped output is still
+    // fully cleared. Skip vanished output (whitespace-only after the modifier
+    // ran).
     if (this.status === 'submitted' && this.text.trim().length > 0) {
-      promptTrailLineCount += (this.text.match(/\n/g) ?? []).length;
+      const cols = this.stdout.columns || 0;
+      const lines = this.text.split(/\r?\n/);
+      let rows = lines.length - 1; // one cursor-down per newline
+      if (cols > 0) {
+        for (const line of lines) {
+          const w = stringWidth(line);
+          if (w > 0) rows += Math.floor((w - 1) / cols);
+        }
+      }
+      promptTrailLineCount += rows;
     }
   }
 

@@ -68,9 +68,10 @@ export const webhooksUpdateCmd = Effect.fn(
       }
       const params: UpdateWebhookParams<any> = {};
       if (opts.url) {
-        const err = validateWebhookUrl(opts.url);
+        const trimmedUrl = opts.url.trim();
+        const err = validateWebhookUrl(trimmedUrl);
         if (err) return yield* BadArgsError.make({ message: err });
-        params.url = opts.url.trim();
+        params.url = trimmedUrl;
       }
       if (optsNamespaces) params.namespaces = optsNamespaces;
       if (optsActions) params.actions = optsActions;
@@ -93,9 +94,10 @@ export const webhooksUpdateCmd = Effect.fn(
       if (!id) return;
       const params: UpdateWebhookParams<any> = {};
       if (opts.url) {
-        const err = validateWebhookUrl(opts.url);
+        const trimmedUrl = opts.url.trim();
+        const err = validateWebhookUrl(trimmedUrl);
         if (err) return yield* BadArgsError.make({ message: err });
-        params.url = opts.url.trim();
+        params.url = trimmedUrl;
       }
       if (optsNamespaces) params.namespaces = optsNamespaces;
       if (optsActions) params.actions = optsActions;
@@ -165,7 +167,7 @@ export const webhooksUpdateCmd = Effect.fn(
             prompt: 'Webhook URL:',
             defaultValue: seed,
             placeholder: seed,
-            validate: validateWebhookUrl,
+            validate: (v) => validateWebhookUrl(v.trim()),
             modifyOutput: UI.modifiers.piped([
               UI.modifiers.topPadding,
               UI.modifiers.vanishOnComplete,
