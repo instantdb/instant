@@ -28,7 +28,7 @@ export async function GET(
     new URL(request.url).searchParams.get('title')?.trim() || DEFAULT_APP_TITLE;
   const app = await createGDBApp(title);
 
-  const markdown = await generateMarkdown(request, app);
+  const markdown = await generateMarkdown(app);
 
   return new Response(markdown, {
     headers: {

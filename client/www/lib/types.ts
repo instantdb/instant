@@ -29,7 +29,7 @@ export type InstantWebhookStatus = 'active' | 'disabled';
 export type InstantWebhook = {
   id: string;
   sink: { url: string };
-  etypes: string[] | null;
+  namespaces: string[] | null;
   actions: InstantWebhookAction[];
   status: InstantWebhookStatus;
   disabled_reason: string | null;
@@ -74,7 +74,7 @@ export type InstantWebhookEventsPage = {
 export type InstantWebhookPayloadAction = 'create' | 'update' | 'delete';
 
 export type InstantWebhookPayloadRecord = {
-  etype: string;
+  namespace: string;
   id: string;
   action: InstantWebhookPayloadAction;
   before: Record<string, unknown> | null;

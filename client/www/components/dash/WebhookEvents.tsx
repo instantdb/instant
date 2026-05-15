@@ -1,4 +1,11 @@
-import React, { useContext, useEffect, useId, useMemo, useState } from 'react';
+import React, {
+  Fragment,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+} from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon } from '@heroicons/react/24/solid';
 
@@ -19,9 +26,15 @@ import {
   InstantWebhookEventsPage,
   InstantWebhookPayload,
   InstantWebhookPayloadRecord,
+  SchemaNamespace,
 } from '@/lib/types';
 import { Button, Content, SectionHeading } from '@/components/ui';
 import { useReadyRouter } from '@/components/clientOnlyPage';
+import {
+  ALL_ACTIONS,
+  CopyableText,
+  WebhookActionsMenu,
+} from '@/components/dash/Webhooks';
 import {
   Tabs,
   TabsContent,
@@ -384,7 +397,7 @@ function RecordRow({ record }: { record: InstantWebhookPayloadRecord }) {
           className={`shrink-0 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
         />
         <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm font-medium text-gray-700 dark:bg-neutral-700 dark:text-neutral-200">
-          {record.etype}
+          {record.namespace}
         </span>
         <ActionBadge action={record.action} />
         <span className="font-mono text-sm break-all text-gray-500 dark:text-neutral-500">
@@ -394,8 +407,8 @@ function RecordRow({ record }: { record: InstantWebhookPayloadRecord }) {
       {open ? (
         <div id={panelId} className="flex flex-col gap-1 pl-5 text-sm">
           <div>
-            <span className="font-semibold">etype</span>:{' '}
-            <span className="font-mono">{record.etype}</span>
+            <span className="font-semibold">namespace</span>:{' '}
+            <span className="font-mono">{record.namespace}</span>
           </div>
           <div>
             <span className="font-semibold">id</span>:{' '}
@@ -483,7 +496,7 @@ function EventPayload({
               <div className="flex flex-col gap-2">
                 {records.map((r) => (
                   <RecordRow
-                    key={`${r.etype}:${r.id}:${r.action}`}
+                    key={`${r.namespace}:${r.id}:${r.action}`}
                     record={r}
                   />
                 ))}
@@ -684,9 +697,13 @@ function eventDetailHref(
 export function WebhookEventsPage({
   app,
   webhook,
+  namespaces,
+  onChanged,
 }: {
   app: InstantApp;
   webhook: InstantWebhook;
+  namespaces: SchemaNamespace[] | null;
+  onChanged: () => void;
 }) {
   const router = useReadyRouter();
   const focusedIsn =
@@ -703,7 +720,15 @@ export function WebhookEventsPage({
     );
   }
 
-  return <EventsListPage app={app} webhook={webhook} router={router} />;
+  return (
+    <EventsListPage
+      app={app}
+      webhook={webhook}
+      namespaces={namespaces}
+      onChanged={onChanged}
+      router={router}
+    />
+  );
 }
 
 function FocusedEventPage({
@@ -760,10 +785,14 @@ function FocusedEventPage({
 function EventsListPage({
   app,
   webhook,
+  namespaces,
+  onChanged,
   router,
 }: {
   app: InstantApp;
   webhook: InstantWebhook;
+  namespaces: SchemaNamespace[] | null;
+  onChanged: () => void;
   router: ReturnType<typeof useReadyRouter>;
 }) {
   const {
@@ -778,62 +807,98 @@ function EventsListPage({
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
-      <div className="flex flex-row items-center gap-1">
-        <Link href={webhooksHref(router)} className="underline">
-          <SectionHeading>Webhooks</SectionHeading>
-        </Link>
-        <SectionHeading>/</SectionHeading>{' '}
-        <SectionHeading>Events</SectionHeading>
+      <div className="flex flex-row items-center justify-between gap-2">
+        <div className="flex flex-row items-center gap-1">
+          <Link href={webhooksHref(router)} className="underline">
+            <SectionHeading>Webhooks</SectionHeading>
+          </Link>
+          <SectionHeading>/</SectionHeading>{' '}
+          <SectionHeading>Events</SectionHeading>
+        </div>
+        <WebhookActionsMenu
+          app={app}
+          namespaces={namespaces}
+          webhook={webhook}
+          onChanged={onChanged}
+        />
       </div>
 
+      <h4 className="text-sm font-semibold tracking-wide text-gray-500 uppercase dark:text-neutral-400">
+        Details
+      </h4>
+
       <Card>
-        <CardContent className="flex flex-col gap-2 p-4">
-          <h4 className="text-sm font-semibold tracking-wide text-gray-500 uppercase dark:text-neutral-400">
-            Details
-          </h4>
+        <CardContent className="p-4">
           <DetailGrid
             rows={[
               {
+                label: 'ID',
+                value: (
+                  <CopyableText
+                    value={webhook.id}
+                    className="font-mono text-xs break-all"
+                  />
+                ),
+              },
+              {
                 label: 'URL',
                 value: (
-                  <span className="font-mono text-xs break-all">
-                    {webhook.sink.url}
-                  </span>
+                  <CopyableText
+                    value={webhook.sink.url}
+                    className="font-mono text-xs break-all"
+                  />
                 ),
               },
               {
                 label: 'Status',
                 value:
                   webhook.status === 'active' ? (
-                    <span className="text-green-700 dark:text-green-300">
+                    <span className="font-mono text-xs text-green-700 dark:text-green-300">
                       Active
                     </span>
                   ) : (
-                    <span className="text-red-700 dark:text-red-300">
+                    <span className="font-mono text-xs text-red-700 dark:text-red-300">
                       Disabled
                     </span>
                   ),
               },
               {
-                label: 'Entities',
+                label: 'Namespaces',
                 value:
-                  (webhook.etypes ?? []).length === 0 ? (
+                  (webhook.namespaces ?? []).length === 0 ? (
                     <span className="text-gray-400 dark:text-neutral-500">
                       (none)
                     </span>
                   ) : (
                     <span className="font-mono text-xs">
-                      {(webhook.etypes ?? []).join(', ')}
+                      {[...(webhook.namespaces ?? [])]
+                        .sort()
+                        .map((e, i, arr) => (
+                          <Fragment key={e}>
+                            <span className="whitespace-nowrap">{e}</span>
+                            {i < arr.length - 1 ? ', ' : ''}
+                          </Fragment>
+                        ))}
                     </span>
                   ),
               },
               {
                 label: 'Actions',
-                value: webhook.actions.join(', '),
+                value: (
+                  <span className="font-mono text-xs">
+                    {ALL_ACTIONS.filter((a) =>
+                      webhook.actions.includes(a),
+                    ).join(', ')}
+                  </span>
+                ),
               },
               {
                 label: 'Created at',
-                value: formatTimestamp(webhook.created_at),
+                value: (
+                  <span className="font-mono text-xs">
+                    {formatTimestamp(webhook.created_at)}
+                  </span>
+                ),
               },
               ...(webhook.disabled_reason
                 ? [

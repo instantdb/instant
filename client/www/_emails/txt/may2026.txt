@@ -1,0 +1,72 @@
+
+Hey crew! It’s time for another edition of Instant News 🙂 We’ve been shipping a lot the past couple months, capped off with our biggest milestone yet. Here’s the round-up!
+
+**Self-host Instant**
+
+Want to run Instant on your own server? We just made that a lot easier. You can hand the [self-hosting docs](https://www.instantdb.com/docs/self-hosting) to an agent and it’ll set everything up for you. Point Claude or Codex at a fresh box and a few minutes later you’ll have a working Instant instance with TLS, storage, and a dashboard.
+
+Paste the screenshot above to your agent and it’ll get it working!
+
+**Use Instant with any Agent**
+
+We launched [getadb.com](https://www.getadb.com), so it’s easier for agents to build full-stack apps without ever asking for credentials. Just by loading a GET request, an agent gets a database, a sync engine, and abstractions for auth, presence, and streams.
+
+If you ever wanted to quickly hack on an idea try adding getadb to your prompt!
+
+**useInfiniteQuery**
+
+We heard you want infinite scroll so we delivered the new `useInfiniteQuery` hook! It works just like `useQuery`, but you also get a `canLoadNextPage` boolean and a `loadNextPage` function.
+
+This is available in all our client SDK packages!
+
+[Check out the docs](https://www.instantdb.com/docs/infinite-queries) for the full picture.
+
+**Starter templates for Vue and Svelte**
+
+If you’ve been building with Vue or Svelte and wished you could use Instant, now you can.
+
+Realtime queries, auth, presence, cursors, storage, streams: it’s all there. The Svelte SDK is built on Svelte 5 runes and the Vue SDK is built on Vue 3’s Composition API, so everything feels native.
+
+You can try them out by running:
+
+```
+npx create-instant-app --sv
+npx create-instant-app --vue
+```
+
+See our quick-start guides for [Svelte](https://www.instantdb.com/docs/start-svelte) and [Vue](https://www.instantdb.com/docs/start-vue) to get hacking!
+
+**Rate limits**
+
+You can now add rate limits via permission rules! We support per-user, per-IP, and burst limits for both writes and reads.
+
+You can stack multiple limits, mix per-user and per-IP buckets, and chain with other permission checks.
+
+[Check out the docs](https://www.instantdb.com/docs/rate-limits) for the full set of patterns.
+
+**Magic code improvements**
+
+You requested test accounts with static magic codes for app store review. Now you can add them from the [Auth page on the dashboard!](https://www.instantdb.com/dash?s=main\&t=auth)
+
+We also tightened up regular magic code flows: codes have a shorter expiry, are rate limited, and you can configure the duration per app.
+
+**Migrate from Supabase**
+
+Want to give Instant a try but already have a Supabase project? No problem! We also wrote a [migration guide](https://www.instantdb.com/docs/migrate-from-supabase) you can hand to your AI coding assistant. It walks the agent through copying the project, translating schema and RLS policies, rewriting queries, and migrating your data.
+
+This can be an easy way to evaluate whether you want to give an existing project a spin with Instant!
+
+**Instant goes 1.0!**
+
+4 years in the making, we announced **Instant 1.0**! We truly think Instant is the best backend for AI-coded apps today.
+
+We’ve grown 10x in usage and 10k+ GitHub stars since our open source launch 18 months ago. Startups today use us as their core infra.
+
+Read [our 1.0 essay](https://www.instantdb.com/essays) for the full story!
+
+**And a few more things!**
+Here are a few more wins that got shipped thanks to your feedback!
+
+* **Resumable stream updates** Our `@instantdb/resumable-stream` package now works in edge runtimes (Vercel Edge, Cloudflare Workers, Next.js edge routes), reads `NEXT_PUBLIC_INSTANT_APP_ID` automatically, and resuming a missing stream returns `undefined` instead of throwing.
+* **instant-cli query** lets you run InstaQL queries straight from the terminal. Supports JSON5 syntax, and you can pass `--admin`, `--as-email`, or `--as-guest` to control the auth context. Great for piping into `jq` or letting your agent inspect data. [Docs here](https://www.instantdb.com/docs/cli).
+* **Permission undo** is here! If you ever push a bad or unintended permission rule, you can now roll it back from the dashboard. We keep a full history of edits so you can recover with one click.

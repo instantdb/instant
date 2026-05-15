@@ -192,13 +192,13 @@
                                       [:json_build_object
                                        [:inline "id"] :w.id
                                        [:inline "sink"] :w.sink
-                                       [:inline "etypes"] {:select [[[:array_agg :attrs.etype]]]
-                                                           :from [:attrs]
-                                                           :where [:and
-                                                                   [:or
-                                                                    [:= :attrs.app-id :w.app-id]
-                                                                    [:= :attrs.app-id [:cast [:inline (str system-catalog/system-catalog-app-id)] :uuid]]]
-                                                                   [:= :attrs.id [:any :w.id-attr-ids]]]}
+                                       [:inline "namespaces"] {:select [[[:array_agg :attrs.etype]]]
+                                                               :from [:attrs]
+                                                               :where [:and
+                                                                       [:or
+                                                                        [:= :attrs.app-id :w.app-id]
+                                                                        [:= :attrs.app-id [:cast [:inline (str system-catalog/system-catalog-app-id)] :uuid]]]
+                                                                       [:= :attrs.id [:any :w.id-attr-ids]]]}
                                        [:inline "actions"] :w.actions
                                        [:inline "status"] :w.status
                                        [:inline "disabled_reason"] :w.disabled_reason

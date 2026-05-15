@@ -1035,7 +1035,8 @@
                              :hint hint
                              :session-id sess-id})
 
-        ::ex/socket-missing
+        (::ex/socket-missing
+         ::ex/connection-closed)
         (do
           (tracer/record-exception-span! instant-ex
                                          {:name "receive-worker/socket-unreachable"})
