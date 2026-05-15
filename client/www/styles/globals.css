@@ -60,6 +60,7 @@
   /* Firefox */
 }
 
+/* Mirrored in packages/components/src/style.css for the shadow-DOM path. */
 @keyframes filter-shadow-r-fade {
   from {
     opacity: 1;

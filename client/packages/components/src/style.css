@@ -75,6 +75,7 @@ html {
   --default-mono-font-family: 'Berk Mono', var(--font-berk-mono), 'monospace';
 }
 
+/* Mirrored in www/styles/globals.css for the dashboard's non-shadow-DOM mount. */
 @keyframes filter-shadow-r-fade {
   from {
     opacity: 1;
