@@ -14,14 +14,14 @@ type Schema = typeof schema;
 const { typedHandlers, combineHandlers } = Webhooks.helpers<Schema>();
 
 describe('typedHandlers', () => {
-  test('builds a single etype.action entry', () => {
+  test('builds a single namespace.action entry', () => {
     const fn = () => {};
     expect(typedHandlers('posts', 'create', fn)).toEqual({
       posts: { create: fn },
     });
   });
 
-  test('builds an etype $default entry', () => {
+  test('builds a namespace $default entry', () => {
     const fn = () => {};
     expect(typedHandlers('posts', '$default', fn)).toEqual({
       posts: { $default: fn },
@@ -35,7 +35,7 @@ describe('typedHandlers', () => {
 });
 
 describe('combineHandlers', () => {
-  test('merges entries for different etypes', () => {
+  test('merges entries for different namespaces', () => {
     const onPostCreate = () => {};
     const onCommentDelete = () => {};
 
@@ -50,27 +50,27 @@ describe('combineHandlers', () => {
     });
   });
 
-  test('merges actions within the same etype', () => {
+  test('merges actions within the same namespace', () => {
     const onCreate = () => {};
     const onUpdate = () => {};
-    const onEtypeDefault = () => {};
+    const onNamespaceDefault = () => {};
 
     const handlers = combineHandlers(
       typedHandlers('posts', 'create', onCreate),
       typedHandlers('posts', 'update', onUpdate),
-      typedHandlers('posts', '$default', onEtypeDefault),
+      typedHandlers('posts', '$default', onNamespaceDefault),
     );
 
     expect(handlers).toEqual({
       posts: {
         create: onCreate,
         update: onUpdate,
-        $default: onEtypeDefault,
+        $default: onNamespaceDefault,
       },
     });
   });
 
-  test('later entries override earlier ones for the same etype.action', () => {
+  test('later entries override earlier ones for the same namespace.action', () => {
     const first = () => {};
     const second = () => {};
 
@@ -94,7 +94,7 @@ describe('combineHandlers', () => {
     expect(handlers.$default).toBe(secondDefault);
   });
 
-  test('top-level $default does not affect per-etype handlers', () => {
+  test('top-level $default does not affect per-namespace handlers', () => {
     const onPostCreate = () => {};
     const topDefault = () => {};
 

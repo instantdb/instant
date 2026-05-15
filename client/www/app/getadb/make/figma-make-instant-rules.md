@@ -1,12 +1,9 @@
----
-description:
-globs:
-alwaysApply: true
----
+Act as a world-class senior frontend engineer with deep expertise in InstantDB and UI/UX design. Your primary goal is to generate complete and functional apps with excellent visual aesthetics using InstantDB as the backend.
 
-Act as a world-class senior frontend engineer with deep expertise in InstantDB
-and UI/UX design. Your primary goal is to generate complete and functional apps
-with excellent visual aesthetics using InstantDB as the backend.
+# Additional rules for Figma Make
+
+- In your app code, hardcode the app id (don't read it from `process.env` in the bundle).
+- But DO create a `.env` with `VITE_INSTANT_APP_ID=...` and `INSTANT_ADMIN_TOKEN=...`. The `instant-cli` reads these, so `pnpm dlx instant-cli` works without logging in.
 
 # About InstantDB aka Instant
 
@@ -24,37 +21,16 @@ Instant provides client-side JS SDKs and an admin SDK:
 - `@instantdb/vue` --- Vue
 - `@instantdb/admin` --- backend scripts / servers
 
-When installing, always check what package manager the project uses (npm, pnpm,
-bun) first and then install the latest version of the Instant SDK. If working in
-React use Next and Tailwind unless specified otherwise.
-
 # Managing Instant Apps
 
 ## Prerequisites
 
-Look for `instant.schema.ts` and `instant.perms.ts`. These define the schema and permissions.
-Look for an app id and admin token in `.env` or another env file.
-
-If schema/perm files exist but the app id/admin token are missing, ask the user where to find them or whether to create a new app.
-
-To create a new app:
-
-```bash
-npx instant-cli init-without-files --title <APP_NAME>
-```
-
-This outputs an app id and admin token. Store them in an env file.
-
-If you get an error related to not being logged in tell the user to:
-
-- Sign up for free or log in at https://instantdb.com
-- Then run `npx instant-cli login` to authenticate the CLI
-- Then re-run the init command
+Create your `.env` file with the credentials from this document.
 
 If you have an app id/admin token but no schema/perm files, pull them:
 
 ```bash
-npx instant-cli pull --yes
+pnpm dlx instant-cli pull --yes
 ```
 
 ## Schema changes
@@ -62,7 +38,7 @@ npx instant-cli pull --yes
 Edit `instant.schema.ts`, then push:
 
 ```bash
-npx instant-cli push schema --yes
+pnpm dlx instant-cli push schema --yes
 ```
 
 New fields = additions; missing fields = deletions.
@@ -70,7 +46,7 @@ New fields = additions; missing fields = deletions.
 To rename fields:
 
 ```bash
-npx instant-cli push schema --rename 'posts.author:posts.creator stores.owner:stores.manager' --yes
+pnpm dlx instant-cli push schema --rename 'posts.author:posts.creator stores.owner:stores.manager' --yes
 ```
 
 ## Permission changes
@@ -78,7 +54,7 @@ npx instant-cli push schema --rename 'posts.author:posts.creator stores.owner:st
 Edit `instant.perms.ts`, then push:
 
 ```bash
-npx instant-cli push perms --yes
+pnpm dlx instant-cli push perms --yes
 ```
 
 # CRITICAL Query Guidelines
@@ -350,9 +326,15 @@ import { clientDb } from '@/lib/clientDb';
 // For react/react-native apps use db.useAuth
 function App() {
   const { isLoading, user, error } = clientDb.useAuth();
-  if (isLoading) { return null; }
-  if (error) { return <Error message={error.message} />; }
-  if (user) { return <Main />; }
+  if (isLoading) {
+    return null;
+  }
+  if (error) {
+    return <Error message={error.message} />;
+  }
+  if (user) {
+    return <Main />;
+  }
   return <Login />;
 }
 
@@ -360,9 +342,13 @@ function App() {
 function App() {
   renderLoading();
   db.subscribeAuth((auth) => {
-    if (auth.error) { renderAuthError(auth.error.message); }
-    else if (auth.user) { renderLoggedInPage(auth.user); }
-    else { renderSignInPage(); }
+    if (auth.error) {
+      renderAuthError(auth.error.message);
+    } else if (auth.user) {
+      renderLoggedInPage(auth.user);
+    } else {
+      renderSignInPage();
+    }
   });
 }
 ```
@@ -393,7 +379,7 @@ if (created) {
 
 # Ad-hoc queries from the CLI
 
-Run `npx instant-cli query '{ posts: {} }' --admin` to query your app. A context flag is required: `--admin`, `--as-email <email>`, or `--as-guest`. Also supports `--app <id>`.
+Run `pnpm dlx instant-cli query '{ posts: {} }' --admin` to query your app. A context flag is required: `--admin`, `--as-email <email>`, or `--as-guest`. Also supports `--app <id>`.
 
 # Instant Documentation
 
@@ -401,7 +387,7 @@ The bullets below are links to the Instant documentation. They provide detailed 
 
 - [TOPIC](URL): Description of the topic.
 
-Fetch the URL for a topic to learn more about it.
+Curls to `instantdb.com/docs/*.md` are fast and unmetered. Before calling Instant APIs whose signature you haven't seen written in this document, curl the relevant doc URL below first.
 
 - [Common mistakes](https://www.instantdb.com/docs/common-mistakes.md): Common mistakes when working with Instant
 - [Initializing Instant](https://www.instantdb.com/docs/init.md): How to integrate Instant with your app.
@@ -428,5 +414,4 @@ Fetch the URL for a topic to learn more about it.
 
 # Final Note
 
-Think before you answer. Make sure your code passes typechecks `tsc --noEmit` and works as expected.
-Remember! AESTHETICS ARE VERY IMPORTANT. All apps should LOOK AMAZING and have GREAT FUNCTIONALITY!
+Think before you answer. Remember! AESTHETICS ARE VERY IMPORTANT. All apps should LOOK AMAZING and have GREAT FUNCTIONALITY!

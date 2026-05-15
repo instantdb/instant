@@ -45,34 +45,34 @@ export type WebhookBody = {
 
 export type WebhookEntity<
   Schema extends InstantSchemaDef<any, any, any>,
-  EtypeName extends keyof Schema['entities'] & string,
-> = { id: string } & ResolveAttrs<Schema['entities'], EtypeName, false>;
+  NamespaceName extends keyof Schema['entities'] & string,
+> = { id: string } & ResolveAttrs<Schema['entities'], NamespaceName, false>;
 
 export type WebhookPayloadRecord<
   Schema extends InstantSchemaDef<any, any, any>,
 > = {
-  [EtypeName in keyof Schema['entities'] & string]:
+  [NamespaceName in keyof Schema['entities'] & string]:
     | {
-        etype: EtypeName;
+        namespace: NamespaceName;
         id: string;
         action: 'create';
         before: null;
-        after: WebhookEntity<Schema, EtypeName>;
+        after: WebhookEntity<Schema, NamespaceName>;
         idempotencyKey: string;
       }
     | {
-        etype: EtypeName;
+        namespace: NamespaceName;
         id: string;
         action: 'update';
-        before: WebhookEntity<Schema, EtypeName>;
-        after: WebhookEntity<Schema, EtypeName>;
+        before: WebhookEntity<Schema, NamespaceName>;
+        after: WebhookEntity<Schema, NamespaceName>;
         idempotencyKey: string;
       }
     | {
-        etype: EtypeName;
+        namespace: NamespaceName;
         id: string;
         action: 'delete';
-        before: WebhookEntity<Schema, EtypeName>;
+        before: WebhookEntity<Schema, NamespaceName>;
         after: null;
         idempotencyKey: string;
       };
@@ -116,8 +116,8 @@ export type WebhookInfo = {
     /** HTTPS endpoint that Instant POSTs to. */
     url: string;
   };
-  /** The entity types (namespaces) this webhook listens to. */
-  etypes: string[];
+  /** The namespaces this webhook listens to. */
+  namespaces: string[];
   /** Which write actions trigger delivery. */
   actions: WebhookAction[];
   /** Whether the webhook is currently delivering events. */
@@ -211,10 +211,10 @@ export type CreateWebhookParams<
    */
   url: string;
   /**
-   * Entity types (namespaces) the webhook will listen to. Must reference at
-   * least one entity in the app's schema.
+   * Namespaces the webhook will listen to. Must reference at least one entity
+   * in the app's schema.
    */
-  etypes: (keyof Schema['entities'] & string)[];
+  namespaces: (keyof Schema['entities'] & string)[];
   /** Write actions that should trigger delivery. Must contain at least one. */
   actions: WebhookAction[];
 };
@@ -224,40 +224,40 @@ export type UpdateWebhookParams<
 > = {
   /** New delivery URL. Omit to leave unchanged. */
   url?: string;
-  /** New set of entity types. Omit to leave unchanged. */
-  etypes?: (keyof Schema['entities'] & string)[];
+  /** New set of namespaces. Omit to leave unchanged. */
+  namespaces?: (keyof Schema['entities'] & string)[];
   /** New set of actions. Omit to leave unchanged. */
   actions?: WebhookAction[];
 };
 
 export type WebhookPayloadRecordFor<
   Schema extends InstantSchemaDef<any, any, any>,
-  EtypeName extends keyof Schema['entities'] & string,
+  NamespaceName extends keyof Schema['entities'] & string,
   Action extends WebhookAction,
 > = Action extends 'create'
   ? {
-      etype: EtypeName;
+      namespace: NamespaceName;
       id: string;
       action: 'create';
       before: null;
-      after: WebhookEntity<Schema, EtypeName>;
+      after: WebhookEntity<Schema, NamespaceName>;
       idempotencyKey: string;
     }
   : Action extends 'update'
     ? {
-        etype: EtypeName;
+        namespace: NamespaceName;
         id: string;
         action: 'update';
-        before: WebhookEntity<Schema, EtypeName>;
-        after: WebhookEntity<Schema, EtypeName>;
+        before: WebhookEntity<Schema, NamespaceName>;
+        after: WebhookEntity<Schema, NamespaceName>;
         idempotencyKey: string;
       }
     : Action extends 'delete'
       ? {
-          etype: EtypeName;
+          namespace: NamespaceName;
           id: string;
           action: 'delete';
-          before: WebhookEntity<Schema, EtypeName>;
+          before: WebhookEntity<Schema, NamespaceName>;
           after: null;
           idempotencyKey: string;
         }
@@ -265,11 +265,11 @@ export type WebhookPayloadRecordFor<
 
 export type WebhookHandlerFn<
   Schema extends InstantSchemaDef<any, any, any>,
-  EtypeName extends keyof Schema['entities'] & string,
+  NamespaceName extends keyof Schema['entities'] & string,
   Action extends WebhookAction,
   Result = any,
 > = (
-  record: WebhookPayloadRecordFor<Schema, EtypeName, Action>,
+  record: WebhookPayloadRecordFor<Schema, NamespaceName, Action>,
 ) => Result | Promise<Result>;
 
 export type DefaultKey = '$default';
@@ -281,10 +281,10 @@ export type ResolveHandlerAction<Action> = Action extends DefaultKey
     : never;
 
 export type WebhookHandlers<Schema extends InstantSchemaDef<any, any, any>> = {
-  [EtypeName in keyof Schema['entities'] & string]?: {
+  [NamespaceName in keyof Schema['entities'] & string]?: {
     [Action in WebhookAction | DefaultKey]?: WebhookHandlerFn<
       Schema,
-      EtypeName,
+      NamespaceName,
       ResolveHandlerAction<Action>,
       any
     >;
@@ -300,13 +300,13 @@ export type WebhookHandlers<Schema extends InstantSchemaDef<any, any, any>> = {
 
 export type TypedHandlerEntry<
   Schema extends InstantSchemaDef<any, any, any>,
-  EtypeName extends keyof Schema['entities'] & string,
+  NamespaceName extends keyof Schema['entities'] & string,
   Action extends WebhookAction | DefaultKey,
 > = {
-  [E in EtypeName]: {
+  [N in NamespaceName]: {
     [A in Action]: WebhookHandlerFn<
       Schema,
-      EtypeName,
+      NamespaceName,
       ResolveHandlerAction<Action>,
       any
     >;
@@ -326,7 +326,7 @@ export type TypedDefaultEntry<Schema extends InstantSchemaDef<any, any, any>> =
 export type WebhookHelpers<Schema extends InstantSchemaDef<any, any, any>> = {
   typedHandlers: {
     (
-      etype: DefaultKey,
+      namespace: DefaultKey,
       handler: WebhookHandlerFn<
         Schema,
         keyof Schema['entities'] & string,
@@ -335,18 +335,18 @@ export type WebhookHelpers<Schema extends InstantSchemaDef<any, any, any>> = {
       >,
     ): TypedDefaultEntry<Schema>;
     <
-      EtypeName extends keyof Schema['entities'] & string,
+      NamespaceName extends keyof Schema['entities'] & string,
       Action extends WebhookAction | DefaultKey,
     >(
-      etype: EtypeName,
+      namespace: NamespaceName,
       action: Action,
       handler: WebhookHandlerFn<
         Schema,
-        EtypeName,
+        NamespaceName,
         ResolveHandlerAction<Action>,
         any
       >,
-    ): TypedHandlerEntry<Schema, EtypeName, Action>;
+    ): TypedHandlerEntry<Schema, NamespaceName, Action>;
   };
   combineHandlers: (
     ...entries: Array<
@@ -546,7 +546,7 @@ function toWebhookInfo(raw: any): WebhookInfo {
   return {
     id: raw.id,
     sink: raw.sink,
-    etypes: raw.etypes ?? [],
+    namespaces: raw.namespaces ?? [],
     actions: raw.actions,
     status: raw.status,
     disabledReason: raw.disabled_reason ?? null,
@@ -646,7 +646,7 @@ export class WebhooksManager<Schema extends InstantSchemaDef<any, any, any>> {
    * starts receiving matching events immediately.
    *
    * The server rejects the request if `url` is not an HTTPS URL pointing at a
-   * public host, if `etypes` doesn't reference any entity in the app's
+   * public host, if `namespaces` doesn't reference any entity in the app's
    * schema, if `actions` is empty, or if the app has hit its webhook limit.
    *
    * An app may have at most **100 active webhooks** at a time; {@link delete}
@@ -655,7 +655,7 @@ export class WebhooksManager<Schema extends InstantSchemaDef<any, any, any>> {
    * @example
    * const webhook = await db.webhooks.manager.create({
    *   url: 'https://example.com/instant',
-   *   etypes: ['posts', 'comments'],
+   *   namespaces: ['posts', 'comments'],
    *   actions: ['create', 'update'],
    * });
    */
@@ -668,7 +668,7 @@ export class WebhooksManager<Schema extends InstantSchemaDef<any, any, any>> {
   }
 
   /**
-   * Updates a webhook's `url`, `etypes`, and/or `actions`. Pass only the
+   * Updates a webhook's `url`, `namespaces`, and/or `actions`. Pass only the
    * fields you want to change; omitted fields keep their current value.
    *
    * Does not affect the webhook's status — use {@link enable} or
@@ -816,8 +816,8 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
   /**
    * Schema-bound helpers for building typed handler maps.
    *
-   * - `typedHandlers(etype, action, handler)` builds a single typed entry.
-   *   Pass `'$default'` for `etype` to register a catch-all handler.
+   * - `typedHandlers(namespace, action, handler)` builds a single typed entry.
+   *   Pass `'$default'` for `namespace` to register a catch-all handler.
    * - `combineHandlers(...entries)` merges entries into a
    *   {@link WebhookHandlers} object suitable for {@link processPayload} and
    *   {@link processRequest}.
@@ -840,8 +840,8 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
       if (args.length === 2) {
         return { $default: args[1] };
       }
-      const [etype, action, handler] = args;
-      return { [etype]: { [action]: handler } };
+      const [namespace, action, handler] = args;
+      return { [namespace]: { [action]: handler } };
     }
     function combineHandlers(...entries: any[]): any {
       const result: any = {};
@@ -1016,8 +1016,8 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
 
   /**
    * Dispatches each record in `payload` to its matching handler in
-   * `handlers`. Resolution order per record: exact `etype` + `action` →
-   * `etype`'s `$default` → top-level `$default`. Records with no matching
+   * `handlers`. Resolution order per record: exact `namespace` + `action` →
+   * `namespace`'s `$default` → top-level `$default`. Records with no matching
    * handler are skipped.
    *
    * Handlers run concurrently. If any handler rejects, the call rejects so
@@ -1030,15 +1030,15 @@ export class Webhooks<Schema extends InstantSchemaDef<any, any, any>> {
   ): Promise<void> {
     const results: any[] = [];
     for (const record of payload.data) {
-      const { etype, action } = record;
+      const { namespace, action } = record;
       const handler =
-        handlers?.[etype]?.[action] ||
-        handlers?.[etype]?.$default ||
+        handlers?.[namespace]?.[action] ||
+        handlers?.[namespace]?.$default ||
         handlers?.$default;
       if (handler) {
         // We need the as any here because typescript
         // has trouble correlating the handler to the
-        // record etype and action
+        // record namespace and action
         results.push(handler(record as any));
       }
     }

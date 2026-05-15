@@ -1,4 +1,10 @@
-import { FormEventHandler, useContext, useMemo, useState } from 'react';
+import {
+  Fragment,
+  FormEventHandler,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 import {
   EllipsisVerticalIcon,
   PencilIcon,
@@ -33,6 +39,9 @@ import {
   SectionHeading,
   SubsectionHeading,
   TextInput,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   useDialog,
 } from '@/components/ui';
 import { useFetchedDash } from '@/components/dash/MainDashLayout';
@@ -46,13 +55,54 @@ import {
   ItemTitle,
 } from '@/components/components/ui/item';
 
-const ALL_ACTIONS: InstantWebhookAction[] = ['create', 'update', 'delete'];
+export const ALL_ACTIONS: InstantWebhookAction[] = [
+  'create',
+  'update',
+  'delete',
+];
+
+export function CopyableText({
+  value,
+  className,
+}: {
+  value: string;
+  className?: string;
+}) {
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+
+  const handleClick = async () => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) return;
+    try {
+      await window.navigator.clipboard.writeText(value);
+      setTooltipOpen(true);
+      setTimeout(() => setTooltipOpen(false), 1000);
+    } catch (e) {
+      console.error('Failed to copy to clipboard', e);
+    }
+  };
+
+  return (
+    <Tooltip open={tooltipOpen}>
+      <TooltipTrigger asChild>
+        <span
+          title="Click to copy"
+          className={`cursor-default ${className ?? ''}`}
+          onClick={handleClick}
+        >
+          {value}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">Copied!</TooltipContent>
+    </Tooltip>
+  );
+}
 
 // ---- API ----
 
 type CreateBody = {
   url: string;
-  etypes: string[];
+  namespaces: string[];
   actions: InstantWebhookAction[];
 };
 
@@ -136,15 +186,19 @@ function WebhookForm({
 }: {
   heading: string;
   namespaces: SchemaNamespace[] | null;
-  initial?: { url: string; etypes: string[]; actions: InstantWebhookAction[] };
+  initial?: {
+    url: string;
+    namespaces: string[];
+    actions: InstantWebhookAction[];
+  };
   submitLabel: string;
   onSubmit: (body: CreateBody) => Promise<void>;
   onCancel: () => void;
   isLoading: boolean;
 }) {
   const [url, setUrl] = useState(initial?.url ?? '');
-  const [etypes, setEtypes] = useState<Set<string>>(
-    () => new Set(initial?.etypes ?? []),
+  const [selectedNamespaces, setSelectedNamespaces] = useState<Set<string>>(
+    () => new Set(initial?.namespaces ?? []),
   );
   const [actions, setActions] = useState<Set<InstantWebhookAction>>(
     () => new Set(initial?.actions ?? ['create']),
@@ -155,13 +209,13 @@ function WebhookForm({
     [namespaces],
   );
 
-  // Show any etype the webhook already references even if it's no longer in
-  // the schema (renamed/deleted), so the user can deselect it intentionally.
+  // Show any namespace the webhook already references even if it's no longer
+  // in the schema (renamed/deleted), so the user can deselect it intentionally.
   const allOptions = useMemo(() => {
     const set = new Set<string>(namespaceNames);
-    for (const e of initial?.etypes ?? []) set.add(e);
+    for (const e of initial?.namespaces ?? []) set.add(e);
     return [...set].sort();
-  }, [namespaceNames, initial?.etypes]);
+  }, [namespaceNames, initial?.namespaces]);
 
   const toggle = <T,>(set: Set<T>, value: T) => {
     const next = new Set(set);
@@ -194,8 +248,8 @@ function WebhookForm({
       });
       return;
     }
-    if (etypes.size === 0) {
-      errorToast('Select at least one entity.', { autoClose: 5000 });
+    if (selectedNamespaces.size === 0) {
+      errorToast('Select at least one namespace.', { autoClose: 5000 });
       return;
     }
     if (actions.size === 0) {
@@ -204,7 +258,7 @@ function WebhookForm({
     }
     await onSubmit({
       url: trimmed,
-      etypes: [...etypes],
+      namespaces: [...selectedNamespaces],
       actions: [...actions],
     });
   };
@@ -226,18 +280,18 @@ function WebhookForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <Label>Entities</Label>
+        <Label>Namespaces</Label>
         {allOptions.length === 0 ? (
           <Content className="text-xs text-gray-500 dark:text-neutral-500">
-            Define entities in your schema to enable webhooks.
+            Define namespaces in your schema to enable webhooks.
           </Content>
         ) : (
           <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-sm border bg-gray-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/50">
             {allOptions.map((n) => (
               <Checkbox
                 key={n}
-                checked={etypes.has(n)}
-                onChange={() => setEtypes((s) => toggle(s, n))}
+                checked={selectedNamespaces.has(n)}
+                onChange={() => setSelectedNamespaces((s) => toggle(s, n))}
                 label={n}
               />
             ))}
@@ -349,7 +403,7 @@ function EditDialog({
         namespaces={namespaces}
         initial={{
           url: webhook.sink.url,
-          etypes: webhook.etypes ?? [],
+          namespaces: webhook.namespaces ?? [],
           actions: webhook.actions,
         }}
         submitLabel="Save"
@@ -482,7 +536,7 @@ function eventsHref(
   return `${router.pathname}?${params.toString()}`;
 }
 
-function WebhookRow({
+export function WebhookActionsMenu({
   app,
   namespaces,
   webhook,
@@ -493,99 +547,53 @@ function WebhookRow({
   webhook: InstantWebhook;
   onChanged: () => void;
 }) {
-  const token = useContext(TokenContext);
-  const router = useReadyRouter();
   const editDialog = useDialog();
   const disableDialog = useDialog();
   const deleteDialog = useDialog();
-  const [isToggling, setIsToggling] = useState(false);
-
-  const handleEnable = async () => {
-    setIsToggling(true);
-    try {
-      await enableWebhook(token, app.id, webhook.id);
-      onChanged();
-    } catch (e) {
-      reportError(e, 'Error enabling webhook.');
-    } finally {
-      setIsToggling(false);
-    }
-  };
 
   return (
-    <Item variant="outline" className="bg-white dark:bg-neutral-900">
-      <ItemContent>
-        <ItemTitle className="truncate font-mono">{webhook.sink.url}</ItemTitle>
-        {webhook.disabled_reason ? (
-          <ItemDescription className="text-red-700 dark:text-red-300">
-            {webhook.disabled_reason}
-          </ItemDescription>
-        ) : null}
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-xs">
-          <dt className="text-gray-500 dark:text-neutral-500">Entities</dt>
-          <dd className="font-mono">
-            {(webhook.etypes ?? []).length === 0
-              ? '(none)'
-              : (webhook.etypes ?? []).join(', ')}
-          </dd>
-          <dt className="text-gray-500 dark:text-neutral-500">Actions</dt>
-          <dd>{webhook.actions.join(', ')}</dd>
-        </dl>
-      </ItemContent>
-      <ItemActions>
-        <Button
-          variant="secondary"
-          size="mini"
-          onClick={() => router.push(eventsHref(router, webhook.id))}
-        >
-          <ListBulletIcon width={14} /> Events
-        </Button>
-        {webhook.status === 'disabled' ? (
-          <Button
-            variant="secondary"
-            size="mini"
-            loading={isToggling}
-            onClick={handleEnable}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="cursor-pointer rounded p-1 hover:bg-gray-200 dark:hover:bg-neutral-700"
+            title="More"
           >
-            Enable
-          </Button>
-        ) : null}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="cursor-pointer rounded p-1 hover:bg-gray-200 dark:hover:bg-neutral-700"
-              title="More"
-            >
-              <EllipsisVerticalIcon height={18} />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-fit min-w-0">
+            <EllipsisVerticalIcon height={18} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-fit min-w-0">
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onSelect={editDialog.onOpen}
+          >
+            <span className="flex items-center gap-2">
+              <PencilIcon className="size-3.5" />
+              Edit
+            </span>
+          </DropdownMenuItem>
+          {webhook.status === 'active' ? (
             <DropdownMenuItem
               className="cursor-pointer"
-              onSelect={editDialog.onOpen}
+              onSelect={disableDialog.onOpen}
             >
-              <PencilIcon width={14} />
-              Edit
-            </DropdownMenuItem>
-            {webhook.status === 'active' ? (
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onSelect={disableDialog.onOpen}
-              >
-                <NoSymbolIcon width={14} />
+              <span className="flex items-center gap-2">
+                <NoSymbolIcon className="size-3.5" />
                 Disable
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem
-              className="cursor-pointer text-red-500"
-              onSelect={deleteDialog.onOpen}
-            >
-              <TrashIcon width={14} />
-              Delete
+              </span>
             </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </ItemActions>
+          ) : null}
+          <DropdownMenuItem
+            className="cursor-pointer text-red-500"
+            onSelect={deleteDialog.onOpen}
+          >
+            <span className="flex items-center gap-2">
+              <TrashIcon className="size-3.5" />
+              Delete
+            </span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <EditDialog
         app={app}
@@ -606,6 +614,98 @@ function WebhookRow({
         dialog={deleteDialog}
         onDeleted={onChanged}
       />
+    </>
+  );
+}
+
+function WebhookRow({
+  app,
+  namespaces,
+  webhook,
+  onChanged,
+}: {
+  app: InstantApp;
+  namespaces: SchemaNamespace[] | null;
+  webhook: InstantWebhook;
+  onChanged: () => void;
+}) {
+  const token = useContext(TokenContext);
+  const router = useReadyRouter();
+  const [isToggling, setIsToggling] = useState(false);
+
+  const handleEnable = async () => {
+    setIsToggling(true);
+    try {
+      await enableWebhook(token, app.id, webhook.id);
+      onChanged();
+    } catch (e) {
+      reportError(e, 'Error enabling webhook.');
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
+  return (
+    <Item
+      variant="outline"
+      className="bg-white dark:border-neutral-700 dark:bg-neutral-800"
+    >
+      <ItemContent>
+        <ItemTitle className="block max-w-full truncate font-mono">
+          <CopyableText value={webhook.sink.url} className="block truncate" />
+        </ItemTitle>
+        {webhook.disabled_reason ? (
+          <ItemDescription className="text-red-700 dark:text-red-300">
+            {webhook.disabled_reason}
+          </ItemDescription>
+        ) : null}
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-xs">
+          <dt className="text-gray-500 dark:text-neutral-500">ID</dt>
+          <dd>
+            <CopyableText value={webhook.id} className="font-mono break-all" />
+          </dd>
+          <dt className="text-gray-500 dark:text-neutral-500">Namespaces</dt>
+          <dd className="font-mono">
+            {(webhook.namespaces ?? []).length === 0
+              ? '(none)'
+              : [...(webhook.namespaces ?? [])].sort().map((e, i, arr) => (
+                  <Fragment key={e}>
+                    <span className="whitespace-nowrap">{e}</span>
+                    {i < arr.length - 1 ? ', ' : ''}
+                  </Fragment>
+                ))}
+          </dd>
+          <dt className="text-gray-500 dark:text-neutral-500">Actions</dt>
+          <dd className="font-mono">
+            {ALL_ACTIONS.filter((a) => webhook.actions.includes(a)).join(', ')}
+          </dd>
+        </dl>
+      </ItemContent>
+      <ItemActions>
+        <Button
+          variant="secondary"
+          size="mini"
+          onClick={() => router.push(eventsHref(router, webhook.id))}
+        >
+          <ListBulletIcon width={14} /> Events
+        </Button>
+        {webhook.status === 'disabled' ? (
+          <Button
+            variant="secondary"
+            size="mini"
+            loading={isToggling}
+            onClick={handleEnable}
+          >
+            Enable
+          </Button>
+        ) : null}
+        <WebhookActionsMenu
+          app={app}
+          namespaces={namespaces}
+          webhook={webhook}
+          onChanged={onChanged}
+        />
+      </ItemActions>
     </Item>
   );
 }
@@ -640,7 +740,14 @@ export function Webhooks({
     : undefined;
 
   if (focusedWebhook) {
-    return <WebhookEventsPage app={app} webhook={focusedWebhook} />;
+    return (
+      <WebhookEventsPage
+        app={app}
+        webhook={focusedWebhook}
+        namespaces={namespaces}
+        onChanged={refresh}
+      />
+    );
   }
 
   const activeWebhooks = webhooks.filter((w) => w.status === 'active');
@@ -652,8 +759,8 @@ export function Webhooks({
         <div className="flex flex-col gap-1">
           <SectionHeading>Webhooks</SectionHeading>
           <Content className="text-sm text-gray-500 dark:text-neutral-500">
-            Receive HTTP callbacks when entities are created, updated, or
-            deleted.
+            Receive HTTP callbacks when entries in a namespace are created,
+            updated, or deleted.
           </Content>
         </div>
         <Button variant="primary" onClick={createDialog.onOpen}>

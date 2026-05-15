@@ -30,7 +30,8 @@
    [instant.util.test :as test-util])
   (:import
    (com.hazelcast.core HazelcastInstance)
-   (java.io ByteArrayOutputStream InputStream)
+   (java.io ByteArrayOutputStream IOException InputStream)
+   (java.nio.channels ClosedChannelException)
    (java.util UUID)))
 
 (test/use-fixtures :each
@@ -1341,3 +1342,66 @@
                      1000)
 
                   _ (is (= "Hello" (read-full-stream store movies-app-id stream-id slurp-file)))])))))))
+
+(deftest on-close-fires-when-send-hits-closed-connection
+  (testing "ClosedChannelException from ws/send-json! triggers on-close"
+    (with-session
+      (fn [store {:keys [socket zeneca-app-id]
+                  {:keys [id]} :socket}]
+        (is (some? (rs/session store id)))
+        (with-redefs [ws/send-json! (fn [_app-id _msg _conn]
+                                      (throw (ClosedChannelException.)))]
+          (send-msg socket {:op :init :app-id zeneca-app-id}))
+        (test-util/wait-for #(nil? (rs/session store id)) 1000)
+        (is (nil? (rs/session store id))))))
+
+  (testing "UT002002 IOException (ws channel closed) triggers on-close"
+    (with-session
+      (fn [store {:keys [socket zeneca-app-id]
+                  {:keys [id]} :socket}]
+        (with-redefs [ws/send-json! (fn [_app-id _msg _conn]
+                                      (throw (IOException. "UT002002: Channel is closed")))]
+          (send-msg socket {:op :init :app-id zeneca-app-id}))
+        (test-util/wait-for #(nil? (rs/session store id)) 1000)
+        (is (nil? (rs/session store id))))))
+
+  (testing "UT002027 IOException (ws connection broken) triggers on-close"
+    (with-session
+      (fn [store {:keys [socket zeneca-app-id]
+                  {:keys [id]} :socket}]
+        (with-redefs [ws/send-json! (fn [_app-id _msg _conn]
+                                      (throw (IOException. "UT002027: connection broken")))]
+          (send-msg socket {:op :init :app-id zeneca-app-id}))
+        (test-util/wait-for #(nil? (rs/session store id)) 1000)
+        (is (nil? (rs/session store id))))))
+
+  (testing "UT000041 IOException (generic channel closed) triggers on-close"
+    (with-session
+      (fn [store {:keys [socket zeneca-app-id]
+                  {:keys [id]} :socket}]
+        (with-redefs [ws/send-json! (fn [_app-id _msg _conn]
+                                      (throw (IOException. "UT000041: channel closed")))]
+          (send-msg socket {:op :init :app-id zeneca-app-id}))
+        (test-util/wait-for #(nil? (rs/session store id)) 1000)
+        (is (nil? (rs/session store id))))))
+
+  (testing "unrelated IOException does NOT trigger on-close"
+    (with-session
+      (fn [store {:keys [socket zeneca-app-id]
+                  {:keys [id]} :socket}]
+        (with-redefs [ws/send-json! (fn [_app-id _msg _conn]
+                                      (throw (IOException. "something else went wrong")))]
+          (send-msg socket {:op :init :app-id zeneca-app-id}))
+        ;; Poll: session must remain present for the entire observation window.
+        (let [deadline (+ (System/currentTimeMillis) 500)]
+          (loop []
+            (let [s (rs/session store id)]
+              (cond
+                (nil? s)
+                (is (some? s) "session was cleaned up during observation window")
+
+                (< (System/currentTimeMillis) deadline)
+                (do (Thread/sleep 50) (recur))
+
+                :else
+                (is (some? s))))))))))

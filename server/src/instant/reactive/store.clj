@@ -37,7 +37,9 @@
   (:import
    (clojure.lang PersistentQueue)
    (instant.isn ISN)
+   (java.io IOException)
    (java.lang InterruptedException)
+   (java.nio.channels ClosedChannelException)
    (java.time Instant)
    (java.util Map)
    (java.util.concurrent CancellationException CompletableFuture ConcurrentHashMap ConcurrentLinkedQueue Executors ExecutorService)
@@ -1508,6 +1510,22 @@
 ;; -----------------
 ;; Websocket Helpers
 
+(defn throw-socket-error! [sess-id ^IOException e]
+  (let [msg (.getMessage e)]
+    (if (and msg
+             (or
+              ;; ws channel is clsoed
+              ;; https://github.com/undertow-io/undertow/blob/afb53dfe9ba5407fc7488b509ea03fe6e6bd7c8d/core/src/main/java/io/undertow/websockets/core/WebSocketMessages.java#L43
+              (.startsWith msg "UT002002")
+              ;; ws connection is broken
+              ;; https://github.com/undertow-io/undertow/blob/afb53dfe9ba5407fc7488b509ea03fe6e6bd7c8d/core/src/main/java/io/undertow/websockets/core/WebSocketMessages.java#L118
+              (.startsWith msg "UT002027")
+              ;; generic channel is closed
+              ;; https://github.com/undertow-io/undertow/blob/afb53dfe9ba5407fc7488b509ea03fe6e6bd7c8d/core/src/main/java/io/undertow/UndertowMessages.java#L167
+              (.startsWith msg "UT000041")))
+      (ex/throw-connection-closed!)
+      (ex/throw-socket-error! sess-id e))))
+
 (defn send-event! [store app-id sess-id event]
   (let [socket (:session/socket (session store sess-id))
         event (assoc event :trace-id (tracer/current-trace-id))]
@@ -1516,13 +1534,17 @@
     (when-let [sse-conn (:sse-conn socket)]
       (try
         (sse/send-json! app-id event {:conn sse-conn})
-        (catch java.io.IOException e
-          (ex/throw-socket-error! sess-id e))))
+        (catch ClosedChannelException _e
+          (ex/throw-connection-closed!))
+        (catch IOException e
+          (throw-socket-error! sess-id e))))
     (when-let [ws-conn (:ws-conn socket)]
       (try
         (ws/send-json! app-id event ws-conn)
-        (catch java.io.IOException e
-          (ex/throw-socket-error! sess-id e))))))
+        (catch ClosedChannelException _e
+          (ex/throw-connection-closed!))
+        (catch IOException e
+          (throw-socket-error! sess-id e))))))
 
 (defn try-send-event!
   "Does a best-effort send. If it fails, we record and swallow the exception"

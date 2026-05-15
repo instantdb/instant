@@ -16,17 +16,17 @@ function makeWebhooks() {
 }
 
 function record(
-  etype: 'posts' | 'comments',
+  namespace: 'posts' | 'comments',
   action: 'create' | 'update' | 'delete',
   id = 'r1',
 ) {
   return {
-    etype,
+    namespace,
     id,
     action,
     before: action === 'create' ? null : { id, title: 'b', body: 'b' },
     after: action === 'delete' ? null : { id, title: 'a', body: 'a' },
-    idempotencyKey: `${etype}-${action}-${id}`,
+    idempotencyKey: `${namespace}-${action}-${id}`,
   };
 }
 
@@ -35,43 +35,43 @@ function payload(records: any[]): WebhookPayload<Schema> {
 }
 
 describe('processPayload dispatch precedence', () => {
-  test('exact etype+action wins over etype $default and top-level $default', async () => {
+  test('exact namespace+action wins over namespace $default and top-level $default', async () => {
     const wh = makeWebhooks();
     const exact = vi.fn();
-    const etypeDefault = vi.fn();
+    const namespaceDefault = vi.fn();
     const topDefault = vi.fn();
 
     await wh.processPayload(
       {
-        posts: { create: exact, $default: etypeDefault },
+        posts: { create: exact, $default: namespaceDefault },
         $default: topDefault,
       },
       payload([record('posts', 'create')]),
     );
 
     expect(exact).toHaveBeenCalledTimes(1);
-    expect(etypeDefault).not.toHaveBeenCalled();
+    expect(namespaceDefault).not.toHaveBeenCalled();
     expect(topDefault).not.toHaveBeenCalled();
   });
 
-  test('etype $default wins over top-level $default when no exact handler', async () => {
+  test('namespace $default wins over top-level $default when no exact handler', async () => {
     const wh = makeWebhooks();
-    const etypeDefault = vi.fn();
+    const namespaceDefault = vi.fn();
     const topDefault = vi.fn();
 
     await wh.processPayload(
       {
-        posts: { $default: etypeDefault },
+        posts: { $default: namespaceDefault },
         $default: topDefault,
       },
       payload([record('posts', 'update')]),
     );
 
-    expect(etypeDefault).toHaveBeenCalledTimes(1);
+    expect(namespaceDefault).toHaveBeenCalledTimes(1);
     expect(topDefault).not.toHaveBeenCalled();
   });
 
-  test('top-level $default catches records with no etype match', async () => {
+  test('top-level $default catches records with no namespace match', async () => {
     const wh = makeWebhooks();
     const topDefault = vi.fn();
 
@@ -84,7 +84,7 @@ describe('processPayload dispatch precedence', () => {
     );
 
     expect(topDefault).toHaveBeenCalledTimes(1);
-    expect(topDefault.mock.calls[0][0].etype).toBe('comments');
+    expect(topDefault.mock.calls[0][0].namespace).toBe('comments');
   });
 
   test('records with no matching handler are skipped without error', async () => {

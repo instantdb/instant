@@ -25,7 +25,7 @@ export const POST = async (req: Request) => {
             await guestDb.transact(
               db.tx.webhookEvents[id()].update({
                 receivedAt: Date.now(),
-                etype: record.etype,
+                namespace: record.namespace,
                 action: record.action,
                 payload: record,
               }),
