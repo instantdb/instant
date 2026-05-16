@@ -1,0 +1,1 @@
+DROP table app_email_verification_codes;
