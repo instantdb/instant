@@ -68,6 +68,24 @@ export const useExplorerState = () => {
   return { explorerState: ctx.props.explorerState, history: ctx.history };
 };
 
+export const useExplorerDialog = () => {
+  const ctx = useContext(ExplorerPropsContext);
+  if (!ctx.props) {
+    throw new Error(
+      'useExplorerDialog must be used within an Explorer component',
+    );
+  }
+  const props = ctx.props;
+  const dialog = props.explorerState?.dialog ?? null;
+  const setDialog = useCallback(
+    (d: ExplorerDialog | null) => {
+      props.setExplorerState((prev) => (prev ? { ...prev, dialog: d } : prev));
+    },
+    [props],
+  );
+  return { dialog, setDialog };
+};
+
 const isControlled = (props: WithOptional<ExplorerProps>): boolean => {
   // Component is controlled if explorerState prop is explicitly provided
   // (even if null - that means "no selection" in controlled mode)
@@ -105,6 +123,19 @@ export type SearchFilterOp =
 
 export type SearchFilter = [string, SearchFilterOp, any];
 
+export type EditSchemaScreen =
+  | { kind: 'main' }
+  | { kind: 'rename' }
+  | { kind: 'add-attr'; attrKind: 'data' | 'link' }
+  | { kind: 'edit-attr'; attrId: string; isForward: boolean };
+
+export type ExplorerDialog =
+  | { type: 'add-row' }
+  | { type: 'edit-row'; rowId: string }
+  | { type: 'edit-schema'; screen: EditSchemaScreen }
+  | { type: 'new-namespace' }
+  | { type: 'recently-deleted-ns' };
+
 export interface ExplorerNav {
   namespace: string;
   where?: [string, any];
@@ -113,6 +144,7 @@ export interface ExplorerNav {
   filters?: SearchFilter[];
   limit?: number;
   page?: number;
+  dialog?: ExplorerDialog | null;
 }
 
 export const Explorer = (_props: WithOptional<ExplorerProps>) => {
