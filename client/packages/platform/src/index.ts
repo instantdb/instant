@@ -48,6 +48,11 @@ import {
   type UpdateWebhookParams,
   WebhooksManager,
 } from '@instantdb/webhooks';
+import {
+  defaultMagicCodeEmailConfig,
+  defaultMagicCodeEmailHtml,
+  defaultMagicCodeEmailSubject,
+} from './email.ts';
 
 export {
   type InstantAPIPlatformSchema,
@@ -72,6 +77,9 @@ export {
   exchangeCodeForToken,
   exchangeRefreshToken,
   clerkDomainFromPublishableKey,
+  defaultMagicCodeEmailConfig,
+  defaultMagicCodeEmailHtml,
+  defaultMagicCodeEmailSubject,
   i,
   Webhooks,
   WebhooksManager,
