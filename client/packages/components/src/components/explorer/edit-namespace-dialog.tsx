@@ -188,125 +188,120 @@ export function EditNamespaceDialog({
       </form>
     </div>
   ) : screen.kind === 'main' ? (
-        <div className="flex flex-col gap-4 px-2">
-          <div className="mr-8 flex gap-1">
-            <h5 className="flex items-center text-lg font-bold">
-              {namespace.name}
-            </h5>
-            <IconButton
-              variant="subtle"
-              onClick={() => {
-                setScreen({ kind: 'rename' });
-              }}
-              icon={
-                <PencilSquareIcon className="h-4 w-4 opacity-50"></PencilSquareIcon>
-              }
-              label="Rename"
-            ></IconButton>
-
-            <Button
-              className="ml-4"
-              disabled={isSystemCatalogNs}
-              title={
-                isSystemCatalogNs
-                  ? `The ${namespace.name} namespace can't be deleted.`
-                  : undefined
-              }
-              size="mini"
-              variant="secondary"
-              onClick={() => setIsDeleting(true)}
-            >
-              <TrashIcon className="inline" height="1rem" />
-              Delete
-            </Button>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {namespace.attrs.map((attr) => (
-              <div
-                key={attr.id + '-' + attr.name}
-                className="flex justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="py-0.5 font-bold">{attr.name}</span>
-                  {notes.notes[attr.id]?.message && (
-                    <InfoTip>
-                      <div className="px-2 text-xs text-gray-500 dark:text-neutral-400">
-                        {notes.notes[attr.id].message}
-                      </div>
-                    </InfoTip>
-                  )}
-                </div>
-                {attr.name !== 'id' ? (
-                  <Button
-                    className="px-2"
-                    size="mini"
-                    variant="subtle"
-                    onClick={() => {
-                      notes.removeNote(attr.id);
-                      setScreen({
-                        kind: 'edit-attr',
-                        attrId: attr.id,
-                        isForward: attr.isForward,
-                      });
-                    }}
-                  >
-                    Edit
-                  </Button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <Button
-              size="mini"
-              variant="secondary"
-              onClick={() =>
-                setScreen({ kind: 'add-attr', attrKind: 'data' })
-              }
-            >
-              <PlusIcon className="inline" height="12px" />
-              New attribute
-            </Button>
-          </div>
-          <RecentlyDeletedAttrs
-            notes={notes}
-            db={db}
-            appId={appId}
-            namespace={namespace}
-          />
-        </div>
-      ) : screen.kind === 'add-attr' ? (
-        <AddAttrForm
-          db={db}
-          namespace={namespace}
-          namespaces={namespaces}
-          onClose={() => setScreen({ kind: 'main' })}
-          constraints={getSystemConstraints({
-            namespaceName: namespace.name,
-            isSystemCatalogNs,
-          })}
-          attrType={screen.attrKind === 'link' ? 'ref' : 'blob'}
-          onAttrTypeChange={(t) =>
-            onScreenChange({
-              kind: 'add-attr',
-              attrKind: t === 'ref' ? 'link' : 'data',
-            })
+    <div className="flex flex-col gap-4 px-2">
+      <div className="mr-8 flex gap-1">
+        <h5 className="flex items-center text-lg font-bold">
+          {namespace.name}
+        </h5>
+        <IconButton
+          variant="subtle"
+          onClick={() => {
+            setScreen({ kind: 'rename' });
+          }}
+          icon={
+            <PencilSquareIcon className="h-4 w-4 opacity-50"></PencilSquareIcon>
           }
-        />
-      ) : screen.kind === 'edit-attr' && screenAttr ? (
-        <EditAttrForm
-          db={db}
-          attr={screenAttr}
-          onClose={() => setScreen({ kind: 'main' })}
-          constraints={getSystemConstraints({
-            namespaceName: namespace.name,
-            isSystemCatalogNs: isSystemCatalogNs,
-            attr: screenAttr,
-          })}
-        />
-      ) : null;
+          label="Rename"
+        ></IconButton>
+
+        <Button
+          className="ml-4"
+          disabled={isSystemCatalogNs}
+          title={
+            isSystemCatalogNs
+              ? `The ${namespace.name} namespace can't be deleted.`
+              : undefined
+          }
+          size="mini"
+          variant="secondary"
+          onClick={() => setIsDeleting(true)}
+        >
+          <TrashIcon className="inline" height="1rem" />
+          Delete
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {namespace.attrs.map((attr) => (
+          <div key={attr.id + '-' + attr.name} className="flex justify-between">
+            <div className="flex items-center gap-3">
+              <span className="py-0.5 font-bold">{attr.name}</span>
+              {notes.notes[attr.id]?.message && (
+                <InfoTip>
+                  <div className="px-2 text-xs text-gray-500 dark:text-neutral-400">
+                    {notes.notes[attr.id].message}
+                  </div>
+                </InfoTip>
+              )}
+            </div>
+            {attr.name !== 'id' ? (
+              <Button
+                className="px-2"
+                size="mini"
+                variant="subtle"
+                onClick={() => {
+                  notes.removeNote(attr.id);
+                  setScreen({
+                    kind: 'edit-attr',
+                    attrId: attr.id,
+                    isForward: attr.isForward,
+                  });
+                }}
+              >
+                Edit
+              </Button>
+            ) : null}
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <Button
+          size="mini"
+          variant="secondary"
+          onClick={() => setScreen({ kind: 'add-attr', attrKind: 'data' })}
+        >
+          <PlusIcon className="inline" height="12px" />
+          New attribute
+        </Button>
+      </div>
+      <RecentlyDeletedAttrs
+        notes={notes}
+        db={db}
+        appId={appId}
+        namespace={namespace}
+      />
+    </div>
+  ) : screen.kind === 'add-attr' ? (
+    <AddAttrForm
+      db={db}
+      namespace={namespace}
+      namespaces={namespaces}
+      onClose={() => setScreen({ kind: 'main' })}
+      constraints={getSystemConstraints({
+        namespaceName: namespace.name,
+        isSystemCatalogNs,
+      })}
+      attrType={screen.attrKind === 'link' ? 'ref' : 'blob'}
+      onAttrTypeChange={(t) =>
+        onScreenChange({
+          kind: 'add-attr',
+          attrKind: t === 'ref' ? 'link' : 'data',
+        })
+      }
+    />
+  ) : screen.kind === 'edit-attr' && screenAttr ? (
+    <EditAttrForm
+      db={db}
+      attr={screenAttr}
+      onClose={() => setScreen({ kind: 'main' })}
+      constraints={getSystemConstraints({
+        namespaceName: namespace.name,
+        isSystemCatalogNs: isSystemCatalogNs,
+        attr: screenAttr,
+      })}
+    />
+  ) : null;
 }
 
 function DeleteForm({
@@ -461,9 +456,7 @@ function AddAttrForm({
             { id: 'blob', label: 'Data' },
             { id: 'ref', label: 'Link' },
           ]}
-          onChange={(item) =>
-            onAttrTypeChange(item.id as 'blob' | 'ref')
-          }
+          onChange={(item) => onAttrTypeChange(item.id as 'blob' | 'ref')}
         />
       </div>
       {attrType === 'blob' ? (

@@ -459,9 +459,7 @@ export const InnerExplorer: React.FC<{
             {readOnlyNs ? null : (
               <button
                 className="translate-y-0.5 opacity-0 transition-opacity group-hover:opacity-100"
-                onClick={() =>
-                  setDialog({ type: 'edit-row', rowId: row.id })
-                }
+                onClick={() => setDialog({ type: 'edit-row', rowId: row.id })}
               >
                 <PencilSquareIcon className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
               </button>
@@ -938,9 +936,7 @@ export const InnerExplorer: React.FC<{
             namespace={selectedNamespace}
             namespaces={namespaces ?? []}
             screen={
-              dialog?.type === 'edit-schema'
-                ? dialog.screen
-                : { kind: 'main' }
+              dialog?.type === 'edit-schema' ? dialog.screen : { kind: 'main' }
             }
             onScreenChange={(s) =>
               setDialog({ type: 'edit-schema', screen: s })
