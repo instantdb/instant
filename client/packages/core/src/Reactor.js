@@ -956,7 +956,7 @@ export default class Reactor {
   }
 
   _handleReceiveError(msg) {
-    console.log('error', msg);
+    this._log.info('error', msg);
     const eventId = msg['client-event-id'];
     // This might not be a mutation, but it can't hurt to delete it
     this._inFlightMutationEventIds.delete(eventId);
