@@ -684,9 +684,7 @@ class Auth<Schema extends InstantSchemaDef<any, any, any>> {
   getUser = async (
     params: { email: string } | { id: string } | { refresh_token: string },
   ): Promise<Omit<User, 'refresh_token'> | null> => {
-    const qs = Object.entries(params)
-      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
-      .join('&');
+    const qs = new URLSearchParams(Object.entries(params)).toString();
 
     const response: { user: User | null } = await jsonFetch(
       `${this.config.apiURI}/admin/users?app_id=${this.config.appId}&${qs}`,
@@ -720,7 +718,7 @@ class Auth<Schema extends InstantSchemaDef<any, any, any>> {
   deleteUser = async (
     params: { email: string } | { id: string } | { refresh_token: string },
   ): Promise<User | null> => {
-    const qs = Object.entries(params).map(([k, v]) => `${k}=${v}`);
+    const qs = new URLSearchParams(Object.entries(params)).toString();
     const response: { deleted: User | null } = await jsonFetch(
       `${this.config.apiURI}/admin/users?app_id=${this.config.appId}&${qs}`,
       {
