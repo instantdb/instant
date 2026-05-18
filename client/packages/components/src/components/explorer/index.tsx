@@ -16,6 +16,17 @@ import { useSchemaQuery } from '@lib/hooks/explorer';
 import { useStableDB } from '@lib/hooks/useStableDB';
 import ErrorBoundary from '@lib/components/error-boundary';
 
+export type SetExplorerStateOptions = {
+  // Use 'replace' for transitions that shouldn't add a back-button step,
+  // such as switching screens within an already-open dialog. Defaults to 'push'.
+  history?: 'push' | 'replace';
+};
+
+export type SetExplorerState = (
+  action: React.SetStateAction<ExplorerNav | null>,
+  options?: SetExplorerStateOptions,
+) => void;
+
 interface ExplorerProps {
   appId: string;
   adminToken: string;
@@ -30,9 +41,7 @@ interface ExplorerProps {
   // When null: controlled mode with no selection
   // When ExplorerNav: controlled mode with a selection
   explorerState: HasDefault<ExplorerNav | null | undefined>;
-  setExplorerState: HasDefault<
-    React.Dispatch<React.SetStateAction<ExplorerNav | null>>
-  >;
+  setExplorerState: HasDefault<SetExplorerState>;
   useShadowDOM: HasDefault<boolean>;
 }
 
@@ -78,8 +87,11 @@ export const useExplorerDialog = () => {
   const props = ctx.props;
   const dialog = props.explorerState?.dialog ?? null;
   const setDialog = useCallback(
-    (d: ExplorerDialog | null) => {
-      props.setExplorerState((prev) => (prev ? { ...prev, dialog: d } : prev));
+    (d: ExplorerDialog | null, options?: SetExplorerStateOptions) => {
+      props.setExplorerState(
+        (prev) => (prev ? { ...prev, dialog: d } : prev),
+        options,
+      );
     },
     [props],
   );
@@ -97,7 +109,7 @@ const isControlled = (props: WithOptional<ExplorerProps>): boolean => {
 const fillPropsWithDefaults = (
   input: WithOptional<ExplorerProps>,
   _explorerState: ExplorerNav | null,
-  setExplorerState: React.Dispatch<React.SetStateAction<ExplorerNav | null>>,
+  setExplorerState: SetExplorerState,
 ): WithDefaults<ExplorerProps> => {
   const controlled = isControlled(input);
   return {

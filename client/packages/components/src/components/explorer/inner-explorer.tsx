@@ -939,7 +939,10 @@ export const InnerExplorer: React.FC<{
               dialog?.type === 'edit-schema' ? dialog.screen : { kind: 'main' }
             }
             onScreenChange={(s) =>
-              setDialog({ type: 'edit-schema', screen: s })
+              setDialog(
+                { type: 'edit-schema', screen: s },
+                { history: 'replace' },
+              )
             }
             onClose={(p) => {
               setDialog(null);

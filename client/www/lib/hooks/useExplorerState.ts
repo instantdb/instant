@@ -117,7 +117,10 @@ export const useExplorerState = (): ExplorerState => {
   }, [state]);
 
   const setExplorerState = useCallback(
-    (action: React.SetStateAction<ExplorerNav | null>) => {
+    (
+      action: React.SetStateAction<ExplorerNav | null>,
+      options?: { history?: 'push' | 'replace' },
+    ) => {
       setState(
         (prev) => {
           const prevNav: ExplorerNav | null = prev.ns
@@ -159,7 +162,7 @@ export const useExplorerState = (): ExplorerState => {
             dialog: next.dialog ?? null,
           };
         },
-        { history: 'push' },
+        { history: options?.history ?? 'push' },
       );
     },
     [setState],
