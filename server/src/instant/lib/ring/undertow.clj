@@ -95,6 +95,7 @@
   [^Undertow$Builder builder {:keys [io-threads worker-threads buffer-size direct-buffers? max-entity-size]}]
   (cond-> builder
     max-entity-size (.setServerOption UndertowOptions/MAX_ENTITY_SIZE (long max-entity-size))
+    max-entity-size (.setServerOption UndertowOptions/MULTIPART_MAX_ENTITY_SIZE (long max-entity-size))
     io-threads (.setIoThreads io-threads)
     worker-threads (.setWorkerThreads worker-threads)
     buffer-size (.setBufferSize buffer-size)
