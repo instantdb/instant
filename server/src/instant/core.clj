@@ -214,6 +214,7 @@
   (let [config (merge
                 {:host "0.0.0.0"
                  :port (config/get-server-port)
+                 :max-entity-size -1
                  :configurator (fn [^Undertow$Builder builder]
                                  (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
                 (when (.exists (io/file "dev-resources/certs/dev.jks"))
