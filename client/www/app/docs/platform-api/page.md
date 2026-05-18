@@ -125,7 +125,7 @@ You have two options for authenticate and create long-lived apps:
 
 **Option 1: Personal Access Tokens**
 
-The quickest way to get started is to create a Personal Access Token. You can create Personal Access Tokens by going to to user settings in "Dashboard -> Settings -> New Accesss Token". Here's a direct [link](https://www.instantdb.com/dash/user-settings).
+The quickest way to get started is to create a Personal Access Token. You can create Personal Access Tokens by going to user settings in "Dashboard -> Settings -> New Accesss Token". Here's a direct [link](https://www.instantdb.com/dash/user-settings).
 
 Once you click "New Access Token", you'll get a token that this:
 
@@ -234,7 +234,7 @@ To see more examples, check out the [Platform SDK reference](https://github.com/
 
 ### Note: scoping tokens per app
 
-You can always use the access tokens you made to change schemas and perms, but you may not want always want too. Particularily with the CLI.
+You can always use the access tokens you created to change schemas and permissions, but you may not always want to, especially from the CLI.
 
 For example, if you're an app builder, you may create a sandbox that lets an agent change schemas and permissions. If you gave the agent access to these tokens, they could change _any_ app associated with the token.
 
