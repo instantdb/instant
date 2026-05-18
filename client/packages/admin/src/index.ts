@@ -668,25 +668,27 @@ class Auth<Schema extends InstantSchemaDef<any, any, any>> {
 
   /**
    * Retrieves an app user by id, email, or refresh token.
+   * Resolves to `null` when no user matches; throws on malformed
+   * input or auth errors.
    *
    * @example
-   *   try {
-   *     const user = await db.auth.getUser({ email })
-   *     console.log("Found user:", user)
-   *   } catch (err) {
-   *     console.error("Failed to retrieve user:", err.message);
+   *   const user = await db.auth.getUser({ email });
+   *   if (!user) {
+   *     console.log("No user found");
+   *     return;
    *   }
+   *   console.log("Found user:", user);
    *
    * @see https://instantdb.com/docs/backend#retrieve-a-user
    */
   getUser = async (
     params: { email: string } | { id: string } | { refresh_token: string },
-  ): Promise<Omit<User, 'refresh_token'>> => {
+  ): Promise<Omit<User, 'refresh_token'> | null> => {
     const qs = Object.entries(params)
       .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
       .join('&');
 
-    const response: { user: User } = await jsonFetch(
+    const response: { user: User | null } = await jsonFetch(
       `${this.config.apiURI}/admin/users?app_id=${this.config.appId}&${qs}`,
       {
         method: 'GET',
@@ -699,25 +701,27 @@ class Auth<Schema extends InstantSchemaDef<any, any, any>> {
 
   /**
    * Deletes an app user by id, email, or refresh token.
+   * Resolves to `null` when no user matches; throws on malformed
+   * input or auth errors.
    *
    * NB: This _only_ deletes the user; it does not delete all user data.
    * You will need to handle this manually.
    *
    * @example
-   *   try {
-   *     const deletedUser = await db.auth.deleteUser({ email })
-   *     console.log("Deleted user:", deletedUser)
-   *   } catch (err) {
-   *     console.error("Failed to delete user:", err.message);
+   *   const deletedUser = await db.auth.deleteUser({ email });
+   *   if (!deletedUser) {
+   *     console.log("No user found to delete");
+   *     return;
    *   }
+   *   console.log("Deleted user:", deletedUser);
    *
    * @see https://instantdb.com/docs/backend#delete-a-user
    */
   deleteUser = async (
     params: { email: string } | { id: string } | { refresh_token: string },
-  ): Promise<User> => {
+  ): Promise<User | null> => {
     const qs = Object.entries(params).map(([k, v]) => `${k}=${v}`);
-    const response: { deleted: User } = await jsonFetch(
+    const response: { deleted: User | null } = await jsonFetch(
       `${this.config.apiURI}/admin/users?app_id=${this.config.appId}&${qs}`,
       {
         method: 'DELETE',
