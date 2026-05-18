@@ -16,6 +16,17 @@ import { useSchemaQuery } from '@lib/hooks/explorer';
 import { useStableDB } from '@lib/hooks/useStableDB';
 import ErrorBoundary from '@lib/components/error-boundary';
 
+export type SetExplorerStateOptions = {
+  // Use 'replace' for transitions that shouldn't add a back-button step,
+  // such as switching screens within an already-open dialog. Defaults to 'push'.
+  history?: 'push' | 'replace';
+};
+
+export type SetExplorerState = (
+  action: React.SetStateAction<ExplorerNav | null>,
+  options?: SetExplorerStateOptions,
+) => void;
+
 interface ExplorerProps {
   appId: string;
   adminToken: string;
@@ -30,9 +41,7 @@ interface ExplorerProps {
   // When null: controlled mode with no selection
   // When ExplorerNav: controlled mode with a selection
   explorerState: HasDefault<ExplorerNav | null | undefined>;
-  setExplorerState: HasDefault<
-    React.Dispatch<React.SetStateAction<ExplorerNav | null>>
-  >;
+  setExplorerState: HasDefault<SetExplorerState>;
   useShadowDOM: HasDefault<boolean>;
 }
 
@@ -68,6 +77,27 @@ export const useExplorerState = () => {
   return { explorerState: ctx.props.explorerState, history: ctx.history };
 };
 
+export const useExplorerDialog = () => {
+  const ctx = useContext(ExplorerPropsContext);
+  if (!ctx.props) {
+    throw new Error(
+      'useExplorerDialog must be used within an Explorer component',
+    );
+  }
+  const props = ctx.props;
+  const dialog = props.explorerState?.dialog ?? null;
+  const setDialog = useCallback(
+    (d: ExplorerDialog | null, options?: SetExplorerStateOptions) => {
+      props.setExplorerState(
+        (prev) => (prev ? { ...prev, dialog: d } : prev),
+        options,
+      );
+    },
+    [props],
+  );
+  return { dialog, setDialog };
+};
+
 const isControlled = (props: WithOptional<ExplorerProps>): boolean => {
   // Component is controlled if explorerState prop is explicitly provided
   // (even if null - that means "no selection" in controlled mode)
@@ -79,7 +109,7 @@ const isControlled = (props: WithOptional<ExplorerProps>): boolean => {
 const fillPropsWithDefaults = (
   input: WithOptional<ExplorerProps>,
   _explorerState: ExplorerNav | null,
-  setExplorerState: React.Dispatch<React.SetStateAction<ExplorerNav | null>>,
+  setExplorerState: SetExplorerState,
 ): WithDefaults<ExplorerProps> => {
   const controlled = isControlled(input);
   return {
@@ -105,6 +135,19 @@ export type SearchFilterOp =
 
 export type SearchFilter = [string, SearchFilterOp, any];
 
+export type EditSchemaScreen =
+  | { kind: 'main' }
+  | { kind: 'rename' }
+  | { kind: 'add-attr'; attrKind: 'data' | 'link' }
+  | { kind: 'edit-attr'; attrId: string; isForward: boolean };
+
+export type ExplorerDialog =
+  | { type: 'add-row' }
+  | { type: 'edit-row'; rowId: string }
+  | { type: 'edit-schema'; screen: EditSchemaScreen }
+  | { type: 'new-namespace' }
+  | { type: 'recently-deleted-ns' };
+
 export interface ExplorerNav {
   namespace: string;
   where?: [string, any];
@@ -113,6 +156,7 @@ export interface ExplorerNav {
   filters?: SearchFilter[];
   limit?: number;
   page?: number;
+  dialog?: ExplorerDialog | null;
 }
 
 export const Explorer = (_props: WithOptional<ExplorerProps>) => {
