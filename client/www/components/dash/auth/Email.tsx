@@ -390,6 +390,7 @@ function SenderOtpVerification({
   verification: ReturnType<typeof useCustomSenderVerification>;
 }) {
   const [code, setCode] = useState('');
+  const normalizedCode = code.replace(/\D/g, '');
   const address = verification.raw.data?.verification?.EmailAddress;
 
   return (
@@ -420,8 +421,8 @@ function SenderOtpVerification({
             type="button"
             variant="primary"
             loading={verification.verifyCode.isMutating}
-            disabled={code.length !== 6}
-            onClick={() => verification.verifyCode.trigger(code)}
+            disabled={normalizedCode.length !== 6}
+            onClick={() => verification.verifyCode.trigger(normalizedCode)}
             className="self-end"
           >
             Verify

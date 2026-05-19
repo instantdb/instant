@@ -1,4 +1,4 @@
-// Manages state for verfication of custom sender email addresses for Auth.
+// Manages state for verification of custom sender email addresses for Auth.
 
 import { useContext, useState } from 'react';
 import { InstantApp } from '../types';
@@ -99,8 +99,7 @@ export const useCustomSenderVerification = (app: InstantApp) => {
     async (_key, { arg }: { arg: string }) => {
       const normalizedCode = arg.replace(/\D/g, '').slice(0, 6);
       if (normalizedCode.length !== 6) {
-        errorToast('Enter the 6-digit verification code');
-        return;
+        throw new Error('Enter the 6-digit verification code');
       }
 
       const verified = await verifySenderVerificationCode({
