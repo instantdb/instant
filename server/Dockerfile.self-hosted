@@ -27,7 +27,15 @@ WORKDIR /app
 
 # Install dependencies and golang-migrate
 RUN yum -y install tar gzip && \
-    curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz && \
+    ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+      ARCH="amd64"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+      ARCH="arm64"; \
+    else \
+      echo "Unsupported architecture: $ARCH"; exit 1; \
+    fi && \
+    curl -L "https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-$ARCH.tar.gz" | tar xvz && \
     mv migrate /usr/local/bin/migrate && \
     yum clean all
 
