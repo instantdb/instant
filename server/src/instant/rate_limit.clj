@@ -201,10 +201,12 @@
         ^Bucket bucket (get-bucket key)]
     (.tryConsume bucket 1)))
 
-(defn try-consume-custom-sender
+(defn try-custom-sender
   "Takes (hz/rate-limit) and email, will return false if the rate-limit is exceeded.
    Otherwise, will return true and increment the bucket counter."
   [{:keys [get-bucket]} {:keys [email]}]
+  ;; use all zeros for the app id since we want to rate limit across emails
+  ;; without the ability to bypass by changing/creating apps
   (let [key (magic-code-key-hash "custom-sender-verify" #uuid "00000000-0000-0000-0000-000000000000" email)
         ^Bucket bucket (get-bucket key)]
     (.tryConsume bucket 1)))

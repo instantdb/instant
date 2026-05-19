@@ -67,7 +67,7 @@
 
 (defn check-custom-sender-rate-limit! [params]
   (when (flags/toggled? :use-bucket4j true)
-    (when-not (rate-limit/try-consume-custom-sender (eph/get-rate-limit) params)
+    (when-not (rate-limit/try-custom-sender (eph/get-rate-limit) params)
       (tracer/record-info! {:name "custom-sender/consume-rate-limited"
                             :attributes {:email (:email params)
                                          :source "bucket4j"}})
@@ -139,7 +139,7 @@
 
         custom-email (:email template)
         custom-email-verified? (and (seq custom-email)
-                                    (verification/verified-by-app-and-sender? app-id (:sender_id template)))
+                                    (:verified template))
 
         sender-email (if (flags/use-app-email-verification?)
                        (if custom-email-verified?

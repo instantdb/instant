@@ -89,9 +89,6 @@ export const useCustomSenderVerification = (app: InstantApp) => {
       throw new Error('Failed to send verification code');
     }
     setJustSentCode(true);
-    successToast(
-      `Verification code sent to ${resp.data?.verification?.EmailAddress}`,
-    );
   };
 
   const verifyCode = useSWRMutation(
@@ -115,7 +112,7 @@ export const useCustomSenderVerification = (app: InstantApp) => {
         resp.mutate();
       },
       onError: (e) => {
-        errorToast('Failed to verify code: ' + e.message);
+        errorToast('Failed to verify code: ' + e.body.message);
       },
     },
   );

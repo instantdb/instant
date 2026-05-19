@@ -73,7 +73,24 @@ export function Email({ app }: { app: InstantApp }) {
           if (values.senderEmail) {
             const res = await verification.refetch();
             if (!res?.instant?.['verified?']) {
-              verification.sendCode();
+              verification
+                .sendCode()
+                .then(() => {
+                  successToast(
+                    `Verification code sent to ${values.senderEmail}`,
+                  );
+                })
+                .catch((error) => {
+                  if (error?.body?.message) {
+                    errorToast(
+                      `Failed to send verification code: ${error.body.message}`,
+                    );
+                  } else {
+                    errorToast(
+                      `Failed to send verification code: ${error instanceof Error ? error.message : String(error)}`,
+                    );
+                  }
+                });
             }
           }
         },
@@ -240,9 +257,8 @@ export function Email({ app }: { app: InstantApp }) {
                 </div>
               </div>
               <Content className="text-sm text-gray-600">
-                {verification.postmarkVerified
-                  ? `Great! You've confirmed ${verification.raw.data.verification?.EmailAddress} with Postmark.`
-                  : `We've sent a confirmation email to ${verification.raw.data.verification?.EmailAddress}. Please click the link in that email to confirm ownership.`}
+                {!verification.postmarkVerified &&
+                  `We've sent a confirmation email to ${verification.raw.data.verification?.EmailAddress}. Please click the link in that email to confirm ownership.`}
               </Content>
               <div className="mt-4 flex items-center justify-between">
                 <div className="text-sm font-medium">
@@ -412,6 +428,11 @@ function SenderOtpVerification({
         <div className="flex flex-1 gap-2">
           <TextInput
             label="Verification code"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                verification.verifyCode.trigger(normalizedCode);
+              }
+            }}
             value={code}
             onChange={(e) => setCode(e)}
             placeholder="123456"

@@ -1,91 +1,90 @@
 (ns instant.dash.routes
-  (:require
-   [clj-http.client :as clj-http]
-   [clojure.string :as string]
-   [clojure.tools.logging :as log]
-   [clojure.walk :as w]
-   [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
-   [hiccup2.core :as h]
-   [instant.cloudwatch :as cloudwatch]
-   [instant.config :as config]
-   [instant.dash.admin :as dash-admin]
-   [instant.dash.ephemeral-app :as ephemeral-app]
-   [instant.dash.get-a-db :as get-a-db]
-   [instant.db.indexing-jobs :as indexing-jobs]
-   [instant.db.model.attr :as attr-model]
-   [instant.db.transaction :as tx]
-   [instant.discord :as discord]
-   [instant.fixtures :as fixtures]
-   [instant.flags :as flags :refer [admin-email?]]
-   [instant.hard-deletion-sweeper :as sweeper]
-   [instant.intern.metrics :as metrics]
-   [instant.isn :as isn]
-   [instant.jdbc.aurora :as aurora]
-   [instant.lib.ring.websocket :as ws]
-   [instant.machine-summaries :as machine-summaries]
-   [instant.model.app :as app-model]
-   [instant.model.app-admin-token :as app-admin-token-model]
-   [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
-   [instant.model.app-email-sender :as app-email-sender-model]
-   [instant.model.app-email-template :as app-email-template-model]
-   [instant.model.app-email-verification :as verification]
-   [instant.model.app-email-verification-code :as app-email-verification-code]
-   [instant.model.app-file :as app-file-model]
-   [instant.model.app-members :as instant-app-members]
-   [instant.model.app-oauth-client :as app-oauth-client-model]
-   [instant.model.app-oauth-service-provider :as app-oauth-service-provider-model]
-   [instant.model.app-user-magic-code :as app-user-magic-code-model]
-   [instant.model.instant-cli-login :as instant-cli-login-model]
-   [instant.model.instant-oauth-code :as instant-oauth-code-model]
-   [instant.model.instant-oauth-redirect :as instant-oauth-redirect-model]
-   [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
-   [instant.model.instant-profile :as instant-profile-model]
-   [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
-   [instant.model.instant-subscription :as instant-subscription-model]
-   [instant.model.instant-user :as instant-user-model]
-   [instant.model.instant-user-magic-code :as instant-user-magic-code-model]
-   [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
-   [instant.model.member-invites :as member-invites-model]
-   [instant.model.oauth-app :as oauth-app-model]
-   [instant.model.org :as org-model]
-   [instant.model.org-members :as instant-org-members]
-   [instant.model.outreach :as outreach-model]
-   [instant.model.rule :as rule-model]
-   [instant.model.schema :as schema-model]
-   [instant.model.shared-oauth-client :refer [assert-shared-credentials-allowed!
-                                              get-shared-credential!]]
-   [instant.model.webhook :as webhook-model]
-   [instant.plans :as plans]
-   [instant.postmark :as postmark]
-   [instant.runtime.magic-code-auth :refer [check-send-rate-limit!
-                                            check-verify-rate-limit!
-                                            check-custom-sender-rate-limit!]]
-   [instant.session-counter :as session-counter]
-   [instant.storage.coordinator :as storage-coordinator]
-   [instant.stripe :as stripe]
-   [instant.superadmin.routes :refer [req->superadmin-app!
-                                      req->superadmin-user!]]
-   [instant.util.async :refer [fut-bg]]
-   [instant.util.crypt :as crypt-util]
-   [instant.util.date :as date]
-   [instant.util.email :as email]
-   [instant.util.exception :as ex]
-   [instant.util.http :as http-util :refer [req->app-and-user! req->auth-user!]]
-   [instant.util.json :as json]
-   [instant.util.number :as number-util]
-   [instant.util.posthog :as posthog]
-   [instant.util.roles :refer [assert-least-privilege!
-                               assert-valid-member-role!]]
-   [instant.util.semver :as semver]
-   [instant.util.string :as string-util]
-   [instant.util.tracer :as tracer]
-   [instant.util.url :as url-util]
-   [instant.util.uuid :as uuid-util]
-   [instant.webhook-processor :as webhook-processor]
-   [medley.core :as medley]
-   [next.jdbc :as next-jdbc]
-   [ring.middleware.cookies :refer [wrap-cookies]]
-   [ring.util.http-response :as response])
+  (:require [clj-http.client :as clj-http]
+            [clojure.string :as string]
+            [clojure.tools.logging :as log]
+            [clojure.walk :as w]
+            [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
+            [hiccup2.core :as h]
+            [instant.cloudwatch :as cloudwatch]
+            [instant.config :as config]
+            [instant.dash.admin :as dash-admin]
+            [instant.dash.ephemeral-app :as ephemeral-app]
+            [instant.dash.get-a-db :as get-a-db]
+            [instant.db.indexing-jobs :as indexing-jobs]
+            [instant.db.model.attr :as attr-model]
+            [instant.db.transaction :as tx]
+            [instant.discord :as discord]
+            [instant.fixtures :as fixtures]
+            [instant.flags :as flags :refer [admin-email?]]
+            [instant.hard-deletion-sweeper :as sweeper]
+            [instant.intern.metrics :as metrics]
+            [instant.isn :as isn]
+            [instant.jdbc.aurora :as aurora]
+            [instant.lib.ring.websocket :as ws]
+            [instant.machine-summaries :as machine-summaries]
+            [instant.model.app :as app-model]
+            [instant.model.app-admin-token :as app-admin-token-model]
+            [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
+            [instant.model.app-email-sender :as app-email-sender-model]
+            [instant.model.app-email-template :as app-email-template-model]
+            [instant.model.app-email-verification :as app-email-verification]
+            [instant.model.app-email-verification-code :as app-email-verification-code]
+            [instant.model.app-file :as app-file-model]
+            [instant.model.app-members :as instant-app-members]
+            [instant.model.app-oauth-client :as app-oauth-client-model]
+            [instant.model.app-oauth-service-provider :as app-oauth-service-provider-model]
+            [instant.model.app-user-magic-code :as app-user-magic-code-model]
+            [instant.model.instant-cli-login :as instant-cli-login-model]
+            [instant.model.instant-oauth-code :as instant-oauth-code-model]
+            [instant.model.instant-oauth-redirect :as instant-oauth-redirect-model]
+            [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
+            [instant.model.instant-profile :as instant-profile-model]
+            [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
+            [instant.model.instant-subscription :as instant-subscription-model]
+            [instant.model.instant-user :as instant-user-model]
+            [instant.model.instant-user-magic-code :as instant-user-magic-code-model]
+            [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
+            [instant.model.member-invites :as member-invites-model]
+            [instant.model.oauth-app :as oauth-app-model]
+            [instant.model.org :as org-model]
+            [instant.model.org-members :as instant-org-members]
+            [instant.model.outreach :as outreach-model]
+            [instant.model.rule :as rule-model]
+            [instant.model.schema :as schema-model]
+            [instant.model.shared-oauth-client :refer [assert-shared-credentials-allowed!
+                                                       get-shared-credential!]]
+            [instant.model.webhook :as webhook-model]
+            [instant.plans :as plans]
+            [instant.postmark :as postmark]
+            [instant.runtime.magic-code-auth :refer [check-send-rate-limit!
+                                                     check-verify-rate-limit!
+                                                     check-custom-sender-rate-limit!]]
+            [instant.session-counter :as session-counter]
+            [instant.storage.coordinator :as storage-coordinator]
+            [instant.stripe :as stripe]
+            [instant.superadmin.routes :refer [req->superadmin-app!
+                                               req->superadmin-user!]]
+            [instant.util.async :refer [fut-bg]]
+            [instant.util.crypt :as crypt-util]
+            [instant.util.date :as date]
+            [instant.util.email :as email]
+            [instant.util.exception :as ex]
+            [instant.util.http :as http-util :refer [req->app-and-user! req->auth-user!]]
+            [instant.util.json :as json]
+            [instant.util.number :as number-util]
+            [instant.util.posthog :as posthog]
+            [instant.util.roles :refer [assert-least-privilege!
+                                        assert-valid-member-role!]]
+            [instant.util.semver :as semver]
+            [instant.util.string :as string-util]
+            [instant.util.tracer :as tracer]
+            [instant.util.url :as url-util]
+            [instant.util.uuid :as uuid-util]
+            [instant.webhook-processor :as webhook-processor]
+            [medley.core :as medley]
+            [next.jdbc :as next-jdbc]
+            [ring.middleware.cookies :refer [wrap-cookies]]
+            [ring.util.http-response :as response])
   (:import
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
@@ -1340,10 +1339,10 @@
 
 (defn sender-verification-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :admin req)
-        {postmark-id :postmark_id verification :verification_verified}
-        (verification/get-by-app-id-and-email-type-with-template
+        {postmark-id :postmark_id instant-verified? :verification_verified}
+        (app-email-verification/get-by-app-id-and-email-type-with-template
          {:app-id app-id :email-type "magic-code"})]
-    (response/ok {:instant {:verified? verification}
+    (response/ok {:instant {:verified? instant-verified?}
                   :verification (when postmark-id
                                   (-> (postmark/get-sender! {:id postmark-id})
                                       :body
@@ -1368,12 +1367,12 @@
         sender-email (email/coerce (get-in req [:body :sender-email])) ;; optional
         custom-sender-name (string-util/coerce-non-blank-str (get-in req [:body :sender-name])) ;; optional
         sender-name (or custom-sender-name (:title app))
-        {sender :sender needs-verify :needs-verify} (when sender-email
-                                                      (app-email-sender-model/sync-sender!
-                                                       {:app-id (:id app)
-                                                        :user-id (:id user)
-                                                        :email sender-email
-                                                        :name sender-name}))
+        {sender :sender needs-verify? :needs-verify} (when sender-email
+                                                       (app-email-sender-model/sync-sender!
+                                                        {:app-id (:id app)
+                                                         :user-id (:id user)
+                                                         :email sender-email
+                                                         :name sender-name}))
         template (app-email-template-model/put!
                   {:app-id (:id app)
                    :email-type email-type
@@ -1381,21 +1380,17 @@
                    :name sender-name
                    :subject subject
                    :body body})]
-    (response/ok {:id (:id template) :needs-verify needs-verify})))
+    (response/ok {:id (:id template) :needs-verify needs-verify?})))
 
 (defn sender-verification-send-magic-code
   "sends the email containing a code to verify a custom sender domain with an app id"
   [req]
   (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
-        verification-info (verification/get-by-app-id-and-email-type-with-template
+        verification-info (app-email-verification/get-by-app-id-and-email-type-with-template!
                            {:app-id app-id :email-type "magic-code"})
-        _ (check-custom-sender-rate-limit! {:email (:email verification-info)})
         verification-id (:verification_id verification-info)
         sender-email (:email verification-info)
-        _ (ex/assert-record! verification-id
-                             :app-email-verification
-                             {:args [{:app-id app-id
-                                      :email-type "magic-code"}]})
+        _ (check-custom-sender-rate-limit! {:email sender-email})
         code (app-user-magic-code-model/rand-code)
         _ (app-email-verification-code/put!
            {:code code
@@ -1409,22 +1404,19 @@
   [req]
   (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
         submitted-code (ex/get-param! req [:body :code] string-util/coerce-non-blank-str)
-        verification-info (verification/get-by-app-id-and-email-type-with-template
+        verification-info (app-email-verification/get-by-app-id-and-email-type-with-template!
                            {:app-id app-id :email-type "magic-code"})
-        _ (check-custom-sender-rate-limit! {:email (:email verification-info)})
         verification-id (:verification_id verification-info)
-        _ (ex/assert-record! verification-id
-                             :app-email-verification
-                             {:args [{:app-id app-id
-                                      :email-type "magic-code"}]})
-        verified (next-jdbc/with-transaction [tx-conn (aurora/conn-pool :write)]
-                   (when (app-email-verification-code/consume!
-                          tx-conn
-                          {:code submitted-code
-                           :verification-id verification-id
-                           :expiry-minutes (flags/default-magic-code-expiry-minutes)})
-                     (verification/mark-verified! tx-conn {:id verification-id})))]
-    (when-not verified
+        sender-email (:email verification-info)
+        _ (check-custom-sender-rate-limit! {:email sender-email})
+        verified? (next-jdbc/with-transaction [tx-conn (aurora/conn-pool :write)]
+                    (when (app-email-verification-code/consume!
+                           tx-conn
+                           {:code submitted-code
+                            :verification-id verification-id
+                            :expiry-minutes (flags/default-magic-code-expiry-minutes)})
+                      (app-email-verification/mark-verified! tx-conn {:id verification-id})))]
+    (when-not verified?
       (ex/throw-validation-err!
        :code
        submitted-code

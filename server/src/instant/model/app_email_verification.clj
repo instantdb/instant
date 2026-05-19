@@ -1,36 +1,45 @@
 (ns instant.model.app-email-verification
   (:require
    [instant.jdbc.aurora :as aurora]
-   [instant.jdbc.sql :as sql]))
+   [instant.jdbc.sql :as sql]
+   [instant.util.exception :as ex]))
 
 (defn put!
   ([params] (put! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id sender-id verified]}]
-   (sql/execute-one! conn ["INSERT INTO app_email_verifications
-          (id, app_id, sender_id, verified)
-          VALUES (?::uuid, ?, ?, ?)
-          ON CONFLICT (app_id, sender_id) DO UPDATE SET sender_id = EXCLUDED.sender_id
-          RETURNING id, verified"
-                           (random-uuid) app-id sender-id verified])))
+   (sql/execute-one!
+    conn
+    ["INSERT INTO app_email_verifications
+      (id, app_id, sender_id, verified)
+      VALUES (?::uuid, ?, ?, ?)
+      ON CONFLICT (app_id, sender_id) DO UPDATE SET sender_id = EXCLUDED.sender_id
+      RETURNING id, verified"
+     (random-uuid) app-id sender-id verified])))
 
 (defn get-by-app-and-sender
   "gets the email verification for the given app and sender"
   [app-id sender-id]
-  (sql/execute-one! (aurora/conn-pool :read) ["SELECT * FROM app_email_verifications WHERE app_id = ? AND sender_id = ?" app-id sender-id]))
+  (sql/execute-one! (aurora/conn-pool :read)
+                    ["SELECT * FROM app_email_verifications
+                      WHERE app_id = ? AND sender_id = ?" app-id sender-id]))
 
 (defn mark-verified!
   ([params] (mark-verified! (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
-   (sql/execute-one! conn ["UPDATE app_email_verifications
+   (sql/execute-one!
+    conn ["UPDATE app_email_verifications
           SET verified = true
           WHERE id = ?::uuid
           RETURNING *"
-                           id])))
+          id])))
 
 (defn verified-by-app-and-sender?
   "returns true if the given app and sender have verified their email"
   [app-id sender-id]
-  (let [row (sql/execute-one! (aurora/conn-pool :read) ["SELECT verified FROM app_email_verifications WHERE app_id = ? AND sender_id = ?" app-id sender-id])]
+  (let [row (sql/execute-one!
+             (aurora/conn-pool :read)
+             ["SELECT verified FROM app_email_verifications
+               WHERE app_id = ? AND sender_id = ?" app-id sender-id])]
     (boolean (:verified row))))
 
 (defn get-by-app-id-and-email-type-with-template
@@ -58,3 +67,17 @@
                     WHERE t.app_id = ?::uuid
                     AND t.email_type = ?"
                     app-id email-type])))
+
+(defn get-by-app-id-and-email-type-with-template!
+  ([params] (get-by-app-id-and-email-type-with-template!
+             (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id email-type]}]
+   (let [result (get-by-app-id-and-email-type-with-template
+                 conn
+                 {:app-id app-id :email-type email-type})
+         verification-id (:verification_id result)
+         _ (ex/assert-record! verification-id
+                              :app-email-verification
+                              {:args [{:app-id app-id
+                                       :email-type email-type}]})]
+     result)))
