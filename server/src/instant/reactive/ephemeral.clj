@@ -6,20 +6,24 @@
    [datascript.core :as ds]
    [editscript.core :as editscript]
    [instant.config :as config :refer [aws-env?]]
+   [instant.flags :as flags]
    [instant.gauges :as gauges]
    [instant.rate-limit :as rate-limit]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
+   [instant.util.async :as ua]
    [instant.util.aws :as aws-util]
    [instant.util.coll :as coll]
+   [instant.util.delay :as delay]
    [instant.util.hazelcast :as hazelcast]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
+   [instant.work-queue :as work-queue]
    [medley.core :as medley])
   (:import
    (com.hazelcast.cluster Cluster InitialMembershipListener Member)
-   (com.hazelcast.config Config)
+   (com.hazelcast.config Config InMemoryFormat)
    (com.hazelcast.core Hazelcast HazelcastInstance)
    (com.hazelcast.map IMap)
    (com.hazelcast.map.impl DataAwareEntryEvent)
@@ -28,8 +32,8 @@
    (com.hazelcast.topic ITopic Message MessageListener)
    (io.github.bucket4j.grid.hazelcast HazelcastProxyManager)
    (java.time Duration Instant)
-   (java.util Map Map$Entry)
-   (java.util.concurrent ConcurrentHashMap Future)
+   (java.util ArrayList Map Map$Entry)
+   (java.util.concurrent ConcurrentHashMap Executors Future LinkedBlockingQueue)
    (java.util.function BiFunction)
    (javax.management ObjectName)))
 
@@ -47,6 +51,8 @@
 (declare handle-event)
 
 (declare handle-broadcast-message)
+
+(declare process-event)
 
 ;; {machine-id Member}
 (defonce hz-member-by-machine-id-cache ^ConcurrentHashMap (ConcurrentHashMap.))
@@ -116,7 +122,7 @@
                           :or {instance-name "instant-hz-v3"
                                cluster-name "instant-server-v2"}}]
   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
-      (.setLevel (if (config/aws-env?)
+      (.setLevel (if (aws-env?)
                    java.util.logging.Level/INFO
                    java.util.logging.Level/WARNING)))
   (.setLevel (java.util.logging.Logger/getLogger "com.hazelcast.system.logo")
@@ -253,29 +259,58 @@
 ;; ---------
 ;; Hazelcast
 
-(defn handle-event [store ^DataAwareEntryEvent event]
-  (let [room-key                 (.getKey event)
-        {:keys [app-id room-id]} room-key
-        {:keys [session-ids]}    (get-in @room-maps [:rooms room-key])]
+(defn process-event [store room-key last-data room-data]
+  (let [{:keys [app-id room-id]} room-key
+        {:keys [session-ids]} (get-in @room-maps [:rooms room-key])]
     (when (seq session-ids) ;; if we have sessions in that room locally
-      (let [room-data (.getValue event)
-            last-data (.getOldValue event)
-            edits     (when last-data
-                        (editscript/get-edits
-                         (editscript/diff last-data room-data {:algo :a-star :str-diff :none})))]
+      (let [edits (when last-data
+                    (editscript/get-edits
+                     (editscript/diff last-data room-data {:algo :a-star :str-diff :none})))]
         (doseq [[sess-id _] room-data
                 :let [q (-> (rs/session store sess-id) :session/socket :receive-q)]
                 :when q
                 :let [just-joined? (and (contains? room-data sess-id)
                                         (not (contains? last-data sess-id)))]]
           (receive-queue/put! q
-                              {:op         :refresh-presence
-                               :app-id     app-id
-                               :room-id    room-id
-                               :data       room-data
-                               :edits      (when-not just-joined?
-                                             edits)
+                              {:op :refresh-presence
+                               :app-id app-id
+                               :room-id room-id
+                               :data room-data
+                               :edits (when-not just-joined?
+                                        edits)
                                :session-id sess-id}))))))
+
+(defn add-event-item
+  "Called by the work queue when a new item is added"
+  [item-atom ^DataAwareEntryEvent event]
+  (let [room-data (.getValue event)
+        last-data (.getOldValue event)]
+    (swap! item-atom (fn [v]
+                       (if v
+                         (-> v
+                             (assoc :room-data room-data))
+                         {:room-data room-data
+                          :last-data last-data})))))
+
+(defn process-event-item
+  "Called by the work queue."
+  [store room-key item-atom]
+  (let [[old-val _] (swap-vals! item-atom (fn [_] nil))]
+    (try
+      (when old-val
+        (process-event store room-key (:last-data old-val) (:room-data old-val)))
+      (catch Throwable t
+        (tracer/record-exception-span! t {:name "eph/process-event-item"
+                                          :escaping? false
+                                          :attributes {:room-key room-key}})))))
+
+(defn handle-event
+  "Called by the hazelcast entry listener. Queues the event so that it can
+   be processed in a batch."
+  [store ^DataAwareEntryEvent event]
+  (let [room-key (.getKey event)]
+    (when (get-in @room-maps [:rooms room-key])
+      (work-queue/offer-work (rs/eph-event-queue store) room-key event))))
 
 (defn handle-broadcast-message
   "Handles the message on the topic we use to broadcast a client-broadcast
@@ -291,6 +326,30 @@
                                  :op :server-broadcast
                                  :session-id sess-id
                                  :app-id app-id)))))
+
+(defn process-rooms-map-updates [room-key action-q]
+  (let [items (ArrayList.)]
+    (LinkedBlockingQueue/.drainTo action-q items)
+    (when-not (.isEmpty items)
+      (let [promises (mapv :promise items)
+            actions (mapv :action items)]
+        (try
+          (.executeOnKey (get-hz-rooms-map)
+                         room-key
+                         (hazelcast/->PresenceEntryProcessor actions))
+          (doseq [p promises]
+            (deliver p {:ok true}))
+          (catch Throwable t
+            (doseq [p promises]
+              (deliver p {:error t}))))))))
+
+(defn enqueue-room-map-update [store room-key action]
+  (let [p (promise)
+        item {:action action
+              :promise p}]
+    (work-queue/offer-work (rs/eph-update-queue store) room-key item)
+    (when-let [error (:error @p)]
+      (throw error))))
 
 (defn broadcast [app-id session-ids base-msg]
   (.publish (get-hz-broadcast-topic)
@@ -316,7 +375,7 @@
            (update-in [:rooms room-key :session-ids]
                       (fnil conj #{}) sess-id))))))
 
-(defn remove-session! [app-id room-id sess-id]
+(defn remove-session! [store app-id room-id sess-id]
   (let [room-key (hazelcast/room-key app-id room-id)]
     (swap! room-maps
            (fn [m]
@@ -328,7 +387,12 @@
                  (empty? session-ids) (medley/dissoc-in [:rooms room-key])
                  (seq session-ids) (assoc-in [:rooms room-key :session-ids]
                                              session-ids)))))
-    (hazelcast/remove-session! (get-hz-rooms-map) room-key sess-id)))
+
+    (hazelcast/remove-session! (when (flags/batch-hz-room-map-actions?)
+                                 (partial enqueue-room-map-update store))
+                               (get-hz-rooms-map)
+                               room-key
+                               sess-id)))
 
 (defn clean-orphan-sessions [_time]
   (tracer/with-span! {:name "clean-orphan-sessions"}
@@ -353,7 +417,7 @@
                                          :room-id     room-id
                                          :session-id  sess-id
                                          :instance-id instance-id}}
-          (remove-session! app-id room-id sess-id))))))
+          (remove-session! rs/store app-id room-id sess-id))))))
 
 (defn clean-old-sessions []
   (let [oldest-timestamp (aws-util/oldest-instance-timestamp)
@@ -372,12 +436,12 @@
                                        :room-id room-id
                                        :session-id sess-id
                                        :squuid-timestamp squuid-timestamp}}
-        (remove-session! app-id room-id sess-id)))
+        (remove-session! rs/store app-id room-id sess-id)))
     (doseq [^Map$Entry entry (.entrySet hz-map)
             :let [{:keys [app-id room-id]} (.getKey entry)
                   v (.getValue entry)]
             :when (and app-id room-id (empty? v))]
-      (remove-session! app-id room-id (random-uuid)))))
+      (remove-session! rs/store app-id room-id (random-uuid)))))
 
 ;; ----------
 ;; Public API
@@ -396,27 +460,31 @@
     (contains? (get-in @room-maps [:rooms room-key :session-ids])
                sess-id)))
 
-(defn join-room! [app-id sess-id current-user room-id data]
+(defn join-room! [store app-id sess-id current-user room-id data]
   (register-session! app-id room-id sess-id)
-  (hazelcast/join-room! (get-hz-rooms-map)
+  (hazelcast/join-room! (when (flags/batch-hz-room-map-actions?)
+                          (partial enqueue-room-map-update store))
+                        (get-hz-rooms-map)
                         (hazelcast/room-key app-id room-id)
                         sess-id
                         (:instance-id @hz)
                         (:id current-user)
                         data))
 
-(defn leave-room! [app-id sess-id room-id]
-  (remove-session! app-id room-id sess-id))
+(defn leave-room! [store app-id sess-id room-id]
+  (remove-session! store app-id room-id sess-id))
 
-(defn set-presence! [app-id sess-id room-id data]
-  (hazelcast/set-presence! (get-hz-rooms-map)
+(defn set-presence! [store app-id sess-id room-id data]
+  (hazelcast/set-presence! (when (flags/batch-hz-room-map-actions?)
+                             (partial enqueue-room-map-update store))
+                           (get-hz-rooms-map)
                            (hazelcast/room-key app-id room-id)
                            sess-id
                            data))
 
-(defn leave-by-session-id! [app-id sess-id]
+(defn leave-by-session-id! [store app-id sess-id]
   (doseq [room-id (get-in @room-maps [:sessions sess-id])]
-    (remove-session! app-id room-id sess-id)))
+    (remove-session! store app-id room-id sess-id)))
 
 (defn hz-jmx-stats []
   (for [^ObjectName n (jmx/mbean-names "com.hazelcast:*")
@@ -502,6 +570,25 @@
 ;; System
 
 (defn start []
+  (reset! (:eph-event-queue-atom rs/store)
+          (work-queue/create-work-queue (Executors/newFixedThreadPool (delay/cpu-count))
+                                        {:init-fn (fn [_k] (atom nil))
+                                         :add-fn (fn [_k item-atom event]
+                                                   (add-event-item item-atom event)
+                                                   item-atom)
+                                         :empty?-fn (fn [_k item-atom]
+                                                      (empty? @item-atom))
+                                         :process-fn (partial process-event-item rs/store)}))
+
+  (reset! (:eph-update-queue-atom rs/store)
+          (work-queue/create-work-queue (ua/make-virtual-thread-executor)
+                                        {:init-fn (fn [_k] (LinkedBlockingQueue.))
+                                         :add-fn (fn [_k q op]
+                                                   (LinkedBlockingQueue/.put q op)
+                                                   q)
+                                         :empty?-fn (fn [_k q]
+                                                      (LinkedBlockingQueue/.isEmpty q))
+                                         :process-fn process-rooms-map-updates}))
   (def hz
     (delay
       (init-hz (config/get-env) rs/store {})))
