@@ -199,7 +199,9 @@
                           deref
                           ds/conn-from-db)]
       {app-id conn}
-      {}))))
+      {}))
+   (atom nil)
+   (atom nil)))
 
 (defn wal-latency-ms [{:keys [tx-created-at]}]
   (when tx-created-at

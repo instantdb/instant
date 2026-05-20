@@ -23,7 +23,7 @@
    [medley.core :as medley])
   (:import
    (com.hazelcast.cluster Cluster InitialMembershipListener Member)
-   (com.hazelcast.config Config InMemoryFormat)
+   (com.hazelcast.config Config)
    (com.hazelcast.core Hazelcast HazelcastInstance)
    (com.hazelcast.map IMap)
    (com.hazelcast.map.impl DataAwareEntryEvent)

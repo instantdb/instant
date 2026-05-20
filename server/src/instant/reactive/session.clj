@@ -631,7 +631,7 @@
   (let [auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
         room-id (validate-room-id event)]
-    (eph/leave-room! app-id sess-id room-id)
+    (eph/leave-room! store app-id sess-id room-id)
     (rs/send-event! store app-id sess-id {:op :leave-room-ok
                                           :room-id room-id
                                           :client-event-id client-event-id})))
