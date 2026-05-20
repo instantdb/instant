@@ -69,7 +69,7 @@
    [ring.util.http-response :as response])
   (:import
    (clojure.lang IFn)
-   (io.undertow Undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
+   (io.undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
    (instant.lib.ring.undertow Server)
    (java.text SimpleDateFormat)
    (java.util Locale TimeZone)))
