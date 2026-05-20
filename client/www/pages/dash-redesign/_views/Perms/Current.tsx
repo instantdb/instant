@@ -54,10 +54,12 @@ function DocsCard({
   return (
     <a
       href={href}
-      className="block cursor-pointer justify-start space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
+      className="block cursor-pointer justify-start rounded-md border border-gray-200 bg-[#fbfaf8] p-4 shadow-xs transition-colors hover:border-gray-300 hover:bg-white dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
     >
       <div>
-        <div className="font-bold">{title}</div>
+        <div className="font-semibold text-gray-950 dark:text-white">
+          {title}
+        </div>
         <div className="text-sm text-gray-500 dark:text-neutral-400">
           {children}
         </div>
@@ -271,7 +273,7 @@ function PermsContent({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-      <div className="flex min-h-0 min-w-[260px] flex-col gap-4 border-r p-4 text-sm md:basis-96 md:text-base dark:border-r-neutral-700">
+      <div className="flex min-h-0 min-w-[260px] flex-col gap-4 border-r border-gray-200 bg-white p-5 text-sm md:basis-80 dark:border-r-neutral-800 dark:bg-neutral-950">
         <SectionHeading>Permissions</SectionHeading>
         <Content className="dark:text-neutral-300">
           <p>
@@ -288,7 +290,7 @@ function PermsContent({
           Learn how to use CEL expressions to secure your app
         </DocsCard>
       </div>
-      <div className="flex w-full flex-1 flex-col justify-start dark:bg-neutral-800">
+      <div className="flex w-full flex-1 flex-col justify-start dark:bg-neutral-900">
         {errorRes && (
           <div className="bg-red-100 p-4 text-sm">
             <div className="max-w-sm">
@@ -338,8 +340,8 @@ function PermsContent({
             }
           />
         ) : historyUnavailable ? (
-          <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
-            <div className="flex items-center justify-between gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
+          <div className="flex h-full min-h-0 flex-col bg-white dark:bg-neutral-950">
+            <div className="flex items-center justify-between gap-4 border-b border-gray-200 px-4 py-2 dark:border-b-neutral-800">
               <div className="font-mono">{editorLabel}</div>
               <Button
                 variant="secondary"

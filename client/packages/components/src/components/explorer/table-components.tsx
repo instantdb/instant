@@ -114,11 +114,11 @@ export const TableHeader = ({
       )}
       <div className="flex h-full items-stretch justify-between overflow-hidden">
         <div
-          className={`flex shrink items-center gap-1 truncate px-2 py-1 font-semibold th-${header.column.id}`}
+          className={`flex shrink items-center gap-1 truncate px-2.5 py-1.5 font-semibold th-${header.column.id}`}
         >
           {isSortable ? (
             <button
-              className="relative z-50 flex items-center gap-1 py-2 pr-5"
+              className="relative z-50 flex items-center gap-1 py-1.5 pr-5"
               onClick={() => {
                 if (onSort) {
                   let thisAttrName =
@@ -188,7 +188,7 @@ export const TableHeader = ({
             }}
           >
             {headerGroup.headers.length - 1 !== index && (
-              <div className="h-full w-0.5 bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="h-full w-px bg-neutral-200 dark:bg-neutral-800"></div>
             )}
           </div>
         </div>
@@ -254,7 +254,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
           }}
           style={{
             ...style,
-            padding: disablePadding ? 0 : '0.5rem',
+            padding: disablePadding ? 0 : '0.375rem 0.5rem',
           }}
           className={cn(`cursor-default truncate whitespace-nowrap`)}
           key={cell.id}
@@ -262,7 +262,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
           <span
             className={cn(
               `h-full min-h-full cursor-pointer td-${cell.column.id}`,
-              disablePadding ? '' : 'pr-2',
+              disablePadding ? '' : 'pr-1.5',
             )}
             onClick={() => {
               if (

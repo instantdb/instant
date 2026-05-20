@@ -1,13 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TrashIcon } from '@heroicons/react/24/outline';
 import {
   ActionForm,
   Button,
   Checkbox,
   Content,
-  Copyable,
   Dialog,
-  Divider,
   Label,
   SectionHeading,
   Select,
@@ -16,6 +14,12 @@ import {
 } from '@/components/ui';
 import {
   DashShell,
+  DashPage,
+  DashPanel,
+  DashPanelHeader,
+  DashRow,
+  DashNotice,
+  DashSecretField,
   EphemeralError,
   EphemeralLoading,
   useEphemeralInstantApp,
@@ -34,10 +38,12 @@ function DocsCard({
   return (
     <a
       href={href}
-      className="block cursor-pointer justify-start space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
+      className="block cursor-pointer justify-start rounded-md border border-gray-200 bg-[#fbfaf8] p-3 transition-colors hover:border-gray-300 hover:bg-white dark:border-neutral-800 dark:bg-neutral-950 dark:hover:border-neutral-700 dark:hover:bg-neutral-900"
     >
       <div>
-        <div className="font-bold">{title}</div>
+        <div className="font-semibold text-gray-950 dark:text-white">
+          {title}
+        </div>
         <div className="text-sm text-gray-500 dark:text-neutral-400">
           {children}
         </div>
@@ -53,7 +59,6 @@ function AdminBody({
   adminToken: string;
   appTitle: string;
 }) {
-  const [hideAdminToken, setHideAdminToken] = useState(true);
   const [appName, setAppName] = useState(appTitle);
 
   const members = [
@@ -66,109 +71,121 @@ function AdminBody({
   ];
 
   return (
-    <div className="flex h-full max-w-2xl flex-col gap-4 p-4">
-      <SectionHeading className="pt-4">Admin SDK</SectionHeading>
-      <DocsCard href="/docs/backend" title="Instant and your backend">
-        Learn how to use the Admin SDK to integrate Instant with your backend.
-      </DocsCard>
-      <Content>
-        Use the admin token below to authenticate with your backend. Keep this
-        token a secret. If need be, you can regenerate it by{' '}
-        <a className="hover:cursor-pointer dark:text-white" href="#">
-          clicking here
-        </a>
-        .
-      </Content>
-      <Copyable
-        onChangeHideValue={() => setHideAdminToken(!hideAdminToken)}
-        hideValue={hideAdminToken}
-        label="Secret"
-        value={adminToken}
-      />
-      <Divider />
+    <DashPage size="wide">
+      <div>
+        <SectionHeading>Admin</SectionHeading>
+        <Content className="mt-1">
+          Manage backend access, app ownership, and destructive operations for
+          this app.
+        </Content>
+      </div>
 
-      <form
-        className="flex flex-col gap-2"
-        onSubmit={(e) => e.preventDefault()}
-      >
-        <TextInput
-          label="App name"
-          placeholder="My awesome app"
-          value={appName}
-          onChange={setAppName}
-        />
-        <Button variant="secondary">Update app name</Button>
-      </form>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+        <div className="flex flex-col gap-4">
+          <DashPanel>
+            <DashPanelHeader
+              title="Admin SDK"
+              description="Use this token from trusted backend environments only."
+            />
+            <div className="space-y-4">
+              <DocsCard href="/docs/backend" title="Instant and your backend">
+                Learn how to integrate Instant with your backend.
+              </DocsCard>
+              <Content>
+                Regenerate the token if it has been exposed or needs to be
+                rotated.
+              </Content>
+              <DashSecretField
+                label="Secret"
+                value={adminToken}
+                description="Admin token"
+              />
+            </div>
+          </DashPanel>
 
-      <div className="flex flex-col gap-1">
-        <SectionHeading>Team Members</SectionHeading>
-        <SubsectionHeading>Members</SubsectionHeading>
-        {members.length ? (
-          <div className="flex flex-col gap-1">
-            {members.map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center justify-between gap-3"
-              >
-                <div className="flex flex-1 justify-between">
-                  <div>{member.email}</div>
-                  <div className="text-gray-400 dark:text-neutral-400">
-                    {member.role[0].toUpperCase() + member.role.slice(1)}
-                  </div>
-                </div>
-                <div className="flex w-28">
-                  <Button className="w-full" variant="secondary">
-                    Edit
-                  </Button>
+          <DashPanel>
+            <DashPanelHeader
+              title="Danger zone"
+              description="These actions permanently remove app data."
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button variant="destructive">
+                <TrashIcon height="1rem" /> Clear app
+              </Button>
+              <Button variant="destructive">
+                <TrashIcon height="1rem" /> Delete app
+              </Button>
+            </div>
+          </DashPanel>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <DashPanel>
+            <DashPanelHeader title="App settings" />
+            <form
+              className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+              onSubmit={(e) => e.preventDefault()}
+            >
+              <TextInput
+                label="App name"
+                size="large"
+                placeholder="My awesome app"
+                value={appName}
+                onChange={setAppName}
+              />
+              <Button variant="secondary" size="large">
+                Save name
+              </Button>
+            </form>
+          </DashPanel>
+
+          <DashPanel>
+            <DashPanelHeader
+              title="Team members"
+              description="Admins can manage app settings and team access."
+              action={<Button variant="secondary">Invite member</Button>}
+            />
+            {members.length ? (
+              <div>
+                {members.map((member) => (
+                  <DashRow
+                    key={member.id}
+                    label={member.email}
+                    value={member.role[0].toUpperCase() + member.role.slice(1)}
+                    action={
+                      <Button size="mini" variant="secondary">
+                        Edit
+                      </Button>
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 dark:text-neutral-400">
+                No team members
+              </div>
+            )}
+          </DashPanel>
+
+          <DashPanel>
+            <DashPanelHeader
+              title="Transfer app"
+              description="Move this app to another organization."
+            />
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+              <div className="flex flex-col gap-1">
+                <Label>Destination organization</Label>
+                <div className="flex min-h-10 w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3.5 py-2 text-sm shadow-xs dark:border-neutral-700 dark:bg-neutral-900">
+                  <span>my-new-org</span>
+                  <span className="text-gray-400">▾</span>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-gray-400 dark:text-neutral-400">
-            No team members
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <Button variant="secondary">Invite a team member</Button>
-      </div>
-
-      <div>
-        <SectionHeading className="pt-4">Transfer App</SectionHeading>
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-col gap-1 pt-2">
-            <Label className="font-normal opacity-70">
-              Destination Organization
-            </Label>
-            <div className="flex w-full items-center justify-between rounded-xs border border-gray-300 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-700/40">
-              <span>my-new-org</span>
-              <span className="text-gray-400">▾</span>
+              <Button variant="secondary">Transfer</Button>
             </div>
-          </div>
-          <div>
-            <Button variant="secondary">Transfer app</Button>
-          </div>
+          </DashPanel>
         </div>
       </div>
-
-      <div className="mt-auto space-y-2 pb-4">
-        <SectionHeading className="pt-4">Danger zone</SectionHeading>
-        <Content>
-          These are destructive actions and will irreversibly delete associated
-          data.
-        </Content>
-        <div className="flex flex-col space-y-6">
-          <Button variant="destructive">
-            <TrashIcon height="1rem" /> Clear app
-          </Button>
-          <Button variant="destructive">
-            <TrashIcon height="1rem" /> Delete app
-          </Button>
-        </div>
-      </div>
-    </div>
+    </DashPage>
   );
 }
 
@@ -183,13 +200,36 @@ function EditMemberDialog({
   return (
     <Dialog title="Edit Member" open={open} onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <h5 className="flex items-center text-lg font-bold">
-          Edit team member
-        </h5>
-        <Button variant="primary">Promote to admin</Button>
-        <Button className="w-full" variant="destructive">
-          Remove from team
-        </Button>
+        <div>
+          <SubsectionHeading>Edit team member</SubsectionHeading>
+          <Content className="mt-1">
+            collab@example.com currently has collaborator access.
+          </Content>
+        </div>
+        <div className="rounded-md border border-gray-200 dark:border-neutral-800">
+          <div className="flex items-center justify-between gap-4 border-b border-gray-100 p-3 dark:border-neutral-800">
+            <div>
+              <div className="text-sm font-semibold text-gray-950 dark:text-white">
+                Role
+              </div>
+              <Content className="text-sm">
+                Allow app and schema changes.
+              </Content>
+            </div>
+            <Button variant="primary">Promote</Button>
+          </div>
+          <div className="flex items-center justify-between gap-4 p-3">
+            <div>
+              <div className="text-sm font-semibold text-red-700 dark:text-red-300">
+                Remove access
+              </div>
+              <Content className="text-sm">
+                Remove this member from the app.
+              </Content>
+            </div>
+            <Button variant="destructive">Remove</Button>
+          </div>
+        </div>
       </div>
     </Dialog>
   );
@@ -207,18 +247,18 @@ function InviteMemberDialog({
   return (
     <Dialog title="Invite Members" open={open} onClose={onClose}>
       <ActionForm className="flex flex-col gap-4">
-        <h5 className="flex items-center text-lg font-bold">
-          Invite a team member
-        </h5>
+        <SubsectionHeading>Invite a team member</SubsectionHeading>
         <TextInput
           label="Email"
           type="email"
+          size="large"
           value={email}
           onChange={setEmail}
         />
         <div className="flex flex-col gap-1">
           <Label>Role</Label>
           <Select
+            size="lg"
             value={role}
             onChange={(o) => o && setRole(o.value as 'admin' | 'collaborator')}
             options={[
@@ -227,9 +267,24 @@ function InviteMemberDialog({
             ]}
           />
         </div>
-        <Button type="submit" variant="primary" disabled={!email}>
-          Invite
-        </Button>
+        <div className="flex justify-end gap-2 border-t border-gray-200 pt-4 dark:border-neutral-800">
+          <Button
+            type="button"
+            variant="secondary"
+            size="large"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            size="large"
+            disabled={!email}
+          >
+            Invite
+          </Button>
+        </div>
       </ActionForm>
     </Dialog>
   );
@@ -245,11 +300,11 @@ function ClearAppDialog({
   const [ok, setOk] = useState(false);
   return (
     <Dialog title="Clear App" open={open} onClose={onClose}>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-4">
         <SubsectionHeading className="text-red-600">
           Clear app
         </SubsectionHeading>
-        <Content className="space-y-2">
+        <DashNotice tone="danger">
           <p>
             Clearing an app will irreversibly delete all namespaces, triples,
             and permissions.
@@ -262,15 +317,20 @@ function ClearAppDialog({
             This is equivalent to deleting all your namespaces in the explorer
             and clearing your permissions.
           </p>
-        </Content>
+        </DashNotice>
         <Checkbox
           checked={ok}
           onChange={(c) => setOk(c)}
           label="I understand and want to clear this app."
         />
-        <Button variant="destructive" disabled={!ok}>
-          Clear data
-        </Button>
+        <div className="flex justify-end gap-2 border-t border-gray-200 pt-4 dark:border-neutral-800">
+          <Button variant="secondary" size="large" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="destructive" size="large" disabled={!ok}>
+            Clear data
+          </Button>
+        </div>
       </div>
     </Dialog>
   );
@@ -286,21 +346,26 @@ function DeleteAppDialog({
   const [ok, setOk] = useState(false);
   return (
     <Dialog title="Delete App" open={open} onClose={onClose}>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-4">
         <SubsectionHeading className="text-red-600">
           Delete app
         </SubsectionHeading>
-        <Content>
+        <DashNotice tone="danger">
           Deleting an app will irreversibly delete all associated data.
-        </Content>
+        </DashNotice>
         <Checkbox
           checked={ok}
           onChange={(c) => setOk(c)}
           label="I understand and want to delete this app."
         />
-        <Button variant="destructive" disabled={!ok}>
-          Delete
-        </Button>
+        <div className="flex justify-end gap-2 border-t border-gray-200 pt-4 dark:border-neutral-800">
+          <Button variant="secondary" size="large" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="destructive" size="large" disabled={!ok}>
+            Delete
+          </Button>
+        </div>
       </div>
     </Dialog>
   );
@@ -309,11 +374,9 @@ function DeleteAppDialog({
 export function Current({ sub = 'default' }: { sub?: AdminSubState }) {
   const ephemeral = useEphemeralInstantApp();
   const [openSub, setOpenSub] = useState<AdminSubState>(sub);
-  // sync external sub → internal open state on prop change
-  if (sub !== openSub && sub !== 'default') {
-    // pin to the sub the sidebar requested
-    setOpenSub(sub);
-  }
+  useEffect(() => {
+    if (sub !== 'default') setOpenSub(sub);
+  }, [sub]);
   if (ephemeral.status === 'loading') return <EphemeralLoading />;
   if (ephemeral.status === 'error') {
     return <EphemeralError error={ephemeral.error} reset={ephemeral.reset} />;

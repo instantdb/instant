@@ -47,7 +47,7 @@ function SchemaContent({ attrs }: { attrs: Record<string, DBAttr> | null }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-      <div className="flex min-h-0 flex-col gap-4 border-r p-4 text-sm md:text-base lg:basis-96 dark:border-r-neutral-600">
+      <div className="flex min-h-0 flex-col gap-4 border-r border-gray-200 bg-white p-5 text-sm lg:basis-96 dark:border-r-neutral-800 dark:bg-neutral-950">
         <SectionHeading>Schema</SectionHeading>
         <p>This is the schema for your app in code form.</p>
         <p>
@@ -55,17 +55,16 @@ function SchemaContent({ attrs }: { attrs: Record<string, DBAttr> | null }) {
           <code className="tracking-tight">instant-cli</code> to push and pull
           changes to your schema:
         </p>
-        <p>
-          <div className="overflow-auto rounded-sm border bg-white text-sm dark:border-neutral-600 dark:bg-neutral-800">
-            <Fence
-              darkMode={darkMode}
-              copyable
-              className="border-none!"
-              code={`npx instant-cli@latest pull`}
-              language="bash"
-            />
-          </div>
-        </p>
+        <div className="overflow-auto rounded-md border border-gray-200 bg-[#fbfaf8] text-sm dark:border-neutral-800 dark:bg-neutral-900">
+          <Fence
+            darkMode={darkMode}
+            copyable
+            className="border-none!"
+            code={`npx instant-cli@latest pull`}
+            language="bash"
+            style={{ paddingRight: 96 }}
+          />
+        </div>
         <p>
           <a
             className="flex items-baseline gap-1 underline"
@@ -78,7 +77,7 @@ function SchemaContent({ attrs }: { attrs: Record<string, DBAttr> | null }) {
         </p>
       </div>
       <div className="flex w-full flex-1 flex-col justify-start">
-        <div className="flex items-center justify-between gap-4 border-b bg-gray-50 px-4 py-2 dark:border-b-neutral-600 dark:bg-neutral-800">
+        <div className="flex items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 py-2 dark:border-b-neutral-800 dark:bg-neutral-950">
           <div className="font-mono text-sm">instant.schema.ts</div>
           <div className="flex items-center gap-2">
             <Label>Package</Label>

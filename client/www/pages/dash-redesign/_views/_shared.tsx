@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { forwardRef, ReactNode, useState } from 'react';
 import {
+  ClipboardDocumentIcon,
   ArrowTopRightOnSquareIcon,
   ArrowUturnLeftIcon,
   BeakerIcon,
@@ -8,6 +9,8 @@ import {
   CodeBracketIcon,
   CreditCardIcon,
   CubeIcon,
+  EyeIcon,
+  EyeSlashIcon,
   FunnelIcon,
   HomeIcon,
   IdentificationIcon,
@@ -19,6 +22,7 @@ import {
 import { ChevronDownIcon, MoonIcon, PlusIcon } from '@heroicons/react/24/solid';
 import {
   Button,
+  cn,
   FullscreenLoading,
   LogoIcon,
   SmallCopyable,
@@ -109,7 +113,7 @@ export function toDirectoryName(title: string): string {
   return dirName || 'instant-app';
 }
 
-export function DashDataProvider({ children }: { children: React.ReactNode }) {
+export function DashDataProvider({ children }: { children: ReactNode }) {
   const token = useAuthToken();
 
   if (!token) {
@@ -144,15 +148,17 @@ export function DashDataProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function AuthShell({ children }: { children: React.ReactNode }) {
+export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center p-4 dark:bg-neutral-900">
-      <div className="max-w-sm">
-        <span className="inline-flex items-center space-x-2">
-          <LogoIcon />
-          <span className="font-mono text-sm lowercase">Instant</span>
+    <div className="flex min-h-[100dvh] items-center justify-center bg-[#fbfaf8] p-8 dark:bg-neutral-950">
+      <div className="w-full max-w-[660px]">
+        <span className="mb-8 inline-flex items-center gap-3">
+          <LogoIcon size="normal" className="h-8 w-8" />
+          <span className="text-3xl font-semibold tracking-normal text-gray-950 lowercase dark:text-white">
+            instant
+          </span>
         </span>
-        <div className="flex flex-col gap-4">{children}</div>
+        <div className="flex flex-col gap-8">{children}</div>
       </div>
     </div>
   );
@@ -181,7 +187,7 @@ export function MockTopBar({
 }: {
   appTitle?: string;
   account?: TopBarAccount;
-  leftExtra?: React.ReactNode;
+  leftExtra?: ReactNode;
 }) {
   const accountIcon =
     account.kind === 'user' ? (
@@ -191,10 +197,10 @@ export function MockTopBar({
     );
   const accountLabel = account.kind === 'user' ? account.email : account.title;
   return (
-    <div className="relative flex flex-col gap-2 border-b border-b-gray-300 px-2 py-2 md:px-4 dark:border-b-neutral-700 dark:bg-neutral-800 dark:text-white">
+    <div className="relative flex flex-col gap-2 border-b border-gray-200 bg-white px-3 py-2 md:px-5 dark:border-neutral-800 dark:bg-neutral-950 dark:text-white">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-row items-center gap-2">
-          <div className="flex items-center justify-between gap-9 rounded-xs border border-gray-300 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-700/40">
+          <div className="flex min-h-10 min-w-[220px] items-center justify-between gap-4 rounded-md border border-gray-300 bg-white px-3.5 text-sm shadow-xs dark:border-neutral-700 dark:bg-neutral-900">
             <div className="flex items-center gap-2">
               {accountIcon}
               <div>{accountLabel}</div>
@@ -202,14 +208,14 @@ export function MockTopBar({
             <ChevronDownIcon width={15} />
           </div>
           {appTitle && (
-            <div className="flex items-center justify-between gap-9 truncate rounded-xs border border-gray-300 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-700/40">
+            <div className="flex min-h-10 min-w-[180px] items-center justify-between gap-4 truncate rounded-md border border-gray-300 bg-white px-3.5 text-sm shadow-xs dark:border-neutral-700 dark:bg-neutral-900">
               <div>{appTitle}</div>
               <ChevronDownIcon width={15} />
             </div>
           )}
           {leftExtra}
         </div>
-        <div className="flex items-center gap-4 md:gap-6">
+        <div className="flex items-center gap-3 md:gap-4">
           <a
             className="flex items-center gap-1 text-sm opacity-50 hover:underline"
             href="#"
@@ -229,9 +235,9 @@ export function MockTopBar({
   );
 }
 
-export function OnboardingShell({ children }: { children: React.ReactNode }) {
+export function OnboardingShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-screen flex-col dark:bg-neutral-900">
+    <div className="flex h-screen flex-col bg-[#fbfaf8] dark:bg-neutral-950">
       <MockTopBar />
       <div className="flex flex-1 items-center justify-center">{children}</div>
     </div>
@@ -251,7 +257,7 @@ export type DashTabId =
   | 'oauth-apps'
   | 'webhooks';
 
-const DASH_TABS: { id: DashTabId; title: string; icon: React.ReactNode }[] = [
+const DASH_TABS: { id: DashTabId; title: string; icon: ReactNode }[] = [
   { id: 'home', title: 'Home', icon: <HomeIcon width={14} /> },
   { id: 'explorer', title: 'Explorer', icon: <FunnelIcon width={14} /> },
   { id: 'schema', title: 'Schema', icon: <CodeBracketIcon width={14} /> },
@@ -271,18 +277,18 @@ const DASH_TABS: { id: DashTabId; title: string; icon: React.ReactNode }[] = [
 
 function LeftNav({ active }: { active: DashTabId }) {
   return (
-    <div className="flex flex-col gap-2 border-b border-gray-300 bg-gray-50 md:w-48 md:gap-0 md:border-r md:border-b-0 dark:border-neutral-700/80 dark:bg-neutral-800/40">
-      <div className="hidden h-full flex-row overflow-auto bg-gray-50 md:visible md:static md:flex md:flex-col dark:bg-neutral-800/40">
+    <div className="flex flex-col gap-2 border-b border-gray-200 bg-[#fbfaf8] md:w-52 md:gap-0 md:border-r md:border-b-0 dark:border-neutral-800 dark:bg-neutral-950">
+      <div className="hidden h-full flex-row overflow-auto p-2 md:visible md:static md:flex md:flex-col">
         {DASH_TABS.map((t) => {
           const isActive = t.id === active;
           return (
             <button
               key={t.id}
               type="button"
-              className={`flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+              className={`flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors ${
                 isActive
-                  ? 'bg-white dark:bg-neutral-800 dark:text-white'
-                  : 'hover:bg-gray-100 dark:hover:bg-neutral-800/80'
+                  ? 'bg-white font-semibold text-gray-950 shadow-xs dark:bg-neutral-900 dark:text-white'
+                  : 'text-gray-600 hover:bg-white/70 hover:text-gray-950 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-white'
               }`}
             >
               {t.icon}
@@ -298,14 +304,16 @@ function LeftNav({ active }: { active: DashTabId }) {
 function AppHeader({ app }: { app: InstantApp }) {
   const [hideAppId, setHideAppId] = useState(false);
   return (
-    <div className="bg-gray-50 dark:bg-neutral-800/90">
-      <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 md:flex-row md:gap-4 dark:border-b-neutral-700">
+    <div className="bg-white dark:bg-neutral-950">
+      <div className="flex flex-col justify-between border-b border-gray-200 px-4 py-3 md:flex-row md:items-center md:gap-4 dark:border-neutral-800">
         <div className="flex items-center gap-2">
-          <h2 className="font-semibold md:text-xl">{app.title}</h2>
+          <h2 className="text-xl font-semibold tracking-normal text-gray-950 dark:text-white">
+            {app.title}
+          </h2>
         </div>
         <SmallCopyable
           size="normal"
-          label="Public App ID"
+          label="App ID"
           value={app.id}
           hideValue={hideAppId}
           onChangeHideValue={() => setHideAppId(!hideAppId)}
@@ -322,18 +330,251 @@ export function DashShell({
 }: {
   active: DashTabId;
   app: InstantApp;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <div className="flex h-screen flex-col dark:bg-neutral-900">
+    <div className="flex h-screen flex-col bg-[#fbfaf8] text-gray-950 dark:bg-neutral-950 dark:text-white">
       <MockTopBar appTitle={app.title} />
       <AppHeader app={app} />
       <div className="flex w-full grow flex-col overflow-hidden md:flex-row">
         <LeftNav active={active} />
-        <div className="flex w-full flex-1 flex-col overflow-auto">
+        <div className="flex w-full flex-1 flex-col overflow-auto bg-[#fbfaf8] dark:bg-neutral-950">
           {children}
         </div>
       </div>
+    </div>
+  );
+}
+
+export function DashPage({
+  children,
+  className,
+  size = 'default',
+}: {
+  children: ReactNode;
+  className?: string;
+  size?: 'narrow' | 'default' | 'wide' | 'full';
+}) {
+  return (
+    <div
+      className={cn(
+        'mx-auto flex w-full flex-1 flex-col gap-6 px-5 py-5 md:px-7 md:py-6',
+        size === 'narrow' && 'max-w-2xl',
+        size === 'default' && 'max-w-4xl',
+        size === 'wide' && 'max-w-6xl',
+        size === 'full' && 'max-w-none',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+export const DashPanel = forwardRef<
+  HTMLDivElement,
+  { children: ReactNode; className?: string }
+>(({ children, className }, ref) => {
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        'rounded-lg border border-gray-200 bg-white p-4 shadow-xs dark:border-neutral-800 dark:bg-neutral-900',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+});
+DashPanel.displayName = 'DashPanel';
+
+export function DashEmptyState({
+  title,
+  description,
+  action,
+  className,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex min-h-28 flex-col items-center justify-center rounded-md border border-dashed border-gray-300 bg-[#fbfaf8] px-4 py-6 text-center dark:border-neutral-700 dark:bg-neutral-950',
+        className,
+      )}
+    >
+      <div className="text-sm font-semibold text-gray-900 dark:text-white">
+        {title}
+      </div>
+      {description ? (
+        <div className="mt-1 max-w-sm text-sm text-gray-500 dark:text-neutral-400">
+          {description}
+        </div>
+      ) : null}
+      {action ? <div className="mt-4">{action}</div> : null}
+    </div>
+  );
+}
+
+export function DashNotice({
+  tone = 'neutral',
+  children,
+  className,
+}: {
+  tone?: 'neutral' | 'warning' | 'danger';
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-md border px-3 py-2 text-sm leading-6',
+        tone === 'neutral' &&
+          'border-gray-200 bg-[#fbfaf8] text-gray-700 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-300',
+        tone === 'warning' &&
+          'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200',
+        tone === 'danger' &&
+          'border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function maskSecret(value: string) {
+  return value.replace(/[^_\-\s]/g, '*');
+}
+
+export function DashSecretField({
+  label,
+  value,
+  defaultHidden = true,
+  description,
+  className,
+}: {
+  label: ReactNode;
+  value: string;
+  defaultHidden?: boolean;
+  description?: ReactNode;
+  className?: string;
+}) {
+  const [hidden, setHidden] = useState(defaultHidden);
+  const [copied, setCopied] = useState(false);
+  const displayValue = hidden ? maskSecret(value) : value;
+
+  return (
+    <div
+      className={cn(
+        'min-w-0 overflow-hidden rounded-md border border-gray-200 bg-gray-950 shadow-xs dark:border-neutral-700',
+        className,
+      )}
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-white/10 px-3 py-2">
+        <div className="min-w-0">
+          <div className="truncate text-xs font-semibold text-gray-300">
+            {label}
+          </div>
+          {description ? (
+            <div className="mt-0.5 truncate text-xs text-gray-500">
+              {description}
+            </div>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-semibold text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+            onClick={() => setHidden((v) => !v)}
+          >
+            {hidden ? (
+              <EyeIcon className="h-4 w-4" />
+            ) : (
+              <EyeSlashIcon className="h-4 w-4" />
+            )}
+            {hidden ? 'Show' : 'Hide'}
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs font-semibold text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+            onClick={() => {
+              window.navigator.clipboard.writeText(value);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            }}
+          >
+            <ClipboardDocumentIcon className="h-4 w-4" />
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+      </div>
+      <pre className="max-h-44 min-w-0 overflow-auto px-3 py-3 font-mono text-sm leading-6 whitespace-pre-wrap text-gray-100">
+        {displayValue}
+      </pre>
+    </div>
+  );
+}
+
+export function DashPanelHeader({
+  title,
+  description,
+  action,
+  className,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-start',
+        className,
+      )}
+    >
+      <div className="min-w-0">
+        <div className="text-lg font-semibold tracking-normal text-gray-950 dark:text-white">
+          {title}
+        </div>
+        {description ? (
+          <div className="mt-1 text-sm leading-6 text-gray-600 dark:text-neutral-400">
+            {description}
+          </div>
+        ) : null}
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+export function DashRow({
+  label,
+  value,
+  action,
+}: {
+  label: ReactNode;
+  value?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-t border-gray-100 py-3 first:border-t-0 dark:border-neutral-800">
+      <div className="min-w-0">
+        <div className="truncate text-sm font-medium text-gray-950 dark:text-white">
+          {label}
+        </div>
+        {value ? (
+          <div className="mt-0.5 truncate text-sm text-gray-500 dark:text-neutral-400">
+            {value}
+          </div>
+        ) : null}
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   );
 }

@@ -16,11 +16,7 @@ import {
 } from './_views/Explorer';
 import { SchemaView } from './_views/Schema';
 import { PermsView } from './_views/Perms';
-import {
-  AuthSubState,
-  AUTH_SUB_STATES,
-  AuthView,
-} from './_views/Auth';
+import { AuthSubState, AUTH_SUB_STATES, AuthView } from './_views/Auth';
 import { QueryInspectorView } from './_views/QueryInspector';
 import {
   WebhooksSubState,
@@ -156,7 +152,7 @@ const FLAT_NAV: FlatItem[] = [
   ),
 ];
 
-const SIDEBAR_WIDTH = 'w-56';
+const SIDEBAR_WIDTH = 'w-60';
 
 function ViewerSidebar({
   view,
@@ -200,12 +196,12 @@ function ViewerSidebar({
 
   return (
     <aside
-      className={`sticky top-0 h-screen ${SIDEBAR_WIDTH} shrink-0 overflow-y-auto border-r border-gray-200 bg-gray-50 dark:border-neutral-700 dark:bg-neutral-900`}
+      className={`sticky top-0 h-screen ${SIDEBAR_WIDTH} shrink-0 overflow-y-auto border-r border-gray-200 bg-[#fbfaf8] dark:border-neutral-800 dark:bg-neutral-950`}
     >
-      <div className="px-3 py-3 font-mono text-[10px] tracking-wider text-gray-500 uppercase dark:text-neutral-500">
+      <div className="px-3 py-3 text-[11px] font-semibold tracking-wide text-gray-500 uppercase dark:text-neutral-500">
         Dash redesign
       </div>
-      <nav className="flex flex-col pb-4 text-sm">
+      <nav className="flex flex-col gap-0.5 px-2 pb-4 text-sm">
         {NAV.map((item) => {
           const isActiveView = view === item.view;
           return (
@@ -216,10 +212,10 @@ function ViewerSidebar({
                   buttonRefs.current.set(`view:${item.view}`, el);
                 }}
                 onClick={() => onSelectView(item.view)}
-                className={`flex w-full items-center px-3 py-1.5 text-left transition-colors ${
+                className={`flex w-full items-center rounded-md px-3 py-2 text-left transition-colors ${
                   isActiveView
-                    ? 'bg-white font-medium text-gray-900 dark:bg-neutral-800 dark:text-white'
-                    : 'text-gray-600 hover:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-800/60'
+                    ? 'bg-white font-semibold text-gray-950 shadow-xs dark:bg-neutral-900 dark:text-white'
+                    : 'text-gray-600 hover:bg-white/70 hover:text-gray-950 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-white'
                 }`}
               >
                 {item.label}
@@ -234,10 +230,10 @@ function ViewerSidebar({
                       buttonRefs.current.set(`stage:${item.view}:${s.key}`, el);
                     }}
                     onClick={() => onSelectStage(item.view, s.key)}
-                    className={`flex w-full items-center py-1 pr-3 pl-7 text-left text-xs transition-colors ${
+                    className={`flex w-full items-center rounded-md py-1.5 pr-3 pl-7 text-left text-xs transition-colors ${
                       active
-                        ? 'bg-white font-medium text-gray-900 dark:bg-neutral-800 dark:text-white'
-                        : 'text-gray-500 hover:bg-gray-100 dark:text-neutral-500 dark:hover:bg-neutral-800/60'
+                        ? 'bg-white font-semibold text-gray-950 shadow-xs dark:bg-neutral-900 dark:text-white'
+                        : 'text-gray-500 hover:bg-white/70 hover:text-gray-900 dark:text-neutral-500 dark:hover:bg-neutral-900 dark:hover:text-white'
                     }`}
                   >
                     <span className="mr-2 text-gray-400 dark:text-neutral-600">
@@ -494,7 +490,7 @@ export default function DashRedesignViewer() {
       <Head>
         <title>Dash redesign viewer</title>
       </Head>
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen bg-[#fbfaf8] dark:bg-neutral-950">
         <ViewerSidebar
           view={view}
           onboardingStage={onboardingStage}

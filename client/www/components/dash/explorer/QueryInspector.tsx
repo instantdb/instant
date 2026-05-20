@@ -209,65 +209,72 @@ export function QueryInspector({
   };
 
   return (
-    <div className={cn('flex flex-1', className)}>
-      <div className="flex max-w-lg flex-1 flex-col dark:bg-neutral-800">
-        <h2 className="mt-4 mb-1 px-3 text-sm font-semibold">InstaQL query</h2>
-
-        <div className="relative h-64 overflow-hidden rounded-sm border-y dark:border-y-neutral-800">
-          <CodeEditor
-            darkMode={darkMode}
-            language="json"
-            value={draft}
-            onChange={(code) => setQueryDraft(code)}
-            onMount={(editor, monaco) => {
-              // cmd+S/cmd+Enter bindings to run query
-              editor.addCommand(
-                monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-                () => run(editor.getValue()),
-              );
-              editor.addCommand(
-                monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                () => run(editor.getValue()),
-              );
-            }}
-          />
-          <div className="absolute bottom-0 flex w-full items-center justify-between gap-4 px-3 py-2">
+    <div
+      className={cn(
+        'flex min-h-0 flex-1 bg-[#fbfaf8] text-gray-950 dark:bg-neutral-950 dark:text-white',
+        className,
+      )}
+    >
+      <div className="flex w-full max-w-[520px] shrink-0 flex-col gap-4 border-r border-gray-200 p-4 dark:border-neutral-800">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xs dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-4 py-3 dark:border-neutral-800">
+            <div>
+              <h2 className="text-sm font-semibold">InstaQL query</h2>
+              <p className="mt-1 text-xs text-gray-500 dark:text-neutral-400">
+                Write JSON, then run it against the active app.
+              </p>
+            </div>
             <Button
               className="group"
               variant="secondary"
               size="mini"
               onClick={handleSaveQuery}
             >
-              <StarIcon className="mr-0.5 h-4 w-4 transition-colors group-hover:text-amber-500" />
+              <StarIcon className="h-4 w-4 transition-colors group-hover:text-amber-500" />
               Save
             </Button>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="mini"
-                onClick={handleClearQuery}
-              >
-                Clear
-              </Button>
-              <Button variant="primary" size="mini" onClick={handleRunQuery}>
-                Run
-              </Button>
-            </div>
           </div>
-        </div>
 
-        <div className="">
-          <h2 className="mt-4 mb-1 px-3 text-sm font-semibold">
-            Saved queries
-          </h2>
+          <div className="relative h-72 overflow-hidden border-b border-gray-200 dark:border-neutral-800">
+            <CodeEditor
+              darkMode={darkMode}
+              language="json"
+              value={draft}
+              onChange={(code) => setQueryDraft(code)}
+              onMount={(editor, monaco) => {
+                editor.addCommand(
+                  monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+                  () => run(editor.getValue()),
+                );
+                editor.addCommand(
+                  monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+                  () => run(editor.getValue()),
+                );
+              }}
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2 px-4 py-3">
+            <Button variant="secondary" size="mini" onClick={handleClearQuery}>
+              Clear
+            </Button>
+            <Button variant="primary" size="mini" onClick={handleRunQuery}>
+              Run
+            </Button>
+          </div>
+        </section>
 
-          <div className="px-3 text-sm">
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xs dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="border-b border-gray-200 px-4 py-3 dark:border-neutral-800">
+            <h2 className="text-sm font-semibold">Saved queries</h2>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-sm">
             {saved.length > 0 ? (
               saved.map((item) => {
                 return (
                   <div
                     key={item.ts}
-                    className="group mb-1 flex items-center justify-between gap-2 text-gray-700 dark:text-neutral-200"
+                    className="group flex items-center justify-between gap-2 rounded-md border border-transparent px-2 py-2 text-gray-700 transition-colors hover:border-gray-200 hover:bg-[#fbfaf8] dark:text-neutral-200 dark:hover:border-neutral-700 dark:hover:bg-neutral-800"
                   >
                     <Tooltip.Provider>
                       <Tooltip.Root delayDuration={200}>
@@ -292,7 +299,7 @@ export function QueryInspector({
                     </Tooltip.Provider>
                     <div className="flex items-center gap-1">
                       <Button
-                        className="px-1 opacity-0 transition-opacity group-hover:opacity-100"
+                        className="px-1 opacity-50 transition-opacity group-hover:opacity-100"
                         variant="destructive"
                         size="mini"
                         onClick={() => handleRemoveFromSaved(item.ts)}
@@ -300,7 +307,7 @@ export function QueryInspector({
                         <TrashIcon className="h-4 w-4" />
                       </Button>
                       <Button
-                        className="px-1 opacity-0 transition-opacity group-hover:opacity-100"
+                        className="px-1 opacity-50 transition-opacity group-hover:opacity-100"
                         variant="primary"
                         size="mini"
                         onClick={() => run(item.query)}
@@ -312,21 +319,21 @@ export function QueryInspector({
                 );
               })
             ) : (
-              <div className="py-1 text-gray-400">Nothing here yet!</div>
+              <div className="px-2 py-2 text-gray-400">Nothing here yet.</div>
             )}
           </div>
-        </div>
 
-        <div className="mt-4 border-t py-4 dark:border-t-neutral-700">
-          <h2 className="mb-1 px-3 text-sm font-semibold">Query history</h2>
+          <div className="border-t border-gray-200 px-4 py-3 dark:border-neutral-800">
+            <h2 className="text-sm font-semibold">Query history</h2>
+          </div>
 
-          <div className="px-3 text-sm">
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-sm">
             {history.length > 0 ? (
               history.slice(0, 20).map((item) => {
                 return (
                   <div
                     key={item.ts}
-                    className="group mb-1 flex items-center justify-between gap-2 text-gray-700 dark:text-neutral-300"
+                    className="group flex items-center justify-between gap-2 rounded-md border border-transparent px-2 py-2 text-gray-700 transition-colors hover:border-gray-200 hover:bg-[#fbfaf8] dark:text-neutral-300 dark:hover:border-neutral-700 dark:hover:bg-neutral-800"
                   >
                     <Tooltip.Provider>
                       <Tooltip.Root delayDuration={200}>
@@ -351,7 +358,7 @@ export function QueryInspector({
                     </Tooltip.Provider>
                     <div className="flex items-center gap-1">
                       <Button
-                        className="px-1 opacity-0 transition-opacity group-hover:opacity-100"
+                        className="px-1 opacity-50 transition-opacity group-hover:opacity-100"
                         variant="destructive"
                         size="mini"
                         onClick={() => handleRemoveFromHistory(item.ts)}
@@ -359,7 +366,7 @@ export function QueryInspector({
                         <TrashIcon className="h-4 w-4" />
                       </Button>
                       <Button
-                        className="px-1 opacity-0 transition-opacity group-hover:opacity-100"
+                        className="px-1 opacity-50 transition-opacity group-hover:opacity-100"
                         variant="primary"
                         size="mini"
                         onClick={() => run(item.query)}
@@ -371,22 +378,26 @@ export function QueryInspector({
                 );
               })
             ) : (
-              <div className="py-1 text-gray-400">Nothing here yet!</div>
+              <div className="px-2 py-2 text-gray-400">Nothing here yet.</div>
             )}
           </div>
-        </div>
+        </section>
       </div>
-      <div className="flex max-h-full flex-1 flex-col overflow-scroll border-l dark:border-l-neutral-700 dark:bg-neutral-800">
-        <h2 className="mt-4 mb-1 px-3 text-sm font-semibold">Query results</h2>
-        <div className="flex-1 overflow-hidden rounded-sm border-y dark:border-y-neutral-700">
-          <CodeEditor
-            darkMode={darkMode}
-            loading={isLoading}
-            language={'json'}
-            value={JSON.stringify(data || error || {}, null, 2)}
-            onChange={() => {}}
-          />
-        </div>
+      <div className="flex min-w-0 flex-1 flex-col p-4">
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xs dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="border-b border-gray-200 px-4 py-3 dark:border-neutral-800">
+            <h2 className="text-sm font-semibold">Query results</h2>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <CodeEditor
+              darkMode={darkMode}
+              loading={isLoading}
+              language={'json'}
+              value={JSON.stringify(data || error || {}, null, 2)}
+              onChange={() => {}}
+            />
+          </div>
+        </section>
       </div>
     </div>
   );

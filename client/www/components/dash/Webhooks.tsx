@@ -1,10 +1,4 @@
-import {
-  Fragment,
-  FormEventHandler,
-  useContext,
-  useMemo,
-  useState,
-} from 'react';
+import { FormEventHandler, useContext, useMemo, useState } from 'react';
 import {
   EllipsisVerticalIcon,
   PencilIcon,
@@ -29,6 +23,7 @@ import {
 import {
   Button,
   Checkbox,
+  cn,
   Content,
   Dialog,
   DropdownMenu,
@@ -96,6 +91,65 @@ export function CopyableText({
       <TooltipContent side="bottom">Copied!</TooltipContent>
     </Tooltip>
   );
+}
+
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-md border border-gray-200 bg-[#fbfaf8] px-1.5 py-0.5 font-mono text-[11px] text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+      {children}
+    </span>
+  );
+}
+
+function StatusBadge({ status }: { status: InstantWebhook['status'] }) {
+  const disabled = status === 'disabled';
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold',
+        disabled
+          ? 'bg-gray-100 text-gray-600 dark:bg-neutral-800 dark:text-neutral-300'
+          : 'bg-green-50 text-green-700 ring-1 ring-green-200 ring-inset dark:bg-green-950/30 dark:text-green-300 dark:ring-green-800',
+      )}
+    >
+      {disabled ? 'Disabled' : 'Active'}
+    </span>
+  );
+}
+
+function Notice({
+  tone = 'neutral',
+  children,
+}: {
+  tone?: 'neutral' | 'warning' | 'danger';
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-md border px-3 py-2 text-sm leading-6',
+        tone === 'neutral' &&
+          'border-gray-200 bg-[#fbfaf8] text-gray-700 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-300',
+        tone === 'warning' &&
+          'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200',
+        tone === 'danger' &&
+          'border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200',
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function formatCreatedAt(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
 }
 
 // ---- API ----
@@ -264,12 +318,18 @@ function WebhookForm({
   };
 
   return (
-    <form onSubmit={handle} className="flex flex-col gap-4">
-      <SubsectionHeading>{heading}</SubsectionHeading>
+    <form onSubmit={handle} className="flex flex-col gap-5">
+      <div>
+        <SubsectionHeading>{heading}</SubsectionHeading>
+        <Content className="mt-1 text-sm">
+          Deliver events to one public HTTPS endpoint.
+        </Content>
+      </div>
       <div className="flex flex-col gap-1">
         <Label>Endpoint URL</Label>
         <TextInput
           autoFocus
+          size="large"
           value={url}
           onChange={setUrl}
           placeholder="https://example.com/api/instant-webhook"
@@ -286,7 +346,7 @@ function WebhookForm({
             Define namespaces in your schema to enable webhooks.
           </Content>
         ) : (
-          <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-sm border bg-gray-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/50">
+          <div className="grid max-h-44 grid-cols-1 gap-2 overflow-y-auto rounded-md border border-gray-200 bg-[#fbfaf8] p-3 sm:grid-cols-2 dark:border-neutral-700 dark:bg-neutral-800/50">
             {allOptions.map((n) => (
               <Checkbox
                 key={n}
@@ -301,7 +361,7 @@ function WebhookForm({
 
       <div className="flex flex-col gap-1">
         <Label>Actions</Label>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3 rounded-md border border-gray-200 bg-[#fbfaf8] p-3 dark:border-neutral-700 dark:bg-neutral-800/50">
           {ALL_ACTIONS.map((a) => (
             <Checkbox
               key={a}
@@ -313,11 +373,21 @@ function WebhookForm({
         </div>
       </div>
 
-      <div className="flex flex-row gap-2">
-        <Button loading={isLoading} variant="primary" type="submit">
+      <div className="flex flex-row justify-end gap-2 border-t border-gray-200 pt-4 dark:border-neutral-800">
+        <Button
+          loading={isLoading}
+          variant="primary"
+          size="large"
+          type="submit"
+        >
           {submitLabel}
         </Button>
-        <Button type="button" variant="secondary" onClick={onCancel}>
+        <Button
+          type="button"
+          variant="secondary"
+          size="large"
+          onClick={onCancel}
+        >
           Cancel
         </Button>
       </div>
@@ -453,19 +523,34 @@ function DisableDialog({
         className="flex flex-col gap-4"
       >
         <SubsectionHeading>Disable webhook</SubsectionHeading>
-        <Content>
+        <Notice tone="warning">
           Disabled webhooks won't deliver events. You can re-enable it at any
           time.
-        </Content>
+        </Notice>
         <div className="flex flex-col gap-1">
           <Label>Reason (optional)</Label>
-          <TextInput autoFocus value={reason} onChange={setReason} />
+          <TextInput
+            autoFocus
+            size="large"
+            value={reason}
+            onChange={setReason}
+          />
         </div>
-        <div className="flex flex-row gap-2">
-          <Button type="submit" loading={isLoading} variant="destructive">
+        <div className="flex flex-row justify-end gap-2 border-t border-gray-200 pt-4 dark:border-neutral-800">
+          <Button
+            type="submit"
+            loading={isLoading}
+            variant="destructive"
+            size="large"
+          >
             Disable
           </Button>
-          <Button type="button" variant="secondary" onClick={dialog.onClose}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="large"
+            onClick={dialog.onClose}
+          >
             Cancel
           </Button>
         </div>
@@ -504,16 +589,23 @@ function DeleteDialog({
   return (
     <Dialog title="Delete webhook" {...dialog}>
       <div className="flex flex-col gap-3">
-        <SubsectionHeading>{webhook.sink.url}</SubsectionHeading>
-        <Content>
+        <SubsectionHeading className="font-mono text-base break-all">
+          {webhook.sink.url}
+        </SubsectionHeading>
+        <Notice tone="danger">
           Deleting a webhook is permanent. Any pending events for this webhook
           will be discarded.
-        </Content>
-        <div className="flex gap-2">
-          <Button loading={isLoading} variant="destructive" onClick={handle}>
+        </Notice>
+        <div className="flex justify-end gap-2 border-t border-gray-200 pt-4 dark:border-neutral-800">
+          <Button
+            loading={isLoading}
+            variant="destructive"
+            size="large"
+            onClick={handle}
+          >
             Delete
           </Button>
-          <Button variant="secondary" onClick={dialog.onClose}>
+          <Button variant="secondary" size="large" onClick={dialog.onClose}>
             Cancel
           </Button>
         </div>
@@ -646,42 +738,39 @@ function WebhookRow({
   };
 
   return (
-    <Item
-      variant="outline"
-      className="bg-white dark:border-neutral-700 dark:bg-neutral-800"
-    >
-      <ItemContent>
-        <ItemTitle className="block max-w-full truncate font-mono">
-          <CopyableText value={webhook.sink.url} className="block truncate" />
-        </ItemTitle>
+    <Item variant="outline" size="sm" className="items-start gap-3">
+      <ItemContent className="min-w-0 gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <ItemTitle className="block max-w-full min-w-0 truncate font-mono">
+            <CopyableText value={webhook.sink.url} className="block truncate" />
+          </ItemTitle>
+          <StatusBadge status={webhook.status} />
+        </div>
         {webhook.disabled_reason ? (
           <ItemDescription className="text-red-700 dark:text-red-300">
             {webhook.disabled_reason}
           </ItemDescription>
         ) : null}
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-xs">
-          <dt className="text-gray-500 dark:text-neutral-500">ID</dt>
-          <dd>
-            <CopyableText value={webhook.id} className="font-mono break-all" />
-          </dd>
-          <dt className="text-gray-500 dark:text-neutral-500">Namespaces</dt>
-          <dd className="font-mono">
-            {(webhook.namespaces ?? []).length === 0
-              ? '(none)'
-              : [...(webhook.namespaces ?? [])].sort().map((e, i, arr) => (
-                  <Fragment key={e}>
-                    <span className="whitespace-nowrap">{e}</span>
-                    {i < arr.length - 1 ? ', ' : ''}
-                  </Fragment>
-                ))}
-          </dd>
-          <dt className="text-gray-500 dark:text-neutral-500">Actions</dt>
-          <dd className="font-mono">
-            {ALL_ACTIONS.filter((a) => webhook.actions.includes(a)).join(', ')}
-          </dd>
-        </dl>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-neutral-500">
+          <CopyableText value={webhook.id} className="font-mono" />
+          <span>Created {formatCreatedAt(webhook.created_at)}</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {(webhook.namespaces ?? []).length === 0 ? (
+            <Chip>No namespaces</Chip>
+          ) : (
+            [...(webhook.namespaces ?? [])]
+              .sort()
+              .map((namespace) => <Chip key={namespace}>{namespace}</Chip>)
+          )}
+          {ALL_ACTIONS.filter((a) => webhook.actions.includes(a)).map(
+            (action) => (
+              <Chip key={action}>{action}</Chip>
+            ),
+          )}
+        </div>
       </ItemContent>
-      <ItemActions>
+      <ItemActions className="shrink-0 self-start">
         <Button
           variant="secondary"
           size="mini"
@@ -754,7 +843,7 @@ export function Webhooks({
   const disabledWebhooks = webhooks.filter((w) => w.status === 'disabled');
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-5">
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <SectionHeading>Webhooks</SectionHeading>
@@ -763,14 +852,24 @@ export function Webhooks({
             updated, or deleted.
           </Content>
         </div>
-        <Button variant="primary" onClick={createDialog.onOpen}>
+        <Button variant="primary" size="large" onClick={createDialog.onOpen}>
           <PlusIcon height={14} /> New webhook
         </Button>
       </div>
 
       {webhooks.length === 0 ? (
-        <div className="rounded-sm border bg-gray-50 p-8 text-center text-sm text-gray-500 dark:border-neutral-700 dark:bg-neutral-800/50 dark:text-neutral-500">
-          No webhooks yet.
+        <div className="flex min-h-28 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-gray-300 bg-[#fbfaf8] px-4 py-6 text-center dark:border-neutral-700 dark:bg-neutral-950">
+          <div>
+            <div className="font-semibold text-gray-950 dark:text-white">
+              No webhooks yet
+            </div>
+            <div className="mt-1 text-sm text-gray-500 dark:text-neutral-400">
+              Add an endpoint to receive create, update, and delete events.
+            </div>
+          </div>
+          <Button variant="secondary" size="mini" onClick={createDialog.onOpen}>
+            <PlusIcon height={14} /> New webhook
+          </Button>
         </div>
       ) : (
         <>

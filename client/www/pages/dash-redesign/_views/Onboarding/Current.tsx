@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { Button, Content, ScreenHeading, TextInput } from '@/components/ui';
+import {
+  Button,
+  Content,
+  LogoIcon,
+  ScreenHeading,
+  SubsectionHeading,
+  TextInput,
+} from '@/components/ui';
 import { OnboardingShell } from '../_shared';
 import { OnboardingStage } from './index';
 
@@ -28,15 +35,53 @@ const experienceOptions: {
 ];
 
 function WelcomeStage() {
+  const setupItems = [
+    ['Profile', 'Tell us how you build.'],
+    ['App', 'Name the first project.'],
+    ['Dashboard', 'Land in a configured workspace.'],
+  ];
+
   return (
-    <div className="flex w-full max-w-sm flex-col gap-4 p-4">
-      <div className="flex justify-center text-4xl">🎉️</div>
-      <ScreenHeading className="text-center">Welcome to Instant</ScreenHeading>
-      <Content>
-        We're excited to have you! Before we get started, we need to do two
-        things.
-      </Content>
-      <Button onClick={() => {}}>Let's go!</Button>
+    <div className="grid w-full max-w-5xl gap-8 p-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
+      <div className="flex max-w-2xl flex-col gap-5">
+        <span className="inline-flex items-center gap-2.5">
+          <LogoIcon size="normal" />
+          <span className="text-2xl font-semibold tracking-normal text-gray-950 lowercase dark:text-white">
+            instant
+          </span>
+        </span>
+        <div className="space-y-3">
+          <ScreenHeading>Welcome to Instant</ScreenHeading>
+          <Content className="text-xl leading-8 text-gray-950 dark:text-neutral-200">
+            Set up your profile, name an app, and land in a workspace with auth,
+            schema, explorer, and sandbox ready.
+          </Content>
+        </div>
+        <Button className="w-fit" size="xl" onClick={() => {}}>
+          Start setup
+        </Button>
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-xs dark:border-neutral-800 dark:bg-neutral-900">
+        <SubsectionHeading>Setup path</SubsectionHeading>
+        <div className="mt-4 flex flex-col gap-3">
+          {setupItems.map(([title, description], index) => (
+            <div key={title} className="flex gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-[#fbfaf8] text-xs font-semibold text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                {index + 1}
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-gray-950 dark:text-white">
+                  {title}
+                </div>
+                <div className="text-sm text-gray-500 dark:text-neutral-400">
+                  {description}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -47,13 +92,13 @@ function ProfileStage() {
   return (
     <form
       onSubmit={(e) => e.preventDefault()}
-      className="flex w-full max-w-md flex-col gap-6 p-4"
+      className="flex w-full max-w-[560px] flex-col gap-6 p-6"
     >
-      <div className="flex justify-center text-4xl">👋</div>
       <ScreenHeading className="text-center">
         Tell us about yourself
       </ScreenHeading>
       <TextInput
+        size="large"
         label="How did you hear about us?"
         placeholder="Twitter, Bookface, Hacker News, etc?"
         value={heard}
@@ -71,8 +116,8 @@ function ProfileStage() {
               onClick={() => setExperience(option.value)}
               className={`flex flex-col gap-1 rounded-md border p-3 text-left transition-colors hover:cursor-pointer ${
                 experience === option.value
-                  ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20'
-                  : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800'
+                  ? 'border-[#606AF4] bg-[#606AF4]/5 dark:border-[#8f95ff] dark:bg-[#8f95ff]/10'
+                  : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-[#fbfaf8] dark:border-neutral-700 dark:bg-neutral-900 dark:hover:border-neutral-500 dark:hover:bg-neutral-800'
               }`}
             >
               <span className="font-medium">{option.label}</span>
@@ -83,7 +128,11 @@ function ProfileStage() {
           ))}
         </div>
       </div>
-      <Button type="submit" disabled={heard.trim().length === 0 || !experience}>
+      <Button
+        size="large"
+        type="submit"
+        disabled={heard.trim().length === 0 || !experience}
+      >
         Onwards!
       </Button>
     </form>
@@ -93,23 +142,27 @@ function ProfileStage() {
 function CreateAppStage() {
   const [appName, setAppName] = useState('');
   return (
-    <div className="w-full max-w-sm p-4">
+    <div className="w-full max-w-[660px] p-6">
       <form
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-5"
         onSubmit={(e) => e.preventDefault()}
       >
-        <h1 className="flex justify-center text-4xl">🔥</h1>
         <ScreenHeading className="text-center">Name your app</ScreenHeading>
-        <Content>
+        <Content className="text-center text-lg leading-7">
           You're in! Time to build your first app. What would you like to call
           it?
         </Content>
         <TextInput
+          size="jumbo"
           placeholder="Name your app"
           value={appName}
           onChange={(v) => setAppName(v)}
         />
-        <Button type="submit" disabled={appName.trim().length === 0}>
+        <Button
+          size="jumbo"
+          type="submit"
+          disabled={appName.trim().length === 0}
+        >
           Let's build!
         </Button>
       </form>

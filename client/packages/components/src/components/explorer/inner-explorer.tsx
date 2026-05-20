@@ -953,10 +953,10 @@ export const InnerExplorer: React.FC<{
           />
         ) : null}
       </Dialog>
-      <div className="flex flex-1 grow flex-col overflow-hidden bg-white dark:bg-neutral-800">
-        <div className="flex items-center overflow-hidden border-b border-b-gray-200 dark:border-neutral-700">
-          <div className="flex min-w-0 flex-1 flex-col justify-between py-2 md:flex-row md:items-center">
-            <div className="flex min-w-0 flex-1 items-center self-stretch overflow-hidden border-b px-2 py-1 pl-4 md:border-b-0 dark:border-neutral-700">
+      <div className="flex flex-1 grow flex-col overflow-hidden bg-white dark:bg-neutral-950">
+        <div className="flex items-center overflow-hidden border-b border-b-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+          <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 px-2 py-2 md:flex-row md:items-center">
+            <div className="flex min-w-0 flex-1 items-center self-stretch overflow-hidden border-b px-1 py-0.5 md:border-b-0 dark:border-neutral-800">
               {showBackButton ? (
                 <ArrowLeftIcon
                   className="mr-4 inline cursor-pointer"
@@ -980,12 +980,14 @@ export const InnerExplorer: React.FC<{
               ) : null}
               <div className="relative min-w-0 flex-1 self-stretch [timeline-scope:--filter-scroll]">
                 <div className="flex h-full items-center overflow-x-auto font-mono text-xs whitespace-nowrap [scroll-timeline:--filter-scroll_inline] dark:text-white">
-                  <strong>{selectedNamespace.name}</strong>{' '}
+                  <strong className="font-semibold text-gray-950 dark:text-white">
+                    {selectedNamespace.name}
+                  </strong>{' '}
                   {currentNav.where ? (
                     <>
                       {' '}
                       where <strong>{currentNav.where[0]}</strong> ={' '}
-                      <em className="rounded-xs border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
+                      <em className="rounded border border-gray-200 bg-[#fbfaf8] px-1.5 py-0.5 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
                         {JSON.stringify(currentNav.where[1])}
                       </em>
                     </>
@@ -998,7 +1000,7 @@ export const InnerExplorer: React.FC<{
                     >
                       {currentNav.filters.map(([attr, op, search], i) => (
                         <span key={attr}>
-                          <em className="rounded-xs border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
+                          <em className="rounded border border-gray-200 bg-[#fbfaf8] px-1.5 py-0.5 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
                             {attr} {op} {search}
                           </em>
                           {currentNav?.filters?.length &&
@@ -1020,9 +1022,8 @@ export const InnerExplorer: React.FC<{
                 />
               </div>
             </div>
-            <div className="flex justify-between gap-2 px-2 py-1 md:justify-start">
+            <div className="flex justify-between gap-2 md:justify-start">
               <Button
-                className="rounded-sm dark:bg-neutral-700/50"
                 variant="secondary"
                 size="mini"
                 onClick={() => {
@@ -1079,8 +1080,8 @@ export const InnerExplorer: React.FC<{
                   {uploadingFile ? 'Uploading...' : 'Upload file'}
                 </Button>
               </div>
-              <div className="relative flex max-w-[67vw] min-w-0 flex-1 rounded-sm border border-neutral-200 focus-within:ring-2 focus-within:ring-blue-700 dark:border-neutral-700 dark:focus-within:ring-blue-500">
-                <span className="absolute inset-y-0 left-0 flex items-center rounded-l bg-neutral-100 px-3 text-sm text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
+              <div className="relative flex max-w-[67vw] min-w-0 flex-1 rounded-md border border-neutral-200 bg-white shadow-xs focus-within:ring-2 focus-within:ring-[#606AF4] dark:border-neutral-700 dark:bg-neutral-900 dark:focus-within:ring-blue-500">
+                <span className="absolute inset-y-0 left-0 flex items-center rounded-l-md bg-[#fbfaf8] px-3 text-sm text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
                   File Path:
                 </span>
                 <input
@@ -1088,13 +1089,13 @@ export const InnerExplorer: React.FC<{
                   placeholder="Enter a custom path (optional)"
                   value={customPath}
                   onChange={(e) => setCustomPath(e.target.value)}
-                  className="h-9 w-full rounded-sm border-0 bg-transparent py-1 pr-3 pl-24 text-sm ring-0 placeholder:text-neutral-500 focus:outline-none dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-400"
+                  className="h-10 w-full rounded-md border-0 bg-transparent py-1 pr-3 pl-24 text-sm ring-0 placeholder:text-neutral-500 focus:outline-none dark:bg-neutral-900 dark:text-white dark:placeholder:text-neutral-400"
                 />
               </div>
             </div>
           </div>
         ) : null}
-        <div className="flex items-center justify-start space-x-2 border-b border-b-gray-200 p-1 text-xs dark:border-neutral-700 dark:text-white">
+        <div className="flex items-center justify-start space-x-2 border-b border-b-gray-200 bg-[#fbfaf8] px-2 py-1.5 text-xs dark:border-neutral-800 dark:bg-neutral-900 dark:text-white">
           {selectedNamespace.name !== '$files' ? (
             <Button
               disabled={readOnlyNs}
@@ -1120,7 +1121,7 @@ export const InnerExplorer: React.FC<{
             )}
           >
             <Select
-              className="rounded-sm text-xs"
+              className="text-xs"
               onChange={(opt) => {
                 if (!opt) return;
 
@@ -1191,10 +1192,10 @@ export const InnerExplorer: React.FC<{
                 <button
                   key={page}
                   className={cn(
-                    'rounded-md px-3 py-1 text-neutral-600 dark:text-neutral-300',
+                    'rounded-md px-2 py-1 font-medium text-neutral-600 transition-colors dark:text-neutral-300',
                     page === currentPage
-                      ? 'bg-neutral-200 dark:bg-neutral-700'
-                      : 'hover:bg-neutral-100 dark:hover:bg-neutral-800',
+                      ? 'bg-white text-gray-950 shadow-xs dark:bg-neutral-800 dark:text-white'
+                      : 'hover:bg-white/70 dark:hover:bg-neutral-800',
                   )}
                   onClick={() => {
                     setOffsets({
@@ -1357,7 +1358,7 @@ export const InnerExplorer: React.FC<{
           onDragEnd={handleDragEnd}
           sensors={sensors}
         >
-          <div className="relative flex-1 overflow-hidden bg-neutral-100 dark:bg-neutral-900/50">
+          <div className="relative flex-1 overflow-hidden bg-[#fbfaf8] dark:bg-neutral-950">
             {!tableSmallerThanViewport && (
               <div
                 className="absolute top-0 right-0 bottom-0 z-50 w-[30px] bg-linear-to-l from-black/20 via-black/5 to-transparent transition-opacity duration-150"
@@ -1384,7 +1385,7 @@ export const InnerExplorer: React.FC<{
                   }}
                   className="z-0 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400"
                 >
-                  <div className="sticky top-0 z-10 border-r border-b border-gray-200 border-r-gray-200 bg-white text-neutral-700 shadow-sm dark:border-r-neutral-700 dark:border-b-neutral-600 dark:bg-[#303030] dark:text-neutral-300">
+                  <div className="sticky top-0 z-10 border-r border-b border-gray-200 border-r-gray-200 bg-[#fbfaf8] text-neutral-700 shadow-sm dark:border-r-neutral-800 dark:border-b-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
                     {table.getHeaderGroups().map((headerGroup) => (
                       <div className={'flex w-full'} key={headerGroup.id}>
                         <SortableContext
@@ -1420,7 +1421,7 @@ export const InnerExplorer: React.FC<{
                   <div>
                     {table.getRowModel().rows.map((row) => (
                       <div
-                        className="group flex border-r border-b border-r-gray-200 border-b-gray-200 bg-white dark:border-neutral-700 dark:border-r-neutral-700 dark:bg-neutral-800"
+                        className="group flex border-r border-b border-r-gray-200 border-b-gray-200 bg-white transition-colors hover:bg-[#fbfaf8] dark:border-neutral-800 dark:border-r-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
                         key={row.id}
                       >
                         {row.getVisibleCells().map((cell) => (

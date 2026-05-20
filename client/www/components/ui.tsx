@@ -97,7 +97,7 @@ export function NavTabBar({
   return (
     <div
       className={clsx(
-        'no-scrollbar flex flex-row gap-4 overflow-x-auto border-b py-1',
+        'no-scrollbar flex flex-row gap-1 overflow-x-auto rounded-md border border-gray-200 bg-white p-1 text-sm shadow-xs dark:border-neutral-700 dark:bg-neutral-900',
         className,
       )}
     >
@@ -108,9 +108,10 @@ export function NavTabBar({
             {...t.link}
             rel="noopener noreferrer"
             className={clsx(
-              'flex cursor-pointer rounded bg-none p-2 py-0.5 whitespace-nowrap disabled:text-gray-400',
+              'flex cursor-pointer rounded px-3 py-1.5 whitespace-nowrap text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-950 disabled:text-gray-400 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white',
               {
-                'bg-gray-200': selectedId === t.id && !disabled,
+                'bg-gray-100 font-semibold text-gray-950 dark:bg-neutral-800 dark:text-white':
+                  selectedId === t.id && !disabled,
               },
             )}
           >
@@ -122,9 +123,9 @@ export function NavTabBar({
             disabled={disabled}
             onClick={() => onSelect(t)}
             className={clsx(
-              'flex cursor-pointer rounded bg-none whitespace-nowrap decoration-gray-400 transition-colors hover:underline disabled:text-gray-400',
+              'flex cursor-pointer rounded px-3 py-1.5 whitespace-nowrap text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-950 disabled:text-gray-400 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white',
               {
-                'underline decoration-[#606AF4]! decoration-2':
+                'bg-gray-100 font-semibold text-gray-950 dark:bg-neutral-800 dark:text-white':
                   selectedId === t.id && !disabled,
               },
             )}
@@ -153,7 +154,7 @@ export function TabBar({
   return (
     <div
       className={clsx(
-        'no-scrollbar flex flex-row gap-0.5 overflow-x-auto border-b px-2 py-1 dark:border-b-neutral-700',
+        'no-scrollbar flex flex-row gap-1 overflow-x-auto border-b border-gray-200 px-3 py-2 text-sm dark:border-b-neutral-700',
         className,
       )}
     >
@@ -164,9 +165,9 @@ export function TabBar({
             {...t.link}
             rel=""
             className={clsx(
-              'flex cursor-pointer rounded bg-none px-4 py-0.5 whitespace-nowrap hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-600',
+              'flex cursor-pointer rounded-md px-3 py-1.5 whitespace-nowrap text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-950 disabled:text-gray-400 dark:text-neutral-400 dark:hover:bg-neutral-700 dark:hover:text-white',
               {
-                'bg-gray-200 dark:bg-neutral-700':
+                'bg-gray-100 font-semibold text-gray-950 dark:bg-neutral-700 dark:text-white':
                   selectedId === t.id && !disabled,
               },
             )}
@@ -179,9 +180,9 @@ export function TabBar({
             disabled={disabled}
             onClick={() => onSelect(t)}
             className={clsx(
-              'flex cursor-pointer rounded bg-none px-4 py-0.5 whitespace-nowrap hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-600',
+              'flex cursor-pointer rounded-md px-3 py-1.5 whitespace-nowrap text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-950 disabled:text-gray-400 dark:text-neutral-400 dark:hover:bg-neutral-700 dark:hover:text-white',
               {
-                'bg-gray-200 dark:bg-neutral-700':
+                'bg-gray-100 font-semibold text-gray-950 dark:bg-neutral-700 dark:text-white':
                   selectedId === t.id && !disabled,
               },
             )}

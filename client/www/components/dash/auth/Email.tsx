@@ -11,7 +11,6 @@ import {
   Content,
   Dialog,
   Label,
-  SectionHeading,
   SubsectionHeading,
   TextInput,
   useDialog,
@@ -152,9 +151,14 @@ export function Email({ app }: { app: InstantApp }) {
 
   if (!isEditing) {
     return (
-      <div className="flex flex-col gap-2">
-        <SectionHeading>Custom Magic Code Email</SectionHeading>
-        <Button onClick={() => setIsEditing(true)}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <SubsectionHeading>Magic code email</SubsectionHeading>
+          <Content className="mt-1 text-sm">
+            Customize the message users receive when they sign in with a code.
+          </Content>
+        </div>
+        <Button size="large" onClick={() => setIsEditing(true)}>
           Customize your magic code email
         </Button>
       </div>
@@ -162,10 +166,17 @@ export function Email({ app }: { app: InstantApp }) {
   }
   return (
     <div>
-      <form {...form.formProps()} className="flex flex-col gap-2">
-        <SectionHeading>Custom Magic Code Email</SectionHeading>
+      <form {...form.formProps()} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <SubsectionHeading>Magic code email</SubsectionHeading>
+            <Content className="mt-1 text-sm">
+              Edit the subject, sender, and body for the magic code email.
+            </Content>
+          </div>
+        </div>
 
-        <div className="flex flex-col gap-1 rounded-sm border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="flex flex-col gap-1 rounded-md border border-gray-200 bg-[#fbfaf8] p-3 dark:border-neutral-700 dark:bg-neutral-800">
           <BlockHeading>Template variables</BlockHeading>
           <Content className="text-sm">
             We provide a few dynamic variables for you to use in your email:
@@ -192,24 +203,31 @@ export function Email({ app }: { app: InstantApp }) {
           </Content>
         </div>
 
-        <TextInput
-          {...form.inputProps('subject')}
-          label="Subject"
-          placeholder="Hey there!  Your code for {app_title} is: {code}"
-        />
+        <div className="grid gap-3 md:grid-cols-2">
+          <TextInput
+            {...form.inputProps('subject')}
+            label="Subject"
+            size="large"
+            placeholder="Hey there! Your code for {app_title} is: {code}"
+          />
 
-        <TextInput
-          {...form.inputProps('from')}
-          label="From"
-          placeholder="YourName from YourCo"
-        />
+          <TextInput
+            {...form.inputProps('from')}
+            label="From"
+            size="large"
+            placeholder="YourName from YourCo"
+          />
+        </div>
 
         <div className="flex flex-col gap-1">
           <Label>Body (HTML or plain-text)</Label>
           <div
-            className={clsx('h-64 rounded-sm border dark:border-neutral-700', {
-              'border-red-500': form.getError('bodyHtml'),
-            })}
+            className={clsx(
+              'h-[360px] overflow-hidden rounded-md border border-gray-200 dark:border-neutral-700',
+              {
+                'border-red-500': form.getError('bodyHtml'),
+              },
+            )}
           >
             <CodeEditor
               darkMode={darkMode}
@@ -225,7 +243,7 @@ export function Email({ app }: { app: InstantApp }) {
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="flex flex-col gap-2 rounded-md border border-gray-200 bg-[#fbfaf8] p-3 dark:border-neutral-700 dark:bg-neutral-800">
           <SubsectionHeading>
             Use a custom 'From' address (optional)
           </SubsectionHeading>
@@ -238,12 +256,13 @@ export function Email({ app }: { app: InstantApp }) {
           <TextInput
             {...form.inputProps('senderEmail')}
             label="Sender email address"
+            size="large"
             placeholder="hi@yourdomain.co"
           />
         </div>
 
         {verification && (
-          <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
+          <div className="flex flex-col gap-2 rounded-md border border-gray-200 bg-[#fbfaf8] p-3 dark:border-neutral-700 dark:bg-neutral-800">
             <div className="flex items-center justify-between">
               <SubsectionHeading>
                 Verify {verification.EmailAddress}
@@ -253,13 +272,13 @@ export function Email({ app }: { app: InstantApp }) {
                 onClick={checkVerification}
                 loading={isVerifying}
                 variant="primary"
-                size="mini"
+                size="large"
               >
                 Refresh Status
               </Button>
             </div>
 
-            <div className="rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-700/60">
+            <div className="rounded-md border border-gray-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-700/60">
               <div className="mb-2 flex items-center justify-between">
                 <div className="text-sm font-medium">Email Confirmation</div>
                 <div className="flex items-center gap-2">
@@ -286,7 +305,7 @@ export function Email({ app }: { app: InstantApp }) {
             </div>
 
             {/* Domain Verification */}
-            <div className="rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-700/60">
+            <div className="rounded-md border border-gray-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-700/60">
               <div className="mb-2 flex items-center justify-between">
                 <div className="text-sm font-medium">
                   Bonus: Domain Verification
@@ -362,9 +381,8 @@ export function Email({ app }: { app: InstantApp }) {
           </div>
         )}
 
-        <Button {...form.submitButtonProps()} />
-
-        <>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-neutral-800">
+          <Button size="large" {...form.submitButtonProps()} />
           <ActionButton
             variant="destructive"
             label="Delete template"
@@ -387,7 +405,7 @@ export function Email({ app }: { app: InstantApp }) {
               setIsEditing(false);
             }}
           />
-        </>
+        </div>
       </form>
 
       <MagicCodeExpirationSection app={app} />
@@ -446,7 +464,7 @@ function MagicCodeExpirationSection({ app }: { app: InstantApp }) {
           <Content className="text-sm">
             Choose how long magic codes remain valid.
           </Content>
-          <div className="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
             <strong>Recommended: 10 minutes.</strong> Shorter lifetimes reduce
             the window for code interception.
           </div>
@@ -454,7 +472,7 @@ function MagicCodeExpirationSection({ app }: { app: InstantApp }) {
             {EXPIRY_OPTIONS.map((option) => (
               <label
                 key={option.value}
-                className="flex cursor-pointer items-center gap-2 rounded border p-3 dark:border-neutral-700"
+                className="flex cursor-pointer items-center gap-2 rounded-md border border-gray-200 bg-[#fbfaf8] p-3 text-sm dark:border-neutral-700 dark:bg-neutral-800/50"
               >
                 <input
                   type="radio"
@@ -467,11 +485,17 @@ function MagicCodeExpirationSection({ app }: { app: InstantApp }) {
             ))}
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" onClick={dialog.onClose} variant="subtle">
+            <Button
+              type="button"
+              size="large"
+              onClick={dialog.onClose}
+              variant="secondary"
+            >
               Cancel
             </Button>
             <Button
               type="button"
+              size="large"
               onClick={handleSave}
               loading={isSaving}
               variant="primary"

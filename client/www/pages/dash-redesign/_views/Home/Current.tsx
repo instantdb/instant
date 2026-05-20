@@ -1,10 +1,11 @@
 import { useContext, useEffect, useState } from 'react';
-import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import {
-  Button,
+  ArrowTopRightOnSquareIcon,
+  CheckIcon,
+  ClipboardDocumentIcon,
+} from '@heroicons/react/24/outline';
+import {
   Content,
-  Copyable,
-  ScreenHeading,
   SectionHeading,
   Select,
   SubsectionHeading,
@@ -14,7 +15,14 @@ import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import config from '@/lib/config';
 import AnimatedCounter from '@/components/AnimatedCounter';
-import { DashShell, toDirectoryName, useFetchedDash } from '../_shared';
+import {
+  DashPage,
+  DashPanel,
+  DashPanelHeader,
+  DashShell,
+  toDirectoryName,
+  useFetchedDash,
+} from '../_shared';
 
 type AppStatsResponse = {
   count: number;
@@ -73,9 +81,9 @@ function AppStatsSection({ app }: { app: InstantApp }) {
     : [];
 
   return (
-    <div className="mt-10">
-      <SectionHeading>Your App Statistics</SectionHeading>
-      <div className="mt-4 space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors dark:border-neutral-700 dark:bg-neutral-800">
+    <DashPanel>
+      <DashPanelHeader title="Live sessions" />
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="mt-1">
             {isLoading ? (
@@ -92,7 +100,7 @@ function AppStatsSection({ app }: { app: InstantApp }) {
         </div>
 
         {!isLoading && !error && sortedOrigins.length > 0 && (
-          <div className="mt-4 border-gray-200 pt-4 dark:border-neutral-600">
+          <div className="mt-4 border-t border-gray-200 pt-4 dark:border-neutral-800">
             <div className="mb-2 text-sm font-medium text-gray-500 dark:text-neutral-400">
               Per Origin
             </div>
@@ -130,7 +138,7 @@ function AppStatsSection({ app }: { app: InstantApp }) {
           </div>
         )}
       </div>
-    </div>
+    </DashPanel>
   );
 }
 
@@ -190,10 +198,12 @@ function HomeCard({
   return (
     <a
       href={href}
-      className="block cursor-pointer justify-start space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
+      className="block cursor-pointer justify-start rounded-md border border-gray-200 bg-white p-4 shadow-xs transition-colors hover:border-gray-300 hover:bg-[#fbfaf8] dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
     >
       <div>
-        <div className="font-bold">{title}</div>
+        <div className="font-semibold text-gray-950 dark:text-white">
+          {title}
+        </div>
         <div className="text-sm text-gray-500 dark:text-neutral-400">
           {description}
         </div>
@@ -202,138 +212,144 @@ function HomeCard({
   );
 }
 
+function CommandSnippet({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <div className="flex min-w-0 items-center overflow-hidden rounded-md border border-gray-200 bg-gray-950 text-sm text-gray-100 shadow-xs dark:border-neutral-700 dark:bg-neutral-950">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center border-r border-white/10 font-mono text-gray-500">
+        $
+      </div>
+      <code className="min-w-0 flex-1 overflow-x-auto px-3 font-mono text-[13px] whitespace-nowrap">
+        {value}
+      </code>
+      <button
+        type="button"
+        className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
+        title="Copy command"
+        onClick={() => {
+          window.navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+      >
+        {copied ? (
+          <CheckIcon className="h-4 w-4" />
+        ) : (
+          <ClipboardDocumentIcon className="h-4 w-4" />
+        )}
+      </button>
+    </div>
+  );
+}
+
 function HomeBody({ app }: { app: InstantApp }) {
   const [framework, setFramework] = useState<Framework>('nextjs');
-  const [hideAppId, setHideAppId] = useState(false);
   const dirName = toDirectoryName(app.title);
   const steps = getHomeSteps(framework, dirName, app.id, app.admin_token);
 
   return (
-    <div className="max-w-2xl p-4 text-sm md:text-base">
-      <div className="pb-10">
-        <SectionHeading>Getting Started</SectionHeading>
-        <div className="flex flex-wrap items-center gap-1 pt-1">
-          <span>Run these commands to create a new</span>
-          <Select
-            value={framework}
-            options={[
-              { label: 'web app', value: 'nextjs' },
-              { label: 'mobile app', value: 'expo' },
-            ]}
-            onChange={(option) =>
-              option && setFramework(option.value as Framework)
+    <DashPage size="wide">
+      <div>
+        <SectionHeading>Home</SectionHeading>
+        <Content className="mt-1">
+          Start a new app with the credentials already wired in.
+        </Content>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_340px]">
+        <DashPanel className="min-w-0">
+          <DashPanelHeader
+            title="Getting started"
+            description="Choose a target and run the commands in order."
+            action={
+              <Select
+                value={framework}
+                options={[
+                  { label: 'Web app', value: 'nextjs' },
+                  { label: 'Mobile app', value: 'expo' },
+                ]}
+                onChange={(option) =>
+                  option && setFramework(option.value as Framework)
+                }
+              />
             }
           />
-          <span>with your credentials.</span>
-        </div>
 
-        <div className="mt-6">
-          {steps.map((step, index) => (
-            <div key={index} className="flex gap-4">
-              <div className="flex flex-col items-center">
-                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-neutral-400/20 bg-gray-200 text-sm font-medium text-gray-700 dark:bg-neutral-700 dark:text-neutral-300">
-                  {index + 1}
+          <div>
+            {steps.map((step, index) => (
+              <div key={index} className="flex gap-4">
+                <div className="flex flex-col items-center">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-gray-200 bg-[#fbfaf8] text-sm font-semibold text-gray-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                    {index + 1}
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div className="h-full w-px bg-gray-200 dark:bg-neutral-800" />
+                  )}
                 </div>
-                {index < steps.length - 1 && (
-                  <div className="h-full w-px bg-gray-200 dark:bg-neutral-700" />
-                )}
+                <div className="min-w-0 flex-1 pb-4">
+                  <SubsectionHeading>{step.title}</SubsectionHeading>
+                  <Content>
+                    <p className="mt-1 text-sm">{step.description}</p>
+                  </Content>
+                  {step.command && (
+                    <div className="mt-3 mb-4">
+                      <CommandSnippet value={step.command} />
+                    </div>
+                  )}
+                  {step.link && (
+                    <div className="mt-3 mb-4">
+                      <a
+                        href={step.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                      >
+                        {step.link}
+                        <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="min-w-0 flex-1 pb-2">
-                <SubsectionHeading>{step.title}</SubsectionHeading>
-                <Content>
-                  <p className="mt-1 text-sm">{step.description}</p>
-                </Content>
-                {step.command && (
-                  <div className="mt-3 mb-4">
-                    <Copyable value={step.command} label="$" />
-                  </div>
-                )}
-                {step.link && (
-                  <div className="mt-3 mb-4">
-                    <a
-                      href={step.link}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                    >
-                      {step.link}
-                      <ArrowTopRightOnSquareIcon className="h-4 w-4" />
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-2 border-t pt-6 dark:border-neutral-700">
-          <div className="flex gap-4">
-            <div className="flex flex-col items-center">
-              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-green-600/30 bg-green-100 text-sm dark:bg-green-900/30">
-                <span className="text-green-600 dark:text-green-400">✓</span>
-              </div>
-            </div>
-            <div className="flex-1">
-              <SubsectionHeading>Got it working?</SubsectionHeading>
-              <Content>
-                <p className="mt-1 text-sm">Give yourself a pat on the back!</p>
-              </Content>
-              <Button variant="secondary" className="mt-3" size="normal">
-                Heck yeah!
-              </Button>
-            </div>
+            ))}
           </div>
+
+          <div className="mt-1 rounded-md border border-gray-200 bg-[#fbfaf8] p-3 dark:border-neutral-800 dark:bg-neutral-950">
+            <SubsectionHeading>Verify the connection</SubsectionHeading>
+            <Content>
+              <p className="mt-1 text-sm">
+                Once your app connects, the live session count updates in the
+                app health panel. Then use Explorer or Sandbox to inspect data.
+              </p>
+            </Content>
+          </div>
+        </DashPanel>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <AppStatsSection app={app} />
+
+          <DashPanel>
+            <DashPanelHeader
+              title="Next steps"
+              description="Helpful links once the app is running."
+            />
+            <div className="grid gap-2">
+              <HomeCard
+                href="/docs"
+                title="Read the docs"
+                description="Start learning how to use Instant."
+              />
+              <HomeCard
+                href="https://discord.com/invite/VU53p7uQcE"
+                title="Join the community"
+                description="Meet other builders and share feedback."
+              />
+            </div>
+          </DashPanel>
         </div>
       </div>
-
-      <SectionHeading>Next Steps</SectionHeading>
-      <div className="pt-1">
-        Now that you have your app running, here's some helpful links on what to
-        do next!
-      </div>
-
-      <div className="flex flex-col gap-4 pt-4 md:flex-row md:flex-wrap md:justify-center">
-        <div className="md:w-[calc(50%-0.5rem)]">
-          <HomeCard
-            href="/docs"
-            title="Read the Docs"
-            description="Jump into our docs to start learning how to use Instant."
-          />
-        </div>
-        <div className="md:w-[calc(50%-0.5rem)]">
-          <HomeCard
-            href="https://discord.com/invite/VU53p7uQcE"
-            title="Join the community"
-            description="Join our Discord to meet like-minded hackers, and to give us feedback too!"
-          />
-        </div>
-      </div>
-
-      <div className="mt-10">
-        <SectionHeading>Your Public App ID</SectionHeading>
-        <div className="pt-1">
-          Use this App ID to connect to your database{' '}
-          <a
-            className="underline hover:cursor-pointer dark:text-white"
-            href="/docs/init"
-            target="_blank"
-          >
-            via init
-          </a>
-          . This ID is safe to use in public-facing applications.
-        </div>
-        <div className="mt-4">
-          <Copyable
-            value={app.id}
-            size="large"
-            hideValue={hideAppId}
-            onChangeHideValue={() => setHideAppId(!hideAppId)}
-          />
-        </div>
-      </div>
-
-      <AppStatsSection app={app} />
-    </div>
+    </DashPage>
   );
 }
 

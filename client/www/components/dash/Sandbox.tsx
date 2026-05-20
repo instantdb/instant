@@ -633,6 +633,7 @@ export function Sandbox({
     <>
       <Dialog title="Save Sandbox" {...saveCurrentDialog}>
         <form
+          className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault();
             saveCurrent(newSaveName.trim());
@@ -641,24 +642,26 @@ export function Sandbox({
             setNewSaveName('');
           }}
         >
-          <div className="pb-2">
+          <div className="text-sm text-gray-600 dark:text-neutral-400">
             Enter a name to save the current sandbox as.
           </div>
           <TextInput
             autoFocus
-            className="mt-0"
+            size="large"
             label={<div className="pt-2 pb-0 font-normal">Sandbox Name</div>}
             value={newSaveName}
             onChange={setNewSaveName}
           />
-          <div className="flex justify-end pt-2">
-            <Button type="submit">Save</Button>
+          <div className="flex justify-end border-t border-gray-200 pt-4 dark:border-neutral-800">
+            <Button type="submit" size="large">
+              Save
+            </Button>
           </div>
         </form>
       </Dialog>
-      <div className="flex w-full justify-between border-b bg-white p-2 px-3 dark:border-b-neutral-600 dark:bg-neutral-800">
+      <div className="flex w-full items-center justify-between gap-3 border-b border-gray-200 bg-white px-3 py-2 dark:border-b-neutral-800 dark:bg-neutral-950">
         <PresetManager />
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-3">
           <IconButton
             variant="subtle"
             label="Copy link to sandbox"
@@ -685,12 +688,12 @@ export function Sandbox({
         </div>
       </div>
       {dangerouslyCommitTx ? (
-        <div className="border-b border-b-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-600 dark:border-b-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+        <div className="border-b border-b-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-b-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
           <strong>Use caution!</strong> Successful transactions will update your
           app's DB!
         </div>
       ) : (
-        <div className="border-b border-b-sky-200 bg-sky-50 px-2 py-1 text-xs text-sky-600 dark:border-b-neutral-600 dark:bg-sky-900/80 dark:text-sky-400/90">
+        <div className="border-b border-b-gray-200 bg-[#fbfaf8] px-4 py-2 text-xs text-gray-600 dark:border-b-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
           <strong>Debug mode.</strong> Transactions will not update your app's
           DB.
         </div>
@@ -699,15 +702,15 @@ export function Sandbox({
         direction="horizontal"
         className="flex h-full flex-1 overflow-y-hidden"
       >
-        <ResizablePanel className="flex min-w-[24em] flex-1 flex-col border-r dark:border-r-neutral-600">
+        <ResizablePanel className="flex min-w-[24em] flex-1 flex-col border-r border-gray-200 bg-white dark:border-r-neutral-800 dark:bg-neutral-950">
           <ResizablePanelGroup direction="vertical">
             <ResizablePanel
               minSize={20}
-              className="flex flex-1 flex-col border-b dark:border-b-neutral-600"
+              className="flex flex-1 flex-col border-b border-gray-200 dark:border-b-neutral-800"
             >
               <div className="flex-1">
                 <Editor
-                  theme={darkMode ? 'vs-dark' : 'light'}
+                  theme={darkMode ? 'instant-dark' : 'instant-light'}
                   height={'100%'}
                   path="sandbox.ts"
                   language="typescript"
@@ -722,7 +725,11 @@ export function Sandbox({
                     minimap: { enabled: false },
                     automaticLayout: true,
                     lineNumbers: 'off',
+                    fontSize: 13,
+                    lineHeight: 20,
+                    padding: { top: 10, bottom: 10 },
                   }}
+                  beforeMount={defineInstantEditorThemes}
                   onMount={async (editor, monaco) => {
                     editor.addCommand(
                       monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
@@ -779,66 +786,64 @@ export function Sandbox({
             <ResizableHandle />
             <ResizablePanel
               minSize={10}
-              className="flex flex-col border-b dark:border-b-neutral-700"
+              className="flex flex-col border-b border-gray-200 bg-white dark:border-b-neutral-800 dark:bg-neutral-950"
             >
-              <div className="flex flex-col gap-1 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
+              <div className="border-b border-gray-200 bg-[#fbfaf8] px-3 py-1.5 text-sm font-semibold dark:border-b-neutral-800 dark:bg-neutral-900">
                 Context
               </div>
-              <div className="flex items-center gap-2 px-2 py-1">
-                <Label className="text-xs font-normal">
-                  Set{' '}
-                  <code className="border bg-white px-2 dark:border-neutral-600 dark:bg-neutral-800">
-                    auth.email
-                  </code>
-                </Label>
-                <EmailInput
-                  key={app.id}
-                  db={db}
-                  email={runAsUserEmail || ''}
-                  setEmail={setRunAsUserEmail}
-                  onEnter={execRef.current}
-                />
-              </div>
-              <div className="flex items-center gap-2 px-2 py-1">
-                <Label className="text-xs font-normal">
-                  Set{' '}
-                  <code className="border bg-white px-2 dark:border-neutral-600 dark:bg-neutral-800">
-                    request.ip
-                  </code>
-                </Label>
-                <TextInput
-                  className='dark:text-white" px-2 py-0.5 text-xs dark:border-neutral-600 dark:bg-neutral-800'
-                  value={ipOverride || ''}
-                  onChange={setIpOverride}
-                  onKeyDown={(e) => {
-                    if (e.metaKey && e.key === 'Enter') {
-                      execRef.current();
-                    }
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center gap-2 px-2 py-1">
-                <Label className="text-xs font-normal">
-                  Set{' '}
-                  <code className="border bg-white px-2 dark:border-neutral-600 dark:bg-neutral-800">
-                    request.origin
-                  </code>
-                </Label>
-                <TextInput
-                  className='dark:text-white" px-2 py-0.5 text-xs dark:border-neutral-600 dark:bg-neutral-800'
-                  value={originOverride || ''}
-                  onChange={setOriginOverride}
-                  onKeyDown={(e) => {
-                    if (e.metaKey && e.key === 'Enter') {
-                      execRef.current();
-                    }
-                  }}
-                />
+              <div className="grid grid-cols-1 gap-2 px-3 py-2 xl:grid-cols-3">
+                <div className="min-w-0">
+                  <Label className="mb-1 text-xs">
+                    <code className="rounded border border-gray-200 bg-[#fbfaf8] px-1.5 py-0.5 text-xs dark:border-neutral-700 dark:bg-neutral-800">
+                      auth.email
+                    </code>
+                  </Label>
+                  <EmailInput
+                    key={app.id}
+                    db={db}
+                    email={runAsUserEmail || ''}
+                    setEmail={setRunAsUserEmail}
+                    onEnter={execRef.current}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <Label className="mb-1 text-xs">
+                    <code className="rounded border border-gray-200 bg-[#fbfaf8] px-1.5 py-0.5 text-xs dark:border-neutral-700 dark:bg-neutral-800">
+                      request.ip
+                    </code>
+                  </Label>
+                  <TextInput
+                    className="min-h-8 px-2.5 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                    value={ipOverride || ''}
+                    onChange={setIpOverride}
+                    onKeyDown={(e) => {
+                      if (e.metaKey && e.key === 'Enter') {
+                        execRef.current();
+                      }
+                    }}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <Label className="mb-1 text-xs">
+                    <code className="rounded border border-gray-200 bg-[#fbfaf8] px-1.5 py-0.5 text-xs dark:border-neutral-700 dark:bg-neutral-800">
+                      request.origin
+                    </code>
+                  </Label>
+                  <TextInput
+                    className="min-h-8 px-2.5 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                    value={originOverride || ''}
+                    onChange={setOriginOverride}
+                    onKeyDown={(e) => {
+                      if (e.metaKey && e.key === 'Enter') {
+                        execRef.current();
+                      }
+                    }}
+                  />
+                </div>
               </div>
 
               <div className="flex flex-1 flex-col">
-                <div className="flex items-center gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
+                <div className="flex items-center gap-3 border-y border-gray-200 bg-[#fbfaf8] px-3 py-1.5 text-sm font-semibold dark:border-y-neutral-800 dark:bg-neutral-900">
                   Permissions
                   <div>
                     <Checkbox
@@ -849,7 +854,7 @@ export function Sandbox({
                   </div>
                 </div>
                 {useAppPerms ? null : (
-                  <div className="border-b border-b-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-600 dark:border-b-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                  <div className="border-b border-b-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-b-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
                     <strong>Use caution!</strong> Transactions above will be
                     evaluated with these rules.
                   </div>
@@ -860,7 +865,7 @@ export function Sandbox({
                   >
                     {useAppPerms ? (
                       <Editor
-                        theme={darkMode ? 'vs-dark' : 'light'}
+                        theme={darkMode ? 'instant-dark' : 'instant-light'}
                         key="app"
                         path="app-permissions.json"
                         value={
@@ -872,10 +877,11 @@ export function Sandbox({
                           ...editorOptions,
                           readOnly: true,
                         }}
+                        beforeMount={defineInstantEditorThemes}
                       />
                     ) : (
                       <Editor
-                        theme={darkMode ? 'vs-dark' : 'light'}
+                        theme={darkMode ? 'instant-dark' : 'instant-light'}
                         key="custom"
                         path={rulesEditorPath}
                         value={permsValue}
@@ -883,6 +889,7 @@ export function Sandbox({
                         height={'100%'}
                         language="json"
                         options={editorOptions}
+                        beforeMount={defineInstantEditorThemes}
                         onMount={(editor, monaco) => {
                           editor.addCommand(
                             monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
@@ -916,15 +923,15 @@ export function Sandbox({
           </ResizablePanelGroup>
         </ResizablePanel>
         <ResizableHandle></ResizableHandle>
-        <ResizablePanel className="flex min-w-[24em] flex-1 flex-col overflow-hidden">
-          <div className="flex flex-col gap-1 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
-            <div className="flex gap-2">
+        <ResizablePanel className="flex min-w-[24em] flex-1 flex-col overflow-hidden bg-white dark:bg-neutral-950">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-gray-200 bg-[#fbfaf8] px-3 py-2 text-sm dark:border-b-neutral-800 dark:bg-neutral-900">
+            <div className="flex items-center gap-2 font-semibold">
               Output
               <Button size="nano" onClick={() => setOutput([])}>
                 Clear
               </Button>
             </div>
-            <div className="no-scrollbar flex gap-2 overflow-y-auto">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
               <Checkbox
                 labelClassName="whitespace-nowrap"
                 label="Append results"
@@ -959,8 +966,19 @@ export function Sandbox({
           </div>
           <div
             ref={consoleRef}
-            className="flex w-full flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 text-xs dark:bg-neutral-800/40"
+            className="flex w-full flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto bg-[#fbfaf8] p-2 text-xs dark:bg-neutral-950"
           >
+            {output.length === 0 ? (
+              <div className="flex min-h-28 flex-col items-center justify-center rounded-md border border-dashed border-gray-300 bg-white px-4 py-6 text-center dark:border-neutral-700 dark:bg-neutral-900">
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                  No output yet
+                </div>
+                <div className="mt-1 max-w-sm text-sm text-gray-500 dark:text-neutral-400">
+                  Run code to inspect logs, queries, transactions, and
+                  permission checks.
+                </div>
+              </div>
+            ) : null}
             {output.map((o, i) =>
               o.type === 'eval' ? (
                 <div
@@ -971,7 +989,7 @@ export function Sandbox({
                 <div
                   key={i}
                   className={clsx(
-                    'rounded-sm border bg-gray-50 shadow-xs transition-all hover:shadow-sm dark:bg-neutral-800',
+                    'rounded-md border bg-white transition-all hover:shadow-xs dark:bg-neutral-900',
                     {
                       'border-sky-200 dark:border-sky-600/50': o.type === 'log',
                       'border-red-200 dark:border-red-600/50':
@@ -1210,7 +1228,7 @@ function EmailInput({
     >
       <ComboboxInput
         size={32}
-        className="px-2 py-0.5 text-xs dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
+        className="min-h-8 w-full rounded-md border border-gray-300 px-2.5 py-1 text-sm shadow-xs outline-hidden focus:border-[#606AF4] focus:ring-1 focus:ring-[#606AF4] dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
         value={email}
         onChange={(e) => {
           setEmail(e.target.value);
@@ -1226,14 +1244,14 @@ function EmailInput({
       <ComboboxOptions
         anchor="bottom start"
         modal={false}
-        className="z-10 mt-1 w-(--input-width) divide-y overflow-auto border border-gray-300 bg-white shadow-lg dark:divide-neutral-600 dark:border-neutral-600 dark:bg-neutral-700"
+        className="z-10 mt-1 w-(--input-width) divide-y overflow-auto rounded-md border border-gray-200 bg-white shadow-lg dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800"
       >
         {!email ? (
           <ComboboxOption
             key="none"
             value=""
             className={clsx(
-              'px-2 py-0.5 text-xs data-focus:bg-blue-100 dark:text-white dark:data-focus:bg-neutral-600',
+              'px-3 py-2 text-sm data-focus:bg-blue-50 dark:text-white dark:data-focus:bg-neutral-700',
               {},
             )}
           >
@@ -1246,7 +1264,7 @@ function EmailInput({
             key={user.id}
             value={user.email}
             className={clsx(
-              'px-2 py-0.5 text-xs data-focus:bg-blue-100 dark:text-white dark:data-focus:bg-neutral-600',
+              'px-3 py-2 text-sm data-focus:bg-blue-50 dark:text-white dark:data-focus:bg-neutral-700',
               {},
             )}
           >
@@ -1405,4 +1423,56 @@ const editorOptions = {
   minimap: { enabled: false },
   automaticLayout: true,
   lineNumbers: 'off' as const,
+  fontSize: 13,
+  lineHeight: 20,
+  padding: { top: 10, bottom: 10 },
 };
+
+function defineInstantEditorThemes(monaco: Monaco) {
+  monaco.editor.defineTheme('instant-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '737373' },
+      { token: 'keyword', foreground: 'b45309' },
+      { token: 'string', foreground: '047857' },
+      { token: 'number', foreground: '9a3412' },
+      { token: 'type', foreground: '365b9d' },
+      { token: 'delimiter', foreground: '525252' },
+    ],
+    colors: {
+      'editor.background': '#ffffff',
+      'editor.foreground': '#171717',
+      'editorLineNumber.foreground': '#b6b6b6',
+      'editorLineNumber.activeForeground': '#737373',
+      'editor.selectionBackground': '#ffe0d1',
+      'editor.inactiveSelectionBackground': '#fff0e8',
+      'editorCursor.foreground': '#ff875b',
+      'editorIndentGuide.background1': '#eeeeee',
+      'editorIndentGuide.activeBackground1': '#d4d4d4',
+      'editor.lineHighlightBackground': '#fbfaf8',
+    },
+  });
+  monaco.editor.defineTheme('instant-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '8a8a8a' },
+      { token: 'keyword', foreground: 'ffb088' },
+      { token: 'string', foreground: '6ee7b7' },
+      { token: 'number', foreground: 'fcd34d' },
+      { token: 'type', foreground: '93c5fd' },
+      { token: 'delimiter', foreground: 'd4d4d4' },
+    ],
+    colors: {
+      'editor.background': '#111111',
+      'editor.foreground': '#f5f5f5',
+      'editorLineNumber.foreground': '#525252',
+      'editorLineNumber.activeForeground': '#a3a3a3',
+      'editor.selectionBackground': '#583424',
+      'editor.inactiveSelectionBackground': '#2f211b',
+      'editorCursor.foreground': '#ffb088',
+      'editor.lineHighlightBackground': '#171717',
+    },
+  });
+}

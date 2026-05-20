@@ -53,7 +53,6 @@ async function fetchSchemaBlobs(
     headers: adminHeaders(appId, adminToken),
   });
   if (!schemaRes.ok) {
-    console.warn('[dash-redesign] schema fetch failed', await schemaRes.text());
     return null;
   }
   const schemaJson = (await schemaRes.json()) as {
@@ -80,7 +79,7 @@ async function transactDeleteAttrs(
     },
   );
   if (!delRes.ok) {
-    console.warn('[dash-redesign] delete-attr failed', await delRes.text());
+    return;
   }
 }
 
@@ -88,12 +87,8 @@ async function softDeletePriorityAttr(appId: string, adminToken: string) {
   const blobs = await fetchSchemaBlobs(appId, adminToken);
   const attrId = blobs?.todos?.priority?.id;
   if (!attrId) {
-    console.warn(
-      '[dash-redesign] could not find todos.priority attr; skipping',
-    );
     return;
   }
-  console.log('[dash-redesign] soft-deleting todos.priority attr', attrId);
   await transactDeleteAttrs(appId, adminToken, [attrId]);
 }
 
@@ -112,9 +107,6 @@ async function seedAndDeleteNotesNamespace(appId: string, adminToken: string) {
   const blobs = await fetchSchemaBlobs(appId, adminToken);
   const nsAttrs = blobs?.notes;
   if (!nsAttrs) {
-    console.warn(
-      '[dash-redesign] could not find notes namespace; skipping namespace delete',
-    );
     return;
   }
   const attrIds: string[] = [];
@@ -124,21 +116,15 @@ async function seedAndDeleteNotesNamespace(appId: string, adminToken: string) {
     }
   }
   if (attrIds.length === 0) {
-    console.warn('[dash-redesign] no attrs in notes namespace; skipping');
     return;
   }
-  console.log(
-    `[dash-redesign] soft-deleting notes namespace (${attrIds.length} attrs)`,
-  );
   await transactDeleteAttrs(appId, adminToken, attrIds);
 }
 
 async function provisionAndSeed(): Promise<Cached> {
-  console.log('[dash-redesign] provisioning ephemeral app...');
   const { app } = await provisionApp({ title: 'Dash Redesign Sandbox' });
   const appId = app.id;
   const adminToken = app['admin-token'];
-  console.log('[dash-redesign] provisioned, seeding todos...', { appId });
   const db = init({ apiURI: config.apiURI, appId, adminToken });
   const firstTodoId = id();
   await db.transact([
@@ -178,13 +164,6 @@ async function provisionAndSeed(): Promise<Cached> {
       ([name, val]) => name !== 'id' && val?.id,
     )?.[1]?.id ||
     '';
-  if (!firstTodoAttrId) {
-    console.warn(
-      '[dash-redesign] could not find any editable attr on todos',
-      todosBlobs,
-    );
-  }
-  console.log('[dash-redesign] seed complete', { firstTodoAttrId });
   return {
     id: appId,
     adminToken,

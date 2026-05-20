@@ -58,16 +58,31 @@ import { useMonacoJSONSchema } from '@lib/hooks/useMonacoJSONSchema';
 export const Stack = twel('div', 'flex flex-col gap-2');
 export const Group = twel('div', 'flex flex-col gap-2 md:flex-row');
 
-export const Content = twel('div', 'prose dark:text-neutral-400');
-export const ScreenHeading = twel('div', 'text-2xl font-bold');
-export const SectionHeading = twel('div', 'text-xl font-bold');
-export const SubsectionHeading = twel('div', 'text-lg');
-export const BlockHeading = twel('div', 'text-md font-bold');
+export const Content = twel(
+  'div',
+  'prose prose-sm max-w-none leading-relaxed text-gray-600 dark:prose-invert dark:text-neutral-400',
+);
+export const ScreenHeading = twel(
+  'div',
+  'text-4xl font-semibold tracking-normal text-gray-950 dark:text-white',
+);
+export const SectionHeading = twel(
+  'div',
+  'text-xl font-semibold tracking-normal text-gray-950 dark:text-white',
+);
+export const SubsectionHeading = twel(
+  'div',
+  'text-lg font-semibold tracking-normal text-gray-900 dark:text-neutral-100',
+);
+export const BlockHeading = twel(
+  'div',
+  'text-md font-semibold tracking-normal text-gray-900 dark:text-neutral-100',
+);
 
 export const Hint = twel('div', 'text-sm text-gray-400');
 export const Label = twel(
   'div',
-  'text-sm font-bold dark:text-neutral-400 text-gray-700',
+  'text-sm font-semibold text-gray-700 dark:text-neutral-400',
 );
 
 export const LogoIcon = ({
@@ -115,7 +130,7 @@ export function ToggleCollection({
   onChange: (tab: TabButton) => void;
 }) {
   return (
-    <div className={cn('flex w-full flex-col gap-0.5', className)}>
+    <div className={cn('flex w-full flex-col gap-1', className)}>
       {items.map((a) => (
         <button
           key={a.id}
@@ -124,9 +139,10 @@ export function ToggleCollection({
             onChange(a);
           }}
           className={cn(
-            'block cursor-pointer truncate rounded bg-none px-3 py-1 text-left whitespace-nowrap hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-700/80',
+            'block cursor-pointer truncate rounded-md bg-none px-3 py-2 text-left text-sm whitespace-nowrap text-gray-600 transition-colors hover:bg-white/70 hover:text-gray-950 disabled:text-gray-400 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white',
             {
-              'bg-gray-200 dark:bg-neutral-600/50': selectedId === a.id,
+              'bg-white font-semibold text-gray-950 shadow-xs dark:bg-neutral-900 dark:text-white':
+                selectedId === a.id,
             },
             buttonClassName,
           )}
@@ -160,7 +176,7 @@ export function ToggleGroup({
 
         onChange(item);
       }}
-      className="flex gap-1 rounded-sm border border-gray-300 bg-gray-200 p-0.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+      className="flex gap-1 rounded-md border border-gray-300 bg-gray-100 p-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
       type="single"
       defaultValue="center"
       aria-label={ariaLabel}
@@ -169,10 +185,10 @@ export function ToggleGroup({
         <HeadlessToggleGroup.Item
           key={item.id}
           className={cn(
-            'flex-1 rounded-sm p-0.5',
+            'flex-1 rounded px-3 py-1.5 transition-colors',
             selectedId === item.id
-              ? 'bg-white dark:bg-neutral-600/50'
-              : 'bg-gray-200 dark:bg-transparent',
+              ? 'bg-white font-semibold text-gray-950 shadow-xs dark:bg-neutral-700 dark:text-white'
+              : 'text-gray-600 hover:bg-white/60 dark:bg-transparent dark:text-neutral-400 dark:hover:bg-neutral-800',
           )}
           value={item.id}
           aria-label={item.label}
@@ -187,6 +203,7 @@ export function ToggleGroup({
 export function TextInput({
   value,
   type,
+  size = 'normal',
   autoFocus,
   className,
   onChange,
@@ -200,9 +217,11 @@ export function TextInput({
   title,
   required,
   onBlur,
+  ignorePasswordManagers,
 }: {
   value: string;
   type?: 'text' | 'email' | 'sensitive' | 'password';
+  size?: 'normal' | 'large' | 'jumbo';
   className?: string;
   error?: ReactNode;
   onChange: (value: string) => void;
@@ -216,8 +235,11 @@ export function TextInput({
   title?: string | undefined;
   required?: boolean | undefined;
   onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
+  ignorePasswordManagers?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const shouldIgnorePasswordManagers =
+    type === 'sensitive' || ignorePasswordManagers;
 
   useEffect(() => {
     if (autoFocus) {
@@ -233,11 +255,11 @@ export function TextInput({
         title={title}
         // Try to prevent password managers (LastPass, 1Password,
         // BitWarden) from attaching to or saving sensitive input.
-        autoComplete={type === 'sensitive' ? 'off' : undefined}
-        data-lpignore={type === 'sensitive' ? 'true' : undefined}
-        data-1p-ignore={type === 'sensitive' ? 'true' : undefined}
-        data-bwignore={type === 'sensitive' ? 'true' : undefined}
-        data-form-type={type === 'sensitive' ? 'other' : undefined}
+        autoComplete={shouldIgnorePasswordManagers ? 'off' : undefined}
+        data-lpignore={shouldIgnorePasswordManagers ? 'true' : undefined}
+        data-1p-ignore={shouldIgnorePasswordManagers ? 'true' : undefined}
+        data-bwignore={shouldIgnorePasswordManagers ? 'true' : undefined}
+        data-form-type={shouldIgnorePasswordManagers ? 'other' : undefined}
         // LastPass attaches its UI to any <input type="password"> even
         // when data-lpignore="true" is set. To opt out we render the
         // field as type="text" and use -webkit-text-security to mask
@@ -260,7 +282,10 @@ export function TextInput({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500 dark:disabled:text-neutral-700',
+          'flex w-full flex-1 rounded-md border border-gray-300 bg-white text-gray-950 shadow-xs transition-colors outline-none placeholder:text-gray-400 focus:border-[#606AF4] focus:ring-2 focus:ring-[#606AF4]/15 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white dark:placeholder:text-neutral-500 dark:focus:border-[#8f95ff] dark:focus:ring-[#8f95ff]/15 dark:disabled:text-neutral-700',
+          size === 'normal' && 'min-h-10 px-3.5 py-2 text-sm',
+          size === 'large' && 'min-h-12 px-4 py-2.5 text-base',
+          size === 'jumbo' && 'min-h-16 border-2 px-5 py-3 text-xl font-medium',
           className,
           {
             'border-red-500': error,
@@ -329,7 +354,7 @@ export function TextArea({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800',
+          'flex w-full flex-1 rounded-md border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-950 shadow-xs transition-colors outline-none placeholder:text-gray-400 focus:border-[#606AF4] focus:ring-2 focus:ring-[#606AF4]/15 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white dark:placeholder:text-neutral-500 dark:focus:border-[#8f95ff] dark:focus:ring-[#8f95ff]/15 dark:disabled:text-neutral-700',
           className,
           {
             'border-red-500': error,
@@ -405,6 +430,7 @@ export function Checkbox({
 export function Select<Value extends string | boolean>({
   value,
   options,
+  size = 'default',
   className,
   onChange,
   disabled,
@@ -417,6 +443,7 @@ export function Select<Value extends string | boolean>({
 }: {
   value?: Value;
   options: { label: string | ReactNode; value: Value }[];
+  size?: 'sm' | 'default' | 'lg';
   className?: string;
   onChange: (option?: { label: string | ReactNode; value: Value }) => void;
   disabled?: boolean;
@@ -436,7 +463,12 @@ export function Select<Value extends string | boolean>({
       }}
       value={value?.toString() ?? ''}
     >
-      <SelectTrigger className={className} title={title} tabIndex={tabIndex}>
+      <SelectTrigger
+        className={className}
+        size={size}
+        title={title}
+        tabIndex={tabIndex}
+      >
         <SelectValue placeholder={emptyLabel}>{visibleValue}</SelectValue>
       </SelectTrigger>
       <SelectContent className={contentClassName}>
@@ -469,7 +501,7 @@ export function Button({
   title,
 }: PropsWithChildren<{
   variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'cta';
-  size?: 'mini' | 'normal' | 'large' | 'xl' | 'nano';
+  size?: 'nano' | 'mini' | 'normal' | 'large' | 'xl' | 'jumbo';
   type?: 'link' | 'link-new' | 'button' | 'submit';
   onClick?: MouseEventHandler;
   href?: string;
@@ -490,14 +522,14 @@ export function Button({
   }, []);
 
   const cls = cn(
-    `inline-flex justify-center items-center gap-1 whitespace-nowrap px-8 py-1 font-bold rounded-sm cursor-pointer transition-all disabled:cursor-default`,
+    `inline-flex min-h-10 justify-center items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-semibold cursor-pointer transition-colors disabled:cursor-default`,
     {
       // primary
-      'bg-[#606AF4] text-white dark:bg-[#606AF4] dark:text-white':
+      'bg-[#ff875b] text-white shadow-xs dark:bg-[#ff875b] dark:text-white':
         variant === 'primary',
-      'hover:text-slate-100 hover:bg-[#4543e9] dark:hover:text-neutral-100 dark:hover:bg-[#4543e9]':
+      'hover:text-white hover:bg-[#ff7448] dark:hover:text-white dark:hover:bg-[#ff7448]':
         variant === 'primary' && isATag,
-      'hover:enabled:text-slate-100 hover:enabled:bg-[#4543e9] disabled:bg-[#9197f3] dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-[#4543e9] dark:disabled:bg-[#9197f3]':
+      'hover:enabled:text-white hover:enabled:bg-[#ff7448] disabled:bg-[#ffc1aa] disabled:text-white dark:hover:enabled:text-white dark:hover:enabled:bg-[#ff7448] dark:disabled:bg-[#8b4f3c]':
         variant === 'primary' && !isATag,
       // cta
       'bg-orange-600 text-white dark:bg-orange-600 dark:text-white':
@@ -507,30 +539,31 @@ export function Button({
       'hover:enabled:text-slate-100 hover:enabled:bg-orange-500 dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-orange-500':
         variant === 'cta' && !isATag,
       // secondary
-      'border border-gray-200 text-gray-500 bg-gray-50 shadow-sm dark:border-neutral-600 dark:text-neutral-400 dark:bg-neutral-800':
+      'border border-gray-300 bg-white text-gray-800 shadow-xs dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200':
         variant === 'secondary',
-      'hover:text-gray-600 hover:bg-gray-50/30 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/30':
+      'hover:text-gray-950 hover:bg-gray-50 dark:hover:text-white dark:hover:bg-neutral-800':
         variant === 'secondary' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-50/30 disabled:text-gray-400 dark:hover:enabled:text-neutral-300 dark:hover:enabled:bg-neutral-700/30 dark:disabled:text-neutral-600':
+      'hover:enabled:text-gray-950 hover:enabled:bg-gray-50 disabled:text-gray-400 dark:hover:enabled:text-white dark:hover:enabled:bg-neutral-800 dark:disabled:text-neutral-600':
         variant === 'secondary' && !isATag,
       // subtle
-      'text-gray-500 bg-white font-normal dark:text-neutral-400 dark:bg-transparent':
+      'bg-transparent text-gray-600 shadow-none dark:text-neutral-400':
         variant === 'subtle',
-      'hover:text-gray-600 hover:bg-gray-200/30 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/30':
+      'hover:text-gray-950 hover:bg-gray-100 dark:hover:text-white dark:hover:bg-neutral-800':
         variant === 'subtle' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-200/30 dark:hover:enabled:text-neutral-300 dark:hover:enabled:bg-neutral-700/30':
+      'hover:enabled:text-gray-950 hover:enabled:bg-gray-100 dark:hover:enabled:text-white dark:hover:enabled:bg-neutral-800':
         variant === 'subtle' && !isATag,
       // destructive
-      'text-red-500 dark:bg-red-500/10 bg-white border border-red-200 dark:border-red-900/60':
+      'border border-red-200 bg-white text-red-600 shadow-xs dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-400':
         variant === 'destructive',
-      'hover:text-red-600 hover:text-red-600 hover:border-red-300 dark:hover:border-red-800':
+      'hover:text-red-700 hover:border-red-300 hover:bg-red-50 dark:hover:border-red-800 dark:hover:bg-red-950/30':
         variant === 'destructive' && isATag,
-      'hover:enabled:text-red-600 hover:enabled:text-red-600 hover:enabled:border-red-300 disabled:border-red-50 disabled:text-red-300 dark:hover:enabled:text-red-500 dark:hover:enabled:border-red-800 dark:disabled:border-red-950 dark:disabled:text-red-800':
+      'hover:enabled:text-red-700 hover:enabled:border-red-300 hover:enabled:bg-red-50 disabled:border-red-50 disabled:text-red-300 dark:hover:enabled:text-red-300 dark:hover:enabled:border-red-800 dark:hover:enabled:bg-red-950/30 dark:disabled:border-red-950 dark:disabled:text-red-800':
         variant === 'destructive' && !isATag,
-      'text-lg': size === 'large',
-      'text-xl': size === 'xl',
-      'text-sm px-2 py-0.5': size === 'mini',
-      'text-xs px-2 py-0': size === 'nano',
+      'min-h-11 px-5 text-base': size === 'large',
+      'min-h-12 px-6 text-lg': size === 'xl',
+      'min-h-16 px-6 text-xl': size === 'jumbo',
+      'min-h-8 px-3 py-1 text-xs': size === 'mini',
+      'min-h-6 rounded px-2 py-0.5 text-xs': size === 'nano',
       'cursor-not-allowed': disabled,
       'cursor-wait opacity-75': loading, // Apply wait cursor and lower opacity when loading,
       'bg-gray-200 text-gray-400 dark:bg-neutral-700 dark:text-neutral-500':
@@ -782,13 +815,20 @@ export function Dialog({
         }}
         autoFocus={false}
         tabIndex={undefined}
-        className={`w-full max-w-xl overflow-y-auto rounded border-solid bg-white p-3 text-sm shadow dark:bg-neutral-800 dark:text-white ${className}`}
+        className={cn(
+          'w-full max-w-xl overflow-y-auto rounded-lg border border-gray-200 bg-white p-5 text-sm shadow-xl sm:p-6 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white',
+          className,
+        )}
       >
         {!hideCloseButton && (
-          <XMarkIcon
-            className="absolute top-[18px] right-3 h-4 w-4 cursor-pointer"
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute top-4 right-4 flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-neutral-500 dark:hover:bg-neutral-700 dark:hover:text-white"
             onClick={onClose}
-          />
+          >
+            <XMarkIcon className="h-4 w-4" />
+          </button>
         )}
         {children}
       </DialogContent>
@@ -933,13 +973,13 @@ export function SmallCopyable({
   return (
     <div
       className={cn(
-        'flex items-center rounded font-mono text-xs opacity-70',
+        'flex min-w-0 items-center rounded-md font-mono text-xs text-gray-500 dark:text-neutral-400',
         {},
       )}
     >
       {label ? (
         <div
-          className="py-1.5 opacity-50"
+          className="shrink-0 py-1.5 text-gray-400 dark:text-neutral-500"
           style={{
             borderTopLeftRadius: 'calc(0.25rem - 1px)',
             borderBottomLeftRadius: 'calc(0.25rem - 1px)',
@@ -951,10 +991,13 @@ export function SmallCopyable({
       <Tooltip open={tooltipOpen}>
         <TooltipTrigger asChild>
           <pre
-            className={clsx('flex-1 cursor-pointer px-2 py-1.5 select-text', {
-              truncate: !multiline,
-              'break-all whitespace-pre-wrap': multiline,
-            })}
+            className={clsx(
+              'min-w-0 flex-1 cursor-pointer px-2 py-1.5 select-text',
+              {
+                truncate: !multiline,
+                'break-all whitespace-pre-wrap': multiline,
+              },
+            )}
             title={hideValue || hidden ? 'Copy to clipboard' : value}
             onClick={(e) => {
               // Only copy if no text is selected
@@ -977,7 +1020,7 @@ export function SmallCopyable({
           <button
             onClick={handleChangeHideValue}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm px-2 py-1 opacity-50 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700',
+              'flex h-7 w-7 items-center justify-center gap-x-1 rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-neutral-700 dark:hover:text-white',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -1021,7 +1064,7 @@ export function Copyable({
   return (
     <div
       className={cn(
-        'flex items-center rounded border bg-white font-mono dark:border-neutral-700 dark:bg-neutral-800',
+        'flex min-w-0 items-stretch overflow-hidden rounded-md border border-gray-200 bg-[#fbfaf8] font-mono shadow-xs dark:border-neutral-700 dark:bg-neutral-900',
         {
           'text-sm': size === 'normal',
           'text-base': size === 'large',
@@ -1030,7 +1073,7 @@ export function Copyable({
     >
       {label ? (
         <div
-          className="border-r bg-gray-50 px-3 py-1.5 dark:border-r-neutral-700 dark:bg-neutral-700"
+          className="flex shrink-0 items-center border-r border-gray-200 bg-white/70 px-3 py-2 text-xs font-semibold text-gray-500 dark:border-r-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
           style={{
             borderTopLeftRadius: 'calc(0.25rem - 1px)',
             borderBottomLeftRadius: 'calc(0.25rem - 1px)',
@@ -1042,10 +1085,13 @@ export function Copyable({
       <Tooltip open={tooltipOpen}>
         <TooltipTrigger asChild>
           <pre
-            className={clsx('flex-1 cursor-pointer px-2 py-1.5 select-text', {
-              truncate: !multiline,
-              'break-all whitespace-pre-wrap': multiline,
-            })}
+            className={clsx(
+              'min-w-0 flex-1 cursor-pointer px-3 py-2 select-text',
+              {
+                truncate: !multiline,
+                'break-all whitespace-pre-wrap': multiline,
+              },
+            )}
             title={hideValue || hidden ? 'Copy to clipboard' : value}
             onClick={(e) => {
               // Only copy if no text is selected
@@ -1063,12 +1109,12 @@ export function Copyable({
         </TooltipTrigger>
         <TooltipContent side="bottom">Copied!</TooltipContent>
       </Tooltip>
-      <div className="flex gap-1 px-1">
+      <div className="flex shrink-0 items-center gap-1 px-1.5">
         {!!handleChangeHideValue && (
           <button
             onClick={handleChangeHideValue}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600 dark:hover:bg-neutral-600',
+              'flex h-8 items-center gap-x-1 rounded-md border border-gray-200 bg-white px-2 text-gray-700 hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -1088,7 +1134,7 @@ export function Copyable({
               }, 2500);
             }}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600 dark:hover:bg-neutral-600',
+              'flex h-8 items-center gap-x-1 rounded-md border border-gray-200 bg-white px-2 text-gray-700 hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -1433,7 +1479,7 @@ export function CodeEditor(props: {
 }) {
   return (
     <Editor
-      theme={props.darkMode ? 'vs-dark' : 'vs-light'}
+      theme={props.darkMode ? 'instant-dark' : 'instant-light'}
       className={cn(
         props.loading ? 'animate-pulse' : undefined,
         props.className,
@@ -1448,6 +1494,9 @@ export function CodeEditor(props: {
         hideCursorInOverviewRuler: true,
         minimap: { enabled: false },
         automaticLayout: true,
+        fontSize: 13,
+        lineHeight: 20,
+        padding: { top: 12, bottom: 12 },
         tabIndex: props.tabIndex,
         readOnly: props.readOnly,
       }}
@@ -1455,7 +1504,54 @@ export function CodeEditor(props: {
         props.onChange(value || '');
       }}
       onMount={props.onMount}
-      beforeMount={(monaco) => {}}
+      beforeMount={(monaco) => {
+        monaco.editor.defineTheme('instant-light', {
+          base: 'vs',
+          inherit: true,
+          rules: [
+            { token: 'comment', foreground: '737373' },
+            { token: 'keyword', foreground: 'b45309' },
+            { token: 'string', foreground: '047857' },
+            { token: 'number', foreground: '9a3412' },
+            { token: 'type', foreground: '365b9d' },
+            { token: 'delimiter', foreground: '525252' },
+          ],
+          colors: {
+            'editor.background': '#ffffff',
+            'editor.foreground': '#171717',
+            'editorLineNumber.foreground': '#b6b6b6',
+            'editorLineNumber.activeForeground': '#737373',
+            'editor.selectionBackground': '#ffe0d1',
+            'editor.inactiveSelectionBackground': '#fff0e8',
+            'editorCursor.foreground': '#ff875b',
+            'editorIndentGuide.background1': '#eeeeee',
+            'editorIndentGuide.activeBackground1': '#d4d4d4',
+            'editor.lineHighlightBackground': '#fbfaf8',
+          },
+        });
+        monaco.editor.defineTheme('instant-dark', {
+          base: 'vs-dark',
+          inherit: true,
+          rules: [
+            { token: 'comment', foreground: '8a8a8a' },
+            { token: 'keyword', foreground: 'ffb088' },
+            { token: 'string', foreground: '6ee7b7' },
+            { token: 'number', foreground: 'fcd34d' },
+            { token: 'type', foreground: '93c5fd' },
+            { token: 'delimiter', foreground: 'd4d4d4' },
+          ],
+          colors: {
+            'editor.background': '#111111',
+            'editor.foreground': '#f5f5f5',
+            'editorLineNumber.foreground': '#525252',
+            'editorLineNumber.activeForeground': '#a3a3a3',
+            'editor.selectionBackground': '#583424',
+            'editor.inactiveSelectionBackground': '#2f211b',
+            'editorCursor.foreground': '#ffb088',
+            'editor.lineHighlightBackground': '#171717',
+          },
+        });
+      }}
       loading={<FullscreenLoading />}
     />
   );
@@ -1636,7 +1732,22 @@ export function Fence({
               },
               styles: [],
             }
-          : rosePineDawnTheme
+          : {
+              plain: {
+                backgroundColor: '#fffdfa',
+                color: '#171717',
+              },
+              styles: [
+                {
+                  types: ['comment', 'prolog', 'doctype', 'cdata'],
+                  style: { color: '#7a7a7a' },
+                },
+                { types: ['string'], style: { color: '#166534' } },
+                { types: ['number'], style: { color: '#9a3412' } },
+                { types: ['keyword'], style: { color: '#4f46e5' } },
+                { types: ['function'], style: { color: '#0f766e' } },
+              ],
+            }
       }
     >
       {({ className, style, tokens, getTokenProps }) => {
@@ -1702,7 +1813,6 @@ export function Fence({
 }
 
 import * as SwitchPrimitive from '@radix-ui/react-switch';
-import { rosePineDawnTheme } from './rosePineDawnTheme';
 import { useShadowRoot, useShadowDarkMode } from './StyleMe';
 function Switch({
   className,

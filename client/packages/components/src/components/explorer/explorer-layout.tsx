@@ -92,7 +92,7 @@ export const ExplorerLayout = ({
   return (
     <div
       className={cn(
-        'relative flex w-full flex-1 overflow-hidden border-solid dark:bg-neutral-800',
+        'relative flex w-full flex-1 overflow-hidden border-solid bg-[#fbfaf8] dark:bg-neutral-950',
         props.className,
       )}
     >
@@ -114,13 +114,13 @@ export const ExplorerLayout = ({
       <div
         ref={nsRef}
         className={cn(
-          'absolute top-0 bottom-0 left-0 z-40 flex min-w-[200px] flex-col gap-1 border-r border-solid border-r-gray-200 bg-white p-2 shadow-md md:static md:flex md:shadow-none dark:border-neutral-700 dark:bg-neutral-800 dark:text-white',
+          'absolute top-0 bottom-0 left-0 z-40 flex min-w-[196px] flex-col gap-2 border-r border-solid border-r-gray-200 bg-[#fbfaf8] p-2 shadow-md md:static md:flex md:shadow-none dark:border-neutral-800 dark:bg-neutral-950 dark:text-white',
           {
             hidden: !isNsOpen,
           },
         )}
       >
-        <div className="flex items-center gap-1 text-sm font-semibold dark:text-white">
+        <div className="flex items-center gap-2 px-1 text-xs font-semibold tracking-[0.08em] text-gray-500 uppercase dark:text-neutral-400">
           <ChevronLeftIcon
             height="1rem"
             className="cursor-pointer md:hidden dark:text-white"
@@ -134,6 +134,7 @@ export const ExplorerLayout = ({
               {namespaces.length ? (
                 <ToggleCollection
                   className="text-sm"
+                  buttonClassName="px-2 py-1.5"
                   selectedId={props.explorerState?.namespace}
                   items={namespaces.map((ns) => ({
                     id: ns.id,
@@ -155,12 +156,12 @@ export const ExplorerLayout = ({
             </Button>
             {deletedNamespaces.length ? (
               <Button
-                className="justify-start gap-2 rounded-sm p-2"
+                className="justify-start gap-2 rounded-md px-2 py-1.5"
                 variant="subtle"
                 size="nano"
                 onClick={recentlyDeletedNsDialog.onOpen}
               >
-                <span className="rounded-sm bg-gray-200 px-1 text-gray-700 dark:bg-neutral-700 dark:text-neutral-100">
+                <span className="rounded bg-white px-1.5 text-gray-700 shadow-xs dark:bg-neutral-800 dark:text-neutral-100">
                   {deletedNamespaces.length}
                 </span>
                 <span>Recently Deleted</span>
@@ -178,9 +179,9 @@ export const ExplorerLayout = ({
           </div>
         )}
       </div>
-      <div className="flex flex-col gap-2 border-r border-gray-300 bg-neutral-100 p-1 md:hidden dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="flex flex-col gap-2 border-r border-gray-200 bg-[#fbfaf8] p-1 md:hidden dark:border-neutral-800 dark:bg-neutral-950">
         <button
-          className="flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 select-none hover:bg-neutral-300 dark:hover:bg-neutral-700"
+          className="flex cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 select-none hover:bg-white dark:hover:bg-neutral-800"
           onClick={(e) => {
             e.stopPropagation();
             setIsNsOpen(true);

@@ -8,27 +8,29 @@ export function Current() {
   return (
     <AuthShell>
       <form
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-5"
         onSubmit={(e) => e.preventDefault()}
       >
-        <ScreenHeading>Enter your code</ScreenHeading>
-        <Content>
+        <ScreenHeading className="text-5xl">Enter your code</ScreenHeading>
+        <Content className="text-2xl leading-9 text-gray-950 dark:text-neutral-200">
           We sent an email to{' '}
           <strong className="dark:text-white">{sentEmail}</strong>. Check your
           email, and paste the code you see.
         </Content>
         <TextInput
-          className="w-full appearance-none rounded-sm outline-hidden"
+          autoFocus
+          size="jumbo"
+          className="appearance-none outline-hidden"
           placeholder="Your code"
           inputMode="numeric"
           value={code}
           onChange={(v) => setCode(v)}
         />
-        <Button type="submit" disabled={code.trim().length === 0}>
-          Verify Code
+        <Button size="jumbo" type="submit" disabled={code.trim().length === 0}>
+          Verify code
         </Button>
-        <Button variant="subtle" onClick={() => {}}>
-          Back to Login
+        <Button size="large" variant="subtle" onClick={() => {}}>
+          Back to login
         </Button>
       </form>
     </AuthShell>

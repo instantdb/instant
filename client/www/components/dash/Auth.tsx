@@ -38,21 +38,22 @@ function CodeStep(props: {
 }) {
   return (
     <form
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-5"
       onSubmit={(e) => {
         e.preventDefault();
         props.onVerifyCode();
       }}
     >
-      <ScreenHeading>Enter your code</ScreenHeading>
-      <Content>
+      <ScreenHeading className="text-5xl">Enter your code</ScreenHeading>
+      <Content className="text-2xl leading-9 text-gray-950 dark:text-neutral-200">
         We sent an email to{' '}
         <strong className="dark:text-white">{props.sentEmail}</strong>. Check
         your email, and paste the code you see.
       </Content>
       <TextInput
         autoFocus
-        className="w-full appearance-none rounded-sm outline-hidden"
+        size="jumbo"
+        className="appearance-none outline-hidden"
         placeholder="Your code"
         inputMode="numeric"
         value={props.code}
@@ -60,12 +61,17 @@ function CodeStep(props: {
         error={props.error}
       />
       <Button
+        size="jumbo"
         type="submit"
         disabled={props.disabled || props.code.trim().length === 0}
       >
         Verify Code
       </Button>
-      <Button variant="subtle" onClick={() => props.onBackToLogin()}>
+      <Button
+        size="large"
+        variant="subtle"
+        onClick={() => props.onBackToLogin()}
+      >
         Back to Login
       </Button>
     </form>
@@ -84,22 +90,22 @@ function EmailStep(props: {
   const router = useRouter();
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-8">
       <form
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-5"
         onSubmit={(e) => {
           e.preventDefault();
           props.onSendCode();
         }}
       >
-        <ScreenHeading>Let's log you in</ScreenHeading>
-        <Content>
+        <ScreenHeading className="text-5xl">Let's log you in</ScreenHeading>
+        <Content className="text-2xl leading-9 text-gray-950 dark:text-neutral-200">
           Enter your email, and we’ll send you a verification code. We'll create
           an account for you too if you don't already have one :)
         </Content>
         <TextInput
           autoFocus
-          className="w-full rounded-sm"
+          size="jumbo"
           placeholder="Enter your email address"
           type="email"
           value={props.email}
@@ -107,6 +113,7 @@ function EmailStep(props: {
           error={props.error}
         />
         <Button
+          size="jumbo"
           type="submit"
           disabled={props.disabled || props.email.trim().length === 0}
         >
@@ -121,6 +128,7 @@ function EmailStep(props: {
             </span>
           </Divider>
           <Button
+            size="jumbo"
             variant="secondary"
             type="link"
             href={url(config.apiURI, `/dash/oauth/start`, {
@@ -130,7 +138,7 @@ function EmailStep(props: {
             })}
           >
             <span className="flex items-center space-x-2">
-              <Image alt="google icon" src={googleIconSvg} width={16} />
+              <Image alt="google icon" src={googleIconSvg} width={24} />
               <span>Continue with Google</span>
             </span>
           </Button>
@@ -225,13 +233,15 @@ export default function Auth(props: {
     }));
   };
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center p-4 dark:bg-neutral-900">
-      <div className="max-w-sm">
-        <span className="inline-flex items-center space-x-2">
-          <LogoIcon />
-          <span className="font-mono text-sm lowercase">Instant</span>
+    <div className="flex min-h-[100dvh] items-center justify-center bg-[#fbfaf8] p-8 dark:bg-neutral-950">
+      <div className="w-full max-w-[660px]">
+        <span className="mb-8 inline-flex items-center gap-3">
+          <LogoIcon size="normal" className="h-8 w-8" />
+          <span className="text-3xl font-semibold tracking-normal text-gray-950 lowercase dark:text-white">
+            instant
+          </span>
         </span>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-8">
           {sentEmail ? (
             <CodeStep
               sentEmail={sentEmail}

@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { PlusIcon } from '@heroicons/react/24/solid';
 
-import { Button, Content, Divider, SectionHeading } from '@/components/ui';
+import { Button, Content, SectionHeading } from '@/components/ui';
 import config from '@/lib/config';
 import { useAuthedFetch } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
@@ -51,7 +51,15 @@ import linkedinIconSvg from '../../../../public/img/linkedin.svg';
 import clerkLogoSvg from '../../../../public/img/clerk_logo_black.svg';
 import firebaseLogoSvg from '../../../../public/img/firebase_auth.svg';
 
-import { DashShell, useFetchedDash } from '../_shared';
+import {
+  DashPanel,
+  DashPanelHeader,
+  DashPage,
+  DashEmptyState,
+  DashNotice,
+  DashShell,
+  useFetchedDash,
+} from '../_shared';
 import { AuthSubState } from './index';
 
 // -------------- mock data --------------
@@ -122,11 +130,10 @@ function planForSubState(real: AppsAuthResponse, sub: AuthSubState): Plan {
       return {
         ...base,
         data: { ...real, oauth_clients: [] },
-        scrollTo: 'auth-clients',
       };
 
     case 'clients-overview':
-      return { ...base, scrollTo: 'auth-clients' };
+      return base;
 
     case 'picker':
       return {
@@ -287,7 +294,7 @@ function ProviderPickerButton({
   return (
     <button
       onClick={onClick}
-      className="flex cursor-pointer flex-col items-center gap-2 rounded border p-4 transition-colors hover:bg-gray-50 dark:border-neutral-700 dark:hover:bg-neutral-700"
+      className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-gray-200 bg-white p-4 transition-colors hover:border-gray-300 hover:bg-[#fbfaf8] dark:border-neutral-800 dark:bg-neutral-950 dark:hover:border-neutral-700 dark:hover:bg-neutral-900"
     >
       <Image
         alt={`${cfg.label} icon`}
@@ -309,9 +316,12 @@ function ProviderPicker({
   onCancel: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-4 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
-      <SectionHeading>Select auth provider</SectionHeading>
-      <div className="grid grid-cols-3 gap-2">
+    <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-xs dark:border-neutral-800 dark:bg-neutral-900">
+      <DashPanelHeader
+        title="Select auth provider"
+        description="Choose a provider to configure for sign in."
+      />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {PROVIDER_ORDER.map((providerType) => (
           <ProviderPickerButton
             key={providerType}
@@ -564,47 +574,40 @@ function ClientItem({
 
 function EmptyState({ onAddClient }: { onAddClient: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-sm border border-dashed bg-white p-8 text-center dark:border-neutral-700 dark:bg-neutral-800">
-      <div className="flex gap-2">
-        {PROVIDER_ORDER.slice(0, 4).map((providerType) => (
-          <Image
-            key={providerType}
-            alt={`${PROVIDER_CONFIG[providerType].label} icon`}
-            src={PROVIDER_CONFIG[providerType].icon}
-            width={20}
-            height={20}
-            className={
-              PROVIDER_CONFIG[providerType].darkInvert
-                ? 'opacity-40 dark:opacity-80 dark:invert'
-                : 'opacity-40 dark:opacity-80'
-            }
-          />
-        ))}
-      </div>
-      <div className="flex flex-col gap-1">
-        <div className="dark:text-white">
-          <strong>No OAuth clients configured</strong>
+    <DashEmptyState
+      title="No OAuth clients configured"
+      description="Add an auth client to enable social login or third-party authentication for your app."
+      action={
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex gap-2">
+            {PROVIDER_ORDER.slice(0, 4).map((providerType) => (
+              <Image
+                key={providerType}
+                alt={`${PROVIDER_CONFIG[providerType].label} icon`}
+                src={PROVIDER_CONFIG[providerType].icon}
+                width={20}
+                height={20}
+                className={
+                  PROVIDER_CONFIG[providerType].darkInvert
+                    ? 'opacity-40 dark:opacity-80 dark:invert'
+                    : 'opacity-40 dark:opacity-80'
+                }
+              />
+            ))}
+          </div>
+          <Button onClick={onAddClient} variant="secondary">
+            <PlusIcon height={14} /> Add client
+          </Button>
         </div>
-        <Content>
-          Add an auth client to enable social login or third-party
-          authentication for your app.
-        </Content>
-      </div>
-      <Button onClick={onAddClient} variant="secondary">
-        <PlusIcon height={14} /> Add client
-      </Button>
-    </div>
+      }
+    />
   );
 }
 
 // -------------- body --------------
 
 function SubStateBanner({ message }: { message: string }) {
-  return (
-    <div className="mb-3 rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200">
-      {message}
-    </div>
-  );
+  return <DashNotice tone="warning">{message}</DashNotice>;
 }
 
 function AuthBody({
@@ -728,84 +731,94 @@ function AuthBody({
   const expandedClientId = plan.defaultOpenClientId ?? lastCreatedClientId;
 
   return (
-    <div className="flex max-w-xl flex-col gap-6 p-4">
+    <DashPage size="wide">
+      <div>
+        <SectionHeading>Auth</SectionHeading>
+        <Content className="mt-1">
+          Configure OAuth clients, redirect origins, test users, and magic code
+          email for this app.
+        </Content>
+      </div>
       {plan.banner && <SubStateBanner message={plan.banner} />}
 
-      <div ref={clientsRef} className="flex flex-col gap-4">
-        <SectionHeading>Auth Clients</SectionHeading>
-
-        {!hasClients && !showAddFlow && (
-          <EmptyState onAddClient={() => setShowAddFlow(true)} />
-        )}
-
-        {hasClients && (
-          <div className="flex flex-col gap-2">
-            {clients.map((client) => {
-              const provider = providersById[client.provider_id];
-              const providerName = provider?.provider_name || 'unknown';
-              const open = client.id === expandedClientId;
-              return (
-                <ClientItem
-                  key={open ? `${client.id}-open` : client.id}
-                  app={app}
-                  client={client}
-                  providerName={providerName}
-                  onUpdateClient={handleUpdateClient}
-                  onDeleteClient={handleDeleteClient}
-                  defaultOpen={open}
-                />
-              );
-            })}
-          </div>
-        )}
-
-        {(hasClients || showAddFlow) && (
-          <AddClientFlow
-            key={
-              showAddFlow
-                ? `adding-${plan.initialFlowState.step}-${
-                    plan.initialFlowState.step === 'configuring'
-                      ? plan.initialFlowState.providerType
-                      : ''
-                  }`
-                : 'idle'
-            }
-            app={app}
-            providers={providersByName}
-            usedClientNames={usedClientNames}
-            onAddProvider={handleAddProvider}
-            onAddClient={handleAddClient}
-            onCancel={() => setShowAddFlow(false)}
-            initialFlowState={
-              showAddFlow ? plan.initialFlowState : { step: 'idle' }
-            }
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
+        <DashPanel ref={clientsRef} className="min-w-0">
+          <DashPanelHeader
+            title="Auth clients"
+            description="Enable social login or third-party authentication."
           />
-        )}
+
+          {!hasClients && !showAddFlow && (
+            <EmptyState onAddClient={() => setShowAddFlow(true)} />
+          )}
+
+          {hasClients && (
+            <div className="flex flex-col gap-3">
+              {clients.map((client) => {
+                const provider = providersById[client.provider_id];
+                const providerName = provider?.provider_name || 'unknown';
+                const open = client.id === expandedClientId;
+                return (
+                  <ClientItem
+                    key={open ? `${client.id}-open` : client.id}
+                    app={app}
+                    client={client}
+                    providerName={providerName}
+                    onUpdateClient={handleUpdateClient}
+                    onDeleteClient={handleDeleteClient}
+                    defaultOpen={open}
+                  />
+                );
+              })}
+            </div>
+          )}
+
+          {(hasClients || showAddFlow) && (
+            <div className="mt-4">
+              <AddClientFlow
+                key={
+                  showAddFlow
+                    ? `adding-${plan.initialFlowState.step}-${
+                        plan.initialFlowState.step === 'configuring'
+                          ? plan.initialFlowState.providerType
+                          : ''
+                      }`
+                    : 'idle'
+                }
+                app={app}
+                providers={providersByName}
+                usedClientNames={usedClientNames}
+                onAddProvider={handleAddProvider}
+                onAddClient={handleAddClient}
+                onCancel={() => setShowAddFlow(false)}
+                initialFlowState={
+                  showAddFlow ? plan.initialFlowState : { step: 'idle' }
+                }
+              />
+            </div>
+          )}
+        </DashPanel>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <DashPanel ref={originsRef}>
+            <AuthorizedOrigins
+              app={app}
+              origins={data.authorized_redirect_origins || []}
+              onAddOrigin={handleAddOrigin}
+              onRemoveOrigin={handleRemoveOrigin}
+            />
+          </DashPanel>
+
+          <DashPanel ref={testUsersRef}>
+            <TestUsers app={app} />
+          </DashPanel>
+        </div>
       </div>
 
-      <Divider />
-
-      <div ref={originsRef}>
-        <AuthorizedOrigins
-          app={app}
-          origins={data.authorized_redirect_origins || []}
-          onAddOrigin={handleAddOrigin}
-          onRemoveOrigin={handleRemoveOrigin}
-        />
-      </div>
-
-      <Divider />
-
-      <div ref={testUsersRef}>
-        <TestUsers app={app} />
-      </div>
-
-      <Divider />
-
-      <div ref={emailRef}>
+      <DashPanel ref={emailRef} className="min-w-0">
         <Email app={app} />
-      </div>
-    </div>
+      </DashPanel>
+    </DashPage>
   );
 }
 

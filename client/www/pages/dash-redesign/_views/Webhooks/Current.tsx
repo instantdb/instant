@@ -27,7 +27,7 @@ import { useSchemaQuery } from '@/lib/hooks/explorer';
 import { useReadyRouter } from '@/components/clientOnlyPage';
 import { Webhooks } from '@/components/dash/Webhooks';
 
-import { DashShell } from '../_shared';
+import { DashNotice, DashShell } from '../_shared';
 import { useEphemeralApp } from '../_ephemeral';
 import { WebhooksSubState } from './index';
 
@@ -166,15 +166,25 @@ function WebhookForm({
   };
 
   return (
-    <form onSubmit={handle} className="flex flex-col gap-4">
+    <form onSubmit={handle} className="flex flex-col gap-5">
+      <div>
+        <SubsectionHeading>Webhook endpoint</SubsectionHeading>
+        <Content className="mt-1 text-sm">
+          Deliver events to one public HTTPS endpoint.
+        </Content>
+      </div>
       <div className="flex flex-col gap-1">
-        <Label>URL</Label>
+        <Label>Endpoint URL</Label>
         <TextInput
           autoFocus
+          size="large"
           value={url}
           onChange={setUrl}
-          placeholder="https://example.com/webhook"
+          placeholder="https://example.com/api/instant-webhook"
         />
+        <Content className="text-xs text-gray-500 dark:text-neutral-500">
+          Must be an https URL. Localhost is not allowed.
+        </Content>
       </div>
       <div className="flex flex-col gap-1">
         <Label>Namespaces</Label>
@@ -183,38 +193,46 @@ function WebhookForm({
             No namespaces yet. Create one in the Explorer first.
           </Content>
         ) : (
-          <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-sm border bg-gray-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/50">
+          <div className="grid max-h-44 grid-cols-1 gap-2 overflow-y-auto rounded-md border border-gray-200 bg-[#fbfaf8] p-3 sm:grid-cols-2 dark:border-neutral-700 dark:bg-neutral-800/50">
             {allOptions.map((ns) => (
-              <label key={ns} className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={selectedNamespaces.has(ns)}
-                  onChange={() => setSelectedNamespaces((s) => toggle(s, ns))}
-                />
-                <span className="font-mono">{ns}</span>
-              </label>
+              <Checkbox
+                key={ns}
+                checked={selectedNamespaces.has(ns)}
+                onChange={() => setSelectedNamespaces((s) => toggle(s, ns))}
+                label={ns}
+              />
             ))}
           </div>
         )}
       </div>
       <div className="flex flex-col gap-1">
         <Label>Actions</Label>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3 rounded-md border border-gray-200 bg-[#fbfaf8] p-3 dark:border-neutral-700 dark:bg-neutral-800/50">
           {ALL_ACTIONS.map((a) => (
-            <label key={a} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={actions.has(a)}
-                onChange={() => setActions((s) => toggle(s, a))}
-              />
-              <span>{a}</span>
-            </label>
+            <Checkbox
+              key={a}
+              checked={actions.has(a)}
+              onChange={() => setActions((s) => toggle(s, a))}
+              label={a}
+            />
           ))}
         </div>
       </div>
-      <div className="flex flex-row gap-2">
-        <Button type="submit" loading={isLoading} variant="primary">
+      <div className="flex flex-row justify-end gap-2 border-t border-gray-200 pt-4 dark:border-neutral-800">
+        <Button
+          type="submit"
+          loading={isLoading}
+          variant="primary"
+          size="large"
+        >
           {submitLabel}
         </Button>
-        <Button type="button" variant="secondary" onClick={onCancel}>
+        <Button
+          type="button"
+          variant="secondary"
+          size="large"
+          onClick={onCancel}
+        >
           Cancel
         </Button>
       </div>
@@ -348,19 +366,34 @@ function DisableDialog({
         className="flex flex-col gap-4"
       >
         <SubsectionHeading>Disable webhook</SubsectionHeading>
-        <Content>
+        <DashNotice tone="warning">
           Disabled webhooks won't deliver events. You can re-enable it at any
           time.
-        </Content>
+        </DashNotice>
         <div className="flex flex-col gap-1">
           <Label>Reason (optional)</Label>
-          <TextInput autoFocus value={reason} onChange={setReason} />
+          <TextInput
+            autoFocus
+            size="large"
+            value={reason}
+            onChange={setReason}
+          />
         </div>
-        <div className="flex flex-row gap-2">
-          <Button type="submit" loading={isLoading} variant="destructive">
+        <div className="flex flex-row justify-end gap-2 border-t border-gray-200 pt-4 dark:border-neutral-800">
+          <Button
+            type="submit"
+            loading={isLoading}
+            variant="destructive"
+            size="large"
+          >
             Disable
           </Button>
-          <Button type="button" variant="secondary" onClick={dialog.onClose}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="large"
+            onClick={dialog.onClose}
+          >
             Cancel
           </Button>
         </div>
@@ -399,16 +432,23 @@ function DeleteDialog({
   return (
     <Dialog title="Delete webhook" {...dialog}>
       <div className="flex flex-col gap-3">
-        <SubsectionHeading>{webhook.sink.url}</SubsectionHeading>
-        <Content>
+        <SubsectionHeading className="font-mono text-base break-all">
+          {webhook.sink.url}
+        </SubsectionHeading>
+        <DashNotice tone="danger">
           Deleting a webhook is permanent. Any pending events for this webhook
           will be discarded.
-        </Content>
-        <div className="flex gap-2">
-          <Button loading={isLoading} variant="destructive" onClick={handle}>
+        </DashNotice>
+        <div className="flex justify-end gap-2 border-t border-gray-200 pt-4 dark:border-neutral-800">
+          <Button
+            loading={isLoading}
+            variant="destructive"
+            size="large"
+            onClick={handle}
+          >
             Delete
           </Button>
-          <Button variant="secondary" onClick={dialog.onClose}>
+          <Button variant="secondary" size="large" onClick={dialog.onClose}>
             Cancel
           </Button>
         </div>
@@ -420,7 +460,6 @@ function DeleteDialog({
 // ---- Seeding ----
 
 async function seedWebhooks(token: string, appId: string) {
-  console.log('[dash-redesign] seeding webhooks for sandbox app', appId);
   await createWebhook(token, appId, {
     url: 'https://example.com/todo-events',
     namespaces: ['todos'],

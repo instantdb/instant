@@ -4,14 +4,17 @@ import {
   ActionForm,
   Button,
   Content,
-  Copyable,
-  Divider,
-  Label,
   SectionHeading,
   SubsectionHeading,
   TextInput,
 } from '@/components/ui';
 import {
+  DashPage,
+  DashNotice,
+  DashPanel,
+  DashPanelHeader,
+  DashRow,
+  DashSecretField,
   DashShell,
   EphemeralError,
   EphemeralLoading,
@@ -62,7 +65,7 @@ const MOCK_CLIENT_SECRET =
 
 function MockLogo() {
   return (
-    <div className="flex h-12 w-12 place-content-center items-center rounded-lg border-2 border-dashed border-gray-400 bg-gray-100 dark:border-neutral-600 dark:bg-neutral-700">
+    <div className="flex h-12 w-12 place-content-center items-center rounded-lg border border-dashed border-gray-300 bg-[#fbfaf8] text-gray-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
       <ArrowUpTrayIcon height="1em" className="m-auto" />
     </div>
   );
@@ -73,11 +76,13 @@ function Crumbs({ focusedAppName }: { focusedAppName?: string }) {
     return <SectionHeading>OAuth Apps</SectionHeading>;
   }
   return (
-    <div className="flex flex-row gap-1">
-      <a href="#" className="underline">
-        <SectionHeading>OAuth Apps</SectionHeading>
+    <div>
+      <a
+        href="#"
+        className="text-sm font-medium text-gray-500 hover:text-gray-950 dark:text-neutral-400 dark:hover:text-white"
+      >
+        OAuth Apps
       </a>
-      <SectionHeading>/</SectionHeading>
       <SectionHeading>{focusedAppName}</SectionHeading>
     </div>
   );
@@ -87,23 +92,34 @@ function ListSubView() {
   return (
     <>
       <Crumbs />
-      <div className="flex max-w-md flex-col gap-6">
-        {MOCK_APPS.map((a) => (
-          <div key={a.id} className="flex flex-col gap-4">
+      <DashPanel>
+        <DashPanelHeader
+          title="Registered apps"
+          description="OAuth apps let third-party clients request access through Instant."
+          action={
+            <Button variant="secondary">
+              <PlusIcon height={14} /> Create app
+            </Button>
+          }
+        />
+        <div className="grid gap-3 md:grid-cols-2">
+          {MOCK_APPS.map((a) => (
             <a
+              key={a.id}
               href="#"
-              className="flex w-full cursor-pointer flex-row items-center gap-4 p-2 transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-neutral-700"
+              className="flex w-full cursor-pointer flex-row items-center gap-4 rounded-md border border-gray-200 bg-[#fbfaf8] p-3 transition-colors duration-200 hover:border-gray-300 hover:bg-white dark:border-neutral-800 dark:bg-neutral-950 dark:hover:border-neutral-700 dark:hover:bg-neutral-900"
             >
               <MockLogo />
-              <SectionHeading>{a.appName}</SectionHeading>
+              <div className="min-w-0">
+                <SubsectionHeading>{a.appName}</SubsectionHeading>
+                <div className="truncate text-sm text-gray-500 dark:text-neutral-400">
+                  {a.homepageUrl}
+                </div>
+              </div>
             </a>
-            <Divider />
-          </div>
-        ))}
-      </div>
-      <Button variant="secondary">
-        <PlusIcon height={14} /> Create OAuth App
-      </Button>
+          ))}
+        </div>
+      </DashPanel>
     </>
   );
 }
@@ -117,61 +133,61 @@ function CreateAppSubView() {
   return (
     <>
       <Crumbs />
-      <ActionForm className="flex max-w-md flex-col gap-4">
-        <SubsectionHeading>Create a new OAuth App</SubsectionHeading>
-        <div className="flex items-center gap-3">
-          <MockLogo />
-          <Content className="text-sm">Upload a logo (optional).</Content>
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label>Unique name</Label>
+      <DashPanel>
+        <DashPanelHeader
+          title="Create OAuth app"
+          description="Add app details shown during authorization."
+        />
+        <ActionForm className="grid gap-4 md:grid-cols-2">
+          <div className="flex items-center gap-3 md:col-span-2">
+            <MockLogo />
+            <Content className="text-sm">Upload a logo (optional).</Content>
+          </div>
           <TextInput
+            label="Unique name"
+            size="large"
             value={appName}
             onChange={setAppName}
             placeholder="Acme CLI"
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label>Homepage URL</Label>
           <TextInput
+            label="Homepage URL"
+            size="large"
             value={homepageUrl}
             onChange={setHomepageUrl}
             placeholder="https://acme.example.com"
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label>Privacy policy URL</Label>
           <TextInput
+            label="Privacy policy URL"
+            size="large"
             value={privacyPolicy}
             onChange={setPrivacyPolicy}
             placeholder="https://acme.example.com/privacy"
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label>Terms of service URL</Label>
           <TextInput
+            label="Terms of service URL"
+            size="large"
             value={tos}
             onChange={setTos}
             placeholder="https://acme.example.com/tos"
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label>Support email</Label>
           <TextInput
+            label="Support email"
+            size="large"
             value={supportEmail}
             onChange={setSupportEmail}
             placeholder="support@acme.example.com"
           />
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" type="button">
-            Cancel
-          </Button>
-          <Button variant="primary" type="submit">
-            Create app
-          </Button>
-        </div>
-      </ActionForm>
+          <div className="flex items-end justify-end gap-2">
+            <Button variant="secondary" size="large" type="button">
+              Cancel
+            </Button>
+            <Button variant="primary" size="large" type="submit">
+              Create app
+            </Button>
+          </div>
+        </ActionForm>
+      </DashPanel>
     </>
   );
 }
@@ -181,77 +197,74 @@ function AppDetailSubView() {
   return (
     <>
       <Crumbs focusedAppName={app.appName} />
-      <div className="flex max-w-2xl flex-col gap-6">
-        <div className="flex items-center gap-4">
-          <MockLogo />
-          <div className="flex flex-col">
-            <SubsectionHeading>{app.appName}</SubsectionHeading>
-            <a
-              href={app.homepageUrl}
-              className="text-sm text-blue-600 hover:underline dark:text-blue-400"
-            >
-              {app.homepageUrl}
-            </a>
-          </div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="flex flex-col gap-4">
+          <DashPanel>
+            <div className="flex items-center gap-4">
+              <MockLogo />
+              <div className="min-w-0">
+                <SubsectionHeading>{app.appName}</SubsectionHeading>
+                <a
+                  href={app.homepageUrl}
+                  className="truncate text-sm text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  {app.homepageUrl}
+                </a>
+              </div>
+            </div>
+          </DashPanel>
+
+          <DashPanel>
+            <DashPanelHeader
+              title="Clients"
+              action={
+                <Button variant="secondary" size="mini">
+                  <PlusIcon height={12} /> New client
+                </Button>
+              }
+            />
+            <div>
+              {app.clients.map((c) => (
+                <DashRow
+                  key={c.id}
+                  label={c.clientName}
+                  value={c.authorizedRedirectUrls[0]}
+                  action={
+                    <div className="font-mono text-xs text-gray-500 dark:text-neutral-400">
+                      {c.clientId}
+                    </div>
+                  }
+                />
+              ))}
+            </div>
+          </DashPanel>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
-          <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="flex flex-col gap-4">
+          <DashPanel>
+            <DashPanelHeader title="App details" />
             <div>
-              <Label>Privacy policy</Label>
-              <div className="truncate">{app.appPrivacyPolicyLink}</div>
+              <DashRow
+                label="Privacy policy"
+                value={app.appPrivacyPolicyLink}
+              />
+              <DashRow label="Terms of service" value={app.appTosLink} />
+              <DashRow label="Support email" value={app.supportEmail} />
             </div>
-            <div>
-              <Label>Terms of service</Label>
-              <div className="truncate">{app.appTosLink}</div>
-            </div>
-            <div>
-              <Label>Support email</Label>
-              <div>{app.supportEmail}</div>
-            </div>
-          </div>
-          <div>
-            <Button variant="secondary" size="mini">
+            <Button className="mt-3" variant="secondary" size="mini">
               Edit details
             </Button>
-          </div>
-        </div>
+          </DashPanel>
 
-        <div className="flex items-center justify-between">
-          <SubsectionHeading>Clients</SubsectionHeading>
-          <Button variant="secondary" size="mini">
-            <PlusIcon height={12} /> New client
-          </Button>
-        </div>
-        <div className="divide-y rounded-sm border bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
-          {app.clients.map((c) => (
-            <div key={c.id} className="flex flex-col gap-1 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-medium">{c.clientName}</div>
-                <div className="font-mono text-xs text-gray-500 dark:text-neutral-400">
-                  {c.clientId}
-                </div>
-              </div>
-              <div className="text-xs text-gray-500 dark:text-neutral-400">
-                {c.authorizedRedirectUrls[0]}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div>
-          <SubsectionHeading>Delete {app.appName}</SubsectionHeading>
-          <Content className="dark:text-neutral-400">
-            <p>
-              Deleting this OAuth app will revoke all client access. This cannot
-              be undone.
-            </p>
-          </Content>
-          <div className="mt-3">
+          <DashPanel>
+            <DashPanelHeader
+              title={`Delete ${app.appName}`}
+              description="Revoke all client access for this OAuth app."
+            />
             <Button variant="destructive" size="mini">
               Delete app
             </Button>
-          </div>
+          </DashPanel>
         </div>
       </div>
     </>
@@ -265,33 +278,33 @@ function CreateClientSubView() {
   return (
     <>
       <Crumbs focusedAppName={app.appName} />
-      <ActionForm className="flex max-w-md flex-col gap-4">
-        <SubsectionHeading>Create a new Client</SubsectionHeading>
-        <div className="flex flex-col gap-1">
-          <Label>Client name</Label>
+      <DashPanel className="max-w-2xl">
+        <DashPanelHeader title="Create client" />
+        <ActionForm className="grid gap-4">
           <TextInput
+            label="Client name"
+            size="large"
             value={clientName}
             onChange={setClientName}
             placeholder="Production"
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label>Authorized redirect URL</Label>
           <TextInput
+            label="Authorized redirect URL"
+            size="large"
             value={redirectUrl}
             onChange={setRedirectUrl}
             placeholder="https://acme.example.com/oauth/callback"
           />
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" type="button">
-            Cancel
-          </Button>
-          <Button variant="primary" type="submit">
-            Create client
-          </Button>
-        </div>
-      </ActionForm>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" size="large" type="button">
+              Cancel
+            </Button>
+            <Button variant="primary" size="large" type="submit">
+              Create client
+            </Button>
+          </div>
+        </ActionForm>
+      </DashPanel>
     </>
   );
 }
@@ -300,37 +313,38 @@ function ClientSecretSubView() {
   return (
     <>
       <Crumbs focusedAppName={MOCK_FOCUSED_APP.appName} />
-      <div className="flex max-w-md flex-col gap-3 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
-        <SubsectionHeading>Copy your client secret</SubsectionHeading>
-        <Content>
-          <p>
-            Copy and save your client secret somewhere safe. Instant does not
-            keep a copy of the secret. You will have to generate a new one if
-            this is lost.
-          </p>
-        </Content>
-        <Copyable
-          value={MOCK_CLIENT_SECRET}
+      <DashPanel className="max-w-2xl">
+        <DashPanelHeader title="Copy your client secret" />
+        <DashNotice tone="warning">
+          Copy and save your client secret somewhere safe. Instant does not keep
+          a copy of the secret. You will have to generate a new one if this is
+          lost.
+        </DashNotice>
+        <DashSecretField
+          className="mt-4"
           label="Client secret"
-          defaultHidden={true}
+          value={MOCK_CLIENT_SECRET}
+          description="Shown once"
         />
-        <div className="flex justify-end">
-          <Button variant="primary">Done</Button>
+        <div className="mt-4 flex justify-end">
+          <Button variant="primary" size="large">
+            Done
+          </Button>
         </div>
-      </div>
+      </DashPanel>
     </>
   );
 }
 
 function OAuthAppsBody({ sub }: { sub: OAuthAppsSubState }) {
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <DashPage size="wide">
       {sub === 'list' && <ListSubView />}
       {sub === 'create-app' && <CreateAppSubView />}
       {sub === 'app-detail' && <AppDetailSubView />}
       {sub === 'create-client' && <CreateClientSubView />}
       {sub === 'client-secret' && <ClientSecretSubView />}
-    </div>
+    </DashPage>
   );
 }
 

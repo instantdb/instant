@@ -1,5 +1,9 @@
 import { Button, Content, SectionHeading } from '@/components/ui';
 import {
+  DashPage,
+  DashNotice,
+  DashPanel,
+  DashPanelHeader,
   DashShell,
   EphemeralError,
   EphemeralLoading,
@@ -35,41 +39,55 @@ function BillingBody() {
   };
 
   return (
-    <div className="flex max-w-md flex-col gap-4 p-4">
-      <SectionHeading>Billing</SectionHeading>
-      <div className="flex items-center gap-2">
-        <h1 className="font-bold">Current plan</h1>
-        <div className="rounded-sm border px-2 py-1 font-bold dark:border-neutral-600">
-          {subscriptionName}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1 rounded-sm border bg-white px-2 pt-1 pb-3 dark:border-neutral-700 dark:bg-neutral-800">
-        <h2 className="flex justify-between gap-2 p-2">
-          <span className="font-bold">Usage</span>{' '}
-          <span className="font-mono text-sm">
-            {friendly(totalUsageBytes)} / {friendly(limitBytes)}
-          </span>
-        </h2>
-        <ProgressBar width={progress} />
-        <div className="flex justify-start gap-4 pt-3 pl-2 text-sm">
-          <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
-            DB ({friendly(totalAppBytes)})
-          </span>
-          <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
-            Storage ({friendly(totalStorageBytes)})
-          </span>
-        </div>
-      </div>
-
-      <div className="flex flex-col space-y-4">
-        <Button variant="primary">Upgrade to Pro</Button>
-        <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
-          Pro offers 10GB of storage, backups, multiple team members for apps,
-          and priority support.
+    <DashPage size="default">
+      <div>
+        <SectionHeading>Billing</SectionHeading>
+        <Content className="mt-1">
+          Review usage and upgrade when you need more room.
         </Content>
       </div>
-    </div>
+
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px]">
+        <DashPanel>
+          <DashPanelHeader
+            title="Usage"
+            description={`${friendly(totalUsageBytes)} of ${friendly(
+              limitBytes,
+            )} used`}
+          />
+          <ProgressBar width={progress} />
+          <div className="flex justify-start gap-4 pt-4 text-sm">
+            <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
+              DB ({friendly(totalAppBytes)})
+            </span>
+            <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
+              Storage ({friendly(totalStorageBytes)})
+            </span>
+          </div>
+        </DashPanel>
+
+        <DashPanel>
+          <DashPanelHeader
+            title="Current plan"
+            description="Free plan"
+            action={
+              <div className="rounded-md border border-gray-200 bg-[#fbfaf8] px-3 py-1.5 text-sm font-semibold dark:border-neutral-700 dark:bg-neutral-800">
+                {subscriptionName}
+              </div>
+            }
+          />
+          <div className="flex flex-col gap-3">
+            <Button variant="primary" size="large">
+              Upgrade to Pro
+            </Button>
+            <DashNotice tone="neutral">
+              Pro includes 10GB of storage, backups, multiple team members, and
+              priority support.
+            </DashNotice>
+          </div>
+        </DashPanel>
+      </div>
+    </DashPage>
   );
 }
 
