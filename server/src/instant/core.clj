@@ -224,7 +224,7 @@
                    :keystore "dev-resources/certs/dev.jks"
                    :key-password "changeit"}))
         _ (tracer/record-info! {:name "server/start"
-                                :attributes (select-keys config {:port :ssl-port})})
+                                :attributes (select-keys config [:port :ssl-port])})
         s (undertow-adapter/run-undertow
            (handler)
            config)]

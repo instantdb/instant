@@ -66,11 +66,10 @@
         (let [resp @slow-future]
           (is (= 200 (:status resp))
               "in-flight request should complete normally")
-          (tool/def-locals)
           (is (= "slow" (:body resp))))
 
         ;; With no requests in flight, awaitShutdown should return promptly.
-        (Server/.awaitShutdown server 5000))
+        (is (Server/.awaitShutdown server 5000)))
       (finally
         ;; Unblock the slow handler if the test failed before releasing.
         (.countDown release)
