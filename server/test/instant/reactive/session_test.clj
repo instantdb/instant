@@ -54,7 +54,7 @@
       (with-zeneca-app
         (fn [{zeneca-app-id :id} zeneca-resolver]
           (let [store (rs/init)
-
+                _ (eph/init-store store)
                 receive-q
                 (grouped-queue/start {:group-key-fn session/group-key
                                       :combine-fn   session/combine

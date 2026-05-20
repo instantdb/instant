@@ -569,8 +569,8 @@
 ;; ------
 ;; System
 
-(defn start []
-  (reset! (:eph-event-queue-atom rs/store)
+(defn init-store [store]
+  (reset! (:eph-event-queue-atom store)
           (work-queue/create-work-queue (Executors/newFixedThreadPool (delay/cpu-count))
                                         {:init-fn (fn [_k] (atom nil))
                                          :add-fn (fn [_k item-atom event]
@@ -578,9 +578,9 @@
                                                    item-atom)
                                          :empty?-fn (fn [_k item-atom]
                                                       (empty? @item-atom))
-                                         :process-fn (partial process-event-item rs/store)}))
+                                         :process-fn (partial process-event-item store)}))
 
-  (reset! (:eph-update-queue-atom rs/store)
+  (reset! (:eph-update-queue-atom store)
           (work-queue/create-work-queue (ua/make-virtual-thread-executor)
                                         {:init-fn (fn [_k] (LinkedBlockingQueue.))
                                          :add-fn (fn [_k q op]
@@ -588,7 +588,10 @@
                                                    q)
                                          :empty?-fn (fn [_k q]
                                                       (LinkedBlockingQueue/.isEmpty q))
-                                         :process-fn process-rooms-map-updates}))
+                                         :process-fn process-rooms-map-updates})))
+
+(defn start []
+  (init-store rs/store)
   (def hz
     (delay
       (init-hz (config/get-env) rs/store {})))
