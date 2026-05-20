@@ -253,6 +253,7 @@
   (when (and (bound? #'server)
              server)
     (Server/.shutdownGracefully server))
+
   (rs/close-connections rs/store {:total-ms (if (config/dev?)
                                               1000
                                               (* 1000 60 4))
@@ -261,7 +262,9 @@
                                                 1000)})
   (when (and (bound? #'server)
              server)
-    (Server/.awaitShutdown server (* 1000 60 4.2)))
+    ;; Wait another 20 seconds for the server to shut down
+    (Server/.awaitShutdown server (* 1000 20)))
+  ;; Stop the server
   (lang/clear-var! server Server/.stop)
   (lang/clear-var! stop-gauge IFn/.invoke))
 
