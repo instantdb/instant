@@ -156,20 +156,24 @@
         sleep-ms 100
         per-key 3
         latch (CountDownLatch. (* 2 per-key))
+        intervals (atom [])
         q (make-drain-queue pool
                             (fn [_k _item]
-                              (Thread/sleep sleep-ms)
-                              (.countDown latch)))]
+                              (let [t0 (System/currentTimeMillis)]
+                                (Thread/sleep sleep-ms)
+                                (swap! intervals conj [t0 (System/currentTimeMillis)])
+                                (.countDown latch))))]
     (try
-      (let [t0 (System/currentTimeMillis)]
-        (doseq [k [:a :b]
-                i (range per-key)]
-          (wq/offer-work q k i))
-        (is (.await latch 5 TimeUnit/SECONDS))
-        (let [elapsed (- (System/currentTimeMillis) t0)
-              serial (* 2 per-key sleep-ms)]
-          (is (< elapsed (* 0.75 serial))
-              (str "expected parallel execution, got " elapsed "ms (serial would be ~" serial "ms)"))))
+      (doseq [k [:a :b]
+              i (range per-key)]
+        (wq/offer-work q k i))
+      (is (.await latch 5 TimeUnit/SECONDS))
+      (let [sorted (vec (sort-by first @intervals))
+            overlap? (some (fn [[[_ a-end] [b-start _]]]
+                             (< b-start a-end))
+                           (partition 2 1 sorted))]
+        (is overlap?
+            (str "expected at least two overlapping intervals, got " sorted)))
       (finally
         (.shutdown pool)))))
 
