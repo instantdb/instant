@@ -19,11 +19,19 @@ test('no collisions across many integer-varying queries', () => {
 
   for (const shape of shapes) {
     const hashes = new Set<string>();
+    let firstCollisionAt: number | null = null;
     for (let i = 0; i < 100_000; i++) {
       const hash = weakHash(shape(i));
-      expect(hashes.has(hash), `collision at i=${i}`).toBe(false);
+      if (hashes.has(hash)) {
+        firstCollisionAt = i;
+        break;
+      }
       hashes.add(hash);
     }
+    expect(
+      firstCollisionAt,
+      `collision at i=${firstCollisionAt}`,
+    ).toBeNull();
   }
 });
 
