@@ -1,9 +1,12 @@
 /**
- * Unique Hashing implementation inspired by djb2/fnv1a algorithms,
- * where we are not concerned with the hash being decoded.
- * Focuses on speed while maintaining good hash distribution.
+ * Stable, non-cryptographic 64-bit hash.
  *
- * Note: We could also use something like 64-bit+ MurmurHash instead.
+ * We aren't concerned with the hash being decoded.
+ *
+ * We _do_ want to make sure hashes remain the same, even
+ * when objects undergo serializing and deserializing.
+ *
+ * Uses cyrb53 (Math.imul + xxhash-style avalanche).
  *
  * @param {any} input - Value to hash
  * @returns {string} - Hash in hex format
