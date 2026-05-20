@@ -615,6 +615,10 @@
   (lang/close clean-orphan-sessions-schedule)
   (when (bound? #'stop-gauge)
     (stop-gauge))
+  (when-let [q (rs/eph-event-queue rs/store)]
+    (work-queue/shutdown q))
+  (when-let [q (rs/eph-update-queue rs/store)]
+    (work-queue/shutdown q))
   (shutdown-hz hz))
 
 (defn restart []
