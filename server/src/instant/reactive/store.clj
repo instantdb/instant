@@ -1565,23 +1565,24 @@
    while never leaving a gap longer than max-gap-ms between subsequent closes."
   [store {:keys [total-ms
                  max-gap-ms]}]
-  (let [channels (vec (keep (fn [{:keys [v]}]
-                              (or (:sse-conn v)
-                                  (-> v :ws-conn :undertow-websocket)))
-                            (d/datoms @(:sessions store) :aevt :session/socket)))
-        start (Instant/now)
-        gap-ms (int (min (/ total-ms (max 1 (count channels)))
-                         max-gap-ms))]
-    (tracer/with-span! {:name "store/close-connections"
-                        :attributes {:connection-count (count channels)
-                                     :gap-ms gap-ms}}
-      (dorun (map-indexed (fn [i ch]
-                            (let [sleep-ms (.toMillis (Duration/between (Instant/now)
-                                                                        (.plusMillis start (* gap-ms i))))]
-                              (when (pos? sleep-ms)
-                                (Thread/sleep sleep-ms))
-                              (IoUtils/safeClose ^Channel ch)))
-                          channels)))))
+  (when-let [sessions-conn (:sessions store)]
+    (let [channels (vec (keep (fn [{:keys [v]}]
+                                (or (:sse-conn v)
+                                    (-> v :ws-conn :undertow-websocket)))
+                              (d/datoms @sessions-conn :aevt :session/socket)))
+          start (Instant/now)
+          gap-ms (int (min (/ total-ms (max 1 (count channels)))
+                           max-gap-ms))]
+      (tracer/with-span! {:name "store/close-connections"
+                          :attributes {:connection-count (count channels)
+                                       :gap-ms gap-ms}}
+        (dorun (map-indexed (fn [i ch]
+                              (let [sleep-ms (.toMillis (Duration/between (Instant/now)
+                                                                          (.plusMillis start (* gap-ms i))))]
+                                (when (pos? sleep-ms)
+                                  (Thread/sleep sleep-ms))
+                                (IoUtils/safeClose ^Channel ch)))
+                            channels))))))
 
 ;; -----
 ;; start
