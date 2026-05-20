@@ -1,81 +1,54 @@
 /**
- *
  * Unique Hashing implementation inspired by djb2/fnv1a algorithms,
  * where we are not concerned with the hash being decoded.
- * Focuses on speed while maintaining good hash distribution
+ * Focuses on speed while maintaining good hash distribution.
  *
- * Note: We could also use something like Murmurhash instead
+ * Note: We could also use something like 64-bit MurmurHash instead.
  * https://github.com/jensyt/imurmurhash-js/blob/master/imurmurhash.js
  *
  * @param {any} input - Value to hash
  * @returns {string} - Hash in hex format
  */
 export default function weakHash(input: any): string {
-  // Handle primitives without JSON stringify for better performance
-  if (typeof input === 'number') {
-    // Use a larger number space for numeric values
-    return (Math.abs(input * 2654435761) >>> 0).toString(16);
-  }
-  if (typeof input === 'boolean') return input ? '1' : '0';
-  if (input === null) return 'null';
-  if (input === undefined) return 'undefined';
+  const str = stableStringify(input);
+  let h1 = 0xdeadbeef ^ str.length;
+  let h2 = 0x41c6ce57 ^ str.length;
 
-  // For strings, use FNV-1a algorithm
-  if (typeof input === 'string') {
-    let hash = 0x811c9dc5; // FNV offset basis (32 bit)
-    for (let i = 0; i < input.length; i++) {
-      hash ^= input.charCodeAt(i);
-      hash +=
-        (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-      hash = hash >>> 0; // Convert to unsigned 32-bit after each iteration
-    }
-    return hash.toString(16);
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
   }
 
-  // For arrays, hash elements directly
+  h1 =
+    Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^
+    Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 =
+    Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^
+    Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+
+  return `${(h2 >>> 0).toString(16).padStart(8, '0')}${(h1 >>> 0)
+    .toString(16)
+    .padStart(8, '0')}`;
+}
+
+function stableStringify(input: any): string {
   if (Array.isArray(input)) {
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < input.length; i++) {
-      // Add array position to hash calculation
-      hash ^= (i + 1) * 2654435761;
-      // Recursively hash array elements
-      const elementHash = weakHash(input[i]);
-      // Mix the element hash into the running hash
-      for (let j = 0; j < elementHash.length; j++) {
-        hash ^= elementHash.charCodeAt(j);
-        hash *= 16777619; // FNV prime (32 bit)
-        hash = hash >>> 0;
-      }
-    }
-    return hash.toString(16);
+    return `[${Array.from(input, stableStringify).join(',')}]`;
   }
 
-  // For objects, hash keys and values
-  if (typeof input === 'object') {
-    let hash = 0x811c9dc5;
-    const keys = Object.keys(input).sort(); // Sort for consistency
+  if (input && typeof input === 'object') {
+    const pairs = Object.keys(input)
+      .filter((key) => input[key] !== undefined)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(input[key])}`);
 
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
-      if (input[key] === undefined) {
-        // Ignore undefined keys in the hash
-        continue;
-      }
-      // Hash the key using string hash
-      const keyHash = weakHash(key);
-      hash ^= parseInt(keyHash, 16);
-      hash *= 16777619;
-      hash = hash >>> 0;
-
-      // Hash the value recursively
-      const valueHash = weakHash(input[key]);
-      hash ^= parseInt(valueHash, 16);
-      hash *= 16777619;
-      hash = hash >>> 0;
-    }
-    return hash.toString(16);
+    return `{${pairs.join(',')}}`;
   }
 
-  // Fallback for other types
-  return weakHash(String(input));
+  if (input === undefined) {
+    return 'undefined';
+  }
+
+  return JSON.stringify(input) ?? String(input);
 }
