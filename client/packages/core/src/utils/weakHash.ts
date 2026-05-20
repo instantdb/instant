@@ -6,7 +6,8 @@
  * We _do_ want to make sure hashes remain the same, even
  * when objects undergo serializing and deserializing.
  *
- * Uses cyrb53 (Math.imul + xxhash-style avalanche).
+ * Inspired by cyrb53 (Math.imul + xxhash-style avalanche).
+ * https://stackoverflow.com/a/52171480
  *
  * @param {any} input - Value to hash
  * @returns {string} - Hash in hex format
