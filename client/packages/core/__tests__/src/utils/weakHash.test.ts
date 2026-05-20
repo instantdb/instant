@@ -28,10 +28,7 @@ test('no collisions across many integer-varying queries', () => {
       }
       hashes.add(hash);
     }
-    expect(
-      firstCollisionAt,
-      `collision at i=${firstCollisionAt}`,
-    ).toBeNull();
+    expect(firstCollisionAt, `collision at i=${firstCollisionAt}`).toBeNull();
   }
 });
 
