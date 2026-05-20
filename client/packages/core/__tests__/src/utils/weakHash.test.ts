@@ -36,3 +36,10 @@ test('keeps array and top-level undefined explicit', () => {
   expect(weakHash([undefined])).not.toBe(weakHash([null]));
   expect(weakHash(undefined)).not.toBe(weakHash(null));
 });
+
+test('handles bigint values without throwing', () => {
+  expect(() => weakHash({ id: 123n })).not.toThrow();
+  expect(weakHash(123n)).not.toBe(weakHash(123));
+  expect(weakHash(123n)).not.toBe(weakHash('123'));
+  expect(weakHash(123n)).not.toBe(weakHash('123n'));
+});

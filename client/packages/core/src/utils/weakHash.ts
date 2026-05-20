@@ -65,5 +65,9 @@ function stableStringify(input: any): string {
     return 'undefined';
   }
 
+  if (typeof input === 'bigint') {
+    return `${input}n`;
+  }
+
   return JSON.stringify(input) ?? String(input);
 }
