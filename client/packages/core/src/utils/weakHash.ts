@@ -3,8 +3,7 @@
  * where we are not concerned with the hash being decoded.
  * Focuses on speed while maintaining good hash distribution.
  *
- * Note: We could also use something like 64-bit MurmurHash instead.
- * https://github.com/jensyt/imurmurhash-js/blob/master/imurmurhash.js
+ * Note: We could also use something like 64-bit+ MurmurHash instead.
  *
  * @param {any} input - Value to hash
  * @returns {string} - Hash in hex format
@@ -34,16 +33,28 @@ export default function weakHash(input: any): string {
 
 function stableStringify(input: any): string {
   if (Array.isArray(input)) {
-    return `[${Array.from(input, stableStringify).join(',')}]`;
+    let out = '[';
+    for (let i = 0; i < input.length; i++) {
+      if (i > 0) out += ',';
+      out += stableStringify(input[i]);
+    }
+    return out + ']';
   }
 
   if (input && typeof input === 'object') {
-    const pairs = Object.keys(input)
-      .filter((key) => input[key] !== undefined)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableStringify(input[key])}`);
-
-    return `{${pairs.join(',')}}`;
+    const keys = Object.keys(input);
+    keys.sort();
+    let out = '{';
+    let first = true;
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      const value = input[key];
+      if (value === undefined) continue;
+      if (!first) out += ',';
+      out += JSON.stringify(key) + ':' + stableStringify(value);
+      first = false;
+    }
+    return out + '}';
   }
 
   if (input === undefined) {
