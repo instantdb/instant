@@ -70,6 +70,7 @@
   (:import
    (clojure.lang IFn)
    (io.undertow Undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
+   (instant.lib.ring.undertow Server)
    (java.text SimpleDateFormat)
    (java.util Locale TimeZone)))
 
@@ -204,7 +205,7 @@
               (http-util/tracer-wrap-span))
           (wrap-json-response not-found)))
 
-(defonce ^Undertow server
+(defonce ^Server server
   nil)
 
 (defonce stop-gauge
@@ -220,35 +221,47 @@
                 (when (.exists (io/file "dev-resources/certs/dev.jks"))
                   {:ssl-port (config/get-server-ssl-port)
                    :keystore "dev-resources/certs/dev.jks"
-                   :key-password "changeit"}))]
-    (tracer/record-info! {:name "server/start"
-                          :attributes (select-keys config {:port :ssl-port})})
-    (lang/set-var! server
-                   (undertow-adapter/run-undertow
-                    (handler)
-                    config)))
-  (lang/set-var! stop-gauge
-                 (gauges/add-gauge-metrics-fn
-                  (fn [_]
-                    (let [^Undertow server server
-                          ^Undertow$ListenerInfo listener (some-> server
-                                                                  (.getListenerInfo)
-                                                                  first)]
-                      (when-let [stats (some-> listener
-                                               (.getConnectorStatistics))]
-                        [{:path "instant.server.active-connections"
-                          :value (.getActiveConnections stats)}
-                         {:path "instant.server.active-requests"
-                          :value (.getActiveRequests stats)}
-                         {:path "instant.server.max-active-connections"
-                          :value (.getMaxActiveConnections stats)}
-                         {:path "instant.server.max-active-requests"
-                          :value (.getMaxActiveRequests stats)}
-                         {:path "instant.server.max-processing-time"
-                          :value (.getMaxProcessingTime stats)}]))))))
+                   :key-password "changeit"}))
+        _ (tracer/record-info! {:name "server/start"
+                                :attributes (select-keys config {:port :ssl-port})})
+        s (undertow-adapter/run-undertow
+           (handler)
+           config)]
+
+    (lang/set-var! server s)
+    (lang/set-var! stop-gauge
+      (gauges/add-gauge-metrics-fn
+       (fn [_]
+         (let [^Undertow$ListenerInfo listener (some-> s
+                                                       (.getListenerInfo)
+                                                       first)]
+           (when-let [stats (some-> listener
+                                    (.getConnectorStatistics))]
+             [{:path "instant.server.active-connections"
+               :value (.getActiveConnections stats)}
+              {:path "instant.server.active-requests"
+               :value (.getActiveRequests stats)}
+              {:path "instant.server.max-active-connections"
+               :value (.getMaxActiveConnections stats)}
+              {:path "instant.server.max-active-requests"
+               :value (.getMaxActiveRequests stats)}
+              {:path "instant.server.max-processing-time"
+               :value (.getMaxProcessingTime stats)}])))))))
 
 (defn stop []
-  (lang/clear-var! server Undertow/.stop)
+  (when (and (bound? #'server)
+             server)
+    (Server/.shutdownGracefully server))
+  (rs/close-connections rs/store {:total-ms (if (config/dev?)
+                                              1000
+                                              (* 1000 60 4))
+                                  :max-gap-ms (if (config/dev?)
+                                                100
+                                                1000)})
+  (when (and (bound? #'server)
+             server)
+    (Server/.awaitShutdown server (* 1000 60 4.2)))
+  (lang/clear-var! server Server/.stop)
   (lang/clear-var! stop-gauge IFn/.invoke))
 
 (defn restart []
