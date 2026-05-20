@@ -12,6 +12,7 @@
    [instant.util.cache :as c]
    [instant.util.test :refer [wait-for]])
   (:import
+   (java.nio.channels Channel)
    (java.time Instant)))
 
 (deftest match-topic?
@@ -376,6 +377,84 @@
                                 :attrs {(str (resolvers/->uuid r :users/handle)) "joe"}})))
           (is (false? (program {:etype "posts"
                                 :attrs {(str (resolvers/->uuid r :users/handle)) "stopa"}}))))))))
+
+;; ----
+;; close-connections
+
+(defn tracking-channel
+  "A Channel that conj's `id` onto the `closed` atom when closed."
+  [closed id]
+  (reify Channel
+    (close [_] (swap! closed conj id))
+    (isOpen [_] true)))
+
+(defn add-sse-session! [store closed id]
+  (d/transact! (:sessions store)
+               [{:session/id (random-uuid)
+                 :session/socket {:sse-conn (tracking-channel closed id)}}]))
+
+(deftest close-connections-closes-all
+  (let [store (rs/init)
+        closed (atom [])
+        n 5]
+    (doseq [i (range n)]
+      (add-sse-session! store closed i))
+    (rs/close-connections store {:total-ms 50 :max-gap-ms 10})
+    (is (= n (count @closed)))
+    (is (= (set (range n)) (set @closed)))))
+
+(deftest close-connections-handles-mixed-conn-types
+  (let [store (rs/init)
+        closed (atom [])]
+    (d/transact! (:sessions store)
+                 [{:session/id (random-uuid)
+                   :session/socket {:sse-conn (tracking-channel closed :sse)}}
+                  {:session/id (random-uuid)
+                   :session/socket {:ws-conn {:undertow-websocket (tracking-channel closed :ws)}}}])
+    (rs/close-connections store {:total-ms 50 :max-gap-ms 10})
+    (is (= #{:sse :ws} (set @closed)))))
+
+(deftest close-connections-handles-empty-store
+  (is (nil? (rs/close-connections nil {:total-ms 100 :max-gap-ms 50})))
+  (is (nil? (rs/close-connections {} {:total-ms 100 :max-gap-ms 50})))
+  (let [store (rs/init)]
+    (rs/close-connections store {:total-ms 100 :max-gap-ms 50})
+    ;; no assertion needed beyond "didn't throw"
+    (is true)))
+
+(deftest close-connections-respects-max-gap-ms
+  ;; With few connections and a large total-ms, gap-ms is clamped to max-gap-ms,
+  ;; so total wall time is bounded by (n-1) * max-gap-ms — not by total-ms.
+  (let [store (rs/init)
+        closed (atom [])
+        n 3
+        max-gap-ms 20]
+    (doseq [i (range n)]
+      (add-sse-session! store closed i))
+    (let [t0 (System/currentTimeMillis)
+          _ (rs/close-connections store {:total-ms 10000 :max-gap-ms max-gap-ms})
+          elapsed (- (System/currentTimeMillis) t0)]
+      (is (= n (count @closed)))
+      ;; (n-1)*max-gap-ms = 40ms; allow generous slack for scheduling.
+      (is (< elapsed 500)
+          (str "expected wall time clamped by max-gap-ms, got " elapsed "ms")))))
+
+(deftest close-connections-respects-total-ms
+  ;; With many connections and a large max-gap-ms, gap-ms = total-ms / count,
+  ;; and total wall time approximates total-ms.
+  (let [store (rs/init)
+        closed (atom [])
+        n 20
+        total-ms 200]
+    (doseq [i (range n)]
+      (add-sse-session! store closed i))
+    (let [t0 (System/currentTimeMillis)
+          _ (rs/close-connections store {:total-ms total-ms :max-gap-ms 10000})
+          elapsed (- (System/currentTimeMillis) t0)]
+      (is (= n (count @closed)))
+      ;; expected ~ (n-1)/n * total-ms ≈ 190ms. Allow [0.5x, 3x] for CI slack.
+      (is (<= (* 0.5 total-ms) elapsed (* 3 total-ms))
+          (str "expected wall time near " total-ms "ms, got " elapsed "ms")))))
 
 (comment
   (test/run-tests *ns*))
