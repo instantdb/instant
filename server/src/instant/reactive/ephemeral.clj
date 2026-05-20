@@ -392,7 +392,9 @@
 (defn in-room?
   "Returns whether a session is part of a room."
   [app-id room-id sess-id]
-  (contains? (get-room-data app-id room-id) sess-id))
+  (let [room-key (hazelcast/room-key app-id room-id)]
+    (contains? (get-in @room-maps [:rooms room-key :session-ids])
+               sess-id)))
 
 (defn join-room! [app-id sess-id current-user room-id data]
   (register-session! app-id room-id sess-id)
