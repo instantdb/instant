@@ -92,8 +92,8 @@
   BiFunction
   (apply [_ room-data _]
     (let [res (dissoc room-data session-id)]
-           ;; Return null if we're the last so that the entry can be removed
-           ;; from the map instead of holding an empty map
+      ;; Return null if we're the last so that the entry can be removed
+      ;; from the map instead of holding an empty map
       (if (empty? res)
         nil
         res))))
@@ -218,9 +218,6 @@
 (defn process-presence-entry [^LockAwareLazyMapEntry entry actions]
   (.setValue entry
              (reduce (fn [acc action]
-                       ;; XXX: we may need to modify this a bit
-                       ;;      to keep the same behavior as we get
-                       ;;      when we call `join-room!` or `set-presence!`
                        (BiFunction/.apply action acc nil))
                      (.getValue entry)
                      actions))
