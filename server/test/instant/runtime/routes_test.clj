@@ -1,17 +1,20 @@
 (ns instant.runtime.routes-test
   (:require
    [clojure.test :refer [deftest is testing]]
+   [instant.config :as config]
    [instant.core :as core]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triples]
    [instant.db.permissioned-transaction :as permissioned-tx]
-   [instant.fixtures :refer [with-empty-app]]
+   [instant.fixtures :refer [random-email with-empty-app]]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
+   [instant.model.app-email-template :as app-email-template-model]
+   [instant.model.app-email-verification :as app-email-verification]
    [instant.model.app-oauth-service-provider :as provider-model]
    [instant.model.shared-oauth-client :refer [shared-credentials-user-limit]]
    [instant.model.app-user :as app-user-model]
@@ -164,6 +167,58 @@
     (is (re-find #"MyApp" body))
     (is (re-find #"123456" body))
     (is (re-find #"10 minutes" body))))
+
+(defn- create-email-sender! [{:keys [user-id email]}]
+  (sql/execute-one!
+   (aurora/conn-pool :write)
+   ["INSERT INTO app_email_senders
+     (id, user_id, postmark_id, email, name)
+     VALUES (?::uuid, ?::uuid, ?, ?, ?)
+     RETURNING *"
+    (random-uuid) user-id 123456 email "Custom Sender"]))
+
+(defn- create-magic-code-template! [{:keys [app-id sender-id]}]
+  (app-email-template-model/put! {:app-id app-id
+                                  :sender-id sender-id
+                                  :email-type "magic-code"
+                                  :name "Custom Sender"
+                                  :subject "{code} is your code"
+                                  :body "Your code is {code}"}))
+
+(deftest magic-code-custom-sender-requires-instant-verification-when-flagged
+  (with-empty-app
+    (fn [app]
+      (let [custom-email (random-email)
+            sender (create-email-sender! {:user-id (:creator_id app)
+                                          :email custom-email})]
+        (create-magic-code-template! {:app-id (:id app)
+                                      :sender-id (:id sender)})
+
+        (testing "unverified custom sender falls back to the default sender"
+          (app-email-verification/put! {:app-id (:id app)
+                                        :sender-id (:id sender)
+                                        :verified false})
+          (binding [flags/*toggle-overrides* {:use-app-email-verification? true}]
+            (let [letter (atom nil)]
+              (with-redefs [magic-code-auth/check-send-rate-limit! (constantly nil)
+                            postmark/send-structured! #(reset! letter %)]
+                (magic-code-auth/send! {:app-id (:id app)
+                                        :email "recipient@example.com"}))
+              (is (= (:email (config/app-email-sender))
+                     (get-in @letter [:from :email]))))))
+
+        (testing "verified custom sender is used"
+          (app-email-verification/mark-verified! {:id (:id (app-email-verification/get-by-app-and-sender
+                                                            (:id app)
+                                                            (:id sender)))})
+          (binding [flags/*toggle-overrides* {:use-app-email-verification? true}]
+            (let [letter (atom nil)]
+              (with-redefs [magic-code-auth/check-send-rate-limit! (constantly nil)
+                            postmark/send-structured! #(reset! letter %)]
+                (magic-code-auth/send! {:app-id (:id app)
+                                        :email "recipient@example.com"}))
+              (is (= custom-email
+                     (get-in @letter [:from :email]))))))))))
 
 (defn update-created-at [app-id code created-at]
   (sql/execute!
@@ -899,4 +954,3 @@
           (is (thrown-with-msg?
                ExceptionInfo #"Unauthorized origin"
                (route/assert-authorized-request-origin! shared-client "https://attacker.com"))))))))
-
