@@ -48,3 +48,12 @@ test('handles bigint values without throwing', () => {
   expect(weakHash(123n)).not.toBe(weakHash('123'));
   expect(weakHash(123n)).not.toBe(weakHash('123n'));
 });
+
+// Smoke test: pins the output for a known query so any accidental
+// regression in the hash function (e.g. changed constants) trips here
+// before silently invalidating every existing IndexedDB cache.
+test('produces a stable hash for a known query', () => {
+  expect(weakHash({ users: { $: { where: { id: 42 } } } })).toBe(
+    'c1413dfe29f87b89',
+  );
+});
