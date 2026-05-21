@@ -26,15 +26,15 @@
           RETURNING *"
           code verification-id expiry-minutes])))
 
-(defn format-email [{:keys [code sender-email]}]
+(defn format-email [{:keys [code sender-email app-title]}]
   (let [{sender-name :name from-email :email} (config/dashboard-email-sender)]
     {:from {:name sender-name
             :email from-email}
      :to [{:email sender-email}]
-     :subject (str code " is your Instant sender verification code")
+     :subject (str code " is your Instant sender verification code for app: " app-title)
      :reply-to from-email
      :html
      (email/standard-body
-      "<p>Use this code to verify your custom sender email address on Instant:</p>
+      "<p>Use this code to verify your custom sender email address on Instant for the app: <strong>" app-title "</strong></p>
              <h2 style=\"text-align: center\"><strong>" code "</strong></h2>
              <p>This code can only be used once.</p>")}))

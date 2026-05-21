@@ -1385,7 +1385,8 @@
 (defn sender-verification-send-magic-code
   "sends the email containing a code to verify a custom sender domain with an app id"
   [req]
-  (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
+  (let [app  (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req))
+        app-id (:id app)
         verification-info (app-email-verification/get-by-app-id-and-email-type-with-template!
                            {:app-id app-id :email-type "magic-code"})
         verification-id (:verification_id verification-info)
@@ -1396,7 +1397,7 @@
            {:code code
             :app-id app-id
             :verification-id verification-id})]
-    (postmark/send-structured! (app-email-verification-code/format-email {:code code :sender-email sender-email}))
+    (postmark/send-structured! (app-email-verification-code/format-email {:code code :sender-email sender-email :app-title (:title app)}))
     (response/ok {:sent true})))
 
 (defn sender-verification-verify-magic-code
