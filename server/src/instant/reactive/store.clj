@@ -33,7 +33,8 @@
    [instant.util.exception :as ex]
    [instant.util.instaql :refer [forms-hash]]
    [instant.util.lang :as lang]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [instant.work-queue :as work-queue])
   (:import
    (clojure.lang PersistentQueue)
    (instant.isn ISN)
@@ -45,13 +46,17 @@
    (java.util.concurrent CancellationException CompletableFuture ConcurrentHashMap ConcurrentLinkedQueue Executors ExecutorService)
    (java.util.concurrent.locks ReentrantLock)
    (java.util.regex Pattern)
+   (instant.work_queue WorkQueue)
    (io.undertow.server.handlers.sse ServerSentEventConnection)
    (io.undertow.websockets.spi WebSocketHttpExchange)
    (org.xnio IoUtils)))
 
 (set! *warn-on-reflection* true)
 
-(defrecord ReactiveStore [sessions ^Map conns])
+(defrecord ReactiveStore [sessions
+                          ^Map conns
+                          eph-event-queue-atom
+                          eph-update-queue-atom])
 
 (declare store)
 
@@ -251,6 +256,24 @@
 
 (defn app-conn [store app-id]
   (Map/.computeIfAbsent (:conns store) app-id #(create-conn schema %)))
+
+(defn eph-event-queue
+  "Helper to get the work queue from the store.
+   A tool like https://github.com/weavejester/integrant could make this
+   unnecessary."
+  ^WorkQueue [^ReactiveStore store]
+  (-> store
+      :eph-event-queue-atom
+      deref))
+
+(defn eph-update-queue
+  "Helper to get the work queue from the store.
+   A tool like https://github.com/weavejester/integrant could make this
+   unnecessary."
+  ^WorkQueue [^ReactiveStore store]
+  (-> store
+      :eph-update-queue-atom
+      deref))
 
 ;; -----
 ;; misc
@@ -1590,7 +1613,9 @@
 (defn init []
   (->ReactiveStore
    (create-conn sessions-schema "sessions")
-   (ConcurrentHashMap.)))
+   (ConcurrentHashMap.)
+   (atom nil)
+   (atom nil)))
 
 (defn start []
   (tracer/record-info! {:name "store/start"})
@@ -1598,6 +1623,12 @@
 
 (defn stop []
   (tracer/record-info! {:name "store/reset"})
+  (when (and (bound? #'store)
+             store)
+    (when-let [q (eph-event-queue store)]
+      (work-queue/shutdown q))
+    (when-let [q (eph-update-queue store)]
+      (work-queue/shutdown q)))
   (def store nil))
 
 (defn restart []

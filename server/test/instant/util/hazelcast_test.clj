@@ -51,3 +51,11 @@
            (update (->> (.write serializer start)
                         (.read serializer))
                    :sse-token-hash crypt-util/bytes->hex-string)))))
+
+(deftest presence-entry-processor-roundtrips
+  (let [start (h/->PresenceEntryProcessor [(h/->JoinRoomMergeV3 (random-uuid) "dev" (random-uuid) {"hello" "world"})
+                                           (h/->SetPresenceMergeV1 (random-uuid) {:some :data})
+                                           (h/->RemoveSessionMergeV1 (random-uuid))])
+        serializer h/presence-entry-processor-serializer]
+    (is (= start (->> (.write serializer start)
+                      (.read serializer))))))

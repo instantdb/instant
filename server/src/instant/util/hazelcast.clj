@@ -2,14 +2,17 @@
   (:require
    [instant.isn]
    [instant.rate-limit]
+   [instant.util.coll :as ucoll]
    [instant.util.uuid :as uuid-util]
+   [instant.util.defrecord :refer [defrecord-once]]
    [medley.core :refer [update-existing]]
    [taoensso.nippy :as nippy])
   (:import
    (com.hazelcast.config GlobalSerializerConfig SerializerConfig)
-   (com.hazelcast.map IMap)
+   (com.hazelcast.map EntryProcessor IMap)
+   (com.hazelcast.map.impl LockAwareLazyMapEntry)
    (com.hazelcast.nio.serialization ByteArraySerializer)
-   (java.io DataInputStream ByteArrayInputStream)
+   (java.io DataOutputStream DataInputStream ByteArrayInputStream ByteArrayOutputStream)
    (java.nio ByteBuffer)
    (java.util UUID)
    (java.util.function BiFunction)))
@@ -33,6 +36,8 @@
       (.setTypeClass protocol)
       (.setImplementation serializer)))
 
+;; TODO: We should get rid of all of these custom serializers, use the global
+;;       nippy serializer and write a custom nippy serializer for each type
 ;; Must be unique within the project
 (def remove-session-type-id 1)
 (def set-presence-type-id 3)
@@ -42,11 +47,12 @@
 (def task-type-id 7)
 (def join-room-v3-type-id 9)
 (def sse-message-type-id 10)
+(def presence-entry-processor-type-id 11)
 
 ;; --------
 ;; Room key
 
-(defrecord RoomKeyV1 [^UUID app-id ^String room-id])
+(defrecord-once RoomKeyV1 [^UUID app-id ^String room-id])
 
 (def ^ByteArraySerializer room-key-serializer
   (reify ByteArraySerializer
@@ -82,7 +88,7 @@
 ;; Remove session
 
 ;; Helper to remove a session from the room in the hazelcast map
-(defrecord RemoveSessionMergeV1 [^UUID session-id]
+(defrecord-once RemoveSessionMergeV1 [^UUID session-id]
   BiFunction
   (apply [_ room-data _]
     (let [res (dissoc room-data session-id)]
@@ -92,15 +98,18 @@
         nil
         res))))
 
-(defn remove-session! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id]
-  (.merge hz-map
-          room-key
-          ;; If the current value of the key is null, then the new value
-          ;; should just be an empty map. We'd like to put nil here to
-          ;; remove the entry (like we do in the bifunction), but that's
-          ;; not allowed.
-          {}
-          (->RemoveSessionMergeV1 session-id)))
+(defn remove-session! [execute-on-key ^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id]
+  (let [action (->RemoveSessionMergeV1 session-id)]
+    (if execute-on-key
+      (execute-on-key room-key action)
+      (.merge hz-map
+              room-key
+              ;; If the current value of the key is null, then the new value
+              ;; should just be an empty map. We'd like to put nil here to
+              ;; remove the entry (like we do in the bifunction), but that's
+              ;; not allowed.
+              {}
+              action))))
 
 (def ^ByteArraySerializer remove-session-serializer
   (reify ByteArraySerializer
@@ -121,7 +130,7 @@
 ;; Join room
 
 ;; Helper to add a session to the room in the hazelcast map
-(defrecord JoinRoomMergeV3 [^UUID session-id ^String instance-id ^UUID user-id data]
+(defrecord-once JoinRoomMergeV3 [^UUID session-id ^String instance-id ^UUID user-id data]
   BiFunction
   (apply [_ room-data _]
     (update room-data
@@ -150,20 +159,23 @@
   (make-serializer-config JoinRoomMergeV3
                           join-room-v3-serializer))
 
-(defn join-room! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^String instance-id ^UUID user-id data]
-  (.merge hz-map
-          room-key
-          {session-id {:peer-id     session-id
-                       :instance-id instance-id
-                       :user        (when user-id
-                                      {:id user-id})
-                       :data        (or data {})}}
-          (->JoinRoomMergeV3 session-id instance-id user-id data)))
+(defn join-room! [execute-on-key ^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^String instance-id ^UUID user-id data]
+  (let [action (->JoinRoomMergeV3 session-id instance-id user-id data)]
+    (if execute-on-key
+      (execute-on-key room-key action)
+      (.merge hz-map
+              room-key
+              {session-id {:peer-id     session-id
+                           :instance-id instance-id
+                           :user        (when user-id
+                                          {:id user-id})
+                           :data        (or data {})}}
+              action))))
 
 ;; ------------
 ;; Set presence
 
-(defrecord SetPresenceMergeV1 [^UUID session-id data]
+(defrecord-once SetPresenceMergeV1 [^UUID session-id data]
   BiFunction
   (apply [_ room-data _]
     (update-existing room-data
@@ -172,13 +184,16 @@
                      :data
                      data)))
 
-(defn set-presence! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id data]
-  (.merge hz-map
-          room-key
-          ;; if current value is nil, then we're not in the room, so we
-          ;; shouldn't set presence
-          {}
-          (->SetPresenceMergeV1 session-id data)))
+(defn set-presence! [execute-on-key ^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id data]
+  (let [action (->SetPresenceMergeV1 session-id data)]
+    (if execute-on-key
+      (execute-on-key room-key action)
+      (.merge hz-map
+              room-key
+              ;; if current value is nil, then we're not in the room, so we
+              ;; shouldn't set presence
+              {}
+              action))))
 
 (def ^ByteArraySerializer set-presence-serializer
   (reify ByteArraySerializer
@@ -196,10 +211,64 @@
   (make-serializer-config SetPresenceMergeV1
                           set-presence-serializer))
 
+;; -----------------
+;; Presence executor
+;; handles multiple updates all at once
+
+(defn process-presence-entry [^LockAwareLazyMapEntry entry actions]
+  (.setValue entry
+             (reduce (fn [acc action]
+                       (BiFunction/.apply action acc nil))
+                     (.getValue entry)
+                     actions))
+  true)
+
+(defrecord-once PresenceEntryProcessor [actions]
+  EntryProcessor
+  (process [_ entry]
+    (process-presence-entry entry actions)))
+
+(declare action-lookup)
+
+(def ^ByteArraySerializer presence-entry-processor-serializer
+  (reify ByteArraySerializer
+    (getTypeId [_]
+      presence-entry-processor-type-id)
+    (write ^bytes [_ {:keys [actions]}]
+      (let [baos (ByteArrayOutputStream. 64)
+            dos  (DataOutputStream. baos)]
+        (.writeInt dos (count actions))
+        (doseq [action actions]
+          (let [[tid ^ByteArraySerializer serializer] (get-in action-lookup [:by-class (class action)])
+                ^bytes ba (.write serializer action)]
+            (.writeByte dos (int tid))
+            (.writeInt dos (alength ba))
+            (.write dos ba 0 (alength ba))))
+        (.toByteArray baos)))
+    (read [_ ^bytes in]
+      (let [dis (DataInputStream. (ByteArrayInputStream. in))
+            n (.readInt dis)]
+        (->PresenceEntryProcessor
+         (ucoll/reduce-tr
+          (fn [acc _]
+            (let [tid (.readByte dis)
+                  len (.readInt dis)
+                  ba (byte-array len)
+                  _ (.readFully dis ba)
+                  ^ByteArraySerializer serializer (get-in action-lookup [:by-id tid])]
+              (conj! acc (.read serializer ba))))
+          []
+          (range n)))))
+    (destroy [_])))
+
+(def presence-entry-processor-config
+  (make-serializer-config PresenceEntryProcessor
+                          presence-entry-processor-serializer))
+
 ;; --------------
 ;; Broadcast data
 
-(defrecord RoomBroadcastV1 [^UUID app-id session-ids base-msg])
+(defrecord-once RoomBroadcastV1 [^UUID app-id session-ids base-msg])
 
 (defn room-broadcast-message [^UUID app-id session-ids base-msg]
   (->RoomBroadcastV1 app-id session-ids base-msg))
@@ -224,7 +293,7 @@
 ;; Hack to avoid a cyclic dependency
 (def send-messages (delay (resolve (symbol "instant.reactive.sse/send-messages-callable"))))
 
-(defrecord SSEMessage [^UUID app-id ^UUID session-id ^bytes sse-token-hash messages]
+(defrecord-once SSEMessage [^UUID app-id ^UUID session-id ^bytes sse-token-hash messages]
   Callable
   (call [_]
     (@send-messages app-id session-id sse-token-hash messages)))
@@ -276,7 +345,7 @@
 ;; ---------------
 ;; Executor Helpers
 
-(defrecord Task [^clojure.lang.Var v]
+(defrecord-once Task [^clojure.lang.Var v]
   Callable
   (call [_]
     (v)))
@@ -320,4 +389,16 @@
    set-presence-config
    room-key-config
    task-config
-   sse-message-config])
+   sse-message-config
+   presence-entry-processor-config])
+
+(def action-lookup
+  (reduce (fn [acc ^SerializerConfig cfg]
+            (let [klass                    (.getTypeClass cfg)
+                  ^ByteArraySerializer ser (.getImplementation cfg)
+                  tid                      (.getTypeId ser)]
+              (-> acc
+                  (assoc-in [:by-class klass] [tid ser])
+                  (assoc-in [:by-id tid] ser))))
+          {}
+          serializer-configs))
