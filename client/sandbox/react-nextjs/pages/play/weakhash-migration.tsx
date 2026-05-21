@@ -80,7 +80,7 @@ async function relocateToLegacy(appId: string, q: any): Promise<boolean> {
   if (newHash === legacyHash) return false;
   const db = await openDb(appId);
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(['querySubs', '__meta' as any], 'readwrite');
+    const tx = db.transaction(['querySubs'], 'readwrite');
     const store = tx.objectStore('querySubs');
     const get = store.get(newHash);
     get.onsuccess = () => {
@@ -336,10 +336,13 @@ function App({ db, appId }: AppProps) {
         </div>
 
         <div
-          style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}
+          style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}
         >
-          <button onClick={refresh}>Refresh IDB view</button>
+          <button style={btnSecondary} onClick={refresh}>
+            Refresh IDB view
+          </button>
           <button
+            style={btnPrimary}
             onClick={async () => {
               setStatus('Relocating cache entry to legacy hash…');
               try {
@@ -357,7 +360,9 @@ function App({ db, appId }: AppProps) {
           >
             Move new → legacy (simulate old client)
           </button>
-          <button onClick={() => window.location.reload()}>Reload page</button>
+          <button style={btnPrimary} onClick={() => window.location.reload()}>
+            Reload page
+          </button>
         </div>
 
         {status && <p style={{ marginTop: 8 }}>{status}</p>}
@@ -393,6 +398,27 @@ const th: React.CSSProperties = {
 const td: React.CSSProperties = {
   borderBottom: '1px solid #f0f0f0',
   padding: '6px 8px',
+};
+const btnBase: React.CSSProperties = {
+  padding: '8px 14px',
+  border: '1px solid transparent',
+  borderRadius: 6,
+  fontSize: 14,
+  fontWeight: 500,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+};
+const btnPrimary: React.CSSProperties = {
+  ...btnBase,
+  background: '#1a73e8',
+  color: '#fff',
+  borderColor: '#1a73e8',
+};
+const btnSecondary: React.CSSProperties = {
+  ...btnBase,
+  background: '#fff',
+  color: '#1a73e8',
+  borderColor: '#1a73e8',
 };
 
 function Page() {
