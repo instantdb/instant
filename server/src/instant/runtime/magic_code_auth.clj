@@ -6,7 +6,6 @@
    [instant.flags :as flags]
    [instant.model.app :as app-model]
    [instant.model.app-email-template :as app-email-template-model]
-   [instant.model.app-email-verification :as verification]
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]

@@ -33,15 +33,6 @@
           RETURNING *"
           id])))
 
-(defn verified-by-app-and-sender?
-  "returns true if the given app and sender have verified their email"
-  [app-id sender-id]
-  (let [row (sql/execute-one!
-             (aurora/conn-pool :read)
-             ["SELECT verified FROM app_email_verifications
-               WHERE app_id = ? AND sender_id = ?" app-id sender-id])]
-    (boolean (:verified row))))
-
 (defn get-by-app-id-and-email-type-with-template
   ([params] (get-by-app-id-and-email-type-with-template
              (aurora/conn-pool :read) params))
