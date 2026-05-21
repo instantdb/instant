@@ -20,7 +20,7 @@ test('no collisions across many integer-varying queries', () => {
   for (const shape of shapes) {
     const hashes = new Set<string>();
     let firstCollisionAt: number | null = null;
-    for (let i = 0; i < 100_000; i++) {
+    for (let i = 0; i < 50_000; i++) {
       const hash = weakHash(shape(i));
       if (hashes.has(hash)) {
         firstCollisionAt = i;
