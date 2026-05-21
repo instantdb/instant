@@ -1679,7 +1679,6 @@ export default class Reactor {
 
   _trySend(eventId, msg, opts) {
     if (!this._transport.isOpen()) {
-      this._transportOnClose({ target: this._transport });
       return;
     }
     if (!ignoreLogging[msg.op]) {
