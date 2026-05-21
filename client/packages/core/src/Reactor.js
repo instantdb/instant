@@ -1,5 +1,6 @@
 // @ts-check
 import weakHash from './utils/weakHash.ts';
+import weakHashLegacy from './utils/weakHashLegacy.ts';
 import instaql from './instaql.ts';
 import * as instaml from './instaml.ts';
 import * as s from './store.ts';
@@ -446,9 +447,34 @@ export default class Reactor {
   }
 
   _onQuerySubLoaded(hash) {
+    const hashToNotify = this._maybeMigrateLegacyQuerySub(hash);
     this.kv
       .waitForKeyToLoad('pendingMutations')
-      .then(() => this.notifyOne(hash));
+      .then(() => this.notifyOne(hashToNotify));
+  }
+
+  // One-time migration: entries written by clients before the weakHash fix
+  // are keyed by `weakHashLegacy(q)`. When we load such an entry from
+  // storage, move it to the current `weakHash(q)` key so future lookups find
+  // it. Safe to remove a few releases after v1.0.39.
+  _maybeMigrateLegacyQuerySub(loadedHash) {
+    const entry = this.querySubs.currentValue[loadedHash];
+    if (!entry?.q) return loadedHash;
+    const targetHash = weakHash(entry.q);
+    if (targetHash === loadedHash) return loadedHash;
+    this.querySubs.updateInPlace((prev) => {
+      const existing = prev[targetHash];
+      const legacy = prev[loadedHash];
+      if (existing) {
+        if (!existing.result && legacy?.result) {
+          existing.result = legacy.result;
+        }
+      } else if (legacy) {
+        prev[targetHash] = legacy;
+      }
+      delete prev[loadedHash];
+    });
+    return targetHash;
   }
 
   _initStorage(Storage) {
@@ -1645,6 +1671,7 @@ export default class Reactor {
 
   _trySend(eventId, msg, opts) {
     if (!this._transport.isOpen()) {
+      this._transportOnClose({ target: this._transport });
       return;
     }
     if (!ignoreLogging[msg.op]) {

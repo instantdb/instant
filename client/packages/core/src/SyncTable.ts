@@ -1,6 +1,7 @@
 import { PersistedObject } from './utils/PersistedObject.ts';
 import * as s from './store.ts';
 import weakHash from './utils/weakHash.ts';
+import weakHashLegacy from './utils/weakHashLegacy.ts';
 import uuid from './utils/id.ts';
 import { Logger } from './Reactor.js';
 import instaql, { compareOrder } from './instaql.ts';
@@ -546,6 +547,25 @@ export class SyncTable {
     });
   }
 
+  // One-time migration: entries written by clients before the weakHash fix
+  // are keyed by `weakHashLegacy(query)`. If the current key has no entry,
+  // see if a legacy entry exists and move it. Safe to remove a few releases
+  // after v1.0.39.
+  private async _maybeMigrateLegacySub(query: any, hash: string) {
+    if (this.subs.currentValue[hash]) return;
+    const legacyHash = weakHashLegacy(query);
+    if (legacyHash === hash) return;
+    await this.subs.waitForKeyToLoad(legacyHash);
+    const legacy = this.subs.currentValue[legacyHash];
+    if (!legacy) return;
+    this.subs.updateInPlace((prev) => {
+      if (!prev[hash]) {
+        prev[hash] = { ...legacy, hash };
+      }
+      delete prev[legacyHash];
+    });
+  }
+
   private async initSubscription(
     query: any,
     hash: string,
@@ -553,6 +573,7 @@ export class SyncTable {
   ) {
     // Wait for storage to load so that we know if we already have an existing subscription
     await this.subs.waitForKeyToLoad(hash);
+    await this._maybeMigrateLegacySub(query, hash);
     const existingSub = this.subs.currentValue[hash];
 
     if (existingSub && existingSub.state && existingSub.state.txId) {
