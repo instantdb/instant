@@ -447,34 +447,9 @@ export default class Reactor {
   }
 
   _onQuerySubLoaded(hash) {
-    const hashToNotify = this._maybeMigrateLegacyQuerySub(hash);
     this.kv
       .waitForKeyToLoad('pendingMutations')
-      .then(() => this.notifyOne(hashToNotify));
-  }
-
-  // One-time migration: entries written by clients before the weakHash fix
-  // are keyed by `weakHashLegacy(q)`. When we load such an entry from
-  // storage, move it to the current `weakHash(q)` key so future lookups find
-  // it. Safe to remove a few releases after v1.0.39.
-  _maybeMigrateLegacyQuerySub(loadedHash) {
-    const entry = this.querySubs.currentValue[loadedHash];
-    if (!entry?.q) return loadedHash;
-    const targetHash = weakHash(entry.q);
-    if (targetHash === loadedHash) return loadedHash;
-    this.querySubs.updateInPlace((prev) => {
-      const existing = prev[targetHash];
-      const legacy = prev[loadedHash];
-      if (existing) {
-        if (!existing.result && legacy?.result) {
-          existing.result = legacy.result;
-        }
-      } else if (legacy) {
-        prev[targetHash] = legacy;
-      }
-      delete prev[loadedHash];
-    });
-    return targetHash;
+      .then(() => this.notifyOne(hash));
   }
 
   _initStorage(Storage) {
@@ -1096,12 +1071,45 @@ export default class Reactor {
   _startQuerySub(q, hash) {
     const eventId = uuid();
     this.querySubs.updateInPlace((prev) => {
+      if (!prev[hash]) {
+        // Legacy hash migration (sync): if a preloaded entry sits under the
+        // old hash, move it to the new key so the placeholder line below
+        // becomes a no-op and currentValue[hash] keeps its cached result.
+        const legacyHash = weakHashLegacy(q);
+        if (legacyHash !== hash && prev[legacyHash]) {
+          prev[hash] = prev[legacyHash];
+          delete prev[legacyHash];
+        }
+      }
       prev[hash] = prev[hash] || { q, result: null, eventId };
       prev[hash].lastAccessed = Date.now();
     });
+    this._tryMigrateLegacyQuerySub(q, hash);
     this._trySendAuthed(eventId, { op: 'add-query', q });
 
     return eventId;
+  }
+
+  // Legacy hash migration (async): covers entries that weren't preloaded
+  // into currentValue. Actively loads the legacy key from storage, moves
+  // its result onto the new key, and notifies subscribers. Safe to remove
+  // a few releases after v1.0.39.
+  async _tryMigrateLegacyQuerySub(q, newHash) {
+    const legacyHash = weakHashLegacy(q);
+    if (legacyHash === newHash) return;
+    await this.querySubs.waitForKeyToLoad(legacyHash);
+    const legacy = this.querySubs.currentValue[legacyHash];
+    if (!legacy) return;
+    this.querySubs.updateInPlace((prev) => {
+      const existing = prev[newHash];
+      if (existing && !existing.result && legacy.result) {
+        existing.result = legacy.result;
+      } else if (!existing) {
+        prev[newHash] = legacy;
+      }
+      delete prev[legacyHash];
+    });
+    if (legacy.result) this.notifyOne(newHash);
   }
 
   subscribeTable(q, cb) {
