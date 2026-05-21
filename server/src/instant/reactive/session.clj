@@ -1407,7 +1407,7 @@
     [:start-stream session-id (:client-id event)]
 
     :subscribe-stream
-    [:subscribe-stream session-id stream-id (:client-id event)]
+    [:subscribe-stream session-id (or stream-id (:client-id event))]
 
     :unsubscribe-stream
     [:unsubscribe-stream session-id (:subscribe-event-id event)]
