@@ -2,11 +2,10 @@
 
 import { CodeEditor } from '@/components/new-landing/TabbedCodeExample';
 import { File } from 'recipes';
-import { InstantApp } from '@/lib/types';
 import config from '@/lib/config';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useInView } from 'react-intersection-observer';
-import { ComponentType, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import {
@@ -20,25 +19,13 @@ import { CopyToClipboardButton } from '@/components/new-landing/CopyToClipboardB
 import { BrowserChrome } from '@/components/BrowserChrome';
 
 import { RecipeDBProvider } from '@/lib/recipes/db';
-import InstantTodos from '@/lib/recipes/todos';
-import InstantAuth from '@/lib/recipes/auth';
-import InstantCursors from '@/lib/recipes/cursors';
-import InstantCustomCursors from '@/lib/recipes/custom-cursors';
-import InstantTopics from '@/lib/recipes/reactions';
-import InstantTypingIndicator from '@/lib/recipes/typing-indicator';
-import InstantAvatarStack from '@/lib/recipes/avatar-stack';
-import InstantMergeTileGame from '@/lib/recipes/merge-tile-game';
-
-const recipeComponents: Record<string, ComponentType> = {
-  todos: InstantTodos,
-  auth: InstantAuth,
-  cursors: InstantCursors,
-  'custom-cursors': InstantCustomCursors,
-  reactions: InstantTopics,
-  'typing-indicator': InstantTypingIndicator,
-  'avatar-stack': InstantAvatarStack,
-  'merge-tile-game': InstantMergeTileGame,
-};
+import { recipeComponents } from '@/lib/recipes/registry';
+import {
+  provisionEphemeralApp,
+  verifyEphemeralApp,
+  recipesAppIdStorageKey,
+  provisionErrorMessage,
+} from '@/lib/recipes/ephemeralApp';
 
 const MAX_COLUMNS = 5;
 
@@ -66,7 +53,12 @@ function Main({ files }: { files: File[] }) {
   });
   const [selectedExample, setSelectedExample] = useState<string | undefined>();
   const [appId, setAppId] = useState<string | undefined>(undefined);
+  const [host, setHost] = useState<string | undefined>(undefined);
   const columnDbsRef = useRef<InstantDB[]>([]);
+
+  useEffect(() => {
+    setHost(window.location.host);
+  }, []);
 
   function getColumnDb(appId: string, index: number): InstantDB {
     while (columnDbsRef.current.length <= index) {
@@ -112,7 +104,7 @@ function Main({ files }: { files: File[] }) {
 
   function saveAppId(newAppId: string) {
     setAppId(newAppId);
-    localStorage.setItem(storageKey, newAppId);
+    localStorage.setItem(recipesAppIdStorageKey, newAppId);
     const params = new URLSearchParams(window.location.search);
     if (params.get('app') !== newAppId) {
       params.set('app', newAppId);
@@ -125,7 +117,8 @@ function Main({ files }: { files: File[] }) {
   async function onInit() {
     // 1. check for an app ID in the URL or local storage - URL takes precedence over local storage
     const params = new URLSearchParams(window.location.search);
-    const incomingAppId = params.get('app') || localStorage.getItem(storageKey);
+    const incomingAppId =
+      params.get('app') || localStorage.getItem(recipesAppIdStorageKey);
 
     // 2a. if we have an app ID, verify it
     if (incomingAppId) {
@@ -185,6 +178,7 @@ function Main({ files }: { files: File[] }) {
                 key={file.pathName}
                 file={file}
                 appId={isHydrated && appId ? appId : undefined}
+                host={host}
                 getColumnDb={getColumnDb}
                 onViewChange={(inView) => {
                   if (!isHydrated) return;
@@ -206,12 +200,14 @@ function Main({ files }: { files: File[] }) {
 function Example({
   file,
   appId,
+  host,
   getColumnDb,
   onViewChange,
   lazy,
 }: {
   file: File;
   appId: string | undefined;
+  host: string | undefined;
   getColumnDb: (appId: string, index: number) => InstantDB;
   onViewChange: (inView: boolean) => void;
   lazy: boolean;
@@ -305,7 +301,13 @@ function Example({
                   zIndex: i,
                 }}
               >
-                <BrowserChrome />
+                <BrowserChrome
+                  url={
+                    host && appId
+                      ? recipePageUrl(host, file.pathName, appId)
+                      : undefined
+                  }
+                />
                 <div className="h-[calc(100%-32px)] overflow-auto">
                   {appId && RecipeComponent ? (
                     <ErrorBoundary
@@ -356,46 +358,10 @@ function RoomStatus({ db, appId }: { db: InstantDB; appId: string }) {
 
 type InstantDB = InstantReactWebDatabase<InstantUnknownSchema>;
 
-const defaultAppTitle = 'Instant Example App';
-const storageKey = 'recipes-appId';
-
-const provisionErrorMessage =
-  'Oops! Something went wrong when provisioning your app ID. Please reload the page and try again!';
-
 function recipesUrl(appId: string) {
   return 'https://instantdb.com/recipes?app=' + appId;
 }
 
-async function provisionEphemeralApp() {
-  const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      title: defaultAppTitle,
-    }),
-  });
-
-  const json: { app: InstantApp } = await r.json();
-
-  return {
-    ok: r.ok,
-    json,
-  };
-}
-
-async function verifyEphemeralApp({ appId }: { appId: string }) {
-  const r = await fetch(`${config.apiURI}/dash/apps/ephemeral/${appId}`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  const json: { app: InstantApp } = await r.json();
-
-  return {
-    ok: r.ok,
-    json,
-  };
+function recipePageUrl(host: string, pathName: string, appId: string) {
+  return `${host}/recipes/${pathName}?app=${appId}`;
 }
