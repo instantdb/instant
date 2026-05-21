@@ -258,7 +258,7 @@ export function Email({ app }: { app: InstantApp }) {
               </div>
               <Content className="text-sm text-gray-600">
                 {!verification.postmarkVerified &&
-                  `We've sent a confirmation email to ${verification.raw.data.verification?.EmailAddress}. Please click the link in that email to confirm ownership.`}
+                  `Postmark has sent a confirmation email to ${verification.raw.data.verification?.EmailAddress}. Please click the link in that email to confirm ownership.`}
               </Content>
               <div className="mt-4 flex items-center justify-between">
                 <div className="text-sm font-medium">
