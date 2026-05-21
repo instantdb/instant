@@ -36,6 +36,10 @@ export default function weakHash(input: any): string {
 }
 
 function stableStringify(input: any): string {
+  if (input && typeof input.toJSON === 'function') {
+    return stableStringify(input.toJSON());
+  }
+
   if (Array.isArray(input)) {
     let out = '[';
     for (let i = 0; i < input.length; i++) {
@@ -46,9 +50,6 @@ function stableStringify(input: any): string {
   }
 
   if (input && typeof input === 'object') {
-    if (typeof input.toJSON === 'function') {
-      return stableStringify(input.toJSON());
-    }
     const keys = Object.keys(input);
     keys.sort();
     let out = '{';
