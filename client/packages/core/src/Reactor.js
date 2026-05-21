@@ -1100,16 +1100,19 @@ export default class Reactor {
     await this.querySubs.waitForKeyToLoad(legacyHash);
     const legacy = this.querySubs.currentValue[legacyHash];
     if (!legacy) return;
+    let migratedResult = false;
     this.querySubs.updateInPlace((prev) => {
       const existing = prev[newHash];
       if (existing && !existing.result && legacy.result) {
         existing.result = legacy.result;
+        migratedResult = true;
       } else if (!existing) {
         prev[newHash] = legacy;
+        migratedResult = !!legacy.result;
       }
       delete prev[legacyHash];
     });
-    if (legacy.result) this.notifyOne(newHash);
+    if (migratedResult) this.notifyOne(newHash);
   }
 
   subscribeTable(q, cb) {
