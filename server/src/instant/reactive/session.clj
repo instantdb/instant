@@ -1365,7 +1365,7 @@
 ;; ------
 ;; System
 
-(defn group-key [{:keys [op session-id room-id q subscription-id stream-id]}]
+(defn group-key [{:keys [op session-id room-id q subscription-id stream-id] :as event}]
   (case op
     :transact
     [:transact session-id]
@@ -1389,9 +1389,30 @@
     [:error session-id]
 
     :append-stream
-    [:append-stream stream-id]
+    [:append-stream session-id stream-id]
 
-    nil))
+    :init
+    [:init session-id]
+
+    :sse-init
+    [:sse-init session-id]
+
+    :start-sync
+    [:sync session-id q]
+
+    (:remove-sync :resync-table)
+    [:modify-sync subscription-id]
+
+    :start-stream
+    [:start-stream session-id (:client-id event)]
+
+    :subscribe-stream
+    [:subscribe-stream session-id stream-id (:client-id event)]
+
+    :unsubscribe-stream
+    [:unsubscribe-stream session-id (:subscribe-event-id event)]
+
+    [session-id (rand-int 100000)]))
 
 (defmulti combine
   (fn [event1 event2]
