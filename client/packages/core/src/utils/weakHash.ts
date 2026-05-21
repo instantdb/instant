@@ -46,6 +46,9 @@ function stableStringify(input: any): string {
   }
 
   if (input && typeof input === 'object') {
+    if (typeof input.toJSON === 'function') {
+      return stableStringify(input.toJSON());
+    }
     const keys = Object.keys(input);
     keys.sort();
     let out = '{';

@@ -42,6 +42,13 @@ test('keeps array and top-level undefined explicit', () => {
   expect(weakHash(undefined)).not.toBe(weakHash(null));
 });
 
+test('distinguishes objects by their toJSON output', () => {
+  expect(weakHash({ $gt: new Date(1) })).not.toBe(
+    weakHash({ $gt: new Date(2) }),
+  );
+  expect(weakHash(new Date(1))).toBe(weakHash(new Date(1).toISOString()));
+});
+
 test('handles bigint values without throwing', () => {
   expect(() => weakHash({ id: 123n })).not.toThrow();
   expect(weakHash(123n)).not.toBe(weakHash(123));
