@@ -8,7 +8,7 @@ export type File = {
   pathName: string;
 };
 
-const recipeFiles = [
+export const recipeFiles = [
   'todos',
   'cursors',
   'custom-cursors',

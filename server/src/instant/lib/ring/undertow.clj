@@ -8,15 +8,38 @@
    [ring.adapter.undertow.response :refer [set-exchange-response]]
    [ring.adapter.undertow.ssl :refer [keystore->ssl-context]]
    [instant.lib.ring.websocket :as ws]
-   [instant.lib.ring.sse :as sse])
+   [instant.lib.ring.sse :as sse]
+   [instant.util.deftype :refer [deftype-once]])
   (:import
    [io.undertow Undertow Undertow$Builder UndertowOptions]
    [org.xnio Options SslClientAuthMode]
    [io.undertow.server HttpHandler]
-   [io.undertow.server.handlers BlockingHandler]
+   [io.undertow.server.handlers BlockingHandler GracefulShutdownHandler]
    [io.undertow.server.session SessionAttachmentHandler
     SessionCookieConfig
     SessionManager InMemorySessionManager]))
+
+(defprotocol ServerImpl
+  (stop [_])
+  (shutdownGracefully [_])
+  (awaitShutdown [_ ^long ms])
+  (getListenerInfo [_]))
+
+;; Wrapper over the undertow server that exposes gracefulShutdown helpers
+(deftype-once Server [^Undertow server ^GracefulShutdownHandler graceful-shutdown-handler]
+  ServerImpl
+  (stop [_]
+    (.stop server))
+  (getListenerInfo [_]
+    (.getListenerInfo server))
+  (shutdownGracefully [_]
+    (if-not graceful-shutdown-handler
+      (throw (Exception. "Server was created without graceful shutdown enabled."))
+      (.shutdown graceful-shutdown-handler)))
+  (awaitShutdown [_ ms]
+    (if-not graceful-shutdown-handler
+      (throw (Exception. "Server was created without graceful shutdown enabled."))
+      (.awaitShutdown graceful-shutdown-handler ms))))
 
 (set! *warn-on-reflection* true)
 
@@ -66,7 +89,8 @@
 #_{:clj-kondo/ignore [:unused-binding]}
 (defn ^:no-doc handler!
   [handler ^Undertow$Builder builder {:keys [dispatch? handler-proxy websocket? async? session-manager?
-                                             max-sessions server-name custom-manager]
+                                             max-sessions server-name custom-manager
+                                             graceful-shutdown?]
                                       :or   {dispatch?        true
                                              websocket?       true
                                              async?           false
@@ -77,19 +101,21 @@
   (let [target-handler-proxy (cond
                                (some? handler-proxy) handler-proxy
                                async? (async-undertow-handler options)
-                               :else (undertow-handler options))]
-    (cond->> (target-handler-proxy handler)
+                               :else (undertow-handler options))
+        http-handler (cond->> (target-handler-proxy handler)
 
-      session-manager?
-      (wrap-with-session-handler (or custom-manager
-                                     (InMemorySessionManager. (str server-name "-session-manager") max-sessions)))
+                       session-manager?
+                       (wrap-with-session-handler (or custom-manager
+                                                      (InMemorySessionManager. (str server-name "-session-manager") max-sessions)))
 
-      (and (nil? handler-proxy)
-           dispatch?)
-      (BlockingHandler.)
-
-      true
-      (.setHandler builder))))
+                       (and (nil? handler-proxy)
+                            dispatch?)
+                       (BlockingHandler.))
+        graceful-shutdown-handler (when graceful-shutdown?
+                                    (GracefulShutdownHandler. http-handler))]
+    (.setHandler builder (or graceful-shutdown-handler
+                             http-handler))
+    graceful-shutdown-handler))
 
 (defn ^:no-doc tune!
   [^Undertow$Builder builder {:keys [io-threads worker-threads buffer-size direct-buffers? max-entity-size]}]
@@ -155,11 +181,11 @@
   :custom-manager   - custom implementation that extends the io.undertow.server.session.SessionManager interface
   :max-sessions     - maximum number of undertow session, for use with InMemorySessionManager (default: -1)
   :server-name      - for use in session manager, for use with InMemorySessionManager (default: \"ring-undertow\")
-
+  :graceful-shutdown? - If true, wraps the handler in a GracefulShutdownHandler, close with (.shutdown), then (.awaitShutdown)
   Returns an Undertow server instance. To stop call (.stop server)."
-  ^Undertow [handler options]
-  (let [^Undertow$Builder builder (Undertow/builder)]
-    (handler! handler builder options)
+  ^Server [handler options]
+  (let [^Undertow$Builder builder (Undertow/builder)
+        graceful-shutdown-handler (handler! handler builder options)]
     (tune! builder options)
     (http2! builder options)
     (client-auth! builder options)
@@ -171,7 +197,7 @@
     (let [^Undertow server (.build builder)]
       (try
         (.start server)
-        server
+        (Server. server graceful-shutdown-handler)
         (catch Exception ex
           (.stop server)
           (throw ex))))))

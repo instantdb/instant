@@ -1,5 +1,6 @@
 // @ts-check
 import weakHash from './utils/weakHash.ts';
+import weakHashLegacy from './utils/weakHashLegacy.ts';
 import instaql from './instaql.ts';
 import * as instaml from './instaml.ts';
 import * as s from './store.ts';
@@ -1070,12 +1071,48 @@ export default class Reactor {
   _startQuerySub(q, hash) {
     const eventId = uuid();
     this.querySubs.updateInPlace((prev) => {
+      if (!prev[hash]) {
+        // Legacy hash migration (sync): if a preloaded entry sits under the
+        // old hash, move it to the new key so the placeholder line below
+        // becomes a no-op and currentValue[hash] keeps its cached result.
+        const legacyHash = weakHashLegacy(q);
+        if (legacyHash !== hash && prev[legacyHash]) {
+          prev[hash] = prev[legacyHash];
+          delete prev[legacyHash];
+        }
+      }
       prev[hash] = prev[hash] || { q, result: null, eventId };
       prev[hash].lastAccessed = Date.now();
     });
+    this._tryMigrateLegacyQuerySub(q, hash);
     this._trySendAuthed(eventId, { op: 'add-query', q });
 
     return eventId;
+  }
+
+  // Legacy hash migration (async): covers entries that weren't preloaded
+  // into currentValue. Actively loads the legacy key from storage, moves
+  // its result onto the new key, and notifies subscribers. Safe to remove
+  // a few releases after v1.0.39.
+  async _tryMigrateLegacyQuerySub(q, newHash) {
+    const legacyHash = weakHashLegacy(q);
+    if (legacyHash === newHash) return;
+    await this.querySubs.waitForKeyToLoad(legacyHash);
+    const legacy = this.querySubs.currentValue[legacyHash];
+    if (!legacy) return;
+    let migratedResult = false;
+    this.querySubs.updateInPlace((prev) => {
+      const existing = prev[newHash];
+      if (existing && !existing.result && legacy.result) {
+        existing.result = legacy.result;
+        migratedResult = true;
+      } else if (!existing) {
+        prev[newHash] = legacy;
+        migratedResult = !!legacy.result;
+      }
+      delete prev[legacyHash];
+    });
+    if (migratedResult) this.notifyOne(newHash);
   }
 
   subscribeTable(q, cb) {

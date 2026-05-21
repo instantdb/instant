@@ -40,15 +40,16 @@
    (instant.isn ISN)
    (java.io IOException)
    (java.lang InterruptedException)
-   (java.nio.channels ClosedChannelException)
-   (java.time Instant)
+   (java.nio.channels Channel ClosedChannelException)
+   (java.time Duration Instant)
    (java.util Map)
    (java.util.concurrent CancellationException CompletableFuture ConcurrentHashMap ConcurrentLinkedQueue Executors ExecutorService)
    (java.util.concurrent.locks ReentrantLock)
    (java.util.regex Pattern)
    (instant.work_queue WorkQueue)
    (io.undertow.server.handlers.sse ServerSentEventConnection)
-   (io.undertow.websockets.spi WebSocketHttpExchange)))
+   (io.undertow.websockets.spi WebSocketHttpExchange)
+   (org.xnio IoUtils)))
 
 (set! *warn-on-reflection* true)
 
@@ -1537,7 +1538,7 @@
   (let [msg (.getMessage e)]
     (if (and msg
              (or
-              ;; ws channel is clsoed
+              ;; ws channel is closed
               ;; https://github.com/undertow-io/undertow/blob/afb53dfe9ba5407fc7488b509ea03fe6e6bd7c8d/core/src/main/java/io/undertow/websockets/core/WebSocketMessages.java#L43
               (.startsWith msg "UT002002")
               ;; ws connection is broken
@@ -1581,6 +1582,30 @@
          {:name "rs/try-send-event-err"
           :attributes {:event (str event)
                        :escaping? false}})))))
+
+(defn close-connections
+  "Closes connections at a steady rate, aiming to complete within `total-ms`,
+   while never leaving a gap longer than max-gap-ms between subsequent closes."
+  [store {:keys [total-ms
+                 max-gap-ms]}]
+  (when-let [sessions-conn (:sessions store)]
+    (let [channels (vec (keep (fn [{:keys [v]}]
+                                (or (:sse-conn v)
+                                    (-> v :ws-conn :undertow-websocket)))
+                              (d/datoms @sessions-conn :aevt :session/socket)))
+          start (Instant/now)
+          gap-ms (int (min (/ total-ms (max 1 (count channels)))
+                           max-gap-ms))]
+      (tracer/with-span! {:name "store/close-connections"
+                          :attributes {:connection-count (count channels)
+                                       :gap-ms gap-ms}}
+        (dorun (map-indexed (fn [i ch]
+                              (let [sleep-ms (.toMillis (Duration/between (Instant/now)
+                                                                          (.plusMillis start (* gap-ms i))))]
+                                (when (pos? sleep-ms)
+                                  (Thread/sleep sleep-ms))
+                                (IoUtils/safeClose ^Channel ch)))
+                            channels))))))
 
 ;; -----
 ;; start

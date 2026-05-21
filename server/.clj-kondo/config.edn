@@ -12,5 +12,6 @@
  :lint-as {clojure.core.cache/defcache clojure.core/defrecord
            instant.jdbc.sql/with-connection clojure.core/let
            instant.util.defrecord/defrecord-once clojure.core/defrecord
+           instant.util.deftype/deftype-once clojure.core/deftype
            instant.util.tracer/with-exceptions-silencer clojure.core/fn
            instant.util.test/test-matrix clojure.core/doseq}}
