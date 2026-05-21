@@ -54,7 +54,7 @@
                     LEFT JOIN app_email_senders s
                      ON t.sender_id = s.id
                     LEFT JOIN app_email_verifications v
-                     ON t.sender_id = v.sender_id
+                     ON t.sender_id = v.sender_id AND v.app_id = t.app_id
                     WHERE t.app_id = ?::uuid
                     AND t.email_type = ?"
                     app-id email-type])))
