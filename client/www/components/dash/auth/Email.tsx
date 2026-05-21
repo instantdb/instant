@@ -421,7 +421,24 @@ function SenderOtpVerification({
           type="button"
           variant="secondary"
           loading={verification.verifyCode.isMutating}
-          onClick={() => verification.sendCode()}
+          onClick={() =>
+            verification
+              .sendCode()
+              .then(() => {
+                successToast(`Verification code sent to ${address}`);
+              })
+              .catch((error) => {
+                if (error?.body?.message) {
+                  errorToast(
+                    `Failed to send verification code: ${error.body.message}`,
+                  );
+                } else {
+                  errorToast(
+                    `Failed to send verification code: ${error instanceof Error ? error.message : String(error)}`,
+                  );
+                }
+              })
+          }
         >
           {verification.justSentCode ? 'Resend code' : 'Send code'}
         </Button>
