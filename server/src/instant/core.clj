@@ -53,6 +53,7 @@
    [instant.system-catalog-migration :refer [ensure-attrs-on-system-catalog-app]]
    [instant.util.async :as ua]
    [instant.util.crypt :as crypt-util]
+   [instant.util.delay :as delay]
    [instant.util.http :as http-util]
    [instant.util.lang :as lang]
    [instant.util.posthog :as posthog]
@@ -69,7 +70,7 @@
    [ring.util.http-response :as response])
   (:import
    (clojure.lang IFn)
-   (io.undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
+   (io.undertow Undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
    (instant.lib.ring.undertow Server)
    (java.text SimpleDateFormat)
    (java.util Locale TimeZone)))
@@ -211,11 +212,55 @@
 (defonce stop-gauge
   nil)
 
+(defn listener-stats [^Server server]
+  (let [^Undertow$ListenerInfo listener (some-> server
+                                                (.getListenerInfo)
+                                                first)]
+
+    (when-let [stats (some-> listener
+                             (.getConnectorStatistics))]
+      [{:path "instant.server.active-connections"
+        :value (.getActiveConnections stats)}
+       {:path "instant.server.active-requests"
+        :value (.getActiveRequests stats)}
+       {:path "instant.server.max-active-connections"
+        :value (.getMaxActiveConnections stats)}
+       {:path "instant.server.max-active-requests"
+        :value (.getMaxActiveRequests stats)}
+       {:path "instant.server.request-count"
+        :value (.getRequestCount stats)}
+       {:path "instant.server.bytes-sent"
+        :value (.getBytesSent stats)}
+       {:path "instant.server.bytes-received"
+        :value (.getBytesReceived stats)}
+       {:path "instant.server.error-count"
+        :value (.getErrorCount stats)}])))
+
+(defn worker-stats [^Server server]
+  (let [^Undertow undertow (.-server ^Server server)
+        worker (.getWorker undertow)
+        mx (.getMXBean worker)]
+    [{:path "instant.server.current-worker-thread-count"
+      :value (.getWorkerPoolSize mx)}
+     {:path "instant.server.max-worker-thread-count"
+      :value (.getMaxWorkerPoolSize mx)}
+     {:path "instant.server.busy-worker-thread-count"
+      :value (.getBusyWorkerThreadCount mx)}
+     {:path "instant.server.worker-queue-size"
+      :value (.getWorkerQueueSize mx)}]))
+
+(defn server-stats [^Server server]
+  (concat (listener-stats server)
+          (worker-stats server)))
+
 (defn start []
   (let [config (merge
                 {:host "0.0.0.0"
                  :port (config/get-server-port)
                  :max-entity-size -1
+                 :io-threads (* 2 (delay/cpu-count))
+                 ;; 8 per io-thread
+                 :worker-threads (* 16 (delay/cpu-count))
                  :graceful-shutdown? true
                  :configurator (fn [^Undertow$Builder builder]
                                  (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
@@ -233,21 +278,7 @@
     (lang/set-var! stop-gauge
       (gauges/add-gauge-metrics-fn
        (fn [_]
-         (let [^Undertow$ListenerInfo listener (some-> s
-                                                       (.getListenerInfo)
-                                                       first)]
-           (when-let [stats (some-> listener
-                                    (.getConnectorStatistics))]
-             [{:path "instant.server.active-connections"
-               :value (.getActiveConnections stats)}
-              {:path "instant.server.active-requests"
-               :value (.getActiveRequests stats)}
-              {:path "instant.server.max-active-connections"
-               :value (.getMaxActiveConnections stats)}
-              {:path "instant.server.max-active-requests"
-               :value (.getMaxActiveRequests stats)}
-              {:path "instant.server.max-processing-time"
-               :value (.getMaxProcessingTime stats)}])))))))
+         (server-stats s))))))
 
 (defn stop []
   (when (and (bound? #'server)
