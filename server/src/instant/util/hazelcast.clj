@@ -98,18 +98,8 @@
         nil
         res))))
 
-(defn remove-session! [execute-on-key ^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id]
-  (let [action (->RemoveSessionMergeV1 session-id)]
-    (if execute-on-key
-      (execute-on-key room-key action)
-      (.merge hz-map
-              room-key
-              ;; If the current value of the key is null, then the new value
-              ;; should just be an empty map. We'd like to put nil here to
-              ;; remove the entry (like we do in the bifunction), but that's
-              ;; not allowed.
-              {}
-              action))))
+(defn remove-session-action [^UUID session-id]
+  (->RemoveSessionMergeV1 session-id))
 
 (def ^ByteArraySerializer remove-session-serializer
   (reify ByteArraySerializer
@@ -159,18 +149,8 @@
   (make-serializer-config JoinRoomMergeV3
                           join-room-v3-serializer))
 
-(defn join-room! [execute-on-key ^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^String instance-id ^UUID user-id data]
-  (let [action (->JoinRoomMergeV3 session-id instance-id user-id data)]
-    (if execute-on-key
-      (execute-on-key room-key action)
-      (.merge hz-map
-              room-key
-              {session-id {:peer-id     session-id
-                           :instance-id instance-id
-                           :user        (when user-id
-                                          {:id user-id})
-                           :data        (or data {})}}
-              action))))
+(defn join-room-action [^UUID session-id ^String instance-id ^UUID user-id data]
+  (->JoinRoomMergeV3 session-id instance-id user-id data))
 
 ;; ------------
 ;; Set presence
@@ -184,16 +164,8 @@
                      :data
                      data)))
 
-(defn set-presence! [execute-on-key ^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id data]
-  (let [action (->SetPresenceMergeV1 session-id data)]
-    (if execute-on-key
-      (execute-on-key room-key action)
-      (.merge hz-map
-              room-key
-              ;; if current value is nil, then we're not in the room, so we
-              ;; shouldn't set presence
-              {}
-              action))))
+(defn set-presence-action [^UUID session-id data]
+  (->SetPresenceMergeV1 session-id data))
 
 (def ^ByteArraySerializer set-presence-serializer
   (reify ByteArraySerializer

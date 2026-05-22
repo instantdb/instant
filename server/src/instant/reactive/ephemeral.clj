@@ -6,7 +6,6 @@
    [datascript.core :as ds]
    [editscript.core :as editscript]
    [instant.config :as config :refer [aws-env?]]
-   [instant.flags :as flags]
    [instant.gauges :as gauges]
    [instant.rate-limit :as rate-limit]
    [instant.reactive.receive-queue :as receive-queue]
@@ -387,12 +386,7 @@
                  (empty? session-ids) (medley/dissoc-in [:rooms room-key])
                  (seq session-ids) (assoc-in [:rooms room-key :session-ids]
                                              session-ids)))))
-
-    (hazelcast/remove-session! (when (flags/batch-hz-room-map-actions?)
-                                 (partial enqueue-room-map-update store))
-                               (get-hz-rooms-map)
-                               room-key
-                               sess-id)))
+    (enqueue-room-map-update store room-key (hazelcast/remove-session-action sess-id))))
 
 (defn clean-orphan-sessions [_time]
   (tracer/with-span! {:name "clean-orphan-sessions"}
@@ -462,25 +456,20 @@
 
 (defn join-room! [store app-id sess-id current-user room-id data]
   (register-session! app-id room-id sess-id)
-  (hazelcast/join-room! (when (flags/batch-hz-room-map-actions?)
-                          (partial enqueue-room-map-update store))
-                        (get-hz-rooms-map)
-                        (hazelcast/room-key app-id room-id)
-                        sess-id
-                        (:instance-id @hz)
-                        (:id current-user)
-                        data))
+  (enqueue-room-map-update store
+                           (hazelcast/room-key app-id room-id)
+                           (hazelcast/join-room-action sess-id
+                                                       (:instance-id @hz)
+                                                       (:id current-user)
+                                                       data)))
 
 (defn leave-room! [store app-id sess-id room-id]
   (remove-session! store app-id room-id sess-id))
 
 (defn set-presence! [store app-id sess-id room-id data]
-  (hazelcast/set-presence! (when (flags/batch-hz-room-map-actions?)
-                             (partial enqueue-room-map-update store))
-                           (get-hz-rooms-map)
+  (enqueue-room-map-update store
                            (hazelcast/room-key app-id room-id)
-                           sess-id
-                           data))
+                           (hazelcast/set-presence-action sess-id data)))
 
 (defn leave-by-session-id! [store app-id sess-id]
   (doseq [room-id (get-in @room-maps [:sessions sess-id])]
