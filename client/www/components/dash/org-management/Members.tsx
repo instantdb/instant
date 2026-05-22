@@ -12,7 +12,7 @@ import {
 } from '@/components/ui';
 import { InviteToOrgDialog } from './InviteToOrgDialog';
 import { isMinRole, Role } from '@/pages/dash';
-import config, { areTeamsFree } from '@/lib/config';
+import config from '@/lib/config';
 import { useAuthToken } from '@/lib/auth';
 import { MemberMenu } from './MemberMenu';
 import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
@@ -41,9 +41,7 @@ export const Members = () => {
 
   const paid = useOrgPaid();
 
-  const freeTeams = areTeamsFree();
-
-  const canAddMembers = paid || freeTeams;
+  const canAddMembers = paid;
 
   const dialog = useDialog();
   const token = useAuthToken();

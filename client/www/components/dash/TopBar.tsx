@@ -10,7 +10,7 @@ import {
 import { useFetchedDash } from './MainDashLayout';
 import { DarkModeToggle } from './DarkModeToggle';
 import { useReadyRouter } from '../clientOnlyPage';
-import { areTeamsFree, isSelfHosted } from '@/lib/config';
+import { isSelfHosted } from '@/lib/config';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { getRole, isMinRole } from '@/pages/dash';
 
@@ -31,26 +31,6 @@ export const TopBar: React.FC<{}> = () => {
       : '/docs';
 
   const hasInvites = (dash.data.invites || []).length > 0;
-
-  const isAppPaid = app?.pro;
-  const isOrgPaid =
-    dash.data.workspace.type === 'org' && dash.data.workspace.org.paid;
-
-  const role = app ? getRole(dash.data, app) : undefined;
-  const canAccessAdmin = role ? isMinRole('admin', role) : false;
-
-  const [isBannerDismissed, setIsBannerDismissed] = useLocalStorage(
-    'freeTeamsBannerDismissed',
-    false,
-  );
-
-  const showFreeTeamsBanner =
-    areTeamsFree() &&
-    app &&
-    !isAppPaid &&
-    !isOrgPaid &&
-    !isBannerDismissed &&
-    canAccessAdmin;
 
   return (
     <div className="relative flex flex-col gap-2 border-b border-b-gray-300 px-2 py-2 md:px-4 dark:border-b-neutral-700 dark:bg-neutral-800 dark:text-white">
@@ -84,24 +64,6 @@ export const TopBar: React.FC<{}> = () => {
           </Link>
         </div>
       </div>
-      {showFreeTeamsBanner && (
-        <div className="flex justify-center 2xl:absolute 2xl:top-1/2 2xl:left-1/2 2xl:-translate-x-1/2 2xl:-translate-y-1/2">
-          <div className="flex items-center gap-2 rounded-sm border border-purple-400 bg-purple-100 px-3 py-1 text-sm font-medium text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-purple-100">
-            <Link
-              href={`/dash?s=main&app=${appId}&t=admin#team-members`}
-              className="cursor-pointer hover:underline"
-            >
-              Take advantage of free teams through the end of February
-            </Link>
-            <button
-              onClick={() => setIsBannerDismissed(true)}
-              className="cursor-pointer text-purple-600 hover:text-purple-800 dark:text-purple-300 dark:hover:text-white"
-            >
-              <XMarkIcon width={16} />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
