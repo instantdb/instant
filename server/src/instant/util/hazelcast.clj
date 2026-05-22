@@ -9,7 +9,7 @@
    [taoensso.nippy :as nippy])
   (:import
    (com.hazelcast.config GlobalSerializerConfig SerializerConfig)
-   (com.hazelcast.map EntryProcessor IMap)
+   (com.hazelcast.map EntryProcessor)
    (com.hazelcast.map.impl LockAwareLazyMapEntry)
    (com.hazelcast.nio.serialization ByteArraySerializer)
    (java.io DataOutputStream DataInputStream ByteArrayInputStream ByteArrayOutputStream)
