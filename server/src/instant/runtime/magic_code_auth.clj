@@ -1,6 +1,7 @@
 (ns instant.runtime.magic-code-auth
   (:require
    [clojure.string :as string]
+   [hiccup2.core :as h]
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.model.app :as app-model]
@@ -73,19 +74,17 @@
         (= code postmark-not-found-sender-body-error-code))))
 
 (defn default-body [{:keys [app_title code expiration]}]
-  (postmark/standard-body "<p><strong>Welcome,</strong></p>
-        <p>
-          You asked to join " app_title ". To complete your registration, use this
-          verification code:
-        </p>
-        <h2 style=\"text-align: center\"><strong>" code "</strong></h2>
-       <p>
-         Copy and paste this into the confirmation box, and you'll be on your way.
-       </p>
-       <p>
-         Note: This code will expire in " expiration ", and can only be used once. If you
-         didn't request this code, please reply to this email.
-       </p>"))
+  (postmark/standard-body
+   (h/html
+    [:p [:strong "Welcome,"]]
+    [:p
+     "You asked to join " app_title ". To complete your registration, use this "
+     "verification code:"]
+    [:h2 {:style "text-align: center"} [:strong code]]
+    [:p "Copy and paste this into the confirmation box, and you'll be on your way."]
+    [:p
+     "Note: This code will expire in " expiration ", and can only be used once. If you "
+     "didn't request this code, please reply to this email."])))
 
 (defn magic-code-email [to params]
   (let [{:keys [sender-name sender-email subject body]} params]
@@ -97,15 +96,17 @@
      :html
      body}))
 
-(defn template-replace [template params]
+(defn template-replace [template params escape?]
   (reduce
    (fn [acc [k v]]
-     (string/replace acc (str "{" (name k) "}") v))
+     (string/replace acc (str "{" (name k) "}") (if escape?
+                                                  (str (h/html v))
+                                                  v)))
    template
    params))
 
 (comment
-  (template-replace "Hello {name}, your code is {code}" {:name "Stepan" :code "123"}))
+  (template-replace "Hello {name}, your code is {code}" {:name "Stepan" :code "123"} true))
 
 (defn friendly-expiration [app]
   (let [minutes (app-model/get-magic-code-expiry-minutes {:id (:id app)})]
@@ -132,8 +133,8 @@
         email-params    (if template
                           {:sender-email sender-email
                            :sender-name (or (:name template) (:title app))
-                           :subject (template-replace (:subject template) template-params)
-                           :body (template-replace (:body template) template-params)}
+                           :subject (template-replace (:subject template) template-params false)
+                           :body (template-replace (:body template) template-params true)}
                           {:sender-name (:title app)
                            :sender-email default-sender-email
                            :subject (str code " is your verification code for " (:title app))
