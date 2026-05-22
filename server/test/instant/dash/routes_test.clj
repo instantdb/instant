@@ -1063,7 +1063,7 @@
                                   :throw-exceptions false})]
               (is (= 400 (:status resp)))
               (is (= "admin-token-mismatch"
-                      (-> resp :body <-json (get "hint") (get "reason")))))))))))
+                     (-> resp :body <-json (get "hint") (get "reason")))))))))))
 
 (deftest sender-verification-magic-code-flow
   (with-user
@@ -1086,8 +1086,7 @@
                                                                :sender-name "Custom Sender"
                                                                :subject "{code} is your code"
                                                                :body "Your code is {code}"})})]
-                  (is (= 200 (:status template-resp)))
-                  (is (= true (get-in template-resp [:body :needs-verify]))))
+                  (is (= 200 (:status template-resp))))
 
                 (let [send-resp (http/post (str config/server-origin "/dash/apps/" (:id app) "/sender-verification/send-magic-code")
                                            {:headers {:Authorization (str "Bearer " (:refresh-token user))

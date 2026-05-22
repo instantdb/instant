@@ -89,15 +89,14 @@
                       :app-id app-id
                       :user-id user-id
                       :postmark-id postmark-id})
-        verification (if (flags/use-app-email-verification?)
-                       (verification/put! {:app-id app-id
-                                           :sender-id (:id sender)
-                                           :verified false})
-                       (verification/put! {:app-id app-id
-                                           :sender-id (:id sender)
-                                           :verified true}))
-        needs-verify (not (:verified verification))]
-    {:sender sender :needs-verify needs-verify}))
+        _ (if (flags/use-app-email-verification?)
+            (verification/put! {:app-id app-id
+                                :sender-id (:id sender)
+                                :verified false})
+            (verification/put! {:app-id app-id
+                                :sender-id (:id sender)
+                                :verified true}))]
+    {:sender sender}))
 
 (comment
   (postmark/add-sender! {:email "hi@marky.fyi" :name "Marky"})

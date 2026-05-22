@@ -1342,7 +1342,7 @@
         {postmark-id :postmark_id instant-verified? :verification_verified}
         (app-email-verification/get-by-app-id-and-email-type-with-template
          {:app-id app-id :email-type "magic-code"})]
-    (response/ok {:instant {:verified? instant-verified?}
+    (response/ok {:instant {:verified? (if (flags/use-app-email-verification?) instant-verified? true)}
                   :verification (when postmark-id
                                   (-> (postmark/get-sender! {:id postmark-id})
                                       :body
@@ -1367,12 +1367,12 @@
         sender-email (email/coerce (get-in req [:body :sender-email])) ;; optional
         custom-sender-name (string-util/coerce-non-blank-str (get-in req [:body :sender-name])) ;; optional
         sender-name (or custom-sender-name (:title app))
-        {sender :sender needs-verify? :needs-verify} (when sender-email
-                                                       (app-email-sender-model/sync-sender!
-                                                        {:app-id (:id app)
-                                                         :user-id (:id user)
-                                                         :email sender-email
-                                                         :name sender-name}))
+        {sender :sender} (when sender-email
+                           (app-email-sender-model/sync-sender!
+                            {:app-id (:id app)
+                             :user-id (:id user)
+                             :email sender-email
+                             :name sender-name}))
         template (app-email-template-model/put!
                   {:app-id (:id app)
                    :email-type email-type
@@ -1380,11 +1380,14 @@
                    :name sender-name
                    :subject subject
                    :body body})]
-    (response/ok {:id (:id template) :needs-verify needs-verify?})))
+    (response/ok {:id (:id template)})))
 
 (defn sender-verification-send-magic-code
   "sends the email containing a code to verify a custom sender domain with an app id"
   [req]
+  (when-not (flags/use-app-email-verification?)
+    (ex/throw+ {::type ::permission-denied
+                ::message "Permission denied: app-level sender verification not enabled"}))
   (let [app  (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req))
         app-id (:id app)
         verification-info (app-email-verification/get-by-app-id-and-email-type-with-template!
@@ -1403,6 +1406,9 @@
 (defn sender-verification-verify-magic-code
   "verify the code after receiving the email from sender-verification-send-magic-code"
   [req]
+  (when-not (flags/use-app-email-verification?)
+    (ex/throw+ {::type ::permission-denied
+                ::message "Permission denied: app-level sender verification not enabled"}))
   (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
         submitted-code (ex/get-param! req [:body :code] string-util/coerce-non-blank-str)
         verification-info (app-email-verification/get-by-app-id-and-email-type-with-template!
@@ -1415,8 +1421,9 @@
                            tx-conn
                            {:code submitted-code
                             :verification-id verification-id
-                            :expiry-minutes (flags/default-magic-code-expiry-minutes)})
-                      (app-email-verification/mark-verified! tx-conn {:id verification-id})))]
+                            :expiry-minutes (flags/default-magic-code-expiry-minutes)
+                            :app-id app-id})
+                      (app-email-verification/mark-verified! tx-conn {:id verification-id :app-id app-id})))]
     (when-not verified?
       (ex/throw-validation-err!
        :code

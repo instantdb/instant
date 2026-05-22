@@ -25,13 +25,13 @@
 
 (defn mark-verified!
   ([params] (mark-verified! (aurora/conn-pool :write) params))
-  ([conn {:keys [id]}]
+  ([conn {:keys [id app-id]}]
    (sql/execute-one!
     conn ["UPDATE app_email_verifications
           SET verified = true
-          WHERE id = ?::uuid
+          WHERE id = ?::uuid AND app_id = ?
           RETURNING *"
-          id])))
+          id app-id])))
 
 (defn get-by-app-id-and-email-type-with-template
   ([params] (get-by-app-id-and-email-type-with-template
