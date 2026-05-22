@@ -206,19 +206,16 @@
      :reply-to sender-email
      :html
      (email/standard-body
-      "<p><strong>Welcome,</strong></p>
-       <p>
-         You asked to join " title ". To complete your registration, use this
-         verification code:
-       </p>
-       <h2 style=\"text-align: center\"><strong>" code "</strong></h2>
-       <p>
-         Copy and paste this into the confirmation box, and you'll be on your way.
-       </p>
-       <p>
-         Note: This code will expire in 10 minutes, and can only be used once. If you
-         didn't request this code, please reply to this email.
-       </p>")}))
+      (h/html
+       [:p [:strong "Welcome,"]]
+       [:p
+        "You asked to join " title ". To complete your registration, use this "
+        "verification code:"]
+       [:h2 {:style "text-align: center"} [:strong code]]
+       [:p "Copy and paste this into the confirmation box, and you'll be on your way."]
+       [:p
+        "Note: This code will expire in 10 minutes, and can only be used once. If you "
+        "didn't request this code, please reply to this email."]))}))
 
 (comment
   (def user (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))

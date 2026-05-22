@@ -1,6 +1,7 @@
 (ns instant.runtime.magic-code-auth
   (:require
    [clojure.string :as string]
+   [hiccup2.core :as h]
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.model.app :as app-model]
@@ -73,19 +74,17 @@
         (= code postmark-not-found-sender-body-error-code))))
 
 (defn default-body [{:keys [app_title code expiration]}]
-  (postmark/standard-body "<p><strong>Welcome,</strong></p>
-        <p>
-          You asked to join " app_title ". To complete your registration, use this
-          verification code:
-        </p>
-        <h2 style=\"text-align: center\"><strong>" code "</strong></h2>
-       <p>
-         Copy and paste this into the confirmation box, and you'll be on your way.
-       </p>
-       <p>
-         Note: This code will expire in " expiration ", and can only be used once. If you
-         didn't request this code, please reply to this email.
-       </p>"))
+  (postmark/standard-body
+   (h/html
+    [:p [:strong "Welcome,"]]
+    [:p
+     "You asked to join " app_title ". To complete your registration, use this "
+     "verification code:"]
+    [:h2 {:style "text-align: center"} [:strong code]]
+    [:p "Copy and paste this into the confirmation box, and you'll be on your way."]
+    [:p
+     "Note: This code will expire in " expiration ", and can only be used once. If you "
+     "didn't request this code, please reply to this email."])))
 
 (defn magic-code-email [to params]
   (let [{:keys [sender-name sender-email subject body]} params]

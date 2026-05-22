@@ -2,6 +2,7 @@
   (:require
    [chime.core :as chime-core]
    [clojure.tools.logging :as log]
+   [hiccup2.core :as h]
    [instant.flags :refer [get-emails]]
    [instant.grab :as grab]
    [instant.jdbc.aurora :as aurora]
@@ -98,51 +99,40 @@
   (build-data))
 
 (defn metric-row [label value]
-  (str "<p style='margin:0;padding:0'>"
-       label
-       ": "
-       value
-       "</p>"))
+  [:p {:style "margin:0;padding:0"} label ": " value])
 
 (defn email-row [{:keys [email]}]
-  (str "<p style='margin:0;padding:0'>"
-       email
-       "</p>"))
+  [:p {:style "margin:0;padding:0"} email])
 
 (defn top-table []
-  (str
-   "<table style='text-align:left'>"
-   "<thead>"
-   "<tr>"
-   "<th style='width:120px;'>email</th>"
-   "<th style='width:120px;'>app</th>"
-   "<th style='width:50px'>num-triples</th>"
-   "</tr>"
-   "</thead>"
-   "<tbody>"
-   (apply str (map (fn [{:keys [email title n]}]
-                     (str "<tr>"
-                          "<td style='width:120px;'>" email "</td>"
-                          "<td style='width:120px;'>" title "</td>"
-                          "<td style='width:100px'>" n "</td>"
-                          "</tr>")) (take 10 (top-recent-users))))
-   "</tbody>"
-   "</table>"))
+  [:table {:style "text-align:left"}
+   [:thead
+    [:tr
+     [:th {:style "width:120px;"} "email"]
+     [:th {:style "width:120px;"} "app"]
+     [:th {:style "width:50px"} "num-triples"]]]
+   [:tbody
+    (for [{:keys [email title n]} (take 10 (top-recent-users))]
+      [:tr
+       [:td {:style "width:120px;"} email]
+       [:td {:style "width:120px;"} title]
+       [:td {:style "width:100px"} n]])]])
 
 (comment
   (top-table))
 
 (defn html-body [{:keys [num-triples num-users new-users num-apps new-apps new-emails]}]
-  (str
-   "<h2>Analytics for: " (date/numeric-date-str (LocalDate/now)) "</h2>"
+  (h/html
+   [:h2 "Analytics for: " (date/numeric-date-str (LocalDate/now))]
    (metric-row "num-triples" num-triples)
    (metric-row "num-users" num-users)
    (metric-row "new-users" new-users)
    (metric-row "num-apps" num-apps)
    (metric-row "new-apps" new-apps)
-   "<h3>Transactors Leaderboard</h3>" (top-table)
-   "<h3>Users who made new apps</h3>"
-   (apply str (map email-row new-emails))))
+   [:h3 "Transactors Leaderboard"] (top-table)
+   [:h3 "Users who made new apps"]
+   (for [email new-emails]
+     (email-row email))))
 
 (comment
   (html-body (build-data)))
@@ -152,7 +142,7 @@
     {:from "assistant@pm.instantdb.com"
      :to "stopa@instantdb.com, joe@instantdb.com"
      :subject (str "Instant Summary: " report-date)
-     :html (apply postmark/standard-body (html-body (build-data)))}))
+     :html (postmark/standard-body (html-body (build-data)))}))
 
 (defn period []
   (let [now (date/et-now)

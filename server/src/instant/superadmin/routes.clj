@@ -1,6 +1,7 @@
 (ns instant.superadmin.routes
   (:require [clojure.walk :as w]
             [compojure.core :as compojure :refer [defroutes DELETE GET POST]]
+            [hiccup2.core :as h]
             [instant.db.model.attr :as attr-model]
             [instant.model.app :as app-model]
             [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
@@ -217,17 +218,17 @@
      :subject (str "[Instant] You've been asked to take ownership of " (:title app))
      :html
      (postmark/standard-body
-      "<p><strong>Hey there!</strong></p>
-       <p>
-         " (:email inviter-user) " invited you to become the new owner of " (:title app) ".
-       </p>
-       <p>
-         Navigate to <a href=\"https://instantdb.com/dash?s=invites\">Instant</a> to accept the invite.
-       </p>
-       <p>
-         Note: This invite will expire in 3 days. If you
-         don't know the user inviting you, please reply to this email.
-       </p>")}))
+      (h/html
+       [:p [:strong "Hey there!"]]
+       [:p
+        (:email inviter-user) " invited you to become the new owner of " (:title app) "."]
+       [:p
+        "Navigate to "
+        [:a {:href "https://instantdb.com/dash?s=invites"} "Instant"]
+        " to accept the invite."]
+       [:p
+        "Note: This invite will expire in 3 days. If you "
+        "don't know the user inviting you, please reply to this email."]))}))
 
 (defn app-transfer-send-invite-post [req]
   (let [{:keys [app user]} (req->superadmin-user-and-app! :apps/transfer :owner req)
