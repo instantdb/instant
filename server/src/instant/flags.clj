@@ -404,6 +404,3 @@
 
 (defn smokescreen-whitelist-ips []
   (flag :smokescreen-whitelist-ips #{}))
-
-(defn batch-hz-room-map-actions? []
-  (flag :batch-hz-room-map-actions (config/dev?)))
