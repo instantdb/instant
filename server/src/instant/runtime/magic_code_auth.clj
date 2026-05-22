@@ -96,15 +96,17 @@
      :html
      body}))
 
-(defn template-replace [template params]
+(defn template-replace [template params escape?]
   (reduce
    (fn [acc [k v]]
-     (string/replace acc (str "{" (name k) "}") (str (h/html v))))
+     (string/replace acc (str "{" (name k) "}") (if escape?
+                                                  (str (h/html v))
+                                                  v)))
    template
    params))
 
 (comment
-  (template-replace "Hello {name}, your code is {code}" {:name "Stepan" :code "123"}))
+  (template-replace "Hello {name}, your code is {code}" {:name "Stepan" :code "123"} true))
 
 (defn friendly-expiration [app]
   (let [minutes (app-model/get-magic-code-expiry-minutes {:id (:id app)})]
@@ -131,8 +133,8 @@
         email-params    (if template
                           {:sender-email sender-email
                            :sender-name (or (:name template) (:title app))
-                           :subject (template-replace (:subject template) template-params)
-                           :body (template-replace (:body template) template-params)}
+                           :subject (template-replace (:subject template) template-params false)
+                           :body (template-replace (:body template) template-params true)}
                           {:sender-name (:title app)
                            :sender-email default-sender-email
                            :subject (str code " is your verification code for " (:title app))
