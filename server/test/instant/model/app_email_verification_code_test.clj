@@ -34,12 +34,14 @@
               (is (= (:id code)
                      (:id (verification-code/consume!
                            {:verification-id (:id verification)
+                            :app-id (:id app)
                             :code "123456"
                             :expiry-minutes 10})))))
 
             (testing "consumed codes cannot be reused"
               (is (nil? (verification-code/consume!
                          {:verification-id (:id verification)
+                          :app-id (:id app)
                           :code "123456"
                           :expiry-minutes 10}))))))))))
 
@@ -66,5 +68,6 @@
 
             (is (nil? (verification-code/consume!
                        {:verification-id (:id verification)
+                        :app-id (:id app)
                         :code "123456"
                         :expiry-minutes 10})))))))))
