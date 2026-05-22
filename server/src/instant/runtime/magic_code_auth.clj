@@ -99,7 +99,7 @@
 (defn template-replace [template params]
   (reduce
    (fn [acc [k v]]
-     (string/replace acc (str "{" (name k) "}") v))
+     (string/replace acc (str "{" (name k) "}") (str (h/html v))))
    template
    params))
 
