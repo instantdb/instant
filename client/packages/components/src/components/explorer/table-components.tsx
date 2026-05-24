@@ -222,23 +222,31 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
   });
   const [showCopy, setShowCopy] = useState(false);
   const { ref: overflowRef, isOverflow, setIsOverflow } = useIsOverflow();
+  const realValue = cell.getValue();
   const shouldShowTooltip =
-    (isOverflow || isObject(cell.getValue())) && !meta?.isLink;
+    (isOverflow || isObject(realValue)) && !meta?.isLink;
 
   useEffect(() => {
-    const observer = new ResizeObserver(() => {
-      const hasOverflow =
-        overflowRef.current.scrollWidth > overflowRef.current.clientWidth ||
-        overflowRef.current.scrollHeight > overflowRef.current.clientHeight;
+    const el = overflowRef.current;
+    if (!el) {
+      return;
+    }
 
-      setIsOverflow(hasOverflow);
-    });
-    observer.observe(overflowRef.current!);
+    const checkOverflow = () => {
+      setIsOverflow(
+        el.scrollWidth > el.clientWidth ||
+          el.scrollHeight > el.clientHeight,
+      );
+    };
+
+    checkOverflow();
+    const observer = new ResizeObserver(checkOverflow);
+    observer.observe(el);
 
     return () => {
       observer.disconnect();
     };
-  }, [overflowRef.current]);
+  }, [realValue, cell.column.getSize(), setIsOverflow]);
 
   const style: CSSProperties = {
     opacity: isDragging ? 0.8 : 1,
@@ -255,7 +263,6 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
   const disablePadding = meta?.disablePadding ?? false;
   const isSelectCol = cell.column.id === 'select-col';
 
-  const realValue = cell.getValue();
   const hasNavigableLink =
     meta?.isLink &&
     meta.attr &&
@@ -266,10 +273,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
 
   const cellInner = (
     <div
-      ref={(el) => {
-        setNodeRef(el);
-        overflowRef.current = el;
-      }}
+      ref={setNodeRef}
       style={{
         ...style,
         ...(isSelectCol || disablePadding
@@ -283,6 +287,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
       key={cell.id}
     >
       <span
+        ref={isSelectCol ? undefined : overflowRef}
         className={cn(
           `h-full min-h-full min-w-0 td-${cell.column.id}`,
           isSelectCol

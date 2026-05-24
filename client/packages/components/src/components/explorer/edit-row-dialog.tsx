@@ -212,6 +212,47 @@ function uuidValidate(uuid: string): string | null {
   return validate(uuid) ? null : 'Invalid UUID.';
 }
 
+const REQUIRED_FIELD_ERROR = 'This field is required.';
+
+function isEmptyRequiredBlobValue(type: FieldType, value: any): boolean {
+  if (value === null || value === undefined) {
+    return true;
+  }
+  switch (type) {
+    case 'string':
+      return String(value).trim() === '';
+    case 'number':
+      if (value === '') {
+        return true;
+      }
+      if (typeof value === 'string') {
+        return value === '-' || value === '.' || value === '-.';
+      }
+      return false;
+    case 'boolean':
+    case 'json':
+      return false;
+    default:
+      return false;
+  }
+}
+
+function getEffectiveRefLinkCount(
+  item: Record<string, any>,
+  attrName: string,
+  refUpdatesForAttr:
+    | Record<string, { action: 'link' | 'unlink'; item: any }>
+    | undefined,
+): number {
+  const existingCount = (item[attrName] || []).filter(
+    (x: any) => refUpdatesForAttr?.[x.id]?.action !== 'unlink',
+  ).length;
+  const newLinkCount = Object.values(refUpdatesForAttr || {}).filter(
+    (v) => v.action === 'link',
+  ).length;
+  return existingCount + newLinkCount;
+}
+
 function RefItemTooltip({
   db,
   namespace,
@@ -688,6 +729,9 @@ export function EditRowDialog({
   >({});
 
   const [jsonUpdates, setJsonUpdates] = useState<Record<string, any>>({});
+  const [refFieldErrors, setRefFieldErrors] = useState<
+    Record<string, string | null>
+  >({});
   const [nullFields, setNullFields] = useState<Record<string, boolean>>(
     editableBlobAttrs.reduce((acc, attr) => {
       // Don't set nullFields for new rows
@@ -701,11 +745,14 @@ export function EditRowDialog({
     }, {}),
   );
 
-  const hasFormErrors = Object.values(blobUpdates).some((u) => !!u.error);
+  const hasRefFieldErrors = Object.values(refFieldErrors).some(Boolean);
+  const hasFormErrors =
+    Object.values(blobUpdates).some((u) => !!u.error) || hasRefFieldErrors;
   const [shouldDisplayErrors, setShouldDisplayErrors] = useState(false);
 
   const handleResetForm = () => {
     setRefUpdates({});
+    setRefFieldErrors({});
 
     // Reset the blobUpdates to the original values
     setUpdatedBlobValues({ ...currentBlobs });
@@ -758,9 +805,12 @@ export function EditRowDialog({
     value: any,
     validate?: (value: any) => string | null,
   ) => {
-    const error = validate ? validate(value) : null;
+    let error = validate ? validate(value) : null;
     setUpdatedBlobValues((prev) => {
       const type = prev[field]?.type || 'string';
+      if (!error && prev[field]?.error === REQUIRED_FIELD_ERROR) {
+        error = null;
+      }
 
       return {
         ...prev,
@@ -786,11 +836,16 @@ export function EditRowDialog({
         };
       }
 
+      if (isValidJson(value)) {
+        return {
+          ...prev,
+          [field]: { type: 'json', value: JSON.parse(value), error: null },
+        };
+      }
+
       return {
         ...prev,
-        [field]: isValidJson(value)
-          ? { type: 'json', value: JSON.parse(value), error: null }
-          : { ...current, type: 'json', error: 'Invalid JSON' },
+        [field]: { ...current, type: 'json', error: 'Invalid JSON' },
       };
     });
   };
@@ -850,6 +905,12 @@ export function EditRowDialog({
   };
 
   const handleLinkRef = (attr: SchemaAttr, linkItem: any) => {
+    setRefFieldErrors((prev) => {
+      if (!prev[attr.name]) {
+        return prev;
+      }
+      return { ...prev, [attr.name]: null };
+    });
     setRefUpdates((v) => {
       const id = linkItem.id;
       const existing = v[attr.name]?.[id];
@@ -904,7 +965,7 @@ export function EditRowDialog({
 
   const scrollFieldSectionIntoView = (section: Element) => {
     const scrollParent = section.closest(
-      '[data-slot="dialog-content"]',
+      '[data-explorer-edit-form-body], [data-slot="dialog-content"]',
     ) as HTMLElement | null;
     if (scrollParent) {
       const parentRect = scrollParent.getBoundingClientRect();
@@ -962,7 +1023,49 @@ export function EditRowDialog({
   }, [focusAttr, shadowRoot]);
 
   const handleSaveRow = async () => {
-    if (hasFormErrors) {
+    const requiredBlobErrors: Record<string, string> = {};
+    const requiredRefErrors: Record<string, string> = {};
+
+    for (const attr of editableBlobAttrs) {
+      if (!attr.isRequired) {
+        continue;
+      }
+      const field = blobUpdates[attr.name];
+      if (
+        nullFields[attr.name] ||
+        isEmptyRequiredBlobValue(field?.type ?? 'string', field?.value)
+      ) {
+        requiredBlobErrors[attr.name] = REQUIRED_FIELD_ERROR;
+      }
+    }
+
+    for (const attr of editableRefAttrs) {
+      if (!attr.isRequired) {
+        continue;
+      }
+      if (getEffectiveRefLinkCount(item, attr.name, refUpdates[attr.name]) === 0) {
+        requiredRefErrors[attr.name] = REQUIRED_FIELD_ERROR;
+      }
+    }
+
+    const hasRequiredErrors =
+      Object.keys(requiredBlobErrors).length > 0 ||
+      Object.keys(requiredRefErrors).length > 0;
+    const hasExistingErrors =
+      Object.values(blobUpdates).some((u) => !!u.error) ||
+      Object.values(refFieldErrors).some(Boolean);
+
+    if (hasRequiredErrors || hasExistingErrors) {
+      if (hasRequiredErrors) {
+        setUpdatedBlobValues((prev) => {
+          const next = { ...prev };
+          for (const [field, error] of Object.entries(requiredBlobErrors)) {
+            next[field] = { ...next[field], error };
+          }
+          return next;
+        });
+        setRefFieldErrors((prev) => ({ ...prev, ...requiredRefErrors }));
+      }
       setShouldDisplayErrors(true);
       return;
     }
@@ -1013,20 +1116,26 @@ export function EditRowDialog({
   };
 
   return (
-    <ActionForm className="p-4">
-      <h5 className="flex text-lg font-bold">
-        {op == 'edit' ? 'Edit row' : 'Add row'}
-      </h5>
-      <code className="font-mono text-sm font-medium text-gray-500 dark:text-neutral-500">
-        {op == 'edit' ? (
-          <>
-            {namespace.name}['{item.id}']
-          </>
-        ) : (
-          <>{namespace.name}</>
-        )}
-      </code>
-      <div className="mt-4 flex flex-col gap-4">
+    <ActionForm className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0 px-1">
+        <h5 className="flex text-lg font-bold">
+          {op == 'edit' ? 'Edit row' : 'Add row'}
+        </h5>
+        <code className="font-mono text-sm font-medium text-gray-500 dark:text-neutral-500">
+          {op == 'edit' ? (
+            <>
+              {namespace.name}['{item.id}']
+            </>
+          ) : (
+            <>{namespace.name}</>
+          )}
+        </code>
+      </div>
+      <div
+        data-explorer-edit-form-body
+        className="mt-4 min-h-0 flex-1 overflow-y-auto px-4 scrollbar-gutter-stable"
+      >
+        <div className="flex flex-col gap-4">
         {op === 'add' ? (
           <div key="id" className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
@@ -1231,20 +1340,27 @@ export function EditRowDialog({
                   handleUnlinkRef={handleUnlinkRef}
                   autoOpenSearch={focusAttr === attr.name}
                 />
+                {refFieldErrors[attr.name] && shouldDisplayErrors && (
+                  <span className="text-sm font-medium text-red-500">
+                    {refFieldErrors[attr.name]}
+                  </span>
+                )}
               </div>
             </div>
           );
         })}
+        </div>
       </div>
-      <div className="mt-8 flex flex-row items-center justify-between gap-1">
-        {shouldDisplayErrors && hasFormErrors ? (
+      <div className="shrink-0 border-t border-gray-200 bg-white mt-2 px-1 pt-4 dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="flex flex-row items-center justify-between gap-1">
+          {shouldDisplayErrors && hasFormErrors ? (
           <span className="text-sm font-medium text-red-500">
             Failed to save. Please check above for errors.
           </span>
-        ) : (
-          <span />
-        )}
-        <div className="flex flex-row items-center gap-1">
+          ) : (
+            <span />
+          )}
+          <div className="flex flex-row items-center gap-1">
           <Button type="button" variant="secondary" onClick={handleResetForm}>
             Reset
           </Button>
@@ -1257,6 +1373,7 @@ export function EditRowDialog({
             errorMessage="Failed to save row."
             onClick={handleSaveRow}
           />
+          </div>
         </div>
       </div>
     </ActionForm>

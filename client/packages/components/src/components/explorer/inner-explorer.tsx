@@ -906,6 +906,7 @@ export const InnerExplorer: React.FC<{
         title="Add Row"
         open={addItemDialogOpen}
         onClose={() => setDialog(null)}
+        className="flex max-h-[calc(100dvh-4rem)] flex-col overflow-hidden"
       >
         {selectedNamespace ? (
           <EditRowDialog
@@ -920,6 +921,7 @@ export const InnerExplorer: React.FC<{
         title="Edit Row"
         open={!!selectedEditableItem}
         onClose={() => setDialog(null)}
+        className="flex max-h-[calc(100dvh-4rem)] flex-col overflow-hidden"
       >
         {!!selectedNamespace && !!selectedEditableItem ? (
           <EditRowDialog
