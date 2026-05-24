@@ -301,7 +301,11 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
       </TooltipTrigger>
       {shouldShowTooltip && !resizing && (
         <TooltipContent
-          className={cn(isObject(realValue) && 'p-0')}
+          collisionPadding={10}
+          className={cn(
+            'max-h-[min(50vh,var(--radix-popper-available-height))] max-w-[min(75rem,80vw)] min-w-0 overflow-x-hidden overflow-y-auto whitespace-pre-wrap wrap-break-word [&_code]:wrap-break-word [&_pre]:whitespace-pre-wrap [&_pre]:wrap-break-word',
+            isObject(realValue) && 'p-0',
+          )}
           side="bottom"
         >
           {typeof realValue === 'string' ? (
