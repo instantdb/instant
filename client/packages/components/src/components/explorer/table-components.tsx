@@ -244,7 +244,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
   const realValue = cell.getValue();
 
   return (
-    <Tooltip>
+    <Tooltip delayDuration={400}>
       {' '}
       <TooltipTrigger className="text-left" asChild>
         <div
