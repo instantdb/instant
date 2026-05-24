@@ -84,7 +84,7 @@ import { ViewSettings } from './view-settings';
 
 import { isObject } from 'lodash';
 import { EditNamespaceDialog } from './edit-namespace-dialog';
-import { EditRowDialog } from './edit-row-dialog';
+import { EditRowDialog, isEditableExplorerAttr } from './edit-row-dialog';
 import copy from 'copy-to-clipboard';
 
 const fallbackItems: any[] = [];
@@ -95,6 +95,7 @@ export type TableColMeta = {
   isLink?: boolean;
   attr: SchemaAttr;
   copyable?: boolean;
+  editable?: boolean;
 };
 
 function exportToCSV(
@@ -429,7 +430,7 @@ export const InnerExplorer: React.FC<{
       },
       cell: ({ row, column }) => {
         return (
-          <div className="flex h-1 justify-around gap-2">
+          <div className="flex h-full w-full items-center gap-2">
             <Checkbox
               className="relative z-10 text-[#2563EB] dark:checked:border-[#2563EB] dark:checked:bg-[#2563EB]"
               checked={row.getIsSelected()}
@@ -458,7 +459,9 @@ export const InnerExplorer: React.FC<{
             />
             {readOnlyNs ? null : (
               <button
-                className="translate-y-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+                type="button"
+                title="Edit row"
+                className="rounded-xs p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-neutral-100 dark:hover:bg-neutral-700"
                 onClick={() => setDialog({ type: 'edit-row', rowId: row.id })}
               >
                 <PencilSquareIcon className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
@@ -482,6 +485,10 @@ export const InnerExplorer: React.FC<{
           isLink: attr.type === 'ref',
           attr,
           disablePadding: attr.namespace === '$files' && attr.name === 'url',
+          editable:
+            !readOnlyNs &&
+            selectedNamespace != null &&
+            isEditableExplorerAttr(selectedNamespace, attr),
         } satisfies TableColMeta,
         cell: (info) => {
           if (
@@ -541,7 +548,7 @@ export const InnerExplorer: React.FC<{
     });
 
     return result;
-  }, [selectedNamespace?.attrs, localDates]);
+  }, [selectedNamespace, readOnlyNs, localDates]);
 
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 
@@ -919,6 +926,9 @@ export const InnerExplorer: React.FC<{
             db={db}
             namespace={selectedNamespace}
             item={selectedEditableItem}
+            focusAttr={
+              dialog?.type === 'edit-row' ? dialog.focusAttr : undefined
+            }
             onClose={() => setDialog(null)}
           />
         ) : null}
