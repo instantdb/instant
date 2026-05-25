@@ -980,14 +980,26 @@ export function EditRowDialog({
   };
 
   const mainFieldFocusSelector =
-    'input:not([type="hidden"]):not([type="checkbox"]), textarea, [contenteditable="true"], button[tabindex], .monaco-editor textarea';
+    'input:not([type="hidden"]):not([type="checkbox"]), textarea, [contenteditable="true"], button, .monaco-editor textarea';
+
+  const findFocusableInEditor = (
+    editor: HTMLElement | null,
+  ): HTMLElement | null => {
+    if (!editor) {
+      return null;
+    }
+    if (editor.matches(mainFieldFocusSelector)) {
+      return editor;
+    }
+    return editor.querySelector<HTMLElement>(mainFieldFocusSelector);
+  };
 
   const focusExplorerField = (section: Element) => {
     scrollFieldSectionIntoView(section);
-    const editor = section.querySelector('[data-explorer-field-input]');
-    const focusable = editor?.querySelector<HTMLElement>(
-      mainFieldFocusSelector,
+    const editor = section.querySelector<HTMLElement>(
+      '[data-explorer-field-input]',
     );
+    const focusable = findFocusableInEditor(editor);
     if (focusable) {
       focusable.focus();
       return;
