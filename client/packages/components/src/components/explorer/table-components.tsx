@@ -333,7 +333,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
         <button
           type="button"
           title={`Edit ${meta.attr.name}`}
-          className="absolute top-1/2 right-1 z-20 -translate-y-1/2 rounded-xs p-0.5 opacity-0 transition-opacity group-hover/cell:opacity-100 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+          className="absolute top-1/2 right-1 z-20 -translate-y-1/2 rounded-xs p-0.5 opacity-0 transition-opacity group-hover/cell:opacity-100 hover:bg-neutral-100 focus-visible:opacity-100 focus-visible:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:outline-hidden dark:hover:bg-neutral-700 dark:focus-visible:bg-neutral-700 dark:focus-visible:ring-neutral-500"
           onClick={(e) => {
             e.stopPropagation();
             setDialog({
