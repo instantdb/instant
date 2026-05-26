@@ -2,10 +2,12 @@
   (:require
    [clojure.test :refer [deftest is testing]]
    [instant.fixtures :refer [random-email with-empty-app with-user]]
-   [instant.jdbc.aurora :as aurora]
-   [instant.jdbc.sql :as sql]
-   [instant.model.app-email-verification :as verification]
-   [instant.model.app-email-verification-code :as verification-code]))
+    [instant.jdbc.aurora :as aurora]
+    [instant.jdbc.sql :as sql]
+    [instant.model.app-email-verification :as verification]
+    [instant.model.app-email-verification-code :as verification-code]
+    [instant.util.exception :as ex]
+    [instant.util.test :as test-util]))
 
 (defn- create-sender! [{:keys [user-id email]}]
   (sql/execute-one!
@@ -66,8 +68,11 @@
                WHERE verification_id = ?::uuid"
               (:id verification)])
 
-            (is (nil? (verification-code/consume!
+            (is (= ::ex/record-expired
+                   (::ex/type
+                    (test-util/instant-ex-data
+                      (verification-code/consume!
                        {:verification-id (:id verification)
                         :app-id (:id app)
                         :code "123456"
-                        :expiry-minutes 10})))))))))
+                        :expiry-minutes 10})))))))))))
