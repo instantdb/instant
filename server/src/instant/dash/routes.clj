@@ -1338,9 +1338,19 @@
 
 ;; ---------------
 ;; Email templates
+;; ---------------
+
+(defn get-default-email-template [_req]
+  (let [params (magic-code-auth/default-email-template-params)]
+    (response/ok {:email-type "magic-code"
+                  :sender-email (:sender-email params)
+                  :email (:sender-email params)
+                  :reply-to (:sender-email params)
+                  :subject (:subject params)
+                  :body (:body params)})))
 
 (defn sender-verification-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :admin req)
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :admin :apps/read req)
         {postmark-id :postmark_id instant-verified? :verification_verified}
         (app-email-verification/get-by-app-id-and-email-type-with-template
          {:app-id app-id :email-type "magic-code"})]
@@ -1353,8 +1363,14 @@
                                                     :DKIMPendingTextValue :DKIMTextValue
                                                     :ReturnPathDomain :ReturnPathDomainCNAMEValue])))})))
 
+(defn email-status-get [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :admin :apps/read req)
+        res  (app-email-verification/get-by-app-id-and-email-type-with-template
+              {:app-id app-id :email-type "magic-code"})]
+    (response/ok {:info res})))
+
 (defn email-template-post [req]
-  (let [{app :app user :user} (req->app-and-user! :admin req)
+  (let [{app :app} (req->app-accepting-superadmin-or-ref-token! :admin :apps/read req)
         email-type (ex/get-param! req [:body :email-type] string-util/coerce-non-blank-str)
         subject (ex/get-param! req [:body :subject] string-util/coerce-non-blank-str)
         _ (ex/assert-valid! :subject subject
@@ -1372,7 +1388,6 @@
         {sender :sender} (when sender-email
                            (app-email-sender-model/sync-sender!
                             {:app-id (:id app)
-                             :user-id (:id user)
                              :email sender-email
                              :name sender-name}))
         template (app-email-template-model/put!
@@ -1444,7 +1459,7 @@
   (email-template-delete (assoc-in (fixtures/mock-app-req any-app) [:params :id] tmpl-id)))
 
 (defn email-template-delete [req]
-  (let [{app :app} (req->app-and-user! req)
+  (let [{app :app} (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)
         id (ex/get-param! req [:params :id] uuid-util/coerce)]
     (app-email-template-model/delete-by-id! {:id id :app-id (:id app)})
     (response/ok {})))
@@ -2306,9 +2321,11 @@
   (DELETE "/dash/apps/:app_id/members/remove" [] team-member-remove-delete)
   (POST "/dash/apps/:app_id/members/update" [] team-member-update-post)
 
+  (GET "/dash/default-email-template" [] get-default-email-template)
   (GET "/dash/apps/:app_id/sender-verification" [] sender-verification-get)
   (POST "/dash/apps/:app_id/sender-verification/send-magic-code" [] sender-verification-send-magic-code)
   (POST "/dash/apps/:app_id/sender-verification/verify-magic-code" [] sender-verification-verify-magic-code)
+  (GET "/dash/apps/:app_id/email_status" [] email-status-get)
   (POST "/dash/apps/:app_id/email_templates" [] email-template-post)
   (POST "/dash/apps/:app_id/send-test-email" [] send-test-email-post)
   (DELETE "/dash/apps/:app_id/email_templates/:id" [] email-template-delete)

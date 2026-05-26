@@ -18,18 +18,18 @@
 
 (defn put!
   ([params] (put! (aurora/conn-pool :write) params))
-  ([conn {:keys [email name user-id postmark-id]}]
+  ([conn {:keys [email name postmark-id]}]
    (sql/execute-one!
     conn
     ["INSERT INTO
         app_email_senders
-        (id, email, name, user_id, postmark_id)
+        (id, email, name, postmark_id)
       VALUES
-        (?::uuid, ?, ?, ?, ?)
+        (?::uuid, ?, ?, ?)
       ON CONFLICT (email)
       DO UPDATE SET
         name = EXCLUDED.name"
-     (UUID/randomUUID) email name user-id postmark-id])))
+     (UUID/randomUUID) email name postmark-id])))
 
 ;; https://postmarkapp.com/developer/api/overview#error-codes
 
@@ -48,10 +48,8 @@
       3. The sender exists in postmark, but not in our database
             a. In this case, we reach an invariant. This can happen when we add a sender in development
       "
-  [{:keys [app-id user-id email name]}]
+  [{:keys [app-id email name]}]
   (let [sender (get-by-email {:email email})
-        _ (when (and sender (not= user-id (:user_id sender)))
-            (ex/throw-validation-err! :sender-user user-id [{:message sender-claimed-error-message}]))
         postmark-id (:postmark_id sender)
         postmark-sender (when sender
                           (try
@@ -87,7 +85,6 @@
         sender (put! {:email email
                       :name name
                       :app-id app-id
-                      :user-id user-id
                       :postmark-id postmark-id})
         _ (if (flags/use-app-email-verification?)
             (verification/put! {:app-id app-id
