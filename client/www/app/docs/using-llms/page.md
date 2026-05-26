@@ -27,52 +27,15 @@ If you'd prefer to manually install the rules instead see the section below.
 
 We've created a set of rules to help LLMs understand how Instant works. If you
 start a new project with `create-instant-app` you'll get these rules
-automatically. If you have an existing project you can add the rules manually by
-reading below.
+automatically. If you have an existing project you can add the rules manually.
 
-### Cursor
+[Save these rules](/llm-rules/AGENTS.md) at the root of your project as:
 
-[Save these rules](/llm-rules/cursor-rules.md) at the root of your project in `.cursor/rules/instant.mdc`
+- `CLAUDE.md` for Claude Code
+- `GEMINI.md` for Gemini
+- `AGENTS.md` for Codex, Cursor, Windsurf, Zed, and other tools
 
-You may need to restart Cursor for them to take effect.
-
-When using Cursor we recommend turning off "Auto" and using at least Claude Sonnet 4
-
-### Claude Code
-
-[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `CLAUDE.md`
-
-If you already had Claude running, restart it for the rules to take effect.
-
-### Codex
-
-[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `AGENTS.md`
-
-If you already had Codex running, restart it for the rules to take effect.
-
-### Gemini
-
-[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `GEMINI.md`
-
-If you already had Gemini running, restart it for the rules to take effect.
-
-### Windsurf
-
-[Save these rules](/llm-rules/windsurf-rules.md) at the root of your project in `.windsurf/rules/instant.md`
-
-You may need to restart Windsurf for them to take effect.
-
-### Zed
-
-[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `AGENTS.md`
-
-You may need to restart Zed for them to take effect.
-
-### Other Tools
-
-[Save these rules](/llm-rules/AGENTS.md) at the root of your project as `AGENTS.md`
-
-If you want to manually add in more documentation, you can also append `.md` to the end of any doc page url to get the raw markdown
+You may need to restart your editor for the rules to take effect.
 
 ### Markdown Docs and llms.txt
 

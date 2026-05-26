@@ -344,9 +344,15 @@ import { clientDb } from '@/lib/clientDb';
 // For react/react-native apps use db.useAuth
 function App() {
   const { isLoading, user, error } = clientDb.useAuth();
-  if (isLoading) { return null; }
-  if (error) { return <Error message={error.message} />; }
-  if (user) { return <Main />; }
+  if (isLoading) {
+    return null;
+  }
+  if (error) {
+    return <Error message={error.message} />;
+  }
+  if (user) {
+    return <Main />;
+  }
   return <Login />;
 }
 
@@ -354,9 +360,13 @@ function App() {
 function App() {
   renderLoading();
   db.subscribeAuth((auth) => {
-    if (auth.error) { renderAuthError(auth.error.message); }
-    else if (auth.user) { renderLoggedInPage(auth.user); }
-    else { renderSignInPage(); }
+    if (auth.error) {
+      renderAuthError(auth.error.message);
+    } else if (auth.user) {
+      renderLoggedInPage(auth.user);
+    } else {
+      renderSignInPage();
+    }
   });
 }
 ```

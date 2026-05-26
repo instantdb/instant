@@ -168,7 +168,7 @@ describe.concurrent('create-instant-app e2e', { timeout: 120_000 }, () => {
 
         const projectDir = join(t.dir, 'cursor-app');
         await expect(
-          access(join(projectDir, '.cursor', 'rules', 'instant.mdc')),
+          access(join(projectDir, 'AGENTS.md')),
         ).resolves.toBeUndefined();
       } finally {
         await t.cleanup();
