@@ -42,7 +42,6 @@
                               AND app_id = ?
                               RETURNING *"
                              code verification-id app-id])]
-     (tool/def-locals)
      (when (and verification-code
                 (expired? expiry-minutes verification-code))
        (ex/throw-expiration-err! :app-email-verification-code {:args [params]}))

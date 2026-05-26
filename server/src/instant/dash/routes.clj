@@ -1386,7 +1386,7 @@
   "sends the email containing a code to verify a custom sender domain with an app id"
   [req]
   (when-not (flags/use-app-email-verification?)
-    (ex/throw+ {::ex/type ::permission-denied
+    (ex/throw+ {::ex/type ::ex/permission-denied
                 ::ex/message "Permission denied: app-level sender verification not enabled"}))
   (let [app  (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req))
         app-id (:id app)
@@ -1407,7 +1407,7 @@
   "verify the code after receiving the email from sender-verification-send-magic-code"
   [req]
   (when-not (flags/use-app-email-verification?)
-    (ex/throw+ {::ex/type ::permission-denied
+    (ex/throw+ {::ex/type ::ex/permission-denied
                 ::ex/message "Permission denied: app-level sender verification not enabled"}))
   (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
         submitted-code (ex/get-param! req [:body :code] string-util/coerce-non-blank-str)
