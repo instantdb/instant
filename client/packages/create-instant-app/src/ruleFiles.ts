@@ -3,6 +3,15 @@ import fs from 'fs-extra';
 import path from 'path';
 import { PKG_ROOT } from './consts.js';
 
+const FILENAME: Record<NonNullable<Project['ruleFiles']>, string> = {
+  claude: 'CLAUDE.md',
+  gemini: 'GEMINI.md',
+  cursor: 'AGENTS.md',
+  codex: 'AGENTS.md',
+  zed: 'AGENTS.md',
+  windsurf: 'AGENTS.md',
+};
+
 export const addRuleFiles = ({
   projectDir,
   ruleFilesToAdd,
@@ -13,44 +22,8 @@ export const addRuleFiles = ({
   if (ruleFilesToAdd === null) {
     return;
   }
-  switch (ruleFilesToAdd) {
-    case 'cursor':
-      fs.ensureDirSync(path.join(projectDir, '.cursor/rules'));
-      fs.copyFileSync(
-        path.join(PKG_ROOT, 'template/rules/cursor-rules.md'),
-        path.join(projectDir, '.cursor/rules/instant.mdc'),
-      );
-      break;
-    case 'claude':
-      fs.copyFileSync(
-        path.join(PKG_ROOT, 'template/rules/AGENTS.md'),
-        path.join(projectDir, 'CLAUDE.md'),
-      );
-      break;
-    case 'codex':
-      fs.copyFileSync(
-        path.join(PKG_ROOT, 'template/rules/AGENTS.md'),
-        path.join(projectDir, 'AGENTS.md'),
-      );
-      break;
-    case 'gemini':
-      fs.copyFileSync(
-        path.join(PKG_ROOT, 'template/rules/AGENTS.md'),
-        path.join(projectDir, 'GEMINI.md'),
-      );
-      break;
-    case 'zed':
-      fs.copyFileSync(
-        path.join(PKG_ROOT, 'template/rules/AGENTS.md'),
-        path.join(projectDir, 'AGENTS.md'),
-      );
-      break;
-    case 'windsurf':
-      fs.ensureDirSync(path.join(projectDir, '.windsurf/rules'));
-      fs.copyFileSync(
-        path.join(PKG_ROOT, 'template/rules/windsurf-rules.md'),
-        path.join(projectDir, '.windsurf/rules/instant.md'),
-      );
-      break;
-  }
+  fs.copyFileSync(
+    path.join(PKG_ROOT, 'template/rules/AGENTS.md'),
+    path.join(projectDir, FILENAME[ruleFilesToAdd]),
+  );
 };
