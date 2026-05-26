@@ -1387,7 +1387,7 @@
   [req]
   (when-not (flags/use-app-email-verification?)
     (ex/throw+ {::ex/type ::permission-denied
-                ::message "Permission denied: app-level sender verification not enabled"}))
+                ::ex/message "Permission denied: app-level sender verification not enabled"}))
   (let [app  (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req))
         app-id (:id app)
         verification-info (app-email-verification/get-by-app-id-and-email-type-with-template!
@@ -1408,7 +1408,7 @@
   [req]
   (when-not (flags/use-app-email-verification?)
     (ex/throw+ {::ex/type ::permission-denied
-                ::message "Permission denied: app-level sender verification not enabled"}))
+                ::ex/message "Permission denied: app-level sender verification not enabled"}))
   (let [app-id (:id (:app (req->app-accepting-superadmin-or-ref-token! :admin :apps/write req)))
         submitted-code (ex/get-param! req [:body :code] string-util/coerce-non-blank-str)
         verification-info (app-email-verification/get-by-app-id-and-email-type-with-template!
