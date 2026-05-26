@@ -3,7 +3,12 @@
    [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [hiccup2.core :as h]))
+   [hiccup2.core :as h]
+   [instant.util.exception :as ex])
+  (:import
+   (java.time Instant)
+   (java.time.temporal ChronoUnit)
+   (java.util Date)))
 
 (defn put!
   ([params] (put! (aurora/conn-pool :write) params))
@@ -20,17 +25,28 @@
           RETURNING *"
           (random-uuid) code app-id verification-id])))
 
+(defn expired?
+  ([expiry-minutes verification-code]
+   (expired? (Instant/now) expiry-minutes verification-code))
+  ([now expiry-minutes {created-at :created_at}]
+   (> (.between ChronoUnit/MINUTES (Date/.toInstant created-at) now) expiry-minutes)))
+
 (defn consume!
   ([params] (consume! (aurora/conn-pool :write) params))
-  ([conn {:keys [code verification-id expiry-minutes app-id]}]
-   (sql/execute-one!
-    conn ["DELETE FROM app_email_verification_codes
-          WHERE code = ?
-          AND verification_id = ?::uuid
-          AND app_id = ?
-          AND created_at >= NOW() - (? * INTERVAL '1 minute')
-          RETURNING *"
-          code verification-id app-id expiry-minutes])))
+  ([conn {:keys [code verification-id expiry-minutes app-id] :as params}]
+   (let [verification-code (sql/execute-one!
+                            conn
+                            ["DELETE FROM app_email_verification_codes
+                              WHERE code = ?
+                              AND verification_id = ?::uuid
+                              AND app_id = ?
+                              RETURNING *"
+                             code verification-id app-id])]
+     (tool/def-locals)
+     (when (and verification-code
+                (expired? expiry-minutes verification-code))
+       (ex/throw-expiration-err! :app-email-verification-code {:args [params]}))
+     verification-code)))
 
 (defn format-email [{:keys [code sender-email app-title]}]
   (let [{sender-name :name from-email :email} (config/dashboard-email-sender)]
