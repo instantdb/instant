@@ -40,4 +40,6 @@
      :subject (str code " is your Instant sender verification code for app: " app-title)
      :reply-to from-email
 
-     :html (h/html [:p "Use this code to verify your custom sender email address on Instant for the app: " [:strong app-title]] [:h2 {:style "text-align: center"} code] [:p "This code can only be used once."])}))
+     :html (str (h/html [:p "Use this code to verify your custom sender email address on Instant for the app: "
+                         [:strong app-title]]
+                        [:h2 {:style "text-align: center"} code] [:p "This code can only be used once."]))}))
