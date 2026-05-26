@@ -15,36 +15,35 @@ export function Current() {
   return (
     <AuthShell>
       <form
-        className="flex flex-col gap-5"
+        className="flex flex-col gap-4"
         onSubmit={(e) => e.preventDefault()}
       >
-        <ScreenHeading className="text-5xl">Let's log you in</ScreenHeading>
-        <Content className="text-2xl leading-9 text-gray-950 dark:text-neutral-200">
+        <ScreenHeading className="text-3xl">Let's log you in</ScreenHeading>
+        <Content className="text-base leading-6 text-gray-600 dark:text-neutral-400">
           Enter your email, and we’ll send you a verification code. We'll create
           an account for you too if you don't already have one :)
         </Content>
         <TextInput
           autoFocus
-          size="jumbo"
-          className="pr-14"
+          size="large"
           placeholder="Enter your email"
           type="email"
           ignorePasswordManagers
           value={email}
           onChange={(v) => setEmail(v)}
         />
-        <Button size="jumbo" type="submit" disabled={email.trim().length === 0}>
+        <Button size="large" type="submit" disabled={email.trim().length === 0}>
           Send code
         </Button>
       </form>
       <Divider>
-        <span className="mx-4 text-base text-gray-500 dark:text-neutral-400">
+        <span className="mx-4 text-sm text-gray-500 dark:text-neutral-400">
           or
         </span>
       </Divider>
-      <Button size="jumbo" variant="secondary" type="link" href="#">
-        <span className="flex items-center gap-4">
-          <Image alt="google icon" src={googleIconSvg} width={28} />
+      <Button size="large" variant="secondary" type="link" href="#">
+        <span className="flex items-center gap-2.5">
+          <Image alt="google icon" src={googleIconSvg} width={20} />
           <span>Continue with Google</span>
         </span>
       </Button>

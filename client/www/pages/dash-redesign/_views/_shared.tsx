@@ -150,15 +150,15 @@ export function DashDataProvider({ children }: { children: ReactNode }) {
 
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-[#fbfaf8] p-8 dark:bg-neutral-950">
-      <div className="w-full max-w-[660px]">
-        <span className="mb-8 inline-flex items-center gap-3">
-          <LogoIcon size="normal" className="h-8 w-8" />
-          <span className="text-3xl font-semibold tracking-normal text-gray-950 lowercase dark:text-white">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-[#fbfaf8] p-6 dark:bg-neutral-950">
+      <div className="w-full max-w-[440px]">
+        <span className="mb-6 inline-flex items-center gap-2.5">
+          <LogoIcon size="normal" className="h-7 w-7" />
+          <span className="font-mono text-[20px] font-bold text-gray-950 lowercase dark:text-white">
             instant
           </span>
         </span>
-        <div className="flex flex-col gap-8">{children}</div>
+        <div className="flex flex-col gap-6">{children}</div>
       </div>
     </div>
   );

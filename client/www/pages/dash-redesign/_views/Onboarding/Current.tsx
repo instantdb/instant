@@ -46,7 +46,7 @@ function WelcomeStage() {
       <div className="flex max-w-2xl flex-col gap-5">
         <span className="inline-flex items-center gap-2.5">
           <LogoIcon size="normal" />
-          <span className="text-2xl font-semibold tracking-normal text-gray-950 lowercase dark:text-white">
+          <span className="font-mono text-[20px] font-bold text-gray-950 lowercase dark:text-white">
             instant
           </span>
         </span>
