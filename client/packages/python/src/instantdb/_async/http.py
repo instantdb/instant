@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from instantdb._errors import InstantAPIError
+from instantdb._http_errors import api_error_from_response
 from instantdb._version import __version__
 
 DEFAULT_API_URI = "https://api.instantdb.com"
@@ -113,12 +113,7 @@ class _AsyncHTTP:
     def _handle_response(response: httpx.Response) -> Any:
         if response.is_success:
             return response.json() if response.content else None
-        try:
-            body: Any = response.json()
-        except ValueError:
-            body = {"type": None, "message": response.text}
-        message = body.get("message", response.text) if isinstance(body, dict) else response.text
-        raise InstantAPIError(message, status=response.status_code, body=body)
+        raise api_error_from_response(response)
 
     async def aclose(self) -> None:
         if self._owns_client:

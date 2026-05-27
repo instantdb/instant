@@ -12,6 +12,12 @@ Payload shape mirrors the JS SDK, with snake_case keys for SDK-shaped fields:
     ok:    {"type": "ok", "data": ..., "page_info": ..., "session_info": ...}
     error: {"type": "error", "error": InstantAPIError,
             "ready_state": ..., "is_closed": ..., "session_info": ...}
+
+Reconnect: HTTP errors on the initial connect surface as an error payload and
+end iteration. Transient SSE drops after the first `sse-init` reconnect
+silently with linear backoff (matches JS Reactor's `+1s per attempt, capped`
+shape). The same POST body re-establishes the subscription server-side, so
+no client-side handshake replay is needed beyond re-opening the SSE.
 """
 
 from __future__ import annotations
@@ -22,11 +28,11 @@ import json
 from types import TracebackType
 from typing import Any, Literal
 
-import httpx
 import httpx_sse
 
 from instantdb._async.http import _AsyncHTTP
 from instantdb._errors import InstantAPIError
+from instantdb._http_errors import api_error_from_response
 from instantdb._transact import id
 from instantdb._version import __version__
 
@@ -35,6 +41,15 @@ ReadyState = Literal["connecting", "open", "closed"]
 # Backlog cap matches JS subscribe.ts — live queries deliver full snapshots, so
 # dropping the oldest pending payload is a safe way to bound memory.
 _BACKLOG_MAX = 100
+
+# Reconnect tuning matches streams/_connection.py: +0.5s per attempt, capped
+# at 15s, reset after 5 min of uninterrupted connectivity.
+_BACKOFF_MAX_SECONDS = 15.0
+_BACKOFF_RESET_AFTER_SECONDS = 300.0
+
+
+def _backoff_delay(attempts: int) -> float:
+    return min(_BACKOFF_MAX_SECONDS, 0.5 * (attempts - 1))
 
 
 class AsyncSubscription:
@@ -48,6 +63,13 @@ class AsyncSubscription:
         self._session_info: dict[str, str] | None = None
         self._ready_state: ReadyState = "connecting"
         self._closed = False
+        # Flips True on the first sse-init. Distinguishes "couldn't connect at
+        # all" (terminal — surface error) from "lost a working connection"
+        # (transient — silent retry).
+        self._has_connected = False
+        # Exposed for the sandbox reconnect tester, which force-closes the
+        # response to simulate a drop. None between reconnect attempts.
+        self._event_source: httpx_sse.EventSource | None = None
 
     @property
     def session_info(self) -> dict[str, str] | None:
@@ -106,6 +128,7 @@ class AsyncSubscription:
     def _handle_message(self, msg: dict[str, Any]) -> None:
         op = msg.get("op")
         if op == "sse-init":
+            self._has_connected = True
             self._session_info = {
                 "machine_id": msg["machine-id"],
                 "session_id": msg["session-id"],
@@ -155,6 +178,47 @@ class AsyncSubscription:
         )
 
     async def _run(self) -> None:
+        attempts = 0
+        last_attempt_at = 0.0
+        try:
+            while not self._closed:
+                try:
+                    await self._connect_and_consume()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:
+                    if not self._has_connected:
+                        self._emit_error(
+                            InstantAPIError(
+                                str(e), status=0, body={"type": None, "message": str(e)}
+                            )
+                        )
+                        return
+                    # Post-init failure: silent retry. Each new POST replays
+                    # the query body, so the server re-establishes state.
+                if self._closed:
+                    break
+
+                now = asyncio.get_running_loop().time()
+                if last_attempt_at and now - last_attempt_at > _BACKOFF_RESET_AFTER_SECONDS:
+                    attempts = 0
+                attempts += 1
+                last_attempt_at = now
+                delay = _backoff_delay(attempts)
+                if delay > 0:
+                    await asyncio.sleep(delay)
+        finally:
+            self._ready_state = "closed"
+            self._queue.put_nowait(None)
+
+    async def _connect_and_consume(self) -> None:
+        """One SSE attempt. Returns on normal completion; raises on errors.
+
+        First-connect HTTP failures are signalled by emitting an error payload
+        and setting `_closed = True` so the outer loop bails without retry.
+        Post-init failures and network exceptions propagate up to the retry
+        loop, which decides whether to backoff or end.
+        """
         url = f"{self._http._api_uri}/admin/subscribe-query"
         body = {
             "query": self._query,
@@ -166,34 +230,32 @@ class AsyncSubscription:
         }
         params = {"local_connection_id": id()}
         headers = self._http._headers()
-        try:
-            async with httpx_sse.aconnect_sse(
-                self._http._client,
-                "POST",
-                url,
-                json=body,
-                params=params,
-                headers=headers,
-            ) as event_source:
+        self._ready_state = "connecting"
+        async with httpx_sse.aconnect_sse(
+            self._http._client,
+            "POST",
+            url,
+            json=body,
+            params=params,
+            headers=headers,
+        ) as event_source:
+            self._event_source = event_source
+            try:
                 response = event_source.response
                 if not response.is_success:
                     await response.aread()
-                    self._emit_error(_http_error_from_response(response))
-                    return
+                    if not self._has_connected:
+                        self._emit_error(api_error_from_response(response))
+                        self._closed = True
+                        return
+                    raise api_error_from_response(response)
                 self._ready_state = "open"
                 async for sse_event in event_source.aiter_sse():
                     if not sse_event.data:
                         continue
                     self._handle_message(json.loads(sse_event.data))
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            self._emit_error(
-                InstantAPIError(str(e), status=0, body={"type": None, "message": str(e)})
-            )
-        finally:
-            self._ready_state = "closed"
-            self._queue.put_nowait(None)
+            finally:
+                self._event_source = None
 
 
 def _format_page_info(page_info: Any) -> dict[str, Any] | None:
@@ -209,12 +271,3 @@ def _format_page_info(page_info: Any) -> dict[str, Any] | None:
         }
         for etype, v in page_info.items()
     }
-
-
-def _http_error_from_response(response: httpx.Response) -> InstantAPIError:
-    try:
-        body: Any = response.json()
-    except ValueError:
-        body = {"type": None, "message": response.text}
-    message = body.get("message", response.text) if isinstance(body, dict) else response.text
-    return InstantAPIError(message, status=response.status_code, body=body)

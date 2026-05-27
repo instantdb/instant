@@ -19,11 +19,11 @@ from collections.abc import Awaitable, Callable
 from types import TracebackType
 from typing import Any
 
-import httpx
 import httpx_sse
 
 from instantdb._async.http import _AsyncHTTP
-from instantdb._errors import InstantAPIError, InstantError
+from instantdb._errors import InstantError
+from instantdb._http_errors import api_error_from_response
 from instantdb._transact import id
 from instantdb._version import __version__
 
@@ -119,8 +119,7 @@ class _AsyncStreamConnection:
         self, msg: dict[str, Any], *, client_event_id: str | None = None
     ) -> str:
         """Post bypassing the ready-event gate. Used by reconnect hooks."""
-        if self._init_params is None:
-            raise InstantError("Connection not initialized")
+        assert self._init_params is not None
         event_id = client_event_id or id()
         full_msg = {"client-event-id": event_id, **msg}
         body = {**self._init_params, "messages": [full_msg]}
@@ -132,7 +131,7 @@ class _AsyncStreamConnection:
                 headers=self._http._headers(),
             )
             if not response.is_success:
-                raise _http_error_from_response(response)
+                raise api_error_from_response(response)
         return event_id
 
     async def _wait_for_ready(self) -> None:
@@ -183,7 +182,7 @@ class _AsyncStreamConnection:
                     response = event_source.response
                     if not response.is_success:
                         await response.aread()
-                        self._error = _http_error_from_response(response)
+                        self._error = api_error_from_response(response)
                         self._closed = True
                         self._ready_event.set()
                         return
@@ -198,8 +197,7 @@ class _AsyncStreamConnection:
                 raise
             except Exception as e:
                 if self._is_first_connect:
-                    if self._error is None:
-                        self._error = e
+                    self._error = e
                     self._closed = True
                     self._ready_event.set()
                     return
@@ -219,8 +217,6 @@ class _AsyncStreamConnection:
             if delay > 0:
                 await asyncio.sleep(delay)
 
-        self._ready_event.set()
-
     def _dispatch(self, msg: dict[str, Any]) -> None:
         if msg.get("op") == "sse-init":
             self._init_params = {
@@ -237,20 +233,13 @@ class _AsyncStreamConnection:
         self._on_message(msg)
 
     async def _do_reconnect(self) -> None:
+        # Reconnect errors are caught by the writer/reader's own _on_reconnect
+        # (which stash them into their respective self._error fields and
+        # surface on the next write() / iteration). No connection-layer error
+        # handling needed beyond ensuring the ready gate releases.
         try:
             if self._on_reconnect is not None:
-                await self._on_reconnect()
-        except Exception as e:
-            if self._error is None:
-                self._error = e
+                with contextlib.suppress(Exception):
+                    await self._on_reconnect()
         finally:
             self._ready_event.set()
-
-
-def _http_error_from_response(response: httpx.Response) -> InstantAPIError:
-    try:
-        body: Any = response.json()
-    except ValueError:
-        body = {"type": None, "message": response.text}
-    message = body.get("message", response.text) if isinstance(body, dict) else response.text
-    return InstantAPIError(message, status=response.status_code, body=body)

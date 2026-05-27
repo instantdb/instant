@@ -14,8 +14,9 @@ import asyncio
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 
-from instantdb import AsyncInstant, InstantAPIError, id
+from instantdb import AsyncInstant, InstantAPIError, InstantError, id
 
 # Assumes the connected app has a schema with `goals` and `todos`
 # entities and a `todos` link between them. The starter / examples ship
@@ -372,6 +373,38 @@ async def test_subscribe_query_cleanup_on_context_exit(db: AsyncInstant) -> None
     print("✓ subscribe_query closes connection on context exit")
 
 
+async def test_subscribe_query_reconnects_after_sse_dropped(db: AsyncInstant) -> None:
+    # Verify transparent reconnect: after the first sse-init lands, force-close
+    # the underlying SSE response. The retry loop should re-open the stream;
+    # a transact after the drop should still surface on the same iterator.
+    goal_id = id()
+    try:
+        async with db.subscribe_query({"goals": {"$": {"where": {"id": goal_id}}}}) as sub:
+            initial = await asyncio.wait_for(anext(sub), timeout=5.0)
+            assert initial["type"] == "ok"
+
+            event_source = sub._event_source
+            assert event_source is not None, "expected SSE to be open"
+            await event_source.response.aclose()
+            await asyncio.sleep(0.5)  # let reconnect complete
+
+            await db.transact(db.tx.goals[goal_id].update({"title": "after-reconnect"}))
+
+            # After reconnect we may see an empty post-reconnect snapshot before
+            # the refresh-ok carrying our transact lands. Drain until the title
+            # arrives — the cap protects against a stuck iterator.
+            for _ in range(10):
+                payload = await asyncio.wait_for(anext(sub), timeout=10.0)
+                assert payload["type"] == "ok", f"expected ok, got {payload}"
+                goals = payload["data"]["goals"]
+                if goals and goals[0]["title"] == "after-reconnect":
+                    print(f"✓ subscribe_query reconnected after SSE drop ({goal_id})")
+                    return
+            raise AssertionError("did not see post-reconnect refresh within 10 payloads")
+    finally:
+        await db.transact(db.tx.goals[goal_id].delete())
+
+
 # ---------- streams ----------
 
 
@@ -490,6 +523,180 @@ async def _delete_stream_by_client_id(db: AsyncInstant, client_id: str) -> None:
         await db.transact(db.tx["$streams"][s["id"]].delete())
 
 
+# ---------- webhooks ----------
+
+# A signature + body captured from a real webhook delivery from a localhost
+# Instant server, signed by the kid=503090235 dev key the local Docker image
+# always serves. Reused here for validate_signature; matches the JS test fixture.
+_FIXTURE_SIG_HEADER = (
+    "t=1778610366,kid=503090235,"
+    "v1=b4385e8285de38d22b6d8a6bdd03cc75287e356f1adf48cea257a8e6c056c04e"
+    "f99af7d8e162afcaa07d201e97c7865cc91e552bd5def8f9ed4b52efc5843406"
+)
+_FIXTURE_BODY = (
+    b'{"payloadUrl":"http://localhost:8888/webhooks/payload/f717e056-94af-'
+    b'4556-9eec-288fb27847a1/4e119bf6-ef64-4e86-bf26-49a18dec54b8/0/328/'
+    b'5307A1A0","token":"eyJraWQiOiI1MDMwOTAyMzUiLCJ0eXAiOiJKV1QiLCJhbGci'
+    b"OiJFZERTQSJ9.eyJpc3MiOiJodHRwOi8vbG9jYWxob3N0Ojg4ODgiLCJzdWIiOiJmNz"
+    b"E3ZTA1Ni05NGFmLTQ1NTYtOWVlYy0yODhmYjI3ODQ3YTEiLCJhcHAtaWQiOiJmNzE3Z"
+    b"TA1Ni05NGFmLTQ1NTYtOWVlYy0yODhmYjI3ODQ3YTEiLCJleHAiOjE3Nzg2MTM5NjYs"
+    b"ImlzbiI6IjAvMzI4LzUzMDdBMUEwIiwid2ViaG9vay1pZCI6IjRlMTE5YmY2LWVmNjQ"
+    b"tNGU4Ni1iZjI2LTQ5YTE4ZGVjNTRiOCJ9.SsI2iZ4rD_sDjUcgqyJ0agGXMgjTRU5PK"
+    b'gcEQsE-txp5jTNoVouQU-GneTrKR2GmleETEzFrpf_v4HAnCDYABw"}'
+)
+_FIXTURE_RECEIVED_AT = 1778610366
+
+
+async def test_webhooks_create_list_delete(db: AsyncInstant) -> None:
+    created = await db.webhooks.manager.create(
+        url="https://example.com/instant",
+        namespaces=["goals"],
+        actions=["create"],
+    )
+    webhook_id = created["id"]
+    try:
+        listed = await db.webhooks.manager.list()
+        assert any(w["id"] == webhook_id for w in listed), f"created not in list: {listed}"
+    finally:
+        deleted = await db.webhooks.manager.delete(webhook_id)
+        assert deleted["id"] == webhook_id, f"delete returned wrong: {deleted}"
+
+    after = await db.webhooks.manager.list()
+    assert not any(w["id"] == webhook_id for w in after), "still present after delete"
+    print(f"✓ webhooks create/list/delete ({webhook_id})")
+
+
+async def test_webhooks_update_changes_fields(db: AsyncInstant) -> None:
+    created = await db.webhooks.manager.create(
+        url="https://example.com/v1",
+        namespaces=["goals"],
+        actions=["create"],
+    )
+    webhook_id = created["id"]
+    try:
+        updated = await db.webhooks.manager.update(
+            webhook_id,
+            url="https://example.com/v2",
+            actions=["create", "update", "delete"],
+        )
+        assert updated["sink"]["url"] == "https://example.com/v2", f"url not updated: {updated}"
+        assert set(updated["actions"]) == {"create", "update", "delete"}, (
+            f"actions not updated: {updated['actions']}"
+        )
+        print(f"✓ webhooks update ({webhook_id})")
+    finally:
+        await db.webhooks.manager.delete(webhook_id)
+
+
+async def test_webhooks_enable_disable_round_trip(db: AsyncInstant) -> None:
+    created = await db.webhooks.manager.create(
+        url="https://example.com/instant",
+        namespaces=["goals"],
+        actions=["create"],
+    )
+    webhook_id = created["id"]
+    try:
+        assert created["status"] == "active", f"new webhook not active: {created}"
+
+        disabled = await db.webhooks.manager.disable(webhook_id, reason="paused for migration")
+        assert disabled["status"] == "disabled", f"not disabled: {disabled}"
+        assert disabled["disabledReason"] == "paused for migration", (
+            f"disabledReason missing: {disabled}"
+        )
+
+        enabled = await db.webhooks.manager.enable(webhook_id)
+        assert enabled["status"] == "active", f"not re-enabled: {enabled}"
+        print(f"✓ webhooks disable→enable round-trip ({webhook_id})")
+    finally:
+        await db.webhooks.manager.delete(webhook_id)
+
+
+async def test_webhooks_get_event_and_payload(db: AsyncInstant) -> None:
+    created = await db.webhooks.manager.create(
+        url="https://example.com/instant",
+        namespaces=["goals"],
+        actions=["create", "update", "delete"],
+    )
+    webhook_id = created["id"]
+    goal_id = id()
+    try:
+        await db.transact(db.tx.goals[goal_id].create({"title": "trigger-webhook"}))
+        events: list[dict] = []
+        for _ in range(40):
+            page = await db.webhooks.manager.list_events(webhook_id)
+            events = page["events"]
+            if events:
+                break
+            await asyncio.sleep(0.25)
+        assert events, "no events queued for the webhook"
+        isn = events[0]["isn"]
+        event = await db.webhooks.manager.get_event(webhook_id, isn=isn)
+        assert event["isn"] == isn, f"isn mismatch: {event}"
+        assert event["status"] in {"pending", "processing", "success", "error", "failed"}, (
+            f"unexpected status: {event}"
+        )
+
+        payload = await db.webhooks.manager.get_payload(webhook_id, isn=isn)
+        assert isinstance(payload.get("data"), list), f"data not a list: {payload}"
+        assert isinstance(payload.get("idempotencyKey"), str), f"idempotencyKey missing: {payload}"
+        print(f"✓ webhooks get_event + get_payload ({webhook_id} / {isn})")
+    finally:
+        await db.transact(db.tx.goals[goal_id].delete())
+        await db.webhooks.manager.delete(webhook_id)
+
+
+async def test_webhooks_resend_event(db: AsyncInstant) -> None:
+    created = await db.webhooks.manager.create(
+        url="https://example.com/instant",
+        namespaces=["goals"],
+        actions=["create", "update", "delete"],
+    )
+    webhook_id = created["id"]
+    goal_id = id()
+    try:
+        await db.transact(db.tx.goals[goal_id].create({"title": "trigger"}))
+        page: dict[str, Any] = {"events": []}
+        for _ in range(40):
+            page = await db.webhooks.manager.list_events(webhook_id)
+            if page["events"]:
+                break
+            await asyncio.sleep(0.25)
+        assert page["events"], "no event to resend"
+        isn = page["events"][0]["isn"]
+
+        resent = await db.webhooks.manager.resend_event(webhook_id, isn=isn)
+        assert resent["isn"] == isn, f"resent isn mismatch: {resent}"
+        print(f"✓ webhooks resend_event ({webhook_id} / {isn})")
+    finally:
+        await db.transact(db.tx.goals[goal_id].delete())
+        await db.webhooks.manager.delete(webhook_id)
+
+
+async def test_webhooks_validate_signature_with_fixture(db: AsyncInstant) -> None:
+    # Captured fixture is signed by the localhost dev key; the local server
+    # we're talking to serves that same key, so validate_signature should pass.
+    db.webhooks.validate_signature(
+        signature_header=_FIXTURE_SIG_HEADER,
+        body=_FIXTURE_BODY,
+        received_at=_FIXTURE_RECEIVED_AT,
+    )
+    print("✓ webhooks validate_signature accepted the fixture")
+
+
+async def test_webhooks_validate_signature_rejects_tampered(db: AsyncInstant) -> None:
+    tampered = _FIXTURE_BODY.replace(b"5307A1A0", b"5307A1A1")
+    try:
+        db.webhooks.validate_signature(
+            signature_header=_FIXTURE_SIG_HEADER,
+            body=tampered,
+            received_at=_FIXTURE_RECEIVED_AT,
+        )
+    except InstantError as e:
+        print(f"✓ webhooks validate_signature rejected tampered body: {e}")
+    else:
+        raise AssertionError("expected InstantError on tampered body")
+
+
 # ---------- entry ----------
 
 
@@ -537,6 +744,7 @@ async def main() -> None:
         # await test_subscribe_query_emits_live_update(db)
         # await test_subscribe_query_emits_error_on_bad_creds(db)
         # await test_subscribe_query_cleanup_on_context_exit(db)
+        # await test_subscribe_query_reconnects_after_sse_dropped(db)
         #
         # streams:
         # await test_stream_write_then_read_by_client_id(db)
@@ -544,6 +752,15 @@ async def main() -> None:
         # await test_stream_read_with_byte_offset_resumes_mid_stream(db)
         # await test_streams_queryable_via_query_api(db)
         # await test_writer_reconnects_after_sse_dropped(db)
+        #
+        # webhooks:
+        # await test_webhooks_create_list_delete(db)
+        # await test_webhooks_update_changes_fields(db)
+        # await test_webhooks_enable_disable_round_trip(db)
+        # await test_webhooks_get_event_and_payload(db)
+        # await test_webhooks_resend_event(db)
+        # await test_webhooks_validate_signature_with_fixture(db)
+        # await test_webhooks_validate_signature_rejects_tampered(db)
         pass
 
 
