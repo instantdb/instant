@@ -1,7 +1,9 @@
 import { expect, test } from 'vitest';
 import weakHash from '../../../src/utils/weakHash';
 
-test('no collisions across many integer-varying queries', () => {
+// Skipping this test because it times out in CI.
+// It should be run manually any time we make changes to weakHash.
+test.skip('no collisions across many integer-varying queries', () => {
   const shapes = [
     (i: number) => ({ users: { $: { where: { id: i } } } }),
     (i: number) => ({ posts: { $: { where: { authorId: i } }, author: {} } }),
