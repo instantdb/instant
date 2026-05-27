@@ -9,6 +9,7 @@ streams require `file_size=`.
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import IO, NamedTuple
@@ -56,9 +57,15 @@ async def _prepare_upload(file: FileSource, file_size: int | None) -> _UploadBod
         return _UploadBody(bytes(file), len(file), None)
 
     if isinstance(file, Path):
-        size = file.stat().st_size
-        _check_size_match(file_size, size, str(file))
+        # Open first, fstat the fd: stat-then-open would race a concurrent
+        # edit and send the wrong content-length.
         fp = file.open("rb")
+        try:
+            size = os.fstat(fp.fileno()).st_size
+            _check_size_match(file_size, size, str(file))
+        except BaseException:
+            fp.close()
+            raise
         return _UploadBody(_aiter_file(fp), size, fp.close)
 
     if hasattr(file, "read"):

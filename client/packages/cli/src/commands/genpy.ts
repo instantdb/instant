@@ -37,6 +37,11 @@ export const genpyCommand = ({ outDir }: { outDir?: string }) =>
       });
     }
 
+    const collision = findIdentifierCollisions(localSchemaFile.schema);
+    if (collision) {
+      return yield* SchemaValidationError.make({ message: collision });
+    }
+
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
     // Default: write alongside the schema file. `--out-dir` overrides for
@@ -157,6 +162,41 @@ function safePyIdent(name: string): string {
   if (safe === '' || /^[0-9]/.test(safe)) safe = '_' + safe;
   if (PY_KEYWORDS.has(safe)) safe += '_';
   return safe;
+}
+
+// Python silently keeps the last duplicate class attribute, dropping
+// the first field's alias mapping. Reject up front instead.
+function findIdentifierCollisions(schema: SchemaLike): string | undefined {
+  for (const entName of Object.keys(schema.entities)) {
+    const seen = new Map<string, string>([['id', 'implicit `id`']]);
+    const check = (rawKey: string, kind: string): string | undefined => {
+      const safe = safePyIdent(rawKey);
+      const existing = seen.get(safe);
+      if (existing !== undefined) {
+        return (
+          `Entity "${entName}": ${existing} and ${kind} "${rawKey}" both ` +
+          `map to the Python identifier "${safe}". Rename one in your schema.`
+        );
+      }
+      seen.set(safe, `${kind} "${rawKey}"`);
+      return undefined;
+    };
+    for (const attrName of Object.keys(schema.entities[entName].attrs)) {
+      const err = check(attrName, 'attribute');
+      if (err) return err;
+    }
+    for (const link of Object.values(schema.links)) {
+      if (link.forward.on === entName) {
+        const err = check(link.forward.label, 'link');
+        if (err) return err;
+      }
+      if (link.reverse.on === entName) {
+        const err = check(link.reverse.label, 'link');
+        if (err) return err;
+      }
+    }
+  }
+  return undefined;
 }
 
 function className(entName: string): string {

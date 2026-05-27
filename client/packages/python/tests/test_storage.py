@@ -49,6 +49,29 @@ async def test_path_with_mismatched_file_size_raises(tmp_path: Path):
         await _prepare_upload(p, 999)
 
 
+async def test_path_closes_handle_when_size_check_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    p = tmp_path / "data.bin"
+    p.write_bytes(b"hello")
+
+    opened: list = []
+    real_open = Path.open
+
+    def tracking_open(self, *args, **kwargs):
+        fp = real_open(self, *args, **kwargs)
+        opened.append(fp)
+        return fp
+
+    monkeypatch.setattr(Path, "open", tracking_open)
+
+    with pytest.raises(InstantError, match="doesn't match"):
+        await _prepare_upload(p, 999)
+
+    assert len(opened) == 1
+    assert opened[0].closed, "handle leaked when size check failed"
+
+
 # ---------- _prepare_upload: seekable file-likes ----------
 
 
