@@ -39,6 +39,7 @@ const main = async () => {
 
   const [scopedAppName, appDir] = parseNameAndPath(project.appName);
 
+  const isPython = project.base === 'python-script';
   const pkgManager = getUserPkgManager(project.base);
 
   const projectDir = await scaffoldBase(project, appDir);
@@ -74,23 +75,26 @@ const main = async () => {
     );
   }
 
-  // Update package.json with app name
-  const pkgJson = fs.readJSONSync(
-    path.join(projectDir, 'package.json'),
-  ) as PackageJson;
-  pkgJson.name = scopedAppName;
-  if (pkgManager !== 'bun') {
-    const { stdout } = await execa(pkgManager, ['-v'], {
-      cwd: projectDir,
+  if (!isPython) {
+    // Update package.json with app name
+    const pkgJson = fs.readJSONSync(
+      path.join(projectDir, 'package.json'),
+    ) as PackageJson;
+    pkgJson.name = scopedAppName;
+    if (pkgManager !== 'bun') {
+      const { stdout } = await execa(pkgManager, ['-v'], {
+        cwd: projectDir,
+      });
+      pkgJson.packageManager = `${pkgManager}@${stdout.trim()}`;
+    }
+
+    fs.writeJSONSync(path.join(projectDir, 'package.json'), pkgJson, {
+      spaces: 2,
     });
-    pkgJson.packageManager = `${pkgManager}@${stdout.trim()}`;
+
+    await runInstallCommand(pkgManager, projectDir);
   }
 
-  fs.writeJSONSync(path.join(projectDir, 'package.json'), pkgJson, {
-    spaces: 2,
-  });
-
-  await runInstallCommand(getUserPkgManager(project.base), projectDir);
   if (project.createRepo) {
     await initializeGit(projectDir);
   }
@@ -102,33 +106,63 @@ const main = async () => {
 
   outro(`Done!`);
 
-  const startScript = project.base === 'expo' ? 'start' : 'dev';
-
-  if (possibleAppTokenPair) {
-    // already linked
-    console.log(`
+  if (isPython) {
+    if (possibleAppTokenPair) {
+      console.log(`
   🎉 Success! Your project is ready to go!
 
   To get started:
     1. ${getCodeColors(theme, 'cd ' + appDir)}
-    2. ${getCodeColors(theme, getUserPkgManager(project.base) + ` run ` + startScript)}
+    2. ${getCodeColors(theme, 'uv sync')}
+    3. ${getCodeColors(theme, 'uv run --env-file .env python main.py')}
   `);
-    if (possibleAppTokenPair.approach === 'ephemeral') {
-      console.log(`
+      if (possibleAppTokenPair.approach === 'ephemeral') {
+        console.log(`
   An ephemeral app has been created and added to your .env file.
   It will expire in two weeks. For a permanent app, sign in and use ${getCodeColors(theme, 'npx instant-cli claim')}
 `);
-    }
-  } else {
-    console.log(`
+      }
+    } else {
+      console.log(`
   🎉 Success! Your project is ready to go!
 
   To get started:
     1. ${getCodeColors(theme, 'cd ' + appDir)}
     2. Create a new app on ${chalk.underline('www.instantdb.com')}
     3. Add your APP_ID to the .env file
-    4. ${getCodeColors(theme, getUserPkgManager(project.base) + ` run ` + startScript)}
+    4. ${getCodeColors(theme, 'uv sync')}
+    5. ${getCodeColors(theme, 'uv run --env-file .env python main.py')}
   `);
+    }
+  } else {
+    const startScript = project.base === 'expo' ? 'start' : 'dev';
+
+    if (possibleAppTokenPair) {
+      // already linked
+      console.log(`
+  🎉 Success! Your project is ready to go!
+
+  To get started:
+    1. ${getCodeColors(theme, 'cd ' + appDir)}
+    2. ${getCodeColors(theme, pkgManager + ` run ` + startScript)}
+  `);
+      if (possibleAppTokenPair.approach === 'ephemeral') {
+        console.log(`
+  An ephemeral app has been created and added to your .env file.
+  It will expire in two weeks. For a permanent app, sign in and use ${getCodeColors(theme, 'npx instant-cli claim')}
+`);
+      }
+    } else {
+      console.log(`
+  🎉 Success! Your project is ready to go!
+
+  To get started:
+    1. ${getCodeColors(theme, 'cd ' + appDir)}
+    2. Create a new app on ${chalk.underline('www.instantdb.com')}
+    3. Add your APP_ID to the .env file
+    4. ${getCodeColors(theme, pkgManager + ` run ` + startScript)}
+  `);
+    }
   }
 
   process.stdout.write(SHOW_CURSOR);

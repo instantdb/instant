@@ -15,6 +15,7 @@ const envNames: Record<Project['base'], string> = {
   'tanstack-start-with-tanstack-query': 'VITE_INSTANT_APP_ID',
   'vercel-ai-sdk': 'NEXT_PUBLIC_INSTANT_APP_ID',
   'ai-chat': 'NEXT_PUBLIC_INSTANT_APP_ID',
+  'python-script': 'INSTANT_APP_ID',
 };
 
 export const applyEnvFile = (
@@ -25,7 +26,13 @@ export const applyEnvFile = (
 ) => {
   const envPath = path.join(projectDir, '.env');
   const envVarName = envNames[project.base];
-  const envContent = `${envVarName}=${appId}\nINSTANT_APP_ADMIN_TOKEN=${adminToken}`;
+  // The Python SDK reads INSTANT_ADMIN_TOKEN; the JS admin SDK reads
+  // INSTANT_APP_ADMIN_TOKEN.
+  const adminVarName =
+    project.base === 'python-script'
+      ? 'INSTANT_ADMIN_TOKEN'
+      : 'INSTANT_APP_ADMIN_TOKEN';
+  const envContent = `${envVarName}=${appId}\n${adminVarName}=${adminToken}`;
 
   fs.writeFileSync(envPath, envContent);
 };
