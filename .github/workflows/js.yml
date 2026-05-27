@@ -100,6 +100,8 @@ jobs:
     name: Build & Test packages
     timeout-minutes: 15
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
     needs: [ detect_changes ]
     if: needs.detect_changes.outputs.client_did_change == 'true'
     steps:
@@ -141,10 +143,6 @@ jobs:
         working-directory: client
         run: pnpm i --frozen-lockfile --prefer-offline
 
-      - name: Install Browser
-        working-directory: client/packages/core
-        run: pnpm exec playwright install chromium --with-deps
-        
       - name: Build packages
         working-directory: client
         run: pnpm run build-packages
