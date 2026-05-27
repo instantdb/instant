@@ -20,6 +20,7 @@ import { useRouter } from 'next/router';
 import { ReactElement, useContext, useState } from 'react';
 import { v4 } from 'uuid';
 import { usePostHog } from 'posthog-js/react';
+import { personalWorkspaceId, workspaceQuery } from '@/lib/dashRoute';
 
 const Page: NextPageWithLayout = asClientOnlyPage(NewApp);
 
@@ -32,7 +33,7 @@ function NewApp() {
 
   function onCreateApp(r: { name: string }) {
     const orgId =
-      dashResponse.data.currentWorkspaceId === 'personal'
+      dashResponse.data.currentWorkspaceId === personalWorkspaceId
         ? undefined
         : dashResponse.data.currentWorkspaceId;
     const existingApps = dashResponse.data.apps;
@@ -64,9 +65,15 @@ function NewApp() {
       });
     });
     dashResponse.addNewAppOptimistically(promise, app);
-    router.replace(
-      `/dash?app=${app.id}&t=home&s=main&org=${dashResponse.data.currentWorkspaceId}`,
-    );
+    router.replace({
+      pathname: '/dash',
+      query: {
+        ...workspaceQuery(dashResponse.data.currentWorkspaceId),
+        app: app.id,
+        t: 'home',
+        s: 'main',
+      },
+    });
   }
   return (
     <>

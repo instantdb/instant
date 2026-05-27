@@ -1,6 +1,6 @@
 import { useDashFetch } from '@/lib/hooks/useDashFetch';
 import Head from 'next/head';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect } from 'react';
 import { cn, FullscreenLoading } from '../ui';
 import { FullscreenErrorMessage } from '@/pages/dash';
 import { useAuthToken } from '@/lib/auth';
@@ -12,34 +12,24 @@ import { createInitializedContext } from '@/lib/createInitializedContext';
 import { TopBar } from './TopBar';
 import { useWorkspace } from '@/lib/hooks/useWorkspace';
 import { InstantApp } from '@/lib/types';
-import { useReadyRouter } from '../clientOnlyPage';
 import { useDarkMode } from './DarkModeToggle';
 import { Toaster } from '@instantdb/components';
 import { useRouter } from 'next/router';
+import { parseAsString, useQueryState } from 'nuqs';
+import { personalWorkspaceId } from '@/lib/dashRoute';
 
 export type FetchedDash = ReturnType<typeof useFetchedDash>;
-
-const getInitialWorkspace = () => {
-  // pull from the "org" query param
-  const org = new URLSearchParams(window.location.search).get('org');
-
-  if (org) return org;
-  if (!window) return 'personal';
-
-  const possibleSaved = window.localStorage.getItem('workspace');
-
-  if (possibleSaved) return possibleSaved;
-  return 'personal';
-};
 
 export const { use: useFetchedDash, provider: DashFetchProvider } =
   createInitializedContext(
     'dashResponse',
     (args?: { workspaceId?: string | null | undefined }) => {
       const dashResult = useDashFetch();
-      const [currentWorkspaceId, setWorkspace] = useState<string | 'personal'>(
-        args?.workspaceId || getInitialWorkspace(),
+      const [orgParam, setOrgParam] = useQueryState(
+        'org',
+        parseAsString.withDefault(personalWorkspaceId),
       );
+      const currentWorkspaceId = args?.workspaceId || orgParam;
 
       const workspace = useWorkspace(dashResult, currentWorkspaceId);
 
@@ -48,42 +38,24 @@ export const { use: useFetchedDash, provider: DashFetchProvider } =
         await workspace.mutate();
       };
 
-      const router = useReadyRouter();
+      const setWorkspace = useCallback(
+        (workspaceId: string) => {
+          setOrgParam(workspaceId === personalWorkspaceId ? null : workspaceId);
+        },
+        [setOrgParam],
+      );
 
       useEffect(() => {
         if (workspace.error) {
-          setWorkspace('personal');
+          setWorkspace(personalWorkspaceId);
         }
-      }, [workspace.error]);
+      }, [setWorkspace, workspace.error]);
 
       useEffect(() => {
         if (typeof window === 'undefined') return;
 
         window.localStorage.setItem('workspace', currentWorkspaceId);
-
-        // Use Next.js router for navigation instead of direct history manipulation
-        const currentUrl = new URL(window.location.href);
-
-        // set the query param
-        // if its personal remove the query param
-        if (currentWorkspaceId === 'personal') {
-          if (currentUrl.searchParams.has('org')) {
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.delete('org');
-            router.replace(newUrl.pathname + newUrl.search, undefined, {
-              shallow: true,
-            });
-          }
-        } else {
-          if (currentUrl.searchParams.get('org') !== currentWorkspaceId) {
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.set('org', currentWorkspaceId);
-            router.replace(newUrl.pathname + newUrl.search, undefined, {
-              shallow: true,
-            });
-          }
-        }
-      }, [currentWorkspaceId, router.pathname]);
+      }, [currentWorkspaceId]);
 
       const addNewAppOptimistically = (
         promise: Promise<any>,

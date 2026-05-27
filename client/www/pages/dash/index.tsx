@@ -92,6 +92,7 @@ import {
   useQueryStates,
 } from 'nuqs';
 import { useExplorerState } from '@/lib/hooks/useExplorerState';
+import { personalWorkspaceId, workspaceQuery } from '@/lib/dashRoute';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -265,15 +266,17 @@ function Dashboard() {
   const fetchedDash = useFetchedDash();
   const posthog = usePostHog();
   const apps = fetchedDash.data.apps;
+  const currentWorkspaceId = fetchedDash.data.currentWorkspaceId;
+  const currentWorkspaceQuery = workspaceQuery(currentWorkspaceId);
 
   const appId =
     (router.query.app as string) ||
-    getInitialApp(apps, fetchedDash.data.currentWorkspaceId);
+    getInitialApp(apps, currentWorkspaceId);
 
   const screen = ((router.query.s as string) || 'main') as Screen;
   const tab = screenTab(screen, router.query.t as string);
 
-  const dashResponse = useFetchedDash();
+  const dashResponse = fetchedDash;
   const cliNormalTicket = router.query.ticket as string | undefined;
   const cliOauthTicket = router.query[cliOauthParamName] as string | undefined;
 
@@ -298,7 +301,10 @@ function Dashboard() {
   // backwards compatible routing
   useEffect(() => {
     if (screen === 'new') {
-      router.replace('/dash/new');
+      router.replace({
+        pathname: '/dash/new',
+        query: currentWorkspaceQuery,
+      });
       return;
     }
     if (screen === 'invites') {
@@ -342,13 +348,14 @@ function Dashboard() {
     if (!router.query.app || !router.query.t) {
       router.replace({
         query: {
+          ...currentWorkspaceQuery,
           s: 'main',
           app: app.id,
           t: tab,
         },
       });
     }
-  }, [app, router.query.app]);
+  }, [app, currentWorkspaceId, router.query.app]);
 
   useEffect(() => {
     if (screen && screen !== 'main') return;
@@ -356,7 +363,7 @@ function Dashboard() {
     const isAppIdValid = Boolean(apps.find((a) => a.id === appId));
     if (appId && isAppIdValid) return;
 
-    const lastApp = getLocallySavedApp(dashResponse.data.currentWorkspaceId);
+    const lastApp = getLocallySavedApp(currentWorkspaceId);
 
     const lastAppId =
       lastApp && Boolean(apps.find((a) => a.id === lastApp.id))
@@ -372,6 +379,7 @@ function Dashboard() {
 
       router.replace({
         query: {
+          ...currentWorkspaceQuery,
           s: 'main',
           app: defaultAppId,
           t: tab,
@@ -380,7 +388,7 @@ function Dashboard() {
 
       setLocallySavedApp({
         id: defaultAppId,
-        orgId: dashResponse.data.currentWorkspaceId,
+        orgId: currentWorkspaceId,
       });
     };
 
@@ -396,15 +404,20 @@ function Dashboard() {
           if (cancel) return;
           if (
             res?.app?.creator_id &&
-            dashResponse.data?.currentWorkspaceId &&
-            dashResponse.data?.currentWorkspaceId !== 'personal'
+            currentWorkspaceId &&
+            currentWorkspaceId !== personalWorkspaceId
           ) {
-            dashResponse.setWorkspace('personal');
+            router.replace({
+              query: {
+                s: 'main',
+                app: appId,
+                t: tab,
+              },
+            });
           } else if (
             res?.app?.org_id &&
             res?.app?.org_id !== router.query.org
           ) {
-            dashResponse.setWorkspace(res.app.org_id);
             router.replace({
               query: {
                 s: 'main',
@@ -429,7 +442,7 @@ function Dashboard() {
     }
 
     replaceDefault();
-  }, [dashResponse.data?.currentWorkspaceId, appId, router.query.org]);
+  }, [currentWorkspaceId, appId, router.query.org]);
 
   useEffect(() => {
     if (!app) return;
@@ -454,11 +467,10 @@ function Dashboard() {
     q: { s: string; app?: string; t?: string },
     opts?: { cb?: () => void; trackClick?: boolean },
   ) {
-    // TODO: update for orgs
     if (q.app)
       setLocallySavedApp({
         id: q.app,
-        orgId: dashResponse.data.currentWorkspaceId,
+        orgId: currentWorkspaceId,
       });
 
     // Track tab navigation only for user-initiated clicks
@@ -471,7 +483,10 @@ function Dashboard() {
 
     router
       .push({
-        query: q,
+        query: {
+          ...currentWorkspaceQuery,
+          ...q,
+        },
       })
       .then(() => {
         if (opts?.cb) {
@@ -540,7 +555,10 @@ function Dashboard() {
     router.replace(
       {
         pathname: '/dash/new',
-        query: cliTicketQuery,
+        query: {
+          ...currentWorkspaceQuery,
+          ...cliTicketQuery,
+        },
       },
       undefined,
       { shallow: true },

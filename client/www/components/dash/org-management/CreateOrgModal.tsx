@@ -56,8 +56,10 @@ export const CreateOrgModal = ({
       };
     };
 
-    dash.setWorkspace(createdOrg.org.id);
-    router.push('/dash/org?org=' + createdOrg.org.id);
+    router.push({
+      pathname: '/dash/org',
+      query: { org: createdOrg.org.id },
+    });
 
     dialog.onClose();
   };

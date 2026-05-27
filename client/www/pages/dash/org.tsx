@@ -13,7 +13,7 @@ import config from '@/lib/config';
 import { BuildingOffice2Icon } from '@heroicons/react/24/outline';
 import Head from 'next/head';
 import { parseAsStringEnum, useQueryState } from 'nuqs';
-import { ReactElement } from 'react';
+import { ReactElement, useEffect } from 'react';
 import { isMinRole, Role } from '.';
 import { NextPageWithLayout } from '../_app';
 import { capitalize } from 'lodash';
@@ -22,6 +22,7 @@ import useLocalStorage from '@/lib/hooks/useLocalStorage';
 const OrgSettingsPage: NextPageWithLayout = () => {
   const fetchedDash = useFetchedDash();
   const router = useReadyRouter();
+  const currentWorkspaceId = fetchedDash.data.currentWorkspaceId;
 
   const [tab, setTab] = useQueryState(
     'tab',
@@ -32,15 +33,19 @@ const OrgSettingsPage: NextPageWithLayout = () => {
   const [hideOrgId, setHideOrgId] = useLocalStorage('hide_org_id', false);
 
   const billingInfo = useAuthedFetch(
-    `${config.apiURI}/dash/orgs/${fetchedDash.data.currentWorkspaceId}/billing`,
+    currentWorkspaceId === 'personal'
+      ? ''
+      : `${config.apiURI}/dash/orgs/${currentWorkspaceId}/billing`,
   );
 
-  if (
-    fetchedDash.data.currentWorkspaceId === 'personal' ||
-    org.type === 'personal'
-  ) {
-    router.replace('/dash');
-    return;
+  useEffect(() => {
+    if (currentWorkspaceId === 'personal' || org.type === 'personal') {
+      router.replace('/dash');
+    }
+  }, [currentWorkspaceId, org.type, router]);
+
+  if (currentWorkspaceId === 'personal' || org.type === 'personal') {
+    return null;
   }
 
   const myRole = org.org.role as Role;

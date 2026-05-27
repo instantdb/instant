@@ -85,6 +85,9 @@ export const useWorkspace = (
         token: token,
       });
     },
+    // Keep showing the current org's data while the next one loads so
+    // switching workspaces doesn't flash the fullscreen loading state.
+    { keepPreviousData: true },
   );
 
   const optimistic: APIResponse<Workspace>['optimisticUpdate'] = (

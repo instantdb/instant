@@ -12,6 +12,7 @@ import { errorToast } from '@/lib/toast';
 import confetti from 'canvas-confetti';
 import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
 import Link from 'next/link';
+import { useFetchedDash } from './MainDashLayout';
 
 export const GB_1 = 1024 * 1024 * 1024;
 export const GB_10 = 10 * GB_1;
@@ -99,6 +100,7 @@ export function ProgressBar({ width }: { width: number }) {
 export default function Billing({ appId }: { appId: string }) {
   const token = useContext(TokenContext);
   const confettiRef = useRef<HTMLDivElement>(null);
+  const dash = useFetchedDash();
 
   const onUpgrade = async (
     e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
@@ -129,7 +131,15 @@ export default function Billing({ appId }: { appId: string }) {
       <div className="">
         <div className="parent rounded-sm p-3">
           <div className="p-2">This app is part of a paid organization.</div>
-          <Link href={'/dash/org?tab=billing'}>
+          <Link
+            href={{
+              pathname: '/dash/org',
+              query: {
+                org: dash.data.currentWorkspaceId,
+                tab: 'billing',
+              },
+            }}
+          >
             <Button>Manage Organization Billing</Button>
           </Link>
         </div>

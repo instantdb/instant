@@ -5,21 +5,13 @@ import Link from 'next/link';
 import {
   ArrowTopRightOnSquareIcon,
   EnvelopeIcon,
-  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useFetchedDash } from './MainDashLayout';
 import { DarkModeToggle } from './DarkModeToggle';
-import { useReadyRouter } from '../clientOnlyPage';
 import { isSelfHosted } from '@/lib/config';
-import useLocalStorage from '@/lib/hooks/useLocalStorage';
-import { getRole, isMinRole } from '@/pages/dash';
 
 export const TopBar: React.FC<{}> = () => {
   const dash = useFetchedDash();
-  const router = useReadyRouter();
-  const appId = router.query.app as string | undefined;
-  const app = appId ? dash.data.apps.find((a) => a.id === appId) : undefined;
-  // Use the workspace from the dash context
   const orgId =
     dash.data?.currentWorkspaceId !== 'personal'
       ? dash.data?.currentWorkspaceId
@@ -29,6 +21,7 @@ export const TopBar: React.FC<{}> = () => {
     : orgId
       ? `/docs?org=${orgId}`
       : '/docs';
+  const newAppUrl = orgId ? `/dash/new?org=${orgId}` : '/dash/new';
 
   const hasInvites = (dash.data.invites || []).length > 0;
 
@@ -57,7 +50,7 @@ export const TopBar: React.FC<{}> = () => {
             <ArrowTopRightOnSquareIcon className="h-4 w-4" />
           </Link>
           <DarkModeToggle />
-          <Link href={'/dash/new'}>
+          <Link href={newAppUrl}>
             <Button size="mini" variant="primary">
               <PlusIcon height={14} /> New app
             </Button>

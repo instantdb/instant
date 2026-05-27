@@ -75,7 +75,6 @@ export const ProfilePanel = () => {
               >
                 <button
                   onClick={async () => {
-                    dashResponse.setWorkspace('personal');
                     router.push('/dash');
                     close();
                   }}
@@ -109,7 +108,6 @@ export const ProfilePanel = () => {
                 >
                   <button
                     onClick={() => {
-                      dashResponse.setWorkspace(org.id);
                       router.push({
                         pathname: '/dash',
                         query: { org: org.id },
@@ -132,9 +130,11 @@ export const ProfilePanel = () => {
                     <Tooltip>
                       <TooltipTrigger onClick={() => {}}>
                         <Link
-                          href="/dash/org"
+                          href={{
+                            pathname: '/dash/org',
+                            query: { org: org.id },
+                          }}
                           onClick={() => {
-                            dashResponse.setWorkspace(org.id);
                             close();
                           }}
                         >
