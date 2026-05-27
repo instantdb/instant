@@ -34,6 +34,28 @@ jobs:
         working-directory: client/packages/python
         run: uv sync --python 3.10
 
+      # Regenerate _sync/ first so a stale codegen fails with the right
+      # diagnostic ("run make unasync") rather than masquerading as a sync
+      # test failure in the next step.
+      - name: Verify _sync/ is up to date with _async/
+        working-directory: client/packages/python
+        run: |
+          make unasync
+          # --porcelain catches both modifications and new files (which a
+          # plain `git diff --exit-code` would miss for untracked paths).
+          if [ -n "$(git status --porcelain src/instantdb/_sync/)" ]; then
+            echo "❌ Generated src/instantdb/_sync/ is stale."
+            echo ""
+            echo "Run 'make unasync' locally and commit the regenerated files."
+            echo ""
+            echo "--- git status ---"
+            git status --short src/instantdb/_sync/
+            echo ""
+            echo "--- git diff (tracked changes) ---"
+            git --no-pager diff src/instantdb/_sync/
+            exit 1
+          fi
+
       - name: Run check (ruff + mypy + pytest)
         working-directory: client/packages/python
         run: make check

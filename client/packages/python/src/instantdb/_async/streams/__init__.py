@@ -1,5 +1,13 @@
 """Durable append-only byte streams over bidirectional SSE.
 
+Async-only — the whole `_async/streams/` subtree is listed in ASYNC_ONLY
+in scripts/run_unasync.py. The connection layer runs an SSE receive task
+in parallel with user-facing `write()` calls, coordinates via
+`asyncio.Queue` / `Event` / `Lock` / `Future`, and reconnects with a
+`stream-flushed` ready-gate. unasync's token-rewrite model has no clean
+translation for these patterns; a threading-based parallel implementation
+would be the v1.1+ option if user signal warrants it.
+
 Usage:
     async with adb.streams.write(client_id="...") as writer:
         await writer.write("chunk one")

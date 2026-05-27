@@ -63,7 +63,7 @@ def test_resolve_returns_none_when_nothing_matches():
 # ---------- process_payload ----------
 
 
-async def test_process_payload_dispatches_async_handlers_concurrently():
+async def test_process_payload_dispatches_in_record_order():
     seen = []
 
     async def on_create(record):
@@ -84,8 +84,10 @@ async def test_process_payload_dispatches_async_handlers_concurrently():
     async with AsyncInstant(app_id="app", admin_token="abc") as db:
         await db.webhooks.process_payload(handlers, payload)
 
-    assert ("create", "a") in seen
-    assert ("default", "b") in seen
+    # Sequential dispatch preserves payload order. (Switched from
+    # asyncio.gather to await-in-loop so the unasynced sync flavor doesn't
+    # silently swallow a stray async handler — see spec § Receiver.)
+    assert seen == [("create", "a"), ("default", "b")]
 
 
 async def test_process_payload_propagates_handler_exception():

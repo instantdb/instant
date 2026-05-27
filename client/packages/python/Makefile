@@ -1,4 +1,4 @@
-.PHONY: install fmt lint typecheck test check build clean
+.PHONY: install fmt lint typecheck test check build clean unasync
 
 install:
 	uv sync
@@ -20,6 +20,11 @@ check: lint typecheck test
 
 build:
 	uv build
+
+unasync:
+	uv run python scripts/run_unasync.py
+	uv run ruff check --fix --select I src/instantdb/_sync
+	uv run ruff format src/instantdb/_sync
 
 clean:
 	rm -rf dist build *.egg-info .pytest_cache .mypy_cache .ruff_cache

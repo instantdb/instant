@@ -1,5 +1,12 @@
 """SSE-based live query subscriptions on AsyncInstant.
 
+Async-only — listed in ASYNC_ONLY in scripts/run_unasync.py. The retry
+loop runs in a background `asyncio.create_task`, feeds an `asyncio.Queue`
+that the async iterator drains, and cancels on `aclose()`. unasync's
+token-rewrite model has no clean translation for the task / queue /
+cancellation primitives; a threading-based parallel implementation would
+be the v1.1+ option if user signal warrants it.
+
 Usage:
 
     async with adb.subscribe_query({"goals": {}}) as sub:
