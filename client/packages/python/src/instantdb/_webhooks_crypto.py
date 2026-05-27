@@ -88,9 +88,12 @@ def verify_signature(
     sig = _parse_header(signature_header)
 
     now = int(received_at if received_at is not None else time.time())
-    if now - sig.t > max_age_seconds:
+    age = now - sig.t
+    # Reject both stale and forged-future timestamps.
+    if abs(age) > max_age_seconds:
         raise InstantError(
-            f"Webhook signature is too old (age={now - sig.t}s > tolerance={max_age_seconds}s)"
+            f"Webhook signature timestamp outside tolerance "
+            f"(age={age}s, tolerance=±{max_age_seconds}s)"
         )
 
     keys = _trusted_keys(api_uri)

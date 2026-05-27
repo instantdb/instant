@@ -54,7 +54,9 @@ def discover_async_files() -> list[str]:
     return files
 
 REMOVE_BLOCK = re.compile(
-    r"^[ \t]*# UNASYNC_REMOVE_START[ \t]*\n.*?# UNASYNC_REMOVE_END[ \t]*\n",
+    # Allow either a trailing newline or end-of-file after the end marker
+    # so a block at EOF without a final newline still gets stripped.
+    r"^[ \t]*# UNASYNC_REMOVE_START[ \t]*\n.*?# UNASYNC_REMOVE_END[ \t]*(?:\n|\Z)",
     flags=re.MULTILINE | re.DOTALL,
 )
 
@@ -74,6 +76,10 @@ REPLACEMENTS = {
     "aclose": "close",
     "AsyncClient": "Client",
     "AsyncBaseTransport": "BaseTransport",
+    # Async storage offloads file reads to a thread to avoid blocking the
+    # event loop; sync flavor reads directly. The two thin wrappers live
+    # in `_io.py`; this swap routes each flavor to the right one.
+    "_read_bytes_offloaded_async": "_read_bytes_offloaded_sync",
 }
 
 # Prepended to every generated sync file so teammates who open one don't

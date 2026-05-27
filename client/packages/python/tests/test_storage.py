@@ -3,7 +3,7 @@ import io
 import pytest
 
 from instantdb import InstantError
-from instantdb._async.storage import _read_bytes
+from instantdb._io import _read_bytes
 
 
 def test_read_bytes_accepts_bytearray():

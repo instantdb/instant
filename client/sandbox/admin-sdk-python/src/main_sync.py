@@ -165,7 +165,7 @@ def test_rooms_get_presence_returns_dict(db: Instant) -> None:
 
 
 def test_invalid_app_id_raises_parsed_error(db: Instant) -> None:
-    api_uri = os.environ.get("INSTANT_API_URI", "http://localhost:9888")
+    api_uri = os.environ.get("INSTANT_API_URI", "http://localhost:8888")
     with Instant(
         app_id="00000000-0000-0000-0000-000000000000",
         admin_token="bogus",
@@ -253,7 +253,7 @@ def test_webhooks_validate_signature_rejects_tampered(db: Instant) -> None:
 
 
 def main() -> None:
-    api_uri = os.environ.get("INSTANT_API_URI", "http://localhost:9888")
+    api_uri = os.environ.get("INSTANT_API_URI", "http://localhost:8888")
 
     with Instant(api_uri=api_uri) as db:
         # Uncomment a call to run it.

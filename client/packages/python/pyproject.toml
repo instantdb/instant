@@ -43,13 +43,12 @@ pattern = "version\\s*=\\s*['\"]v(?P<version>[^'\"]+)['\"]"
 [tool.hatch.build.targets.wheel]
 packages = ["src/instantdb"]
 
-[tool.hatch.build.targets.sdist]
-include = [
-    "/src",
-    "/tests",
-    "/README.md",
-    "/pyproject.toml",
-]
+# No [tool.hatch.build.targets.sdist] — we ship wheel only. The package
+# is pure-Python (py3-none-any), so the wheel is universal and pip never
+# falls back to sdist. Skipping sdist also sidesteps the hatch-version
+# path resolution issue: [tool.hatch.version].path reaches outside the
+# package directory (`../version/src/version.ts`), which works from the
+# dev tree but not from an unpacked sdist.
 
 [dependency-groups]
 dev = [

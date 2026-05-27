@@ -107,7 +107,7 @@ class WebhooksManager:
         return _webhook_info(res["webhook"])
 
     def disable(self, webhook_id: str, *, reason: str | None = None) -> dict[str, Any]:
-        body: dict[str, Any] = {"reason": reason} if reason else {}
+        body: dict[str, Any] = {"reason": reason} if reason is not None else {}
         res = self._http.post(
             f"/dash/apps/{self._app_id}/webhooks/{webhook_id}/disable",
             json=body,

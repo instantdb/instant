@@ -96,7 +96,34 @@ type LinkDefLike = {
   reverse: { on: string; label: string; has: 'one' | 'many' };
 };
 
-type Field = { name: string; type: string; hasDefault: boolean };
+type Field = {
+  name: string;
+  type: string;
+  hasDefault: boolean;
+  // Original schema key when `name` had to be sanitized; drives the
+  // emitted `Field(alias=rawKey)` so runtime validation still matches.
+  rawKey?: string;
+};
+
+const PY_KEYWORDS = new Set([
+  'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await',
+  'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except',
+  'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is',
+  'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try',
+  'while', 'with', 'yield', 'match', 'case',
+]);
+
+function isPyIdent(name: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && !PY_KEYWORDS.has(name);
+}
+
+function safePyIdent(name: string): string {
+  if (isPyIdent(name)) return name;
+  let safe = name.replace(/[^A-Za-z0-9_]+/g, '_').replace(/_+/g, '_');
+  if (safe === '' || /^[0-9]/.test(safe)) safe = '_' + safe;
+  if (PY_KEYWORDS.has(safe)) safe += '_';
+  return safe;
+}
 
 function className(entName: string): string {
   // Strip a leading `$` (system entities like `$users`, `$files`), then
@@ -144,10 +171,12 @@ export function buildEntityModelsPy(schema: SchemaLike): string {
       const baseType = mapValueType(attrDef.valueType);
       if (baseType === 'datetime') usesDatetime = true;
       const type = attrDef.required ? baseType : `${baseType} | None`;
+      const safeName = safePyIdent(attrName);
       fieldsByEntity[entName].push({
-        name: attrName,
+        name: safeName,
         type,
         hasDefault: !attrDef.required,
+        rawKey: safeName === attrName ? undefined : attrName,
       });
     }
   }
@@ -156,23 +185,27 @@ export function buildEntityModelsPy(schema: SchemaLike): string {
     const fwd = link.forward;
     const rev = link.reverse;
     if (linkFieldsByEntity[fwd.on]) {
+      const safeName = safePyIdent(fwd.label);
       linkFieldsByEntity[fwd.on].push({
-        name: fwd.label,
+        name: safeName,
         type:
           fwd.has === 'one'
             ? `${className(rev.on)} | None`
             : `list[${className(rev.on)}] | None`,
         hasDefault: true,
+        rawKey: safeName === fwd.label ? undefined : fwd.label,
       });
     }
     if (linkFieldsByEntity[rev.on]) {
+      const safeName = safePyIdent(rev.label);
       linkFieldsByEntity[rev.on].push({
-        name: rev.label,
+        name: safeName,
         type:
           rev.has === 'one'
             ? `${className(fwd.on)} | None`
             : `list[${className(fwd.on)}] | None`,
         hasDefault: true,
+        rawKey: safeName === rev.label ? undefined : rev.label,
       });
     }
   }
@@ -182,18 +215,33 @@ export function buildEntityModelsPy(schema: SchemaLike): string {
     linkFieldsByEntity[entName].sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  let usesField = false;
   const classBlocks = entityNames.map((entName) => {
-    const lines = [
-      `class ${className(entName)}(BaseModel):`,
-      `    model_config = ConfigDict(extra="ignore")`,
-    ];
-    for (const f of [
+    const allFields = [
       ...fieldsByEntity[entName],
       ...linkFieldsByEntity[entName],
-    ]) {
-      const decl = f.hasDefault
-        ? `    ${f.name}: ${f.type} = None`
-        : `    ${f.name}: ${f.type}`;
+    ];
+    const hasAlias = allFields.some((f) => f.rawKey !== undefined);
+    const config = hasAlias
+      ? 'ConfigDict(extra="ignore", populate_by_name=True)'
+      : 'ConfigDict(extra="ignore")';
+    const lines = [
+      `class ${className(entName)}(BaseModel):`,
+      `    model_config = ${config}`,
+    ];
+    for (const f of allFields) {
+      let decl: string;
+      if (f.rawKey !== undefined) {
+        usesField = true;
+        const args = f.hasDefault
+          ? `default=None, alias=${JSON.stringify(f.rawKey)}`
+          : `alias=${JSON.stringify(f.rawKey)}`;
+        decl = `    ${f.name}: ${f.type} = Field(${args})`;
+      } else if (f.hasDefault) {
+        decl = `    ${f.name}: ${f.type} = None`;
+      } else {
+        decl = `    ${f.name}: ${f.type}`;
+      }
       lines.push(decl);
     }
     return lines.join('\n');
@@ -213,10 +261,13 @@ export function buildEntityModelsPy(schema: SchemaLike): string {
   const stdlibImports: string[] = [];
   if (usesDatetime) stdlibImports.push('from datetime import datetime');
   stdlibImports.push(`from typing import ${typingImports.join(', ')}`);
+  const pydanticImports = usesField
+    ? 'BaseModel, ConfigDict, Field'
+    : 'BaseModel, ConfigDict';
   const importBlock =
     stdlibImports.join('\n') +
     '\n\n' +
-    'from pydantic import BaseModel, ConfigDict';
+    `from pydantic import ${pydanticImports}`;
 
   // Add record-model rebuilds so forward-string annotations to entity
   // types resolve under `from __future__ import annotations`.
@@ -410,27 +461,46 @@ export function buildTxStubPyi(schema: SchemaLike): string {
     linkFieldsByEntity[entName].sort((a, b) => a.label.localeCompare(b.label));
   }
 
+  // Class-syntax TypedDict requires identifier keys; switch to the
+  // functional form when any key on a given dict is irregular.
+  const buildTypedDict = (
+    name: string,
+    fields: { key: string; type: string }[],
+  ): string => {
+    const allIdent = fields.every((f) => isPyIdent(f.key));
+    if (allIdent) {
+      const lines = [`class ${name}(TypedDict, total=False):`];
+      for (const f of fields) lines.push(`    ${f.key}: ${f.type}`);
+      if (fields.length === 0) lines.push('    pass');
+      return lines.join('\n');
+    }
+    const lines = [`${name} = TypedDict(`, `    ${JSON.stringify(name)},`, '    {'];
+    for (const f of fields) {
+      lines.push(`        ${JSON.stringify(f.key)}: ${f.type},`);
+    }
+    lines.push('    },', '    total=False,', ')');
+    return lines.join('\n');
+  };
+
   const perEntityBlocks: string[] = [];
   for (const entName of entityNames) {
     const cls = className(entName);
 
-    const argsLines = [`class ${cls}Args(TypedDict, total=False):`];
+    const argFields: { key: string; type: string }[] = [];
     for (const [attrName, attrDef] of Object.entries(
       schema.entities[entName].attrs,
     )) {
       const t = mapValueType(attrDef.valueType);
       if (t === 'datetime') usesDatetime = true;
-      argsLines.push(`    ${attrName}: ${t}`);
+      argFields.push({ key: attrName, type: t });
     }
-    if (argsLines.length === 1) argsLines.push('    pass');
-    perEntityBlocks.push(argsLines.join('\n'));
+    perEntityBlocks.push(buildTypedDict(`${cls}Args`, argFields));
 
-    const linkLines = [`class ${cls}Links(TypedDict, total=False):`];
-    for (const link of linkFieldsByEntity[entName]) {
-      linkLines.push(`    ${link.label}: ${link.type}`);
-    }
-    if (linkLines.length === 1) linkLines.push('    pass');
-    perEntityBlocks.push(linkLines.join('\n'));
+    const linkFields = linkFieldsByEntity[entName].map((l) => ({
+      key: l.label,
+      type: l.type,
+    }));
+    perEntityBlocks.push(buildTypedDict(`${cls}Links`, linkFields));
 
     perEntityBlocks.push(
       [
@@ -451,9 +521,9 @@ export function buildTxStubPyi(schema: SchemaLike): string {
     '    def lookup(self, attr: str, value: Any) -> ChunkT: ...',
   ].join('\n');
 
-  // `$`-prefixed entities can't be reached via attribute syntax, so omit
-  // them from `_TxBuilder` attrs. Subscript form (`db.tx["$users"]`) still works.
-  const identifierEntities = entityNames.filter((n) => !n.startsWith('$'));
+  // Only valid Python identifiers can appear as `_TxBuilder` attrs (for
+  // `db.tx.<name>` autocomplete); irregular names use `db.tx["..."]`.
+  const identifierEntities = entityNames.filter(isPyIdent);
   const txLines = ['class _TxBuilder:'];
   if (identifierEntities.length === 0) {
     txLines.push('    pass');

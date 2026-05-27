@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import IO, Any
+from typing import Any
 
 from instantdb._async.http import _AsyncHTTP
-from instantdb._errors import InstantError
-
-FileSource = bytes | bytearray | Path | IO[bytes]
+from instantdb._io import FileSource, _read_bytes_offloaded_async
 
 
 class AsyncStorage:
@@ -24,7 +21,7 @@ class AsyncStorage:
         content_type: str = "application/octet-stream",
         content_disposition: str | None = None,
     ) -> dict[str, Any]:
-        data = _read_bytes(file)
+        data = await _read_bytes_offloaded_async(file)
         headers = {
             "path": path,
             "content-type": content_type,
@@ -38,18 +35,3 @@ class AsyncStorage:
             extra_headers=headers,
             params={"app_id": self._app_id},
         )
-
-
-def _read_bytes(file: FileSource) -> bytes:
-    if isinstance(file, (bytes, bytearray)):
-        return bytes(file)
-    if isinstance(file, Path):
-        return file.read_bytes()
-    if hasattr(file, "read"):
-        data = file.read()
-        if not isinstance(data, bytes):
-            raise InstantError(f"file-like read() must return bytes, got {type(data).__name__}")
-        return data
-    raise InstantError(
-        f"upload_file accepts bytes, pathlib.Path, or a binary file-like; got {type(file).__name__}"
-    )

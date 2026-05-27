@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build wheel + sdist
+    name: Build wheel
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -20,9 +20,10 @@ jobs:
         with:
           version: latest
 
+      # Wheel only; see pyproject.toml for the rationale.
       - name: Build
         working-directory: client/packages/python
-        run: uv build
+        run: uv build --wheel
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4

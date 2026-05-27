@@ -108,7 +108,10 @@ class AsyncStreamWriter:
             raise InstantError("Stream is closed")
         if self._error is not None:
             raise self._error
-        assert self._connection is not None and self._stream_id_future is not None
+        if self._connection is None or self._stream_id_future is None:
+            raise InstantError(
+                "Writer not opened; use 'async with adb.streams.write(...) as writer:'"
+            )
         stream_id = await self._stream_id_future
         byte_len = len(chunk.encode("utf-8"))
         offset = self._buffer_offset + self._buffer_byte_size
