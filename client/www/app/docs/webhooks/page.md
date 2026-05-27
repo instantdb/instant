@@ -31,6 +31,8 @@ Each request carries an `Instant-Signature` header and a small body. The body ho
 
 `before` is `null` on `create`, `after` is `null` on `delete`. The `idempotencyKey` is stable across redeliveries — use it to dedupe if your handler isn't idempotent on its own.
 
+The `before` and `after` fields include all of the data attributes on an entity, but none of its links.
+
 ### Delivery and retries
 
 Instant retries failed deliveries with backoff. An event moves through these stages:
