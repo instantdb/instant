@@ -372,6 +372,124 @@ async def test_subscribe_query_cleanup_on_context_exit(db: AsyncInstant) -> None
     print("✓ subscribe_query closes connection on context exit")
 
 
+# ---------- streams ----------
+
+
+async def test_stream_write_then_read_by_client_id(db: AsyncInstant) -> None:
+    client_id = f"sandbox-{id()}"
+    chunks_in = ["hello ", "from python ", "streams\n"]
+    try:
+        async with db.streams.write(client_id=client_id) as writer:
+            stream_id = await writer.stream_id
+            assert stream_id, f"empty stream_id: {stream_id!r}"
+            for c in chunks_in:
+                await writer.write(c)
+
+        chunks_out: list[str] = []
+        async with db.streams.read(client_id=client_id) as reader:
+            async for chunk in reader:
+                chunks_out.append(chunk)
+
+        assert "".join(chunks_out) == "".join(chunks_in), (
+            f"mismatch: {''.join(chunks_out)!r} != {''.join(chunks_in)!r}"
+        )
+        print(f"✓ stream round-trip via client_id ({client_id} → {stream_id})")
+    finally:
+        await _delete_stream_by_client_id(db, client_id)
+
+
+async def test_stream_read_by_stream_id(db: AsyncInstant) -> None:
+    client_id = f"sandbox-{id()}"
+    chunks_in = ["A", "B", "C", "D"]
+    stream_id = ""
+    try:
+        async with db.streams.write(client_id=client_id) as writer:
+            stream_id = await writer.stream_id
+            for c in chunks_in:
+                await writer.write(c)
+
+        chunks_out: list[str] = []
+        async with db.streams.read(stream_id=stream_id) as reader:
+            async for chunk in reader:
+                chunks_out.append(chunk)
+
+        assert "".join(chunks_out) == "".join(chunks_in)
+        print(f"✓ stream read by stream_id ({stream_id})")
+    finally:
+        await _delete_stream_by_client_id(db, client_id)
+
+
+async def test_stream_read_with_byte_offset_resumes_mid_stream(db: AsyncInstant) -> None:
+    client_id = f"sandbox-{id()}"
+    chunks_in = ["abc", "def", "ghi", "jkl"]  # full = "abcdefghijkl" (12 bytes)
+    try:
+        async with db.streams.write(client_id=client_id) as writer:
+            await writer.stream_id
+            for c in chunks_in:
+                await writer.write(c)
+
+        chunks_out: list[str] = []
+        async with db.streams.read(client_id=client_id, byte_offset=6) as reader:
+            async for chunk in reader:
+                chunks_out.append(chunk)
+
+        assert "".join(chunks_out) == "ghijkl", f"unexpected: {''.join(chunks_out)!r}"
+        print(f"✓ byte_offset=6 resumed mid-stream ({client_id})")
+    finally:
+        await _delete_stream_by_client_id(db, client_id)
+
+
+async def test_streams_queryable_via_query_api(db: AsyncInstant) -> None:
+    # $streams falls out of regular InstaQL — no new metadata API needed.
+    client_id = f"sandbox-{id()}"
+    try:
+        async with db.streams.write(client_id=client_id) as writer:
+            await writer.stream_id
+            await writer.write("metadata only")
+
+        result = await db.query({"$streams": {"$": {"where": {"clientId": client_id}}}})
+        streams = result.get("$streams", [])
+        assert len(streams) == 1, f"expected 1, got {len(streams)}: {streams}"
+        assert streams[0]["clientId"] == client_id
+        print(f"✓ $streams queryable after write ({client_id})")
+    finally:
+        await _delete_stream_by_client_id(db, client_id)
+
+
+async def test_writer_reconnects_after_sse_dropped(db: AsyncInstant) -> None:
+    client_id = f"sandbox-{id()}"
+    try:
+        async with db.streams.write(client_id=client_id) as writer:
+            await writer.stream_id
+            await writer.write("first ")
+            await asyncio.sleep(0.3)  # let stream-flushed arrive
+
+            # Simulate a transient SSE drop. A reconnect-capable connection
+            # detects the closed response, backs off, re-opens, and re-runs
+            # the start handshake with the same reconnect-token.
+            assert writer._connection is not None
+            event_source = writer._connection._event_source
+            assert event_source is not None, "expected SSE to be open"
+            await event_source.response.aclose()
+            await asyncio.sleep(0.8)  # let reconnect complete
+
+            await writer.write("second")
+
+        async with db.streams.read(client_id=client_id) as reader:
+            data = "".join([chunk async for chunk in reader])
+        assert "first " in data, f"missing 'first ': {data!r}"
+        assert "second" in data, f"missing 'second': {data!r}"
+        print(f"✓ writer reconnected mid-stream after SSE drop ({client_id})")
+    finally:
+        await _delete_stream_by_client_id(db, client_id)
+
+
+async def _delete_stream_by_client_id(db: AsyncInstant, client_id: str) -> None:
+    result = await db.query({"$streams": {"$": {"where": {"clientId": client_id}}}})
+    for s in result.get("$streams", []):
+        await db.transact(db.tx["$streams"][s["id"]].delete())
+
+
 # ---------- entry ----------
 
 
@@ -419,6 +537,13 @@ async def main() -> None:
         # await test_subscribe_query_emits_live_update(db)
         # await test_subscribe_query_emits_error_on_bad_creds(db)
         # await test_subscribe_query_cleanup_on_context_exit(db)
+        #
+        # streams:
+        # await test_stream_write_then_read_by_client_id(db)
+        # await test_stream_read_by_stream_id(db)
+        # await test_stream_read_with_byte_offset_resumes_mid_stream(db)
+        # await test_streams_queryable_via_query_api(db)
+        # await test_writer_reconnects_after_sse_dropped(db)
         pass
 
 

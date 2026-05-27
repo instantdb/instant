@@ -12,6 +12,7 @@ from instantdb._async.auth import AsyncAuth
 from instantdb._async.http import DEFAULT_API_URI, _AsyncHTTP
 from instantdb._async.rooms import AsyncRooms
 from instantdb._async.storage import AsyncStorage
+from instantdb._async.streams import AsyncStreams
 from instantdb._async.subscribe import AsyncSubscription
 from instantdb._errors import InstantError
 from instantdb._transact import _flatten_chunks, _TxBuilder, _TxChunk
@@ -54,6 +55,7 @@ class AsyncInstant:
         self.auth = AsyncAuth(self._http, app_id=app_id)
         self.storage = AsyncStorage(self._http, app_id=app_id)
         self.rooms = AsyncRooms(self._http, app_id=app_id)
+        self.streams = AsyncStreams(self._http)
 
     def as_user(
         self,
