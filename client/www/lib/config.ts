@@ -159,8 +159,3 @@ export const discordOAuthAppsFeedbackInviteUrl =
   'https://discord.gg/GrvbPTBDEX';
 
 export const bugsAndQuestionsInviteUrl = 'https://discord.gg/unA5vyV6mP';
-
-export function areTeamsFree() {
-  const now = new Date();
-  return now.getFullYear() <= 2026 && now.getMonth() < 2;
-}

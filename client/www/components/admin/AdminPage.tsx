@@ -4,7 +4,7 @@ import { capitalize } from 'lodash';
 import { useContext, useState } from 'react';
 import { v4 } from 'uuid';
 
-import config, { areTeamsFree } from '@/lib/config';
+import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import { errorToast, successToast } from '@/lib/toast';
@@ -70,9 +70,7 @@ export function Admin({
     (invite) => invite.status !== 'accepted',
   );
 
-  const freeTeams = areTeamsFree();
-
-  const canAddMembers = app.pro || isPaidOrg || freeTeams;
+  const canAddMembers = app.pro || isPaidOrg;
 
   async function onClickReset() {
     const appIndex = dashResponse.data.apps.findIndex((a) => a.id === app.id);
@@ -260,19 +258,6 @@ export function Admin({
 
       <div className="flex flex-col gap-1">
         <SectionHeading>Team Members</SectionHeading>
-        {!app.pro && !isPaidOrg && freeTeams && (
-          <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
-            Add your team members today to take advantage of{' '}
-            <Link
-              href="/essays/free_teams_through_february"
-              target="_blank"
-              className="underline dark:text-white"
-            >
-              free Teams
-            </Link>{' '}
-            through the end of February!
-          </Content>
-        )}
         {workspace.type === 'org' && (
           <div className="my-2">
             <SubsectionHeading>Organization members</SubsectionHeading>

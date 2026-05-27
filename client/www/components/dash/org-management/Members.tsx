@@ -12,7 +12,7 @@ import {
 } from '@/components/ui';
 import { InviteToOrgDialog } from './InviteToOrgDialog';
 import { isMinRole, Role } from '@/pages/dash';
-import config, { areTeamsFree } from '@/lib/config';
+import config from '@/lib/config';
 import { useAuthToken } from '@/lib/auth';
 import { MemberMenu } from './MemberMenu';
 import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
@@ -41,9 +41,7 @@ export const Members = () => {
 
   const paid = useOrgPaid();
 
-  const freeTeams = areTeamsFree();
-
-  const canAddMembers = paid || freeTeams;
+  const canAddMembers = paid;
 
   const dialog = useDialog();
   const token = useAuthToken();
@@ -119,22 +117,6 @@ export const Members = () => {
         )}
       </div>
       <InviteToOrgDialog dialog={dialog} />
-      <div className="flex w-full py-2">
-        {canAddMembers && !paid && (
-          <Content className="w-full rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
-            Add your team members today to take advantage of{' '}
-            <Link
-              href="/essays/free_teams_through_february"
-              target="_blank"
-              className="underline dark:text-white"
-            >
-              free Teams
-            </Link>{' '}
-            through the end of February!
-          </Content>
-        )}
-      </div>
-
       <div className="divide-y rounded-xs border bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
         {org.members.map((member) => (
           <div

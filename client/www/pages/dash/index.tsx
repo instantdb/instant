@@ -31,7 +31,7 @@ import NextLink from 'next/link';
 import { ReactElement, useContext, useEffect, useRef, useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
 
-import config, { areTeamsFree, cliOauthParamName } from '@/lib/config';
+import config, { cliOauthParamName } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import { successToast } from '@/lib/toast';
@@ -818,22 +818,6 @@ function Home({ app, token }: { app: InstantApp; token: string }) {
             feedback too!
           </HomeButton>
         </div>
-        {areTeamsFree() && (
-          <div className="md:w-[calc(50%-0.5rem)]">
-            <HomeButton
-              href={`/dash?s=main&app={appId}&t=admin`}
-              title="Add your team members"
-              onClick={() =>
-                posthog.capture('getting_started_click', {
-                  action: 'add_team_members',
-                  app_id: appId,
-                })
-              }
-            >
-              Building is more fun with a team.
-            </HomeButton>
-          </div>
-        )}
       </div>
 
       {/* Your Public App ID Section */}
