@@ -359,8 +359,9 @@ the admin token would be a leak.
 
 ## Storage
 
-`db.storage.upload_file` accepts `bytes`, `pathlib.Path`, or any binary
-file-like object:
+`db.storage.upload_file` accepts `bytes`, `pathlib.Path`, or a binary
+file-like object. File-backed inputs stream from disk rather than
+buffering into memory.
 
 ```python {% showCopy=true %}
 from pathlib import Path
@@ -372,16 +373,28 @@ db.storage.upload_file(
     content_type="text/plain",
 )
 
-# From a Path
+# From a Path (opened and closed by the SDK)
 db.storage.upload_file(
     "photos/demo.png",
     Path("./demo.png"),
     content_type="image/png",
 )
 
-# From a file-like
-with open("photo.png", "rb") as f:
+# From an open file (uploads from the current position; not closed)
+with open("demo.png", "rb") as f:
     db.storage.upload_file("photos/demo.png", f, content_type="image/png")
+```
+
+Content length is computed automatically. Non-seekable streams need an
+explicit `file_size` (bytes remaining):
+
+```python {% showCopy=true %}
+db.storage.upload_file(
+    "exports/data.jsonl",
+    stream,
+    content_type="application/jsonl",
+    file_size=10_000_000,
+)
 ```
 
 To delete a file, use a transaction:

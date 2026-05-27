@@ -285,6 +285,28 @@ async def test_storage_upload_path(db: AsyncInstant) -> None:
         tmp_path.unlink()
 
 
+async def test_storage_upload_open_file_object(db: AsyncInstant) -> None:
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as tmp:
+        tmp.write(b"open-file-object sandbox content")
+        tmp_path = Path(tmp.name)
+    try:
+        storage_path = f"sandbox/{id()}.txt"
+        with tmp_path.open("rb") as fp:
+            result = await db.storage.upload_file(
+                storage_path, fp, content_type="text/plain"
+            )
+            assert not fp.closed, "SDK should not close user-provided file handles"
+        file_id = result["data"]["id"]
+        try:
+            files = await db.query({"$files": {"$": {"where": {"id": file_id}}}})
+            assert len(files["$files"]) == 1, f"file missing from query: {files}"
+            print(f"✓ upload from open binary file object ({file_id})")
+        finally:
+            await db.transact(db.tx["$files"][file_id].delete())
+    finally:
+        tmp_path.unlink()
+
+
 # ---------- rooms ----------
 
 
@@ -919,6 +941,7 @@ async def main() -> None:
         # storage:
         # await test_storage_upload_bytes(db)
         # await test_storage_upload_path(db)
+        # await test_storage_upload_open_file_object(db)
         #
         # rooms:
         # await test_rooms_get_presence_returns_dict(db)

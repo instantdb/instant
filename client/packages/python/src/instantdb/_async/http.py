@@ -80,7 +80,7 @@ class _AsyncHTTP:
         self,
         path: str,
         *,
-        content: bytes,
+        content: Any,  # bytes or an iterator of bytes (streaming body)
         extra_headers: dict[str, str],
         params: dict[str, Any] | None = None,
     ) -> Any:

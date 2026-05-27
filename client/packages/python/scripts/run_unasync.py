@@ -76,10 +76,8 @@ REPLACEMENTS = {
     "aclose": "close",
     "AsyncClient": "Client",
     "AsyncBaseTransport": "BaseTransport",
-    # Async storage offloads file reads to a thread to avoid blocking the
-    # event loop; sync flavor reads directly. The two thin wrappers live
-    # in `_io.py`; this swap routes each flavor to the right one.
-    "_read_bytes_offloaded_async": "_read_bytes_offloaded_sync",
+    # Sync flavor reads directly; async offloads via asyncio.to_thread.
+    "_read_chunk_offloaded_async": "_read_chunk_offloaded_sync",
 }
 
 # Prepended to every generated sync file so teammates who open one don't
