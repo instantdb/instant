@@ -282,6 +282,29 @@ function Dashboard() {
     ...(cliOauthTicket ? { [cliOauthParamName]: cliOauthTicket } : {}),
   };
 
+  // The one way to open an app. `org` is how the workspace lives in the URL,
+  // so it has to ride along on every dashboard navigation; doing it here means
+  // no call site can forget. Pass `workspace` to move to a different one.
+  const goToApp = (
+    appId: string | undefined,
+    opts?: {
+      workspace?: string | 'personal';
+      tab?: string;
+      replace?: boolean;
+    },
+  ) => {
+    const workspace = opts?.workspace ?? fetchedDash.data.currentWorkspaceId;
+    const query = {
+      s: 'main',
+      ...(appId ? { app: appId } : {}),
+      t: opts?.tab ?? tab,
+      ...(workspace !== 'personal' ? { org: workspace } : {}),
+    };
+    return opts?.replace
+      ? router.replace({ query })
+      : router.push({ query });
+  };
+
   // Local states
   const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
 
@@ -340,13 +363,7 @@ function Dashboard() {
   useEffect(() => {
     if (!app) return;
     if (!router.query.app || !router.query.t) {
-      router.replace({
-        query: {
-          s: 'main',
-          app: app.id,
-          t: tab,
-        },
-      });
+      goToApp(app.id, { replace: true });
     }
   }, [app, router.query.app]);
 
@@ -370,13 +387,7 @@ function Dashboard() {
     const replaceDefault = () => {
       if (!defaultAppId) return;
 
-      router.replace({
-        query: {
-          s: 'main',
-          app: defaultAppId,
-          t: tab,
-        },
-      });
+      goToApp(defaultAppId, { replace: true });
 
       setLocallySavedApp({
         id: defaultAppId,
@@ -399,20 +410,14 @@ function Dashboard() {
             dashResponse.data?.currentWorkspaceId &&
             dashResponse.data?.currentWorkspaceId !== 'personal'
           ) {
-            dashResponse.setWorkspace('personal');
+            // The app is personally owned; follow it to the personal account.
+            goToApp(appId, { workspace: 'personal', replace: true });
           } else if (
             res?.app?.org_id &&
             res?.app?.org_id !== router.query.org
           ) {
-            dashResponse.setWorkspace(res.app.org_id);
-            router.replace({
-              query: {
-                s: 'main',
-                app: appId,
-                org: res?.app?.org_id,
-                t: tab,
-              },
-            });
+            // The app lives in another org; follow it there.
+            goToApp(appId, { workspace: res.app.org_id, replace: true });
           } else {
             replaceDefault();
           }
@@ -469,15 +474,11 @@ function Dashboard() {
       });
     }
 
-    router
-      .push({
-        query: q,
-      })
-      .then(() => {
-        if (opts?.cb) {
-          opts.cb();
-        }
-      });
+    goToApp(q.app, { tab: q.t }).then(() => {
+      if (opts?.cb) {
+        opts.cb();
+      }
+    });
   }
 
   async function onDeleteApp(app: InstantApp) {
@@ -537,10 +538,14 @@ function Dashboard() {
   }
 
   if (apps.length === 0) {
+    const workspaceId = dashResponse.data.currentWorkspaceId;
     router.replace(
       {
         pathname: '/dash/new',
-        query: cliTicketQuery,
+        query: {
+          ...cliTicketQuery,
+          ...(workspaceId !== 'personal' ? { org: workspaceId } : {}),
+        },
       },
       undefined,
       { shallow: true },
@@ -1035,10 +1040,11 @@ function AppCombobox({
   appId: string;
   tab: MainTabId;
 }) {
+  const workspaceId = useFetchedDash().data.currentWorkspaceId;
   const currentApp = apps.find((a) => a.id === appId) || null;
   const [appQuery, setAppQuery] = useState('');
   const [pinnedIds, setPinnedIds] = useState(() =>
-    getPinnedAppIds(localStorage.getItem('workspace')),
+    getPinnedAppIds(workspaceId),
   );
   const comboboxInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1126,9 +1132,8 @@ function AppCombobox({
                     onPointerDown={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      const wsId = localStorage.getItem('workspace');
-                      togglePinnedApp(app.id, wsId);
-                      setPinnedIds(getPinnedAppIds(wsId));
+                      togglePinnedApp(app.id, workspaceId);
+                      setPinnedIds(getPinnedAppIds(workspaceId));
                     }}
                     title={isPinned ? 'Unpin app' : 'Pin app to top'}
                   >
