@@ -627,9 +627,10 @@ export const InnerExplorer: React.FC<{
     {},
   );
 
-  // Clear selection when namespace changes
+  // Clear selection & search filter when namespace changes
   useEffect(() => {
     setCheckedIds({});
+    setSearchFilters([]);
     lastSelectedIdRef.current = null;
   }, [selectedNamespace?.id]);
 
