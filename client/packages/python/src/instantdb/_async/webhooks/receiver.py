@@ -22,8 +22,15 @@ from instantdb._webhooks_crypto import DEFAULT_MAX_AGE_SECONDS, verify_signature
 
 
 class AsyncWebhooks:
-    def __init__(self, http: _AsyncHTTP, *, app_id: str) -> None:
+    def __init__(
+        self,
+        http: _AsyncHTTP,
+        *,
+        app_id: str,
+        schema: dict[str, Any] | None = None,
+    ) -> None:
         self._http = http
+        self._schema = schema
         self.manager = AsyncWebhooksManager(http, app_id=app_id)
 
     def validate_signature(
@@ -88,17 +95,24 @@ class AsyncWebhooks:
             handlers[namespace]["$default"] →
             handlers["$default"]
 
+        When `Instant(schema=...)` was set, each record is validated into
+        its generated Pydantic model before being handed to the handler.
         Records with no matching handler are skipped. Handlers run
         sequentially in record order; the first to raise propagates and
         stops the remaining dispatches. Handlers under `AsyncInstant` must
         be `async def`; under `Instant` they're plain `def`. Mixing flavors
         is unsupported.
         """
+        records_map = self._schema.get("records", {}) if self._schema else {}
         for record in payload.get("data") or []:
-            handler = _resolve_handler(handlers, record.get("namespace"), record.get("action"))
+            namespace = record.get("namespace")
+            action = record.get("action")
+            handler = _resolve_handler(handlers, namespace, action)
             if handler is None:
                 continue
-            await handler(record)
+            record_model = records_map.get((namespace, action))
+            arg = record_model.model_validate(record) if record_model else record
+            await handler(arg)
 
 
 def _resolve_handler(

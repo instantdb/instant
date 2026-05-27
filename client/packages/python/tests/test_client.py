@@ -106,3 +106,51 @@ async def test_query_injects_rule_params_inside_query_not_at_body_level(mock_tra
     body = json.loads(captured[0].content)
     assert body["query"]["$$ruleParams"] == {"region": "us"}
     assert "$$ruleParams" not in body  # not at body top level
+
+
+# ---------- query: schema= validation ----------
+
+
+def test_validate_query_result_routes_matching_namespace_through_pydantic():
+    """Rows under a known namespace become validated Pydantic instances."""
+    from pydantic import BaseModel
+
+    from instantdb._async.client import _validate_query_result
+
+    class Goal(BaseModel):
+        id: str
+        title: str
+
+    schema: dict = {"entities": {"goals": Goal}}
+    raw = {"goals": [{"id": "g1", "title": "x"}, {"id": "g2", "title": "y"}]}
+    out = _validate_query_result(raw, schema)
+
+    assert [type(g) for g in out["goals"]] == [Goal, Goal]
+    assert out["goals"][0].title == "x"
+
+
+def test_validate_query_result_passes_through_unknown_namespace():
+    """Schemas only cover entities the user declared; anything else (e.g. a
+    server-aggregated key the schema doesn't know about) passes through as-is.
+    """
+    from instantdb._async.client import _validate_query_result
+
+    schema: dict = {"entities": {}}
+    raw = {"unknown_ns": [{"id": "x"}]}
+    assert _validate_query_result(raw, schema) == raw
+
+
+def test_validate_query_result_passes_through_non_list_payloads():
+    """Aggregate query results (counts, $$ruleParams echoes) aren't lists of
+    rows — leave them alone instead of trying to validate.
+    """
+    from pydantic import BaseModel
+
+    from instantdb._async.client import _validate_query_result
+
+    class Goal(BaseModel):
+        id: str
+
+    schema: dict = {"entities": {"goals": Goal}}
+    raw = {"goals": {"$count": 5}}  # not a list
+    assert _validate_query_result(raw, schema) == raw

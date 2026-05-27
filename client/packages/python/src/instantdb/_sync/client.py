@@ -26,6 +26,7 @@ class Instant:
         app_id: str | None = None,
         admin_token: str | None = None,
         api_uri: str = DEFAULT_API_URI,
+        schema: dict[str, Any] | None = None,
         _impersonation: dict[str, str] | None = None,
         _transport: httpx.BaseTransport | None = None,
         _shared_client: httpx.Client | None = None,
@@ -44,6 +45,7 @@ class Instant:
         self._admin_token = admin_token
         self._api_uri = api_uri
         self._impersonation = _impersonation
+        self._schema = schema
         self._http = _HTTP(
             app_id=app_id,
             admin_token=admin_token,
@@ -56,7 +58,7 @@ class Instant:
         self.auth = Auth(self._http, app_id=app_id)
         self.storage = Storage(self._http, app_id=app_id)
         self.rooms = Rooms(self._http, app_id=app_id)
-        self.webhooks = Webhooks(self._http, app_id=app_id)
+        self.webhooks = Webhooks(self._http, app_id=app_id, schema=schema)
 
     def as_user(
         self,
@@ -77,6 +79,7 @@ class Instant:
             app_id=self._app_id,
             admin_token=self._admin_token,
             api_uri=self._api_uri,
+            schema=self._schema,
             _impersonation=headers,
             _shared_client=self._http._client,
         )
@@ -89,11 +92,14 @@ class Instant:
     ) -> dict[str, Any]:
         if rule_params is not None:
             q = {"$$ruleParams": rule_params, **q}
-        return self._http.post(
+        result = self._http.post(
             "/admin/query",
             params={"app_id": self._app_id},
             json={"query": q, "inference?": False},
         )
+        if self._schema is not None:
+            return _validate_query_result(result, self._schema)
+        return result
 
     def transact(self, chunks: _TxChunk | list[_TxChunk]) -> dict[str, Any]:
         return self._http.post(
@@ -160,3 +166,19 @@ class Instant:
         tb: TracebackType | None,
     ) -> None:
         self.close()
+
+
+def _validate_query_result(result: Any, schema: dict[str, Any]) -> dict[str, Any]:
+    """Route each top-level namespace's rows through its Pydantic model.
+
+    Unknown namespaces and non-list payloads pass through untouched.
+    """
+    entities = schema.get("entities", {})
+    out: dict[str, Any] = {}
+    for ns, items in result.items():
+        model = entities.get(ns)
+        if model is None or not isinstance(items, list):
+            out[ns] = items
+            continue
+        out[ns] = [model.model_validate(item) for item in items]
+    return out
