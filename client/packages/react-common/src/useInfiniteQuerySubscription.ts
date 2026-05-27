@@ -73,12 +73,6 @@ export function useInfiniteQuerySubscription<
   const subscribe = useCallback(
     (cb: () => void) => {
       subRef.current = null;
-      stateCacheRef.current = {
-        error: undefined,
-        data: undefined,
-        isLoading: true,
-        canLoadNextPage: false,
-      };
       cb();
 
       if (!query) {
