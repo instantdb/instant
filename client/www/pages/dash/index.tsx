@@ -282,27 +282,22 @@ function Dashboard() {
     ...(cliOauthTicket ? { [cliOauthParamName]: cliOauthTicket } : {}),
   };
 
-  // The one way to open an app. `org` is how the workspace lives in the URL,
-  // so it has to ride along on every dashboard navigation; doing it here means
-  // no call site can forget. Pass `workspace` to move to a different one.
-  const goToApp = (
-    appId: string | undefined,
-    opts?: {
-      workspace?: string | 'personal';
-      tab?: string;
-      replace?: boolean;
-    },
-  ) => {
-    const workspace = opts?.workspace ?? fetchedDash.data.currentWorkspaceId;
-    const query = {
+  // Build the canonical /dash query. `org` is how the workspace lives in the
+  // URL, so it's always included for an org workspace and no call site has to
+  // remember it. Defaults to the current workspace; pass `workspace` to target
+  // another. Hand the result to router.replace/push.
+  const dashQueryParams = (input?: {
+    app?: string;
+    tab?: string;
+    workspace?: string | 'personal';
+  }) => {
+    const workspace = input?.workspace ?? fetchedDash.data.currentWorkspaceId;
+    return {
       s: 'main',
-      ...(appId ? { app: appId } : {}),
-      t: opts?.tab ?? tab,
+      ...(input?.app ? { app: input.app } : {}),
+      t: input?.tab ?? tab,
       ...(workspace !== 'personal' ? { org: workspace } : {}),
     };
-    return opts?.replace
-      ? router.replace({ query })
-      : router.push({ query });
   };
 
   // Local states
@@ -363,7 +358,7 @@ function Dashboard() {
   useEffect(() => {
     if (!app) return;
     if (!router.query.app || !router.query.t) {
-      goToApp(app.id, { replace: true });
+      router.replace({ query: dashQueryParams({ app: app.id }) });
     }
   }, [app, router.query.app]);
 
@@ -387,7 +382,7 @@ function Dashboard() {
     const replaceDefault = () => {
       if (!defaultAppId) return;
 
-      goToApp(defaultAppId, { replace: true });
+      router.replace({ query: dashQueryParams({ app: defaultAppId }) });
 
       setLocallySavedApp({
         id: defaultAppId,
@@ -411,13 +406,17 @@ function Dashboard() {
             dashResponse.data?.currentWorkspaceId !== 'personal'
           ) {
             // The app is personally owned; follow it to the personal account.
-            goToApp(appId, { workspace: 'personal', replace: true });
+            router.replace({
+              query: dashQueryParams({ app: appId, workspace: 'personal' }),
+            });
           } else if (
             res?.app?.org_id &&
             res?.app?.org_id !== router.query.org
           ) {
             // The app lives in another org; follow it there.
-            goToApp(appId, { workspace: res.app.org_id, replace: true });
+            router.replace({
+              query: dashQueryParams({ app: appId, workspace: res.app.org_id }),
+            });
           } else {
             replaceDefault();
           }
@@ -474,11 +473,13 @@ function Dashboard() {
       });
     }
 
-    goToApp(q.app, { tab: q.t }).then(() => {
-      if (opts?.cb) {
-        opts.cb();
-      }
-    });
+    router
+      .push({ query: dashQueryParams({ app: q.app, tab: q.t }) })
+      .then(() => {
+        if (opts?.cb) {
+          opts.cb();
+        }
+      });
   }
 
   async function onDeleteApp(app: InstantApp) {
