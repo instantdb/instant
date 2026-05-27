@@ -62,6 +62,7 @@ class _AsyncStreamConnection:
         self._ready_event = asyncio.Event()
         self._is_first_connect = True
         self._task: asyncio.Task[None] | None = None
+        self._reconnect_task: asyncio.Task[None] | None = None
         self._send_lock = asyncio.Lock()
         self._event_source: httpx_sse.EventSource | None = None
         self._closed = False
@@ -85,6 +86,12 @@ class _AsyncStreamConnection:
             return
         self._closed = True
         self._ready_event.set()
+        # Cancel an in-flight reconnect before the receive loop, so a pending
+        # writer/reader re-handshake can't post against a closing httpx client.
+        if self._reconnect_task is not None and not self._reconnect_task.done():
+            self._reconnect_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._reconnect_task
         if self._task is not None and not self._task.done():
             self._task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -228,7 +235,10 @@ class _AsyncStreamConnection:
                 self._is_first_connect = False
                 self._ready_event.set()
             else:
-                asyncio.create_task(self._do_reconnect())
+                # Tracked so aclose() can cancel a reconnect mid-handshake
+                # rather than leaving an orphaned task to post against a
+                # closing httpx client.
+                self._reconnect_task = asyncio.create_task(self._do_reconnect())
             return
         self._on_message(msg)
 

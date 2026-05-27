@@ -175,6 +175,12 @@ describe.concurrent('create-instant-app e2e', { timeout: 120_000 }, () => {
         expect(envContents).toMatch(/^INSTANT_ADMIN_TOKEN=.+/m);
         expect(envContents).not.toMatch(/INSTANT_APP_ADMIN_TOKEN/);
 
+        const pyproject = await readFile(
+          join(projectDir, 'pyproject.toml'),
+          'utf-8',
+        );
+        expect(pyproject).toMatch(/^name = "python-app"$/m);
+
         const output = result.stdout + result.stderr;
         expect(output).toMatch(/uv sync/);
         expect(output).toMatch(/uv run .* python main\.py/);

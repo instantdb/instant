@@ -91,10 +91,15 @@ type LinkDefLike = {
 type Field = { name: string; type: string; hasDefault: boolean };
 
 function className(entName: string): string {
-  // Strip a leading `$` (system entities like `$users`, `$files`) and
-  // capitalize the first letter — deterministic, no English pluralization.
+  // Strip a leading `$` (system entities like `$users`, `$files`), then
+  // PascalCase across word separators (`-`, `_`, whitespace) so non-identifier
+  // characters in entity names don't produce invalid Python class names.
   const stripped = entName.startsWith('$') ? entName.slice(1) : entName;
-  return stripped.charAt(0).toUpperCase() + stripped.slice(1);
+  return stripped
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
 }
 
 function mapValueType(vt: DataAttrDefLike['valueType']): string {
@@ -108,6 +113,10 @@ function mapValueType(vt: DataAttrDefLike['valueType']): string {
     case 'date':
       return 'datetime';
     case 'json':
+      return 'Any';
+    default:
+      // Defensive: if a new valueType ever lands in the schema without a
+      // genpy update, fall back to Any so generated code stays valid Python.
       return 'Any';
   }
 }

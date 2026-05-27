@@ -5,7 +5,7 @@ nextjs:
     description: 'How to use Instant from Python with the admin SDK.'
 ---
 
-Instant's offers a Python admin SDK with an API that mirrors our javascript
+Instant offers a Python admin SDK with an API that mirrors our javascript
 admin SDK. If you read the JS docs, you can mentally substitute Python syntax
 and write working code.
 
@@ -512,7 +512,7 @@ app = FastAPI()
 db = AsyncInstant()
 
 async def on_goal_create(record):
-    await my_search_index.add(record["after"])
+    print("new goal:", record["after"])
 
 handlers = {"goals": {"create": on_goal_create}}
 

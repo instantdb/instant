@@ -75,7 +75,19 @@ const main = async () => {
     );
   }
 
-  if (!isPython) {
+  if (isPython) {
+    // Rewrite pyproject.toml's [project].name so the scaffolded project
+    // identifies itself to uv by the user's chosen app name. PEP 621 names
+    // disallow `@` and `/`, so flatten an npm-style scope (`@org/foo`)
+    // into a hyphenated equivalent (`org-foo`).
+    const pyName = scopedAppName.replace(/^@/, '').replace(/\//g, '-');
+    const pyprojectPath = path.join(projectDir, 'pyproject.toml');
+    const pyproject = fs.readFileSync(pyprojectPath, 'utf-8');
+    fs.writeFileSync(
+      pyprojectPath,
+      pyproject.replace(/^name = .*$/m, `name = "${pyName}"`),
+    );
+  } else {
     // Update package.json with app name
     const pkgJson = fs.readJSONSync(
       path.join(projectDir, 'package.json'),

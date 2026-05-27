@@ -1,9 +1,9 @@
 """Webhook subscription manager: CRUD on subscriptions + event inspection.
 
-Responses are returned as plain dicts with camelCase keys, matching the JS
-shape (`webhookId`, `idempotencyKey`, `disabledReason`, `createdAt`, ...).
-Dates are passed through as ISO strings — users parse to `datetime` if they
-need it.
+Wire keys come back kebab-case + question-mark (`disabled-reason`,
+`success?`); we translate to camelCase at the boundary so users porting a
+webhooks pipeline from the JS SDK can keep their existing record-shape
+expectations. Dates pass through as ISO strings.
 """
 
 from __future__ import annotations

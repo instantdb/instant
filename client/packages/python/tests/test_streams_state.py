@@ -323,3 +323,83 @@ async def test_reader_pipelines_next_fetch_before_current_body_consumed():
     while not r._out.empty():
         yielded.append(r._out.get_nowait())
     assert yielded == ["chunk-A", "chunk-B"]
+
+
+# ---------- connection lifecycle ----------
+
+
+async def test_connection_aclose_cancels_inflight_reconnect_task():
+    # _do_reconnect is spawned by _dispatch on each post-init sse-init.
+    # If the user aclose()s mid-handshake, the task must be cancelled
+    # rather than left dangling to post against a half-closed httpx client.
+    from instantdb._async.streams._connection import _AsyncStreamConnection
+
+    on_reconnect_started = asyncio.Event()
+    release_on_reconnect = asyncio.Event()
+
+    async def slow_on_reconnect() -> None:
+        on_reconnect_started.set()
+        await release_on_reconnect.wait()
+
+    conn = _AsyncStreamConnection(
+        _http(), on_message=lambda _: None, on_reconnect=slow_on_reconnect
+    )
+    # Simulate the post-init reconnect path: connection already ran once
+    # (_is_first_connect flipped), now a fresh sse-init arrives.
+    conn._is_first_connect = False
+    conn._dispatch(
+        {
+            "op": "sse-init",
+            "machine-id": "m",
+            "session-id": "s",
+            "sse-token": "t",
+        }
+    )
+    assert conn._reconnect_task is not None
+    await on_reconnect_started.wait()
+
+    # User-side cleanup before the reconnect hook finishes — the task
+    # should not be left pending.
+    await conn.aclose()
+    assert conn._reconnect_task.done()
+
+
+async def test_writer_finalize_stashes_close_send_error():
+    # If the durability flush send fails on context exit, the writer must
+    # surface that via .error so the caller can tell their data may not
+    # have been flushed.
+    w = _writer()
+    w._stream_id_future = asyncio.get_running_loop().create_future()
+    w._stream_id_future.set_result("s-1")
+
+    class _FailingConn:
+        async def send(self, msg, *, client_event_id=None):
+            raise RuntimeError("network down")
+
+        async def aclose(self) -> None:
+            pass
+
+    w._connection = _FailingConn()  # type: ignore[assignment]
+    await w._finalize()
+    assert isinstance(w.error, RuntimeError)
+    assert "network down" in str(w.error)
+
+
+async def test_writer_finalize_stashes_flush_timeout(monkeypatch):
+    # If the server never sends stream-flushed {done: true}, _finalize times
+    # out and the timeout surfaces via .error.
+    monkeypatch.setattr("instantdb._async.streams.writer._FLUSH_TIMEOUT_SECONDS", 0.01)
+    w = _writer()
+    w._stream_id_future = asyncio.get_running_loop().create_future()
+    w._stream_id_future.set_result("s-1")
+
+    class _SilentConn:
+        async def send(self, msg, *, client_event_id=None):
+            return "ok"  # close-msg accepted, but no stream-flushed ever arrives
+
+        async def aclose(self) -> None:
+            pass
+
+    w._connection = _SilentConn()  # type: ignore[assignment]
+    await w._finalize()
+    assert isinstance(w.error, asyncio.TimeoutError)

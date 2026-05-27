@@ -68,16 +68,18 @@ class Webhooks:
             parsed = json.loads(body)
         except ValueError as e:
             raise InstantError("Webhook body is not valid JSON") from e
-        if (
-            not isinstance(parsed, dict)
-            or not isinstance(parsed.get("payloadUrl"), str)
-            or not isinstance(parsed.get("token"), str)
+        if not isinstance(parsed, dict):
+            raise InstantError("Invalid webhook body: expected an object with payloadUrl and token")
+        payload_url = parsed.get("payloadUrl")
+        token = parsed.get("token")
+        if not (isinstance(payload_url, str) and payload_url) or not (
+            isinstance(token, str) and token
         ):
             raise InstantError("Invalid webhook body: expected an object with payloadUrl and token")
         response = self._http._client.get(
-            parsed["payloadUrl"],
+            payload_url,
             headers={
-                "Authorization": f"Bearer {parsed['token']}",
+                "Authorization": f"Bearer {token}",
                 "accept": "application/json",
             },
         )
@@ -99,11 +101,18 @@ class Webhooks:
 
         When `Instant(schema=...)` was set, each record is validated into
         its generated Pydantic model before being handed to the handler.
-        Records with no matching handler are skipped. Handlers run
-        sequentially in record order; the first to raise propagates and
-        stops the remaining dispatches. Handlers under `AsyncInstant` must
-        be `async def`; under `Instant` they're plain `def`. Mixing flavors
-        is unsupported.
+        Records with no matching handler are skipped.
+
+        Sequential await (rather than `asyncio.gather`) is deliberate:
+        unasync strips the `await` keyword on the way to the sync flavor,
+        and a `gather(...)` without `await` would silently no-op a stray
+        async handler under `Instant`. Sequential dispatch makes both
+        flavors honest at the cost of concurrency across handlers in a
+        single payload. The first handler to raise propagates and stops
+        the remaining dispatches.
+
+        Handlers under `AsyncInstant` must be `async def`; under `Instant`
+        they're plain `def`. Mixing flavors is unsupported.
         """
         records_map = self._schema.get("records", {}) if self._schema else {}
         for record in payload.get("data") or []:

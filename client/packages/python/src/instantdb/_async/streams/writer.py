@@ -9,7 +9,6 @@ resumes.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from types import TracebackType
 from typing import Any
 
@@ -55,6 +54,17 @@ class AsyncStreamWriter:
                 "Writer not opened; use 'async with adb.streams.write(...) as writer:'"
             )
         return self._stream_id_future
+
+    @property
+    def error(self) -> BaseException | None:
+        """The last error seen by the writer, if any.
+
+        `__aexit__` swallows failures from the final close-send and the
+        durability flush wait so they don't mask an inner user exception.
+        Callers who need to confirm a clean shutdown can check this after
+        the context exits — `None` means everything flushed cleanly.
+        """
+        return self._error
 
     async def __aenter__(self) -> AsyncStreamWriter:
         self._stream_id_future = asyncio.get_running_loop().create_future()
@@ -135,13 +145,21 @@ class AsyncStreamWriter:
         }
         if abort_reason:
             close_msg["abort-reason"] = abort_reason
-        # Each leg is best-effort and independently suppressed: a failed close
-        # send shouldn't skip the flush wait, and a flush timeout shouldn't
-        # propagate out of __aexit__.
-        with contextlib.suppress(Exception):
+        # Each leg is best-effort: a failed close send shouldn't skip the
+        # flush wait, and a flush timeout shouldn't propagate out of
+        # __aexit__ (it would mask any inner user exception). Errors are
+        # stashed onto `self.error` so a caller who cares about durability
+        # can check after the context exits.
+        try:
             await self._connection.send(close_msg)
-        with contextlib.suppress(Exception):
+        except Exception as e:
+            if self._error is None:
+                self._error = e
+        try:
             await asyncio.wait_for(self._flushed_done.wait(), timeout=_FLUSH_TIMEOUT_SECONDS)
+        except Exception as e:
+            if self._error is None:
+                self._error = e
 
     def _on_message(self, msg: dict[str, Any]) -> None:
         op = msg.get("op")

@@ -90,16 +90,33 @@ async def test_process_payload_dispatches_in_record_order():
     assert seen == [("create", "a"), ("default", "b")]
 
 
-async def test_process_payload_propagates_handler_exception():
+async def test_process_payload_propagates_handler_exception_and_stops_remaining():
+    # If the first record's handler raises, subsequent records must not run.
+    # Catches a regression to asyncio.gather, which would have called every
+    # handler concurrently before propagating the exception.
+    seen = []
+
     async def bad(record):
+        seen.append(("bad", record["id"]))
         raise RuntimeError("boom")
+
+    async def after(record):
+        seen.append(("after", record["id"]))
 
     async with AsyncInstant(app_id="app", admin_token="abc") as db:
         with pytest.raises(RuntimeError, match="boom"):
             await db.webhooks.process_payload(
-                {"goals": {"create": bad}},
-                {"data": [_record("goals", "create")], "idempotencyKey": "k"},
+                {"goals": {"create": bad, "update": after}},
+                {
+                    "data": [
+                        _record("goals", "create", "a"),
+                        _record("goals", "update", "b"),
+                    ],
+                    "idempotencyKey": "k",
+                },
             )
+
+    assert seen == [("bad", "a")]
 
 
 async def test_process_payload_skips_records_with_no_handler():
@@ -225,6 +242,11 @@ async def test_fetch_payloads_uses_payload_url_and_jwt_bearer(mock_transport):
         b'{"payloadUrl": "x"}',
         b'{"token": "x"}',
         b'"a string, not an object"',
+        # Falsy-but-present values should fail the str check, not slip through.
+        b'{"payloadUrl": null, "token": "t"}',
+        b'{"payloadUrl": "", "token": "t"}',
+        b'{"payloadUrl": "x", "token": null}',
+        b'{"payloadUrl": "x", "token": ""}',
     ],
 )
 async def test_fetch_payloads_rejects_malformed_body(body):
