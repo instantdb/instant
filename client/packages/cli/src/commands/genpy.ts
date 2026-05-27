@@ -45,15 +45,13 @@ export const genpyCommand = ({ outDir }: { outDir?: string }) =>
     const targetDir = outDir
       ? path.resolve(outDir)
       : path.dirname(localSchemaFile.path);
-    yield* fs
-      .makeDirectory(targetDir, { recursive: true })
-      .pipe(
-        Effect.mapError((e) =>
-          GenpyWriteError.make({
-            message: `Failed to create ${targetDir}: ${e}`,
-          }),
-        ),
-      );
+    yield* fs.makeDirectory(targetDir, { recursive: true }).pipe(
+      Effect.mapError((e) =>
+        GenpyWriteError.make({
+          message: `Failed to create ${targetDir}: ${e}`,
+        }),
+      ),
+    );
     const pyPath = path.join(targetDir, 'instant_types.py');
     const pyiPath = path.join(targetDir, 'instant_types.pyi');
 
