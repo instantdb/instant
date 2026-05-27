@@ -105,12 +105,46 @@ type Field = {
   rawKey?: string;
 };
 
+// In python-land we would do something like keyword.iskeyword(), to generate
+// this list but because our gen-script is in ts-land we use an explicit set
+// based on Python 3 keywords
+// https://docs.python.org/3/reference/lexical_analysis.html#keywords
 const PY_KEYWORDS = new Set([
-  'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await',
-  'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except',
-  'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is',
-  'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try',
-  'while', 'with', 'yield', 'match', 'case',
+  'False',
+  'None',
+  'True',
+  'and',
+  'as',
+  'assert',
+  'async',
+  'await',
+  'break',
+  'class',
+  'continue',
+  'def',
+  'del',
+  'elif',
+  'else',
+  'except',
+  'finally',
+  'for',
+  'from',
+  'global',
+  'if',
+  'import',
+  'in',
+  'is',
+  'lambda',
+  'nonlocal',
+  'not',
+  'or',
+  'pass',
+  'raise',
+  'return',
+  'try',
+  'while',
+  'with',
+  'yield',
 ]);
 
 function isPyIdent(name: string): boolean {
@@ -474,7 +508,11 @@ export function buildTxStubPyi(schema: SchemaLike): string {
       if (fields.length === 0) lines.push('    pass');
       return lines.join('\n');
     }
-    const lines = [`${name} = TypedDict(`, `    ${JSON.stringify(name)},`, '    {'];
+    const lines = [
+      `${name} = TypedDict(`,
+      `    ${JSON.stringify(name)},`,
+      '    {',
+    ];
     for (const f of fields) {
       lines.push(`        ${JSON.stringify(f.key)}: ${f.type},`);
     }
