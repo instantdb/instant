@@ -16,7 +16,14 @@ export {
 export { InstantNextDatabase } from './InstantNextDatabase.tsx';
 export { InstantSuspenseProvider } from './InstantSuspenseProvider.tsx';
 
-export { createInstantRouteHandler } from '@instantdb/core';
+export {
+  createInstantRouteHandler,
+  createInstantRouteHandlerBody,
+  type InstantRouteHandlerBody,
+  type InstantRouteHandlerPayloadByType,
+  type InstantRouteHandlerRawBody,
+  type InstantRouteHandlerType,
+} from '@instantdb/core';
 
 /**
  *

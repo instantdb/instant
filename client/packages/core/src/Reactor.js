@@ -33,6 +33,7 @@ import { validate as validateUUID } from 'uuid';
 import { WSConnection, SSEConnection } from './Connection.ts';
 import { SyncTable } from './SyncTable.ts';
 import { InstantStream } from './Stream.ts';
+import { createInstantRouteHandlerBody } from './routeHandlerProtocol.ts';
 
 /** @typedef {import('./utils/log.ts').Logger} Logger */
 /** @typedef {import('./Connection.ts').Connection} Connection */
@@ -2202,11 +2203,12 @@ export default class Reactor {
     try {
       await fetch(this.config.firstPartyPath + '/', {
         method: 'POST',
-        body: JSON.stringify({
-          type: 'sync-user',
-          appId: this.config.appId,
-          user: user,
-        }),
+        body: JSON.stringify(
+          createInstantRouteHandlerBody('sync-user', {
+            appId: this.config.appId,
+            user,
+          }),
+        ),
         headers: {
           'Content-Type': 'application/json',
         },

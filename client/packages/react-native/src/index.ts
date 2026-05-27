@@ -22,6 +22,11 @@ import {
 
   // types
   createInstantRouteHandler,
+  createInstantRouteHandlerBody,
+  type InstantRouteHandlerBody,
+  type InstantRouteHandlerPayloadByType,
+  type InstantRouteHandlerRawBody,
+  type InstantRouteHandlerType,
   type RoomSchemaShape,
   type InstantQuery,
   type InstantQueryResult,
@@ -190,6 +195,11 @@ export {
   lookup,
   i,
   createInstantRouteHandler,
+  createInstantRouteHandlerBody,
+  type InstantRouteHandlerBody,
+  type InstantRouteHandlerPayloadByType,
+  type InstantRouteHandlerRawBody,
+  type InstantRouteHandlerType,
   InstantReactNativeDatabase,
 
   // error

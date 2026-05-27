@@ -28,6 +28,13 @@ import {
   type StoreInterfaceStoreName,
 } from './utils/PersistedObject.ts';
 import { createInstantRouteHandler } from './createRouteHandler.ts';
+import {
+  createInstantRouteHandlerBody,
+  type InstantRouteHandlerBody,
+  type InstantRouteHandlerPayloadByType,
+  type InstantRouteHandlerRawBody,
+  type InstantRouteHandlerType,
+} from './routeHandlerProtocol.ts';
 import { parseSchemaFromJSON } from './parseSchemaFromJSON.ts';
 
 import type {
@@ -1225,6 +1232,11 @@ export {
   type StoreInterfaceClass,
   type StoreInterfaceStoreName,
   createInstantRouteHandler,
+  createInstantRouteHandlerBody,
+  type InstantRouteHandlerBody,
+  type InstantRouteHandlerPayloadByType,
+  type InstantRouteHandlerRawBody,
+  type InstantRouteHandlerType,
 };
 
 /** @deprecated Use StoreInterface instead */

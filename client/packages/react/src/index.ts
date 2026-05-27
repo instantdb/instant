@@ -92,6 +92,11 @@ import {
   type SyncTableSetupError,
   StoreInterface,
   createInstantRouteHandler,
+  createInstantRouteHandlerBody,
+  type InstantRouteHandlerBody,
+  type InstantRouteHandlerPayloadByType,
+  type InstantRouteHandlerRawBody,
+  type InstantRouteHandlerType,
   type StoreInterfaceStoreName,
   InstantWritableStream,
   InstantReadableStream,
@@ -212,4 +217,9 @@ export {
 
   // Server helper
   createInstantRouteHandler,
+  createInstantRouteHandlerBody,
+  type InstantRouteHandlerBody,
+  type InstantRouteHandlerPayloadByType,
+  type InstantRouteHandlerRawBody,
+  type InstantRouteHandlerType,
 };

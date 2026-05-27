@@ -1,4 +1,5 @@
 import type { User } from './clientTypes.js';
+import type { InstantRouteHandlerRawBody } from './routeHandlerProtocol.ts';
 
 type CreateRouteHandlerConfig = {
   appId: string;
@@ -37,7 +38,7 @@ function errorResponse(status: number, message: string) {
 export const createInstantRouteHandler = (config: CreateRouteHandlerConfig) => {
   return {
     POST: async (req: Request) => {
-      let body: { type?: string; appId?: string; user?: User | null };
+      let body: InstantRouteHandlerRawBody;
       try {
         body = await req.json();
       } catch {
@@ -54,7 +55,10 @@ export const createInstantRouteHandler = (config: CreateRouteHandlerConfig) => {
 
       switch (body.type) {
         case 'sync-user':
-          return createUserSyncResponse(config, body.user ?? null);
+          return createUserSyncResponse(
+            config,
+            (body.user as User | null | undefined) ?? null,
+          );
         default:
           return errorResponse(400, `Unknown type: ${body.type}`);
       }
