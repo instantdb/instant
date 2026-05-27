@@ -45,17 +45,17 @@ export const { use: useFetchedDash, provider: DashFetchProvider } =
       const [restoredWorkspace, setRestoredWorkspace] =
         useState(getSavedWorkspace);
 
-      // The URL is the source of truth. With no `org` in the URL we use the
-      // restored workspace on a bare entry, otherwise personal. An `app` in the
-      // URL resolves its own workspace (see pages/dash), so we don't restore
-      // then. The devtool seeds the workspace via `args`.
-      const urlOrg = router.query.org as string | undefined;
-      const isBareEntry = !urlOrg && !router.query.app;
-      const currentWorkspaceId =
-        urlOrg ??
-        args?.workspaceId ??
-        (isBareEntry ? restoredWorkspace : null) ??
-        'personal';
+      // The URL is the source of truth. With no `org` we reopen the workspace
+      // you were last in (a bare entry); an `app` in the URL resolves its own
+      // workspace (see pages/dash), so we skip the restore then. The devtool
+      // seeds the workspace via `args`.
+      const getWorkspaceId = (): string => {
+        if (router.query.org) return router.query.org as string;
+        if (args?.workspaceId) return args.workspaceId;
+        if (restoredWorkspace && !router.query.app) return restoredWorkspace;
+        return 'personal';
+      };
+      const currentWorkspaceId = getWorkspaceId();
 
       const setWorkspace = (
         workspaceId: string | 'personal',
