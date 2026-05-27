@@ -304,6 +304,74 @@ async def test_invalid_app_id_raises_parsed_error(db: AsyncInstant) -> None:
             raise AssertionError("expected InstantAPIError for bogus app_id")
 
 
+# ---------- subscriptions ----------
+
+
+async def test_subscribe_query_emits_initial_data(db: AsyncInstant) -> None:
+    goal_id = id()
+    title = f"sandbox-{goal_id[:8]}"
+    try:
+        await db.transact(db.tx.goals[goal_id].update({"title": title}))
+        async with db.subscribe_query({"goals": {"$": {"where": {"id": goal_id}}}}) as sub:
+            payload = await asyncio.wait_for(anext(sub), timeout=5.0)
+            assert payload["type"] == "ok", f"expected ok, got {payload}"
+            goals = payload["data"]["goals"]
+            assert len(goals) == 1, f"expected 1 goal, got {len(goals)}"
+            assert goals[0]["id"] == goal_id, f"wrong goal: {goals[0]}"
+            assert payload["session_info"] is not None, "session_info missing"
+            assert payload["session_info"]["machine_id"], "machine_id empty"
+            assert payload["session_info"]["session_id"], "session_id empty"
+        print(f"✓ subscribe_query emitted initial data ({goal_id})")
+    finally:
+        await db.transact(db.tx.goals[goal_id].delete())
+
+
+async def test_subscribe_query_emits_live_update(db: AsyncInstant) -> None:
+    goal_id = id()
+    try:
+        async with db.subscribe_query({"goals": {"$": {"where": {"id": goal_id}}}}) as sub:
+            initial = await asyncio.wait_for(anext(sub), timeout=5.0)
+            assert initial["type"] == "ok"
+            assert len(initial["data"]["goals"]) == 0, "expected empty initial result"
+
+            await db.transact(db.tx.goals[goal_id].update({"title": "Live update"}))
+
+            update = await asyncio.wait_for(anext(sub), timeout=5.0)
+            assert update["type"] == "ok"
+            goals = update["data"]["goals"]
+            assert len(goals) == 1, f"expected 1 goal after update, got {len(goals)}"
+            assert goals[0]["title"] == "Live update"
+        print(f"✓ subscribe_query emitted live update ({goal_id})")
+    finally:
+        await db.transact(db.tx.goals[goal_id].delete())
+
+
+async def test_subscribe_query_emits_error_on_bad_creds(db: AsyncInstant) -> None:
+    api_uri = os.environ.get("INSTANT_API_URI", "http://localhost:8888")
+    async with AsyncInstant(
+        app_id="00000000-0000-0000-0000-000000000000",
+        admin_token="bogus",
+        api_uri=api_uri,
+    ) as bogus:
+        async with bogus.subscribe_query({"goals": {}}) as sub:
+            payload = await asyncio.wait_for(anext(sub), timeout=5.0)
+            assert payload["type"] == "error", f"expected error, got {payload}"
+            assert isinstance(payload["error"], InstantAPIError), (
+                f"error not InstantAPIError: {type(payload['error']).__name__}"
+            )
+        print(f"✓ subscribe_query emitted error for bad creds: {payload['error']}")
+
+
+async def test_subscribe_query_cleanup_on_context_exit(db: AsyncInstant) -> None:
+    # The async-with must terminate the background SSE task even when the
+    # user breaks out of the loop early. is_closed flips to True on exit.
+    async with db.subscribe_query({"goals": {}}) as sub:
+        await asyncio.wait_for(anext(sub), timeout=5.0)
+        assert not sub.is_closed, "should be open while iterating"
+    assert sub.is_closed, "should be closed after context exit"
+    print("✓ subscribe_query closes connection on context exit")
+
+
 # ---------- entry ----------
 
 
@@ -345,6 +413,12 @@ async def main() -> None:
         #
         # error path:
         # await test_invalid_app_id_raises_parsed_error(db)
+        #
+        # subscriptions:
+        # await test_subscribe_query_emits_initial_data(db)
+        # await test_subscribe_query_emits_live_update(db)
+        # await test_subscribe_query_emits_error_on_bad_creds(db)
+        # await test_subscribe_query_cleanup_on_context_exit(db)
         pass
 
 

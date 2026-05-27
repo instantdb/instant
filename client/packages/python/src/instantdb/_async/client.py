@@ -12,6 +12,7 @@ from instantdb._async.auth import AsyncAuth
 from instantdb._async.http import DEFAULT_API_URI, _AsyncHTTP
 from instantdb._async.rooms import AsyncRooms
 from instantdb._async.storage import AsyncStorage
+from instantdb._async.subscribe import AsyncSubscription
 from instantdb._errors import InstantError
 from instantdb._transact import _flatten_chunks, _TxBuilder, _TxChunk
 
@@ -90,6 +91,16 @@ class AsyncInstant:
             params={"app_id": self._app_id},
             json={"query": q, "inference?": False},
         )
+
+    def subscribe_query(
+        self,
+        q: dict[str, Any],
+        *,
+        rule_params: dict[str, Any] | None = None,
+    ) -> AsyncSubscription:
+        if rule_params is not None:
+            q = {"$$ruleParams": rule_params, **q}
+        return AsyncSubscription(self._http, query=q)
 
     async def transact(self, chunks: _TxChunk | list[_TxChunk]) -> dict[str, Any]:
         return await self._http.post(
