@@ -323,7 +323,7 @@ db.auth.sign_out(email="alyssa@instantdb.com")
 ## Impersonation
 
 The admin client bypasses permissions by default. To run queries and
-transactions *with* permission checks, scope the client to a user with
+transactions _with_ permission checks, scope the client to a user with
 `as_user`:
 
 ```python {% showCopy=true %}

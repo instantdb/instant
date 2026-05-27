@@ -79,7 +79,6 @@ asyncio.run(main())
 
 Head on over to the [Python Docs](https://www.instantdb.com/docs/start-python) for more usage docs!
 
-
 ## Development
 
 ```bash
@@ -121,7 +120,7 @@ token-rewrite).
   so the next person doesn't have to figure it out.
 
 If you add a method or import that should exist only on the async
-client (inside a file that *is* unasynced), wrap it in marker comments
+client (inside a file that _is_ unasynced), wrap it in marker comments
 and re-run `make unasync`:
 
 ```python

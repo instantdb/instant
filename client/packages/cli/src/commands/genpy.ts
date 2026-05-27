@@ -42,27 +42,37 @@ export const genpyCommand = ({ outDir }: { outDir?: string }) =>
     // Default: write alongside the schema file. `--out-dir` overrides for
     // monorepos where Python lives elsewhere, or for our own sandbox where
     // the schema is shared with the JS CLI tests.
-    const targetDir = outDir ? path.resolve(outDir) : path.dirname(localSchemaFile.path);
-    yield* fs.makeDirectory(targetDir, { recursive: true }).pipe(
-      Effect.mapError((e) =>
-        GenpyWriteError.make({ message: `Failed to create ${targetDir}: ${e}` }),
-      ),
-    );
+    const targetDir = outDir
+      ? path.resolve(outDir)
+      : path.dirname(localSchemaFile.path);
+    yield* fs
+      .makeDirectory(targetDir, { recursive: true })
+      .pipe(
+        Effect.mapError((e) =>
+          GenpyWriteError.make({
+            message: `Failed to create ${targetDir}: ${e}`,
+          }),
+        ),
+      );
     const pyPath = path.join(targetDir, 'instant_types.py');
     const pyiPath = path.join(targetDir, 'instant_types.pyi');
 
     const pyContent = buildEntityModelsPy(localSchemaFile.schema);
     const pyiContent = buildTxStubPyi(localSchemaFile.schema);
-    yield* fs.writeFileString(pyPath, pyContent).pipe(
-      Effect.mapError((e) =>
-        GenpyWriteError.make({ message: `Failed to write ${pyPath}: ${e}` }),
-      ),
-    );
-    yield* fs.writeFileString(pyiPath, pyiContent).pipe(
-      Effect.mapError((e) =>
-        GenpyWriteError.make({ message: `Failed to write ${pyiPath}: ${e}` }),
-      ),
-    );
+    yield* fs
+      .writeFileString(pyPath, pyContent)
+      .pipe(
+        Effect.mapError((e) =>
+          GenpyWriteError.make({ message: `Failed to write ${pyPath}: ${e}` }),
+        ),
+      );
+    yield* fs
+      .writeFileString(pyiPath, pyiContent)
+      .pipe(
+        Effect.mapError((e) =>
+          GenpyWriteError.make({ message: `Failed to write ${pyiPath}: ${e}` }),
+        ),
+      );
 
     yield* Effect.log(`✅ Wrote ${pyPath} and ${pyiPath}`);
   });
@@ -206,7 +216,8 @@ export function buildEntityModelsPy(schema: SchemaLike): string {
   if (usesDatetime) stdlibImports.push('from datetime import datetime');
   stdlibImports.push(`from typing import ${typingImports.join(', ')}`);
   const importBlock =
-    stdlibImports.join('\n') + '\n\n' +
+    stdlibImports.join('\n') +
+    '\n\n' +
     'from pydantic import BaseModel, ConfigDict';
 
   // Add record-model rebuilds so forward-string annotations to entity
@@ -222,7 +233,9 @@ export function buildEntityModelsPy(schema: SchemaLike): string {
   // Registry consumed by `Instant(schema=schema)`.
   const entityMapLines = ['    "entities": {'];
   for (const entName of entityNames) {
-    entityMapLines.push(`        ${JSON.stringify(entName)}: ${className(entName)},`);
+    entityMapLines.push(
+      `        ${JSON.stringify(entName)}: ${className(entName)},`,
+    );
   }
   entityMapLines.push('    },');
   const recordMapLines = ['    "records": {'];
@@ -334,9 +347,15 @@ function buildWebhookSection(
   const rootUnionTerms = entityNames.map((n) => `${className(n)}Record`);
   const rootUnion = `WebhookRecord = ${rootUnionTerms.join(' | ')}`;
 
-  const handlerDictLines = ['WebhookHandlers = TypedDict(', '    "WebhookHandlers",', '    {'];
+  const handlerDictLines = [
+    'WebhookHandlers = TypedDict(',
+    '    "WebhookHandlers",',
+    '    {',
+  ];
   for (const entName of entityNames) {
-    handlerDictLines.push(`        ${JSON.stringify(entName)}: _${className(entName)}Handlers,`);
+    handlerDictLines.push(
+      `        ${JSON.stringify(entName)}: _${className(entName)}Handlers,`,
+    );
   }
   handlerDictLines.push(`        "$default": Callable[[WebhookRecord], Any],`);
   handlerDictLines.push('    },', '    total=False,', ')');
@@ -442,7 +461,9 @@ export function buildTxStubPyi(schema: SchemaLike): string {
     txLines.push('    pass');
   } else {
     for (const entName of identifierEntities) {
-      txLines.push(`    ${entName}: _NamespaceBuilder[_${className(entName)}Chunk]`);
+      txLines.push(
+        `    ${entName}: _NamespaceBuilder[_${className(entName)}Chunk]`,
+      );
     }
   }
 
@@ -450,7 +471,8 @@ export function buildTxStubPyi(schema: SchemaLike): string {
   if (usesDatetime) stdlibImports.unshift('from datetime import datetime');
 
   return [
-    PY_HEADER + '"""Tx builder typing stub. Applied via `Instant(schema=...)`."""',
+    PY_HEADER +
+      '"""Tx builder typing stub. Applied via `Instant(schema=...)`."""',
     '',
     'from __future__ import annotations',
     '',
