@@ -6,9 +6,12 @@ from __future__ import annotations
 
 import os
 from types import TracebackType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 from instantdb._errors import InstantError
 from instantdb._sync.auth import Auth
@@ -26,7 +29,9 @@ class Instant:
         app_id: str | None = None,
         admin_token: str | None = None,
         api_uri: str = DEFAULT_API_URI,
-        schema: dict[str, Any] | None = None,
+        # Private. Users get this via the typed `Instant` in
+        # `instant_types.py` (genpy output), which sets it through setdefault.
+        _schema: dict[str, Any] | None = None,
         _impersonation: dict[str, str] | None = None,
         _transport: httpx.BaseTransport | None = None,
         _shared_client: httpx.Client | None = None,
@@ -45,7 +50,7 @@ class Instant:
         self._admin_token = admin_token
         self._api_uri = api_uri
         self._impersonation = _impersonation
-        self._schema = schema
+        self._schema = _schema
         self._http = _HTTP(
             app_id=app_id,
             admin_token=admin_token,
@@ -58,7 +63,7 @@ class Instant:
         self.auth = Auth(self._http, app_id=app_id)
         self.storage = Storage(self._http, app_id=app_id)
         self.rooms = Rooms(self._http, app_id=app_id)
-        self.webhooks = Webhooks(self._http, app_id=app_id, schema=schema)
+        self.webhooks = Webhooks(self._http, app_id=app_id, schema=_schema)
 
     def as_user(
         self,
@@ -66,7 +71,7 @@ class Instant:
         email: str | None = None,
         token: str | None = None,
         guest: bool = False,
-    ) -> Instant:
+    ) -> Self:
         if sum([email is not None, token is not None, guest]) != 1:
             raise InstantError("as_user requires exactly one of: email, token, or guest=True")
         if email is not None:
@@ -75,13 +80,16 @@ class Instant:
             headers = {"as-token": token}
         else:
             headers = {"as-guest": "true"}
-        return Instant(
+        return self._clone(_impersonation=headers)
+
+    def _clone(self, **overrides: Any) -> Self:
+        return type(self)(
             app_id=self._app_id,
             admin_token=self._admin_token,
             api_uri=self._api_uri,
-            schema=self._schema,
-            _impersonation=headers,
+            _schema=self._schema,
             _shared_client=self._http._client,
+            **overrides,
         )
 
     def query(

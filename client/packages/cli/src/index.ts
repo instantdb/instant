@@ -840,11 +840,11 @@ Environment Variables:
 export const genpyDef = program
   .command('genpy')
   .description(
-    'Generate Python types (instant_types.py + .pyi) from instant.schema.ts.',
+    'Generate a schema-bound instant_types.py from instant.schema.ts.',
   )
   .option(
     '-o --out-dir <path>',
-    'Directory to write generated files into. Defaults to the schema file directory.',
+    'Directory to write instant_types.py into. Defaults to the schema file directory.',
   )
   .addHelpText(
     'after',

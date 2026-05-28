@@ -7,7 +7,7 @@ Reads INSTANT_APP_ID and INSTANT_ADMIN_TOKEN from the environment. Run:
 
 import time
 
-from instantdb import Instant, id
+from instant_types import Instant, id
 
 db = Instant()
 

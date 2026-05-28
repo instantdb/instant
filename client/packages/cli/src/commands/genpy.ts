@@ -44,9 +44,8 @@ export const genpyCommand = ({ outDir }: { outDir?: string }) =>
 
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
-    // Default: write alongside the schema file. `--out-dir` overrides for
-    // monorepos where Python lives elsewhere, or for our own sandbox where
-    // the schema is shared with the JS CLI tests.
+    // Default: write alongside the schema; `--out-dir` overrides for
+    // monorepos where Python lives in a sibling directory.
     const targetDir = outDir
       ? path.resolve(outDir)
       : path.dirname(localSchemaFile.path);
@@ -58,10 +57,9 @@ export const genpyCommand = ({ outDir }: { outDir?: string }) =>
       ),
     );
     const pyPath = path.join(targetDir, 'instant_types.py');
-    const pyiPath = path.join(targetDir, 'instant_types.pyi');
+    const staleStub = path.join(targetDir, 'instant_types.pyi');
 
-    const pyContent = buildEntityModelsPy(localSchemaFile.schema);
-    const pyiContent = buildTxStubPyi(localSchemaFile.schema);
+    const pyContent = buildPy(localSchemaFile.schema);
     yield* fs
       .writeFileString(pyPath, pyContent)
       .pipe(
@@ -69,15 +67,11 @@ export const genpyCommand = ({ outDir }: { outDir?: string }) =>
           GenpyWriteError.make({ message: `Failed to write ${pyPath}: ${e}` }),
         ),
       );
-    yield* fs
-      .writeFileString(pyiPath, pyiContent)
-      .pipe(
-        Effect.mapError((e) =>
-          GenpyWriteError.make({ message: `Failed to write ${pyiPath}: ${e}` }),
-        ),
-      );
+    // Earlier versions of genpy emitted a separate `.pyi`; drop it if a
+    // user is upgrading so it doesn't shadow the new `.py`.
+    yield* fs.remove(staleStub).pipe(Effect.ignore);
 
-    yield* Effect.log(`✅ Wrote ${pyPath} and ${pyiPath}`);
+    yield* Effect.log(`✅ Wrote ${pyPath}`);
   });
 
 // ---------- entity model codegen ----------
@@ -200,9 +194,8 @@ function findIdentifierCollisions(schema: SchemaLike): string | undefined {
 }
 
 function className(entName: string): string {
-  // Strip a leading `$` (system entities like `$users`, `$files`), then
-  // PascalCase across word separators (`-`, `_`, whitespace) so non-identifier
-  // characters in entity names don't produce invalid Python class names.
+  // Strip a leading `$` and PascalCase across separators so `my-entity`
+  // or `$users` produce valid Python class names.
   const stripped = entName.startsWith('$') ? entName.slice(1) : entName;
   return stripped
     .split(/[-_\s]+/)
@@ -230,7 +223,7 @@ function mapValueType(vt: DataAttrDefLike['valueType']): string {
   }
 }
 
-export function buildEntityModelsPy(schema: SchemaLike): string {
+export function buildPy(schema: SchemaLike): string {
   const entityNames = Object.keys(schema.entities).sort();
   const fieldsByEntity: Record<string, Field[]> = {};
   const linkFieldsByEntity: Record<string, Field[]> = {};
@@ -330,7 +323,13 @@ export function buildEntityModelsPy(schema: SchemaLike): string {
   // and webhook handler type-checking.
   const webhookSection = buildWebhookSection(schema, entityNames);
 
-  const typingImports = ['Any', 'Callable', 'Literal', 'TypedDict'];
+  const typingImports = [
+    'TYPE_CHECKING',
+    'Any',
+    'Callable',
+    'Literal',
+    'TypedDict',
+  ];
 
   const stdlibImports: string[] = [];
   if (usesDatetime) stdlibImports.push('from datetime import datetime');
@@ -338,10 +337,18 @@ export function buildEntityModelsPy(schema: SchemaLike): string {
   const pydanticImports = usesField
     ? 'BaseModel, ConfigDict, Field'
     : 'BaseModel, ConfigDict';
+  const sdkImports = [
+    'from instantdb import AsyncInstant as _BaseAsyncInstant',
+    'from instantdb import Instant as _BaseInstant',
+    'from instantdb import InstantAPIError, InstantError, id, lookup',
+  ].join('\n');
   const importBlock =
     stdlibImports.join('\n') +
     '\n\n' +
-    `from pydantic import ${pydanticImports}`;
+    `from pydantic import ${pydanticImports}\n\n` +
+    sdkImports;
+
+  const txTypingBlock = buildTxTypingBlock(schema, entityNames);
 
   // Add record-model rebuilds so forward-string annotations to entity
   // types resolve under `from __future__ import annotations`.
@@ -353,7 +360,6 @@ export function buildEntityModelsPy(schema: SchemaLike): string {
     }
   }
 
-  // Registry consumed by `Instant(schema=schema)`.
   const entityMapLines = ['    "entities": {'];
   for (const entName of entityNames) {
     entityMapLines.push(
@@ -379,12 +385,34 @@ export function buildEntityModelsPy(schema: SchemaLike): string {
     '}',
   ].join('\n');
 
+  // `_schema` defaults via setdefault so `_clone()` (used by `as_user`)
+  // can pass an explicit value without a double-pass TypeError.
+  const typedClients = [
+    'class Instant(_BaseInstant):',
+    '    tx: _TxBuilder',
+    '',
+    '    def __init__(self, **kwargs: Any) -> None:',
+    '        kwargs.setdefault("_schema", schema)',
+    '        super().__init__(**kwargs)',
+    '',
+    '',
+    'class AsyncInstant(_BaseAsyncInstant):',
+    '    tx: _TxBuilder',
+    '',
+    '    def __init__(self, **kwargs: Any) -> None:',
+    '        kwargs.setdefault("_schema", schema)',
+    '        super().__init__(**kwargs)',
+  ].join('\n');
+
   return [
-    PY_HEADER + '"""Generated Pydantic models for Instant schema."""',
+    PY_HEADER + '"""Schema-bound Instant clients + Pydantic models."""',
     '',
     'from __future__ import annotations',
     '',
     importBlock,
+    '',
+    '',
+    txTypingBlock,
     '',
     '',
     classBlocks.join('\n\n\n'),
@@ -401,8 +429,10 @@ export function buildEntityModelsPy(schema: SchemaLike): string {
     recordRebuilds.join('\n'),
     '',
     '',
-    '# Registry consumed by `Instant(schema=schema)` for query-result + webhook validation.',
     schemaLiteral,
+    '',
+    '',
+    typedClients,
     '',
   ].join('\n');
 }
@@ -503,31 +533,25 @@ function buildWebhookSection(
   ].join('\n');
 }
 
-// ---------- tx builder .pyi stub ----------
+// ---------- tx builder typing (TYPE_CHECKING block) ----------
 
-export function buildTxStubPyi(schema: SchemaLike): string {
-  const entityNames = Object.keys(schema.entities).sort();
-  let usesDatetime = false;
-
-  // Per-entity link fields (label + arg type for link/unlink TypedDict).
+function buildTxTypingBlock(schema: SchemaLike, entityNames: string[]): string {
   const linkFieldsByEntity: Record<string, { label: string; type: string }[]> =
     {};
-  for (const entName of entityNames) {
-    linkFieldsByEntity[entName] = [];
-  }
+  for (const entName of entityNames) linkFieldsByEntity[entName] = [];
   for (const link of Object.values(schema.links)) {
-    const fwdArgType = link.forward.has === 'one' ? 'str' : 'str | list[str]';
-    const revArgType = link.reverse.has === 'one' ? 'str' : 'str | list[str]';
+    const fwdArg = link.forward.has === 'one' ? 'str' : 'str | list[str]';
+    const revArg = link.reverse.has === 'one' ? 'str' : 'str | list[str]';
     if (linkFieldsByEntity[link.forward.on]) {
       linkFieldsByEntity[link.forward.on].push({
         label: link.forward.label,
-        type: fwdArgType,
+        type: fwdArg,
       });
     }
     if (linkFieldsByEntity[link.reverse.on]) {
       linkFieldsByEntity[link.reverse.on].push({
         label: link.reverse.label,
-        type: revArgType,
+        type: revArg,
       });
     }
   }
@@ -540,101 +564,86 @@ export function buildTxStubPyi(schema: SchemaLike): string {
   const buildTypedDict = (
     name: string,
     fields: { key: string; type: string }[],
-  ): string => {
+  ): string[] => {
     const allIdent = fields.every((f) => isPyIdent(f.key));
     if (allIdent) {
-      const lines = [`class ${name}(TypedDict, total=False):`];
-      for (const f of fields) lines.push(`    ${f.key}: ${f.type}`);
-      if (fields.length === 0) lines.push('    pass');
-      return lines.join('\n');
+      const lines = [`    class ${name}(TypedDict, total=False):`];
+      for (const f of fields) lines.push(`        ${f.key}: ${f.type}`);
+      if (fields.length === 0) lines.push('        pass');
+      return lines;
     }
     const lines = [
-      `${name} = TypedDict(`,
-      `    ${JSON.stringify(name)},`,
-      '    {',
+      `    ${name} = TypedDict(`,
+      `        ${JSON.stringify(name)},`,
+      '        {',
     ];
     for (const f of fields) {
-      lines.push(`        ${JSON.stringify(f.key)}: ${f.type},`);
+      lines.push(`            ${JSON.stringify(f.key)}: ${f.type},`);
     }
-    lines.push('    },', '    total=False,', ')');
-    return lines.join('\n');
+    lines.push('        },', '        total=False,', '    )');
+    return lines;
   };
 
-  const perEntityBlocks: string[] = [];
+  const lines: string[] = [
+    'if TYPE_CHECKING:',
+    '    from typing import Generic, TypeVar',
+    '',
+    '    ChunkT = TypeVar("ChunkT")',
+  ];
+
   for (const entName of entityNames) {
     const cls = className(entName);
-
     const argFields: { key: string; type: string }[] = [];
     for (const [attrName, attrDef] of Object.entries(
       schema.entities[entName].attrs,
     )) {
-      const t = mapValueType(attrDef.valueType);
-      if (t === 'datetime') usesDatetime = true;
-      argFields.push({ key: attrName, type: t });
+      argFields.push({ key: attrName, type: mapValueType(attrDef.valueType) });
     }
-    perEntityBlocks.push(buildTypedDict(`${cls}Args`, argFields));
-
-    const linkFields = linkFieldsByEntity[entName].map((l) => ({
-      key: l.label,
-      type: l.type,
-    }));
-    perEntityBlocks.push(buildTypedDict(`${cls}Links`, linkFields));
-
-    perEntityBlocks.push(
-      [
-        `class _${cls}Chunk:`,
-        `    def update(self, args: ${cls}Args) -> _${cls}Chunk: ...`,
-        `    def create(self, args: ${cls}Args) -> _${cls}Chunk: ...`,
-        `    def link(self, args: ${cls}Links) -> _${cls}Chunk: ...`,
-        `    def unlink(self, args: ${cls}Links) -> _${cls}Chunk: ...`,
-        `    def delete(self) -> _${cls}Chunk: ...`,
-        `    def merge(self, args: ${cls}Args) -> _${cls}Chunk: ...`,
-      ].join('\n'),
+    lines.push('');
+    lines.push(...buildTypedDict(`${cls}Args`, argFields));
+    lines.push('');
+    lines.push(
+      ...buildTypedDict(
+        `${cls}Links`,
+        linkFieldsByEntity[entName].map((l) => ({
+          key: l.label,
+          type: l.type,
+        })),
+      ),
+    );
+    lines.push('');
+    lines.push(
+      `    class _${cls}Chunk:`,
+      `        def update(self, args: ${cls}Args) -> _${cls}Chunk: ...`,
+      `        def create(self, args: ${cls}Args) -> _${cls}Chunk: ...`,
+      `        def link(self, args: ${cls}Links) -> _${cls}Chunk: ...`,
+      `        def unlink(self, args: ${cls}Links) -> _${cls}Chunk: ...`,
+      `        def delete(self) -> _${cls}Chunk: ...`,
+      `        def merge(self, args: ${cls}Args) -> _${cls}Chunk: ...`,
     );
   }
 
-  const builderBlock = [
-    'class _NamespaceBuilder(Generic[ChunkT]):',
-    '    def __getitem__(self, eid: str) -> ChunkT: ...',
-    '    def lookup(self, attr: str, value: Any) -> ChunkT: ...',
-  ].join('\n');
+  lines.push(
+    '',
+    '    class _NamespaceBuilder(Generic[ChunkT]):',
+    '        def __getitem__(self, eid: str) -> ChunkT: ...',
+    '        def lookup(self, attr: str, value: Any) -> ChunkT: ...',
+    '',
+  );
 
   // Only valid Python identifiers can appear as `_TxBuilder` attrs (for
   // `db.tx.<name>` autocomplete); irregular names use `db.tx["..."]`.
   const identifierEntities = entityNames.filter(isPyIdent);
-  const txLines = ['class _TxBuilder:'];
+  lines.push('    class _TxBuilder:');
   if (identifierEntities.length === 0) {
-    txLines.push('    pass');
+    lines.push('        pass');
   } else {
     for (const entName of identifierEntities) {
-      txLines.push(
-        `    ${entName}: _NamespaceBuilder[_${className(entName)}Chunk]`,
+      lines.push(
+        `        ${entName}: _NamespaceBuilder[_${className(entName)}Chunk]`,
       );
     }
   }
 
-  const stdlibImports = ['from typing import Any, Generic, TypedDict, TypeVar'];
-  if (usesDatetime) stdlibImports.unshift('from datetime import datetime');
-
-  return [
-    PY_HEADER +
-      '"""Tx builder typing stub. Applied via `Instant(schema=...)`."""',
-    '',
-    'from __future__ import annotations',
-    '',
-    stdlibImports.join('\n'),
-    '',
-    '',
-    'ChunkT = TypeVar("ChunkT")',
-    '',
-    '',
-    perEntityBlocks.join('\n\n\n'),
-    '',
-    '',
-    builderBlock,
-    '',
-    '',
-    txLines.join('\n'),
-    '',
-  ].join('\n');
+  return lines.join('\n');
 }

@@ -159,8 +159,8 @@ async def test_process_payload_treats_null_data_as_no_records():
 
 
 async def test_process_payload_validates_records_when_schema_passed():
-    """With `Instant(schema=...)`, each record is validated into the schema's
-    Pydantic model before dispatch — handlers see typed instances, not dicts.
+    """With a schema configured, each record is validated into its
+    Pydantic model before dispatch; handlers see typed instances, not dicts.
     """
     from typing import Literal
 
@@ -189,7 +189,7 @@ async def test_process_payload_validates_records_when_schema_passed():
     async def on_create(record):
         seen.append(record)
 
-    async with AsyncInstant(app_id="app", admin_token="abc", schema=schema) as db:
+    async with AsyncInstant(app_id="app", admin_token="abc", _schema=schema) as db:
         await db.webhooks.process_payload(
             {"profiles": {"create": on_create}},
             {

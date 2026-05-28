@@ -32,10 +32,15 @@ a `.env`, and a `main.py`.
 
 ## Usage
 
+Our Python SDK mirrors the JS admin SDK's surface and behavior, with a few
+Pythonic adjustments. A basic example looks like this:
+
 ```python {% showCopy=true %}
 from instantdb import Instant, id
 
 db = Instant(
+    # You can pass these explicitly, by default they fall back to
+    # INSTANT_APP_ID and INSTANT_ADMIN_TOKEN environment variables
     app_id="__APP_ID__",
     admin_token="__ADMIN_TOKEN__",
 )
@@ -47,12 +52,32 @@ db.transact(db.tx.goals[goal_id].update({"title": "Get fit"}))
 # Read data
 result = db.query({"goals": {}})
 for goal in result["goals"]:
-    print(goal["title"])
+    print(goal.title)
 ```
 
-`app_id` and `admin_token` fall back to `INSTANT_APP_ID` and
-`INSTANT_ADMIN_TOKEN` if not passed explicitly. The constructor raises
-`InstantError` if either value is missing.
+We also provide a typed client via codegen. Run `npx instant-cli genpy` to
+generate `instant_types.py` with Pydantic models for your schema and a typed
+`Instant` class that autocompletes your entities and validates mutation shapes.
+
+```python {% showCopy=true %}
+from instant_types import Instant, id
+
+db = Instant()
+
+# Write data
+goal_id = id()
+db.transact(db.tx.goals[goal_id].update({"title": "Get fit"}))
+
+# Read data
+result = db.query({"goals": {}})
+for goal in result["goals"]:
+    print(goal.title)
+```
+
+WHen you scaffold with `npx create-instant-app --python`, we generate
+`instant_types.py` for you as part of the setup. The reamining examples on this
+page use the typed client, but the untyped `Instant` from `instantdb` works the
+same way at runtime.
 
 {% callout type="warning" %}
 
@@ -68,7 +93,7 @@ Use `AsyncInstant` and `await` each call:
 
 ```python {% showCopy=true %}
 import asyncio
-from instantdb import AsyncInstant, id
+from instant_types import AsyncInstant, id
 
 db = AsyncInstant()
 
@@ -78,7 +103,7 @@ async def main():
 
     result = await db.query({"goals": {}})
     for goal in result["goals"]:
-        print(goal["title"])
+        print(goal.title)
 
 asyncio.run(main())
 ```
@@ -88,33 +113,25 @@ Everything else works on both.
 
 ## Schema and typed results
 
-Pass a generated `schema` to the client for typed query results, typed
-transactions, and typed webhook handlers. Schemas are defined in
-`instant.schema.ts` (TypeScript stays canonical across all SDKs).
-
-Generate the Python types with the CLI:
+`instant-cli genpy` regenerates `instant_types.py` from your
+`instant.schema.ts`. Run it after schema changes.
 
 ```shell {% showCopy=true %}
 npx instant-cli genpy
 ```
 
-This emits `instant_types.py` (Pydantic models, one per entity) and
-`instant_types.pyi` (a stub typing the `db.tx` proxy). Re-run it whenever
-the schema changes.
+Query results come back as Pydantic models with typed link fields:
 
 ```python {% showCopy=true %}
-from instantdb import Instant
-from instant_types import schema, Goal
+from instant_types import Instant, Goal
 
-db = Instant(schema=schema)
+db = Instant()
 
 result = db.query({"goals": {}})
 goals: list[Goal] = result["goals"]
 for goal in goals:
     print(goal.title)
 ```
-
-Without `schema=`, `db.query` returns plain dicts.
 
 See [Modeling data](/docs/modeling-data) for the full schema reference.
 
@@ -151,7 +168,7 @@ Mutations use the InstaML proxy syntax. Each chunk is built with
 `db.tx.<namespace>[id].<op>(...)`.
 
 ```python {% showCopy=true %}
-from instantdb import Instant, id, lookup
+from instant_types import Instant, id, lookup
 
 db = Instant()
 
@@ -196,7 +213,7 @@ the query result changes:
 
 ```python {% showCopy=true %}
 import asyncio
-from instantdb import AsyncInstant
+from instant_types import AsyncInstant
 
 db = AsyncInstant()
 
@@ -233,7 +250,7 @@ streaming, and resumable log writes.
 
 ```python {% showCopy=true %}
 import asyncio
-from instantdb import AsyncInstant
+from instant_types import AsyncInstant
 
 db = AsyncInstant()
 
@@ -519,7 +536,7 @@ db.webhooks.process_payload(handlers, payload)
 
 ```python {% showCopy=true %}
 from fastapi import FastAPI, Request, HTTPException
-from instantdb import AsyncInstant, InstantError
+from instant_types import AsyncInstant, InstantError
 
 app = FastAPI()
 db = AsyncInstant()
@@ -549,14 +566,13 @@ match: `async def` for `AsyncInstant`, plain `def` for `Instant`.
 
 ### Typed webhook handlers
 
-When you pass `schema=` to the client, `genpy` also emits a
-`WebhookHandlers` TypedDict and per-namespace record types:
+`instant_types` ships a `WebhookHandlers` TypedDict and per-namespace
+record types so handlers can take typed Pydantic instances:
 
 ```python {% showCopy=true %}
-from instantdb import Instant
-from instant_types import schema, WebhookHandlers, GoalCreateRecord
+from instant_types import Instant, WebhookHandlers, GoalCreateRecord
 
-db = Instant(schema=schema)
+db = Instant()
 
 def on_goal_create(record: GoalCreateRecord) -> None:
     print(record.after.title)
@@ -565,9 +581,9 @@ handlers: WebhookHandlers = {"goals": {"create": on_goal_create}}
 db.webhooks.process_payload(handlers, payload)
 ```
 
-Records are validated into the matching Pydantic model before dispatch,
-so handlers receive typed instances. Wrong namespace, wrong action, or a
-mismatched handler signature fails the type check.
+Records are validated into the matching Pydantic model before dispatch.
+Wrong namespace, wrong action, or a mismatched handler signature fails
+the type check.
 
 See [Webhooks](/docs/webhooks) for the broader webhook model.
 
@@ -578,7 +594,7 @@ returns a non-2xx response as `InstantAPIError`, which carries `status`
 and `body`:
 
 ```python {% showCopy=true %}
-from instantdb import Instant, InstantAPIError, id
+from instant_types import Instant, InstantAPIError, id
 
 db = Instant()
 

@@ -16,7 +16,8 @@
         "types": "./dist/ui/index.d.ts",
         "default": "./dist/ui/index.js"
       }
-    }
+    },
+    "./bin/index.js": "./bin/index.js"
   },
   "bin": {
     "instant-cli": "bin/index.js"

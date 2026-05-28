@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import os
 from types import TracebackType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 from instantdb._async.auth import AsyncAuth
 from instantdb._async.http import DEFAULT_API_URI, _AsyncHTTP
@@ -30,7 +33,9 @@ class AsyncInstant:
         app_id: str | None = None,
         admin_token: str | None = None,
         api_uri: str = DEFAULT_API_URI,
-        schema: dict[str, Any] | None = None,
+        # Private. Users get this via the typed `Instant` in
+        # `instant_types.py` (genpy output), which sets it through setdefault.
+        _schema: dict[str, Any] | None = None,
         _impersonation: dict[str, str] | None = None,
         _transport: httpx.AsyncBaseTransport | None = None,
         _shared_client: httpx.AsyncClient | None = None,
@@ -49,7 +54,7 @@ class AsyncInstant:
         self._admin_token = admin_token
         self._api_uri = api_uri
         self._impersonation = _impersonation
-        self._schema = schema
+        self._schema = _schema
         self._http = _AsyncHTTP(
             app_id=app_id,
             admin_token=admin_token,
@@ -65,7 +70,7 @@ class AsyncInstant:
         # UNASYNC_REMOVE_START
         self.streams = AsyncStreams(self._http)
         # UNASYNC_REMOVE_END
-        self.webhooks = AsyncWebhooks(self._http, app_id=app_id, schema=schema)
+        self.webhooks = AsyncWebhooks(self._http, app_id=app_id, schema=_schema)
 
     def as_user(
         self,
@@ -73,7 +78,7 @@ class AsyncInstant:
         email: str | None = None,
         token: str | None = None,
         guest: bool = False,
-    ) -> AsyncInstant:
+    ) -> Self:
         if sum([email is not None, token is not None, guest]) != 1:
             raise InstantError("as_user requires exactly one of: email, token, or guest=True")
         if email is not None:
@@ -82,13 +87,16 @@ class AsyncInstant:
             headers = {"as-token": token}
         else:
             headers = {"as-guest": "true"}
-        return AsyncInstant(
+        return self._clone(_impersonation=headers)
+
+    def _clone(self, **overrides: Any) -> Self:
+        return type(self)(
             app_id=self._app_id,
             admin_token=self._admin_token,
             api_uri=self._api_uri,
-            schema=self._schema,
-            _impersonation=headers,
+            _schema=self._schema,
             _shared_client=self._http._client,
+            **overrides,
         )
 
     async def query(

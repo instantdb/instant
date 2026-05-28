@@ -99,9 +99,10 @@ class Webhooks:
             handlers[namespace]["$default"] →
             handlers["$default"]
 
-        When `Instant(schema=...)` was set, each record is validated into
-        its generated Pydantic model before being handed to the handler.
-        Records with no matching handler are skipped.
+        When the client is constructed from `instant_types` (the codegen
+        output), each record is validated into its generated Pydantic
+        model before being handed to the handler. Records with no
+        matching handler are skipped.
 
         Sequential await (rather than `asyncio.gather`) is deliberate:
         unasync strips the `await` keyword on the way to the sync flavor,

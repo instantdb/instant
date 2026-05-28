@@ -22,6 +22,7 @@ import {
 import { promptClaude } from './claude.js';
 import { parseNameAndPath } from './utils/validateAppName.js';
 import { execa } from 'execa';
+import { createRequire } from 'node:module';
 import { getRules, getSchema } from './utils/appConfig.js';
 import { printAppCreateResult } from './utils/printAppCreateResult.js';
 
@@ -87,6 +88,24 @@ const main = async () => {
       pyprojectPath,
       pyproject.replace(/^name = .*$/m, `name = "${pyName}"`),
     );
+
+    // Generate the schema-bound `instant_types` module. Failure is
+    // non-fatal: the template ships a fallback shim and the user can
+    // re-run `npx instant-cli genpy` later.
+    const instantCliBin = createRequire(import.meta.url).resolve(
+      'instant-cli/bin/index.js',
+    );
+    try {
+      await execa('node', [instantCliBin, 'genpy'], {
+        cwd: projectDir,
+        stdio: 'inherit',
+      });
+    } catch (e) {
+      log.warn(
+        'instant-cli genpy failed; run `npx instant-cli genpy` in your project to refresh Python types.',
+      );
+      log.warn(e instanceof Error ? e.message : String(e));
+    }
   } else {
     // Update package.json with app name
     const pkgJson = fs.readJSONSync(
