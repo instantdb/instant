@@ -36,10 +36,11 @@ import { AuthorizedOrigins } from './auth/Origins';
 import { FirebaseClient, AddFirebaseClientForm } from './auth/Firebase';
 import { addProvider, deleteClient } from './auth/shared';
 import { TokenContext } from '@/lib/contexts';
-import { errorToast } from '@/lib/toast';
+import { errorToast, successToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantIssue } from '@instantdb/core';
 import { useReadyRouter } from '../clientOnlyPage';
+import { DesignVariantSwitcher } from './auth/designVariants';
 
 import Image from 'next/image';
 import googleIconSvg from '../../public/img/google_g.svg';
@@ -358,6 +359,7 @@ function AuthLayout({
 }) {
   return (
     <div className={`mx-auto flex w-full ${maxWidth} flex-col gap-6 p-4`}>
+      <DesignVariantSwitcher />
       <div className="flex h-5 items-center">
         {showBack ? <AuthBackLink /> : null}
       </div>
@@ -368,16 +370,25 @@ function AuthLayout({
 
 function AuthDetailLayout({
   title,
+  description,
   wide = false,
   children,
 }: {
   title: ReactNode;
+  description?: ReactNode;
   wide?: boolean;
   children: ReactNode;
 }) {
   return (
-    <AuthLayout showBack maxWidth={wide ? 'max-w-4xl' : 'max-w-2xl'}>
-      <SectionHeading>{title}</SectionHeading>
+    <AuthLayout showBack maxWidth={wide ? 'max-w-5xl' : 'max-w-2xl'}>
+      <div className="flex flex-col gap-1">
+        <SectionHeading>{title}</SectionHeading>
+        {description ? (
+          <p className="text-sm text-gray-500 dark:text-neutral-400">
+            {description}
+          </p>
+        ) : null}
+      </div>
       {children}
     </AuthLayout>
   );
@@ -700,7 +711,12 @@ export function AppAuth({
       oauth_clients: [client, ...(data.oauth_clients || [])],
     });
     // Replace so the transient add form isn't left behind in history.
-    router.replace(clientHref(router, client.id));
+    if (router.query.dvAfter === 'list') {
+      successToast('Client created');
+      router.replace(authLandingHref(router));
+    } else {
+      router.replace(clientHref(router, client.id));
+    }
   };
 
   const handleDeleteClient = (client: OAuthClient) => {
@@ -798,7 +814,10 @@ export function AppAuth({
 
   if (authView === 'magic-email') {
     return (
-      <AuthDetailLayout title="Magic code email" wide>
+      <AuthDetailLayout
+        title="Magic code email"
+        description="The email your users receive with their sign-in code."
+      >
         <Email app={app} />
       </AuthDetailLayout>
     );

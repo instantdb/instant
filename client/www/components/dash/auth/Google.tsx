@@ -24,18 +24,130 @@ import {
   Copyable,
   Copytext,
   Fence,
+  Label,
+  Select,
   SubsectionHeading,
   TextInput,
   ToggleGroup,
 } from '@/components/ui';
 import Image from 'next/image';
+import clsx from 'clsx';
 import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
 import googleIconSvg from '../../../public/img/google_g.svg';
 import { useDarkMode } from '../DarkModeToggle';
+import { useTypeVariant } from './designVariants';
 
 type AppType = 'web' | 'ios' | 'android' | 'button-for-web';
 function isNative(appType: AppType) {
   return appType === 'ios' || appType === 'android';
+}
+
+const TYPE_OPTIONS: { id: AppType; label: string; desc: string }[] = [
+  {
+    id: 'web',
+    label: 'Web',
+    desc: 'Redirect sign-in. Works with Instant dev keys.',
+  },
+  {
+    id: 'ios',
+    label: 'iOS',
+    desc: 'Native sign-in with your own Google client ID.',
+  },
+  {
+    id: 'android',
+    label: 'Android',
+    desc: 'Native sign-in with your own Google client ID.',
+  },
+  {
+    id: 'button-for-web',
+    label: 'Google button (web)',
+    desc: 'The @react-oauth/google button (idToken flow).',
+  },
+];
+
+// Three candidate renderings of the "Type" selector, toggled by the design
+// variant switcher.
+function TypeControl({
+  appType,
+  onChange,
+}: {
+  appType: AppType;
+  onChange: (item: { id: string; label: string }) => void;
+}) {
+  const variant = useTypeVariant();
+  const selected =
+    TYPE_OPTIONS.find((o) => o.id === appType) ?? TYPE_OPTIONS[0];
+  const desc = (
+    <p className="text-xs text-gray-500 dark:text-neutral-400">
+      {selected.desc}
+    </p>
+  );
+
+  if (variant === 'segments') {
+    return (
+      <div className="flex flex-col gap-1">
+        <Label>Type</Label>
+        <div className="inline-flex self-start gap-1 rounded-sm border border-gray-300 bg-gray-200 p-0.5 text-sm dark:border-neutral-700 dark:bg-neutral-800">
+          {TYPE_OPTIONS.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => onChange({ id: o.id, label: o.label })}
+              className={clsx(
+                'rounded-sm px-3 py-1',
+                appType === o.id
+                  ? 'bg-white dark:bg-neutral-600/50'
+                  : 'text-gray-600 dark:text-neutral-300',
+              )}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        {desc}
+      </div>
+    );
+  }
+
+  if (variant === 'tiles') {
+    return (
+      <div className="flex flex-col gap-1">
+        <Label>Type</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {TYPE_OPTIONS.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => onChange({ id: o.id, label: o.label })}
+              className={clsx(
+                'rounded-sm border px-3 py-2 text-left text-sm',
+                appType === o.id
+                  ? 'border-gray-900 dark:border-white'
+                  : 'border-gray-200 text-gray-600 dark:border-neutral-700 dark:text-neutral-300',
+              )}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        {desc}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Label>Type</Label>
+      <Select
+        options={TYPE_OPTIONS.map((o) => ({ label: o.label, value: o.id }))}
+        value={appType}
+        onChange={(o) => {
+          if (o) onChange({ id: o.value, label: o.label as string });
+        }}
+      />
+      {desc}
+    </div>
+  );
 }
 
 export function AddGoogleClientForm({
@@ -142,21 +254,8 @@ export function AddGoogleClientForm({
       data-form-type="other"
     >
       <SubsectionHeading>Add a new Google client</SubsectionHeading>
-      <div className="mb-4">
-        <label className="mb-2 block text-sm font-bold text-gray-700 dark:text-neutral-400">
-          Type
-        </label>
-        <ToggleGroup
-          items={[
-            { id: 'web', label: 'Web' },
-            { id: 'ios', label: 'iOS' },
-            { id: 'android', label: 'Android' },
-            { id: 'button-for-web', label: 'Google Button for Web' },
-          ]}
-          selectedId={appType}
-          onChange={onChangeAppType}
-          ariaLabel="Application type"
-        />
+      <div className="mb-2">
+        <TypeControl appType={appType} onChange={onChangeAppType} />
       </div>
       {appType === 'web' && (
         <div className="mb-2">

@@ -115,6 +115,33 @@
         (format "%s hour%s" hours (if (> hours 1) "s" "")))
       (format "%s minute%s" minutes (if (> minutes 1) "s" "")))))
 
+(defn send-test!
+  "Sends a one-off test of the magic-code email to `to`, rendering the given
+   (possibly unsaved) subject/body with sample template params. Falls back to
+   the default sender if the custom sender isn't confirmed."
+  [{:keys [app to subject body sender-email sender-name]}]
+  (let [template-params {:user_email to
+                         :code "123456"
+                         :app_title (:title app)
+                         :expiration (friendly-expiration app)}
+        {default-sender-email :email} (config/app-email-sender)
+        email-params {:sender-email (or sender-email default-sender-email)
+                      :sender-name (or sender-name (:title app))
+                      :subject (template-replace subject template-params false)
+                      :body (template-replace body template-params true)}
+        email-req (magic-code-email to email-params)]
+    (try
+      (postmark/send-structured! email-req)
+      (catch clojure.lang.ExceptionInfo e
+        (if (invalid-sender? e)
+          (do
+            (tracer/record-info! {:name "magic-code/test-unconfirmed-or-unknown-sender"
+                                  :attributes {:email (:sender-email email-params)
+                                               :app-id (:id app)}})
+            (postmark/send-structured!
+             (magic-code-email to (assoc email-params :sender-email default-sender-email))))
+          (throw e))))))
+
 (defn send! [{:keys [app-id email] :as req}]
   (check-send-rate-limit! req)
   (let [app             (app-model/get-by-id! {:id app-id})
