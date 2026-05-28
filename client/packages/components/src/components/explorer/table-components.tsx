@@ -215,7 +215,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
   const { setDialog } = useExplorerDialog();
 
   const meta = cell.column.columnDef.meta as TableColMeta | null;
-  const showEditButton = meta?.editable && meta.attr;
+  const showEditButton = meta?.editable && meta.attr && !meta?.isLink;
   const { isDragging, setNodeRef, transform } = useSortable({
     id: cell.column.id,
     disabled: cell.column.id === 'select-col',
