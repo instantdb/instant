@@ -43,9 +43,7 @@ class Instant:
         if admin_token is None:
             admin_token = os.environ.get("INSTANT_ADMIN_TOKEN")
         if not admin_token:
-            raise InstantError(
-                "admin_token is required: pass admin_token=... or set INSTANT_ADMIN_TOKEN env var"
-            )
+            admin_token = None
         self._app_id = app_id
         self._admin_token = admin_token
         self._api_uri = api_uri
@@ -85,7 +83,7 @@ class Instant:
     def _clone(self, **overrides: Any) -> Self:
         return type(self)(
             app_id=self._app_id,
-            admin_token=self._admin_token,
+            admin_token=self._admin_token if self._admin_token is not None else "",
             api_uri=self._api_uri,
             _schema=self._schema,
             _shared_client=self._http._client,
@@ -103,7 +101,7 @@ class Instant:
         result = self._http.post(
             "/admin/query",
             params={"app_id": self._app_id},
-            json={"query": q, "inference?": False},
+            json={"query": q, "inference?": self._has_schema()},
         )
         if self._schema is not None:
             return _validate_query_result(result, self._schema)
@@ -115,7 +113,7 @@ class Instant:
             params={"app_id": self._app_id},
             json={
                 "steps": _flatten_chunks(chunks),
-                "throw-on-missing-attrs?": False,
+                "throw-on-missing-attrs?": self._has_schema(),
             },
         )
 
@@ -129,7 +127,7 @@ class Instant:
         self._require_impersonation("debug_query")
         if rule_params is not None:
             q = {"$$ruleParams": rule_params, **q}
-        body: dict[str, Any] = {"query": q, "inference?": False}
+        body: dict[str, Any] = {"query": q, "inference?": self._has_schema()}
         if rules is not None:
             body["rules-override"] = rules
         return self._http.post(
@@ -160,6 +158,9 @@ class Instant:
                 f"{method_name} requires an as_user(...) context "
                 "since permission checks are user-scoped"
             )
+
+    def _has_schema(self) -> bool:
+        return self._schema is not None
 
     def close(self) -> None:
         self._http.close()

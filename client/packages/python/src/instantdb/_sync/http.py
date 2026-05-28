@@ -10,10 +10,13 @@ that authenticate via the body.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from datetime import date, datetime
 from typing import Any
 
 import httpx
 
+from instantdb._errors import InstantError
 from instantdb._http_errors import api_error_from_response
 from instantdb._version import __version__
 
@@ -26,7 +29,7 @@ class _HTTP:
         self,
         *,
         app_id: str,
-        admin_token: str,
+        admin_token: str | None,
         api_uri: str = DEFAULT_API_URI,
         impersonation: dict[str, str] | None = None,
         transport: httpx.BaseTransport | None = None,
@@ -50,15 +53,32 @@ class _HTTP:
     def _headers(self, *, unauthenticated: bool = False) -> dict[str, str]:
         if unauthenticated:
             return {"content-type": "application/json"}
+        self._validate_auth()
         h: dict[str, str] = {
             "content-type": "application/json",
             "app-id": self._app_id,
-            "authorization": f"Bearer {self._admin_token}",
             "Instant-Admin-Version": __version__,
             "Instant-Core-Version": __version__,
         }
+        if self._admin_token:
+            h["authorization"] = f"Bearer {self._admin_token}"
         h.update(self._impersonation)
         return h
+
+    def _validate_auth(self) -> None:
+        if self._admin_token:
+            return
+        if "as-token" in self._impersonation or "as-guest" in self._impersonation:
+            return
+        if "as-email" in self._impersonation:
+            raise InstantError(
+                "admin_token is required to impersonate a user by email: "
+                "pass admin_token=... or set INSTANT_ADMIN_TOKEN"
+            )
+        raise InstantError(
+            "admin_token is required for this operation: "
+            "pass admin_token=..., set INSTANT_ADMIN_TOKEN, or use as_user(...)"
+        )
 
     def post(
         self,
@@ -106,7 +126,7 @@ class _HTTP:
             method,
             path,
             params=params,
-            json=json,
+            json=_jsonable(json),
             headers=self._headers(unauthenticated=unauthenticated),
         )
         return self._handle_response(response)
@@ -120,3 +140,17 @@ class _HTTP:
     def close(self) -> None:
         if self._owns_client:
             self._client.close()
+
+
+def _jsonable(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, Mapping):
+        return {k: _jsonable(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_jsonable(v) for v in value]
+    if isinstance(value, tuple):
+        return [_jsonable(v) for v in value]
+    return value

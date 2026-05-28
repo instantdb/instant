@@ -860,6 +860,15 @@ async def test_genpy_emits_tx_typing_block(_db: AsyncInstant) -> None:
     assert "class _NamespaceBuilder(Generic[ChunkT]):" in content
     assert "class _TxBuilder:" in content
     assert "profiles: _NamespaceBuilder[_ProfilesChunk]" in content
+    assert (
+        'def __getitem__(self, etype: Literal["profiles"]) -> _NamespaceBuilder[_ProfilesChunk]:'
+        in content
+    )
+    assert "def __getitem__(self, etype: str) -> _NamespaceBuilder[Any]:" in content
+    assert "def update(self, args: ProfilesArgs, opts: _TxOpts | None = None)" in content
+    assert "def merge(self, args: ProfilesArgs, opts: _TxOpts | None = None)" in content
+    assert "def rule_params(self, args: dict[str, Any]) -> _ProfilesChunk:" in content
+    assert "createdAt: datetime | str | int | float" in content
 
     # Spot-check has:one (`str`) and has:many (`str | list[str]`) link arg types.
     assert "owner: str" in content, "has:one link should be `str`"

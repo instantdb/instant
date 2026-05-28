@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import date, datetime
 from typing import Any
 
 LookupRef = list[Any]  # [attribute, value]
@@ -26,7 +27,15 @@ def lookup(attribute: str, value: Any) -> str:
     Example:
         db.tx.users[lookup("email", "alyssa@example.com")].update({"name": "Alyssa"})
     """
-    return f"lookup__{attribute}__{json.dumps(value)}"
+    return f"lookup__{attribute}__{json.dumps(value, default=_json_default)}"
+
+
+def _json_default(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 def _is_lookup(k: Any) -> bool:

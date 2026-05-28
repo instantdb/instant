@@ -223,6 +223,13 @@ function mapValueType(vt: DataAttrDefLike['valueType']): string {
   }
 }
 
+function mapWriteValueType(vt: DataAttrDefLike['valueType']): string {
+  if (vt === 'date') {
+    return 'datetime | str | int | float';
+  }
+  return mapValueType(vt);
+}
+
 export function buildPy(schema: SchemaLike): string {
   const entityNames = Object.keys(schema.entities).sort();
   const fieldsByEntity: Record<string, Field[]> = {};
@@ -586,9 +593,11 @@ function buildTxTypingBlock(schema: SchemaLike, entityNames: string[]): string {
 
   const lines: string[] = [
     'if TYPE_CHECKING:',
-    '    from typing import Generic, TypeVar',
+    '    from typing import Generic, TypeVar, overload',
     '',
     '    ChunkT = TypeVar("ChunkT")',
+    '',
+    ...buildTypedDict('_TxOpts', [{ key: 'upsert', type: 'bool' }]),
   ];
 
   for (const entName of entityNames) {
@@ -597,7 +606,10 @@ function buildTxTypingBlock(schema: SchemaLike, entityNames: string[]): string {
     for (const [attrName, attrDef] of Object.entries(
       schema.entities[entName].attrs,
     )) {
-      argFields.push({ key: attrName, type: mapValueType(attrDef.valueType) });
+      argFields.push({
+        key: attrName,
+        type: mapWriteValueType(attrDef.valueType),
+      });
     }
     lines.push('');
     lines.push(...buildTypedDict(`${cls}Args`, argFields));
@@ -614,19 +626,20 @@ function buildTxTypingBlock(schema: SchemaLike, entityNames: string[]): string {
     lines.push('');
     lines.push(
       `    class _${cls}Chunk:`,
-      `        def update(self, args: ${cls}Args) -> _${cls}Chunk: ...`,
-      `        def create(self, args: ${cls}Args) -> _${cls}Chunk: ...`,
+      `        def update(self, args: ${cls}Args, opts: _TxOpts | None = None) -> _${cls}Chunk: ...`,
+      `        def create(self, args: ${cls}Args, opts: _TxOpts | None = None) -> _${cls}Chunk: ...`,
       `        def link(self, args: ${cls}Links) -> _${cls}Chunk: ...`,
       `        def unlink(self, args: ${cls}Links) -> _${cls}Chunk: ...`,
       `        def delete(self) -> _${cls}Chunk: ...`,
-      `        def merge(self, args: ${cls}Args) -> _${cls}Chunk: ...`,
+      `        def merge(self, args: ${cls}Args, opts: _TxOpts | None = None) -> _${cls}Chunk: ...`,
+      `        def rule_params(self, args: dict[str, Any]) -> _${cls}Chunk: ...`,
     );
   }
 
   lines.push(
     '',
     '    class _NamespaceBuilder(Generic[ChunkT]):',
-    '        def __getitem__(self, eid: str) -> ChunkT: ...',
+    '        def __getitem__(self, eid: Any) -> ChunkT: ...',
     '        def lookup(self, attr: str, value: Any) -> ChunkT: ...',
     '',
   );
@@ -635,14 +648,23 @@ function buildTxTypingBlock(schema: SchemaLike, entityNames: string[]): string {
   // `db.tx.<name>` autocomplete); irregular names use `db.tx["..."]`.
   const identifierEntities = entityNames.filter(isPyIdent);
   lines.push('    class _TxBuilder:');
-  if (identifierEntities.length === 0) {
-    lines.push('        pass');
-  } else {
-    for (const entName of identifierEntities) {
-      lines.push(
-        `        ${entName}: _NamespaceBuilder[_${className(entName)}Chunk]`,
-      );
-    }
+  for (const entName of entityNames) {
+    lines.push(
+      `        @overload`,
+      `        def __getitem__(self, etype: Literal[${JSON.stringify(entName)}]) -> _NamespaceBuilder[_${className(entName)}Chunk]: ...`,
+    );
+  }
+  lines.push('        @overload');
+  lines.push(
+    '        def __getitem__(self, etype: str) -> _NamespaceBuilder[Any]: ...',
+  );
+  lines.push(
+    '        def __getitem__(self, etype: str) -> _NamespaceBuilder[Any]: ...',
+  );
+  for (const entName of identifierEntities) {
+    lines.push(
+      `        ${entName}: _NamespaceBuilder[_${className(entName)}Chunk]`,
+    );
   }
 
   return lines.join('\n');

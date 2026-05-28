@@ -61,6 +61,16 @@ def test_as_user_shares_underlying_httpx_client():
     assert db._http._client.is_closed
 
 
+def test_as_user_token_works_without_admin_token(mock_transport):
+    transport, captured = mock_transport(lambda r: httpx.Response(200, json={"goals": []}))
+    with Instant(app_id="app", _transport=transport) as db:
+        db.as_user(token="rt-abc").query({"goals": {}})
+
+    req = captured[0]
+    assert req.headers["as-token"] == "rt-abc"
+    assert "authorization" not in req.headers
+
+
 # ---------- headers ----------
 
 

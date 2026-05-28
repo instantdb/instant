@@ -20,6 +20,45 @@ def test_default_headers_include_app_id_and_versions():
     assert h["Instant-Core-Version"] == __version__
 
 
+def test_headers_require_admin_token_without_token_or_guest_impersonation():
+    http = _AsyncHTTP(app_id="app-1", admin_token=None)
+    with pytest.raises(InstantError, match="admin_token"):
+        http._headers()
+
+
+def test_headers_allow_token_impersonation_without_admin_token():
+    http = _AsyncHTTP(
+        app_id="app-1",
+        admin_token=None,
+        impersonation={"as-token": "rt-abc"},
+    )
+    h = http._headers()
+    assert h["app-id"] == "app-1"
+    assert h["as-token"] == "rt-abc"
+    assert "authorization" not in h
+
+
+def test_headers_allow_guest_impersonation_without_admin_token():
+    http = _AsyncHTTP(
+        app_id="app-1",
+        admin_token=None,
+        impersonation={"as-guest": "true"},
+    )
+    h = http._headers()
+    assert h["as-guest"] == "true"
+    assert "authorization" not in h
+
+
+def test_headers_require_admin_token_for_email_impersonation():
+    http = _AsyncHTTP(
+        app_id="app-1",
+        admin_token=None,
+        impersonation={"as-email": "alyssa@example.com"},
+    )
+    with pytest.raises(InstantError, match="admin_token"):
+        http._headers()
+
+
 def test_unauthenticated_strips_everything_but_content_type():
     # verify_token-style endpoints authenticate via the body.
     http = _AsyncHTTP(app_id="app-1", admin_token="abc")

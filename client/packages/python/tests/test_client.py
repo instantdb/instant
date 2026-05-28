@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 import httpx
 import pytest
@@ -76,9 +77,44 @@ async def test_raises_when_app_id_missing_from_both_kwarg_and_env():
         AsyncInstant()
 
 
-async def test_raises_when_admin_token_missing_from_both_kwarg_and_env():
-    with pytest.raises(InstantError, match="INSTANT_ADMIN_TOKEN"):
-        AsyncInstant(app_id="app")
+async def test_allows_missing_admin_token_until_admin_operation():
+    async with AsyncInstant(app_id="app") as db:
+        assert db._admin_token is None
+        with pytest.raises(InstantError, match="admin_token"):
+            await db.query({"goals": {}})
+
+
+async def test_as_user_token_works_without_admin_token(mock_transport):
+    transport, captured = mock_transport(lambda r: httpx.Response(200, json={"goals": []}))
+    async with AsyncInstant(app_id="app", _transport=transport) as db:
+        await db.as_user(token="rt-abc").query({"goals": {}})
+
+    req = captured[0]
+    assert req.headers["as-token"] == "rt-abc"
+    assert "authorization" not in req.headers
+
+
+async def test_as_user_guest_works_without_admin_token(mock_transport):
+    transport, captured = mock_transport(lambda r: httpx.Response(200, json={"goals": []}))
+    async with AsyncInstant(app_id="app", _transport=transport) as db:
+        await db.as_user(guest=True).query({"goals": {}})
+
+    req = captured[0]
+    assert req.headers["as-guest"] == "true"
+    assert "authorization" not in req.headers
+
+
+async def test_as_user_preserves_missing_admin_token_when_env_changes(monkeypatch):
+    async with AsyncInstant(app_id="app") as db:
+        monkeypatch.setenv("INSTANT_ADMIN_TOKEN", "later-env-token")
+        async with db.as_user(token="rt-abc") as scoped:
+            assert scoped._admin_token is None
+
+
+async def test_as_user_email_requires_admin_token():
+    async with AsyncInstant(app_id="app") as db:
+        with pytest.raises(InstantError, match="admin_token"):
+            await db.as_user(email="alyssa@example.com").query({"goals": {}})
 
 
 # ---------- debug methods require an as_user context ----------
@@ -106,6 +142,71 @@ async def test_query_injects_rule_params_inside_query_not_at_body_level(mock_tra
     body = json.loads(captured[0].content)
     assert body["query"]["$$ruleParams"] == {"region": "us"}
     assert "$$ruleParams" not in body  # not at body top level
+
+
+async def test_query_enables_inference_when_schema_is_present(mock_transport):
+    transport, captured = mock_transport(lambda r: httpx.Response(200, json={"goals": []}))
+    async with AsyncInstant(
+        app_id="app",
+        admin_token="abc",
+        _schema={"entities": {}, "records": {}},
+        _transport=transport,
+    ) as db:
+        await db.query({"goals": {}})
+
+    body = json.loads(captured[0].content)
+    assert body["inference?"] is True
+
+
+async def test_transact_enables_missing_attr_errors_when_schema_is_present(mock_transport):
+    transport, captured = mock_transport(lambda r: httpx.Response(200, json={"tx-id": "tx-1"}))
+    async with AsyncInstant(
+        app_id="app",
+        admin_token="abc",
+        _schema={"entities": {}, "records": {}},
+        _transport=transport,
+    ) as db:
+        await db.transact(db.tx.goals[id()].update({"title": "x"}))
+
+    body = json.loads(captured[0].content)
+    assert body["throw-on-missing-attrs?"] is True
+
+
+async def test_subscribe_query_enables_inference_when_schema_is_present():
+    async with AsyncInstant(
+        app_id="app",
+        admin_token="abc",
+        _schema={"entities": {}, "records": {}},
+    ) as db:
+        sub = db.subscribe_query({"goals": {}})
+        try:
+            assert sub._inference is True
+        finally:
+            await sub.aclose()
+
+
+async def test_debug_query_enables_inference_when_schema_is_present(mock_transport):
+    transport, captured = mock_transport(lambda r: httpx.Response(200, json={"result": {}}))
+    async with AsyncInstant(
+        app_id="app",
+        admin_token="abc",
+        _schema={"entities": {}, "records": {}},
+        _transport=transport,
+    ) as db:
+        await db.as_user(guest=True).debug_query({"goals": {}})
+
+    body = json.loads(captured[0].content)
+    assert body["inference?"] is True
+
+
+async def test_transact_serializes_datetime_values(mock_transport):
+    transport, captured = mock_transport(lambda r: httpx.Response(200, json={"tx-id": "tx-1"}))
+    due_at = datetime(2026, 5, 28, 12, 30, tzinfo=timezone.utc)
+    async with AsyncInstant(app_id="app", admin_token="abc", _transport=transport) as db:
+        await db.transact(db.tx.goals[id()].update({"dueAt": due_at}))
+
+    body = json.loads(captured[0].content)
+    assert body["steps"][0][3]["dueAt"] == due_at.isoformat()
 
 
 # ---------- typed-client subclass pattern (mirrors genpy emit) ----------

@@ -1,5 +1,6 @@
 import copy
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 
@@ -13,6 +14,11 @@ def test_id_is_uuid_string():
 
 def test_lookup_wire_format():
     assert lookup("email", "alyssa@example.com") == 'lookup__email__"alyssa@example.com"'
+
+
+def test_lookup_serializes_datetime_values():
+    created_at = datetime(2026, 5, 28, 12, 30, tzinfo=timezone.utc)
+    assert lookup("createdAt", created_at) == f'lookup__createdAt__"{created_at.isoformat()}"'
 
 
 def test_is_lookup():

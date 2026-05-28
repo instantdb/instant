@@ -52,7 +52,7 @@ db.transact(db.tx.goals[goal_id].update({"title": "Get fit"}))
 # Read data
 result = db.query({"goals": {}})
 for goal in result["goals"]:
-    print(goal.title)
+    print(goal["title"])
 ```
 
 We also provide a typed client via codegen. Run `npx instant-cli genpy` to
@@ -74,8 +74,8 @@ for goal in result["goals"]:
     print(goal.title)
 ```
 
-WHen you scaffold with `npx create-instant-app --python`, we generate
-`instant_types.py` for you as part of the setup. The reamining examples on this
+When you scaffold with `npx create-instant-app --python`, we generate
+`instant_types.py` for you as part of the setup. The remaining examples on this
 page use the typed client, but the untyped `Instant` from `instantdb` works the
 same way at runtime.
 
@@ -304,8 +304,8 @@ overload-style arguments are keyword-only.
 db.auth.send_magic_code("alyssa@instantdb.com")
 
 # Or generate the code yourself for a custom email provider
-result = db.auth.generate_magic_code("alyssa@instantdb.com")
-print(result["code"])
+code = db.auth.generate_magic_code("alyssa@instantdb.com")
+print(code)
 
 # Verify it
 user, created = db.auth.check_magic_code(

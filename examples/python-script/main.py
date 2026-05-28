@@ -27,8 +27,9 @@ def main() -> None:
     result = db.query({"todos": {}})
     print(f"Found {len(result['todos'])} todo(s):")
     for todo in result["todos"]:
-        status = "x" if todo["done"] else " "
-        print(f"  [{status}] {todo['text']}")
+        row = todo.model_dump() if hasattr(todo, "model_dump") else todo
+        status = "x" if row["done"] else " "
+        print(f"  [{status}] {row['text']}")
 
 
 if __name__ == "__main__":

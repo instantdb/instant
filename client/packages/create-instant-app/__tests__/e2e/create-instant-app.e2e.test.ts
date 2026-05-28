@@ -175,6 +175,8 @@ describe.concurrent('create-instant-app e2e', { timeout: 120_000 }, () => {
 
         const mainPy = await readFile(join(projectDir, 'main.py'), 'utf-8');
         expect(mainPy).toMatch(/from instant_types import Instant/);
+        expect(mainPy).toMatch(/model_dump/);
+        expect(mainPy).toMatch(/row\["done"\]/);
 
         const envContents = await readFile(join(projectDir, '.env'), 'utf-8');
         expect(envContents).toMatch(/^INSTANT_APP_ID=.+/m);
