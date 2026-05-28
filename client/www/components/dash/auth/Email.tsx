@@ -60,11 +60,17 @@ export function getSenderVerification({
   });
 }
 
-export function Email({ app }: { app: InstantApp }) {
+export function Email({
+  app,
+  page = false,
+}: {
+  app: InstantApp;
+  page?: boolean;
+}) {
   const dashResponse = useFetchedDash();
   const template = app.magic_code_email_template;
   const token = useContext(TokenContext);
-  const [isEditing, setIsEditing] = useState(Boolean(template) ?? false);
+  const [isEditing, setIsEditing] = useState(page || Boolean(template));
   const [{ isVerifying, verification }, setVerification] = useState<{
     isVerifying: boolean;
     verification: SenderVerificationInfo | null;
@@ -153,7 +159,7 @@ export function Email({ app }: { app: InstantApp }) {
   if (!isEditing) {
     return (
       <div className="flex flex-col gap-2">
-        <SectionHeading>Custom Magic Code Email</SectionHeading>
+        {!page && <SectionHeading>Custom Magic Code Email</SectionHeading>}
         <Button onClick={() => setIsEditing(true)}>
           Customize your magic code email
         </Button>
@@ -163,7 +169,7 @@ export function Email({ app }: { app: InstantApp }) {
   return (
     <div>
       <form {...form.formProps()} className="flex flex-col gap-2">
-        <SectionHeading>Custom Magic Code Email</SectionHeading>
+        {!page && <SectionHeading>Custom Magic Code Email</SectionHeading>}
 
         <div className="flex flex-col gap-1 rounded-sm border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
           <BlockHeading>Template variables</BlockHeading>

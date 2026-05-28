@@ -11,11 +11,11 @@ import { jsonFetch } from '@/lib/fetch';
 import { TokenContext } from '@/lib/contexts';
 import { messageFromInstantError } from '@/lib/errors';
 import {
+  BlockHeading,
   Button,
   Content,
   Dialog,
   Label,
-  SectionHeading,
   SubsectionHeading,
   Select,
   TextInput,
@@ -396,7 +396,7 @@ export function AuthorizedOrigins({
   return (
     <div className="flex flex-col gap-2">
       <div>
-        <SectionHeading>Redirect Origins </SectionHeading>
+        <BlockHeading>Redirect origins</BlockHeading>
         <Content className="text-sm text-gray-500 dark:text-neutral-500">
           Add your site's url so that you can initiate the OAuth flow from your
           site.

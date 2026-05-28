@@ -13,12 +13,6 @@ import {
   TextInput,
   useDialog,
 } from '@/components/ui';
-import * as Collapsible from '@radix-ui/react-collapsible';
-import {
-  PlusIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-} from '@heroicons/react/24/solid';
 import firebaseLogoSvg from '../../../public/img/firebase_auth.svg';
 import Image from 'next/image';
 import { messageFromInstantError } from '@/lib/errors';
@@ -120,15 +114,12 @@ export function FirebaseClient({
   app,
   client,
   onDeleteClient,
-  defaultOpen = false,
 }: {
   app: InstantApp;
   client: OAuthClient;
   onDeleteClient: (client: OAuthClient) => void;
-  defaultOpen?: boolean;
 }) {
   const token = useContext(TokenContext);
-  const [open, setOpen] = useState(defaultOpen);
   const [isLoading, setIsLoading] = useState(false);
   const deleteDialog = useDialog();
 
@@ -163,68 +154,39 @@ export function FirebaseClient({
   });
 
   return (
-    <div className="">
-      <Collapsible.Root
-        open={open}
-        onOpenChange={setOpen}
-        className="flex flex-col rounded-sm border dark:border-neutral-700"
-      >
-        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800 dark:hover:bg-neutral-700">
-          <div className="flex flex-1 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Image alt="firebase logo" src={firebaseLogoSvg} />
-              <div className="font-medium">
-                {client.client_name}{' '}
-                <span className="text-gray-400 dark:text-neutral-500">
-                  (Firebase)
-                </span>
-              </div>
-            </div>
-            {open ? (
-              <ChevronUpIcon height={24} />
-            ) : (
-              <ChevronDownIcon height={24} />
-            )}
-          </div>
-        </Collapsible.Trigger>
-        <Collapsible.Content className="">
-          <div className="flex flex-col gap-4 border-t p-4 dark:border-t-neutral-700">
-            <Copyable label="Client name" value={client.client_name} />
-            {projectId ? (
-              <Copyable label="Firebase Project ID" value={projectId} />
-            ) : null}
+    <div className="flex flex-col gap-4">
+      <Copyable label="Client name" value={client.client_name} />
+      {projectId ? (
+        <Copyable label="Firebase Project ID" value={projectId} />
+      ) : null}
 
-            <SubsectionHeading>Setup and usage</SubsectionHeading>
+      <SubsectionHeading>Setup and usage</SubsectionHeading>
 
-            <Content>
-              Use{' '}
-              <code className="dark:text-white">db.auth.signInWithIdToken</code>{' '}
-              to link your Firebase user to Instant.
-            </Content>
+      <Content>
+        Use <code className="dark:text-white">db.auth.signInWithIdToken</code>{' '}
+        to link your Firebase user to Instant.
+      </Content>
 
-            <div className="overflow-auto rounded-sm border text-sm dark:border-none">
-              <Fence
-                darkMode={darkMode}
-                copyable
-                code={exampleCode}
-                language="typescript"
-              />
-            </div>
+      <div className="overflow-auto rounded-sm border text-sm dark:border-none">
+        <Fence
+          darkMode={darkMode}
+          copyable
+          code={exampleCode}
+          language="typescript"
+        />
+      </div>
 
-            <Divider />
+      <Divider />
 
-            <div>
-              <Button
-                onClick={deleteDialog.onOpen}
-                loading={isLoading}
-                variant="destructive"
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </Collapsible.Content>
-      </Collapsible.Root>
+      <div>
+        <Button
+          onClick={deleteDialog.onOpen}
+          loading={isLoading}
+          variant="destructive"
+        >
+          Delete
+        </Button>
+      </div>
       <Dialog title="Delete Client" {...deleteDialog}>
         <div className="flex flex-col gap-2">
           <SubsectionHeading>Delete client</SubsectionHeading>
@@ -349,68 +311,5 @@ export function AddFirebaseClientForm({
         Cancel
       </Button>
     </form>
-  );
-}
-
-export function FirebaseClients({
-  app,
-  provider,
-  clients,
-  onAddClient,
-  onDeleteClient,
-  usedClientNames,
-  lastCreatedClientId,
-  defaultOpen,
-}: {
-  app: InstantApp;
-  provider: OAuthServiceProvider;
-  clients: OAuthClient[];
-  onAddClient: (client: OAuthClient) => void;
-  onDeleteClient: (client: OAuthClient) => void;
-  usedClientNames: Set<string>;
-  lastCreatedClientId: string | null;
-  defaultOpen: boolean;
-}) {
-  const [showAddClientForm, setShowAddClientForm] =
-    useState<boolean>(defaultOpen);
-
-  const handleAddClient = (client: OAuthClient) => {
-    setShowAddClientForm(false);
-    onAddClient(client);
-  };
-
-  return (
-    <div className="flex flex-col gap-2 bg-white dark:bg-neutral-800">
-      {clients.map((c) => {
-        return (
-          <FirebaseClient
-            // Update the key because the mutate somehow takes effect before
-            // lastCreatedClientId is set--this causes it to re-evaluate defaultOpen
-            key={c.id === lastCreatedClientId ? `${c.id}-last` : c.id}
-            app={app}
-            client={c}
-            onDeleteClient={onDeleteClient}
-            defaultOpen={c.id === lastCreatedClientId}
-          />
-        );
-      })}
-
-      {showAddClientForm ? (
-        <>
-          <AddFirebaseClientForm
-            app={app}
-            provider={provider}
-            onAddClient={handleAddClient}
-            onCancel={() => setShowAddClientForm(false)}
-            usedClientNames={usedClientNames}
-          />
-        </>
-      ) : (
-        <Button onClick={() => setShowAddClientForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}
-          Firebase app
-        </Button>
-      )}
-    </div>
   );
 }

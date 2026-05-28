@@ -5,6 +5,7 @@ import { TokenContext } from '@/lib/contexts';
 import { useAuthedFetch } from '@/lib/auth';
 import { InstantApp } from '@/lib/types';
 import {
+  BlockHeading,
   Button,
   Content,
   Dialog,
@@ -92,7 +93,7 @@ export function TestUsers({ app }: { app: InstantApp }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <SectionHeading>Test Users</SectionHeading>
+      <BlockHeading>Test users</BlockHeading>
       <Content>
         Test users have static magic codes that never expire. When a test user
         signs in, they can use their static code instead of receiving an email.

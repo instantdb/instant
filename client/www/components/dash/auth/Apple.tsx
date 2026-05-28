@@ -12,17 +12,12 @@ import {
   useDialog,
 } from '@/components/ui';
 import * as Collapsible from '@radix-ui/react-collapsible';
-import {
-  PlusIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-} from '@heroicons/react/24/solid';
+import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
 import logo from '../../../public/img/apple_logo_black.svg';
 import Image from 'next/image';
 import { messageFromInstantError } from '@/lib/errors';
 import { addProvider, addClient, deleteClient, findName } from './shared';
 import {
-  AppsAuthResponse,
   InstantApp,
   InstantIssue,
   OAuthClient,
@@ -38,15 +33,12 @@ export function AppleClient({
   app,
   client,
   onDeleteClient,
-  defaultOpen = false,
 }: {
   app: InstantApp;
   client: OAuthClient;
   onDeleteClient: (client: OAuthClient) => void;
-  defaultOpen?: boolean;
 }) {
   const token = useContext(TokenContext);
-  const [open, setOpen] = useState(defaultOpen);
   const [isLoading, setIsLoading] = useState(false);
   const deleteDialog = useDialog();
 
@@ -71,65 +63,37 @@ export function AppleClient({
   };
 
   return (
-    <div className="">
-      <Collapsible.Root
-        open={open}
-        onOpenChange={setOpen}
-        className="flex flex-col rounded-sm border dark:border-neutral-700"
+    <div className="flex flex-col gap-4">
+      <Copyable label="Client Name" value={client.client_name} />
+
+      <Copyable label="Services ID" value={client.client_id || ''} />
+
+      {client.meta?.teamId ? (
+        <Copyable label="Team ID" value={client.meta?.teamId} />
+      ) : null}
+
+      {client.meta?.keyId ? (
+        <Copyable label="Key ID" value={client.meta?.keyId} />
+      ) : null}
+
+      <a
+        className="underline"
+        href="/docs/auth/apple"
+        target="_blank"
+        rel="noopener noreferrer"
       >
-        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800 dark:hover:bg-neutral-700">
-          <div className="flex flex-1 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Image className="dark:invert" alt="apple logo" src={logo} />
-              <div className="font-medium">
-                {client.client_name}{' '}
-                <span className="text-gray-400 dark:text-neutral-500">
-                  (Apple)
-                </span>
-              </div>
-            </div>
-            {open ? (
-              <ChevronUpIcon height={24} />
-            ) : (
-              <ChevronDownIcon height={24} />
-            )}
-          </div>
-        </Collapsible.Trigger>
-        <Collapsible.Content className="">
-          <div className="flex flex-col gap-4 border-t p-4 dark:border-t-neutral-700">
-            <Copyable label="Client Name" value={client.client_name} />
+        Setup and Usage
+      </a>
 
-            <Copyable label="Services ID" value={client.client_id || ''} />
-
-            {client.meta?.teamId ? (
-              <Copyable label="Team ID" value={client.meta?.teamId} />
-            ) : null}
-
-            {client.meta?.keyId ? (
-              <Copyable label="Key ID" value={client.meta?.keyId} />
-            ) : null}
-
-            <a
-              className="underline"
-              href="/docs/auth/apple"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Setup and Usage
-            </a>
-
-            <div>
-              <Button
-                onClick={deleteDialog.onOpen}
-                loading={isLoading}
-                variant="destructive"
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </Collapsible.Content>
-      </Collapsible.Root>
+      <div>
+        <Button
+          onClick={deleteDialog.onOpen}
+          loading={isLoading}
+          variant="destructive"
+        >
+          Delete
+        </Button>
+      </div>
       <Dialog title="Delete Client" {...deleteDialog}>
         <div className="flex flex-col gap-2">
           <SubsectionHeading>Delete client</SubsectionHeading>
@@ -350,94 +314,5 @@ export function AddClientExpanded({
         Cancel
       </Button>
     </form>
-  );
-}
-
-function AddClient({
-  app,
-  provider,
-  clients,
-  onAddProvider,
-  onAddClient,
-  usedClientNames,
-}: {
-  app: InstantApp;
-  provider: OAuthServiceProvider | undefined;
-  clients: OAuthClient[];
-  onAddProvider: (provider: OAuthServiceProvider) => void;
-  onAddClient: (client: OAuthClient) => void;
-  usedClientNames: Set<string>;
-}) {
-  const [expanded, setExpanded] = useState<boolean>(false);
-
-  if (!expanded) {
-    return (
-      <Button onClick={() => setExpanded(true)} variant="secondary">
-        <PlusIcon height={14} /> Add {clients.length > 0 ? 'another ' : ''}Apple
-        Client
-      </Button>
-    );
-  }
-
-  return (
-    <AddClientExpanded
-      app={app}
-      provider={provider}
-      onAddProvider={onAddProvider}
-      onAddClient={(c) => {
-        setExpanded(false);
-        onAddClient(c);
-      }}
-      onCancel={() => setExpanded(false)}
-      usedClientNames={usedClientNames}
-    />
-  );
-}
-
-export function AppleClients({
-  app,
-  data,
-  onAddProvider,
-  onAddClient,
-  onDeleteClient,
-  usedClientNames,
-  lastCreatedClientId,
-}: {
-  app: InstantApp;
-  data: AppsAuthResponse;
-  onAddProvider: (provider: OAuthServiceProvider) => void;
-  onAddClient: (client: OAuthClient) => void;
-  onDeleteClient: (client: OAuthClient) => void;
-  usedClientNames: Set<string>;
-  lastCreatedClientId: string | null;
-}) {
-  const provider = data.oauth_service_providers?.find(
-    (p) => p.provider_name === 'apple',
-  );
-  const clients =
-    data.oauth_clients?.filter((c) => c.provider_id === provider?.id) || [];
-
-  return (
-    <div className="flex flex-col gap-2 bg-white dark:bg-neutral-800">
-      {clients.map((c) => (
-        <AppleClient
-          // Update the key because the mutate somehow takes effect before
-          // lastCreatedClientId is set--this causes it to re-evaluate defaultOpen
-          key={c.id === lastCreatedClientId ? `${c.id}-last` : c.id}
-          app={app}
-          client={c}
-          onDeleteClient={onDeleteClient}
-          defaultOpen={c.id === lastCreatedClientId}
-        />
-      ))}
-      <AddClient
-        app={app}
-        provider={provider}
-        clients={clients}
-        onAddProvider={onAddProvider}
-        onAddClient={onAddClient}
-        usedClientNames={usedClientNames}
-      />
-    </div>
   );
 }
