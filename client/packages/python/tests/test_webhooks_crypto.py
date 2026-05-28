@@ -9,7 +9,14 @@ work happens, plus the stale-timestamp gate.
 import pytest
 
 from instantdb import InstantError
-from instantdb._webhooks_crypto import verify_signature
+from instantdb._webhooks_crypto import (
+    known_key,
+    normalize_body,
+    parse_signature_header,
+    parse_webhook_body,
+    validate_timestamp,
+    verify_signature,
+)
 
 _LOCAL_URI = "http://localhost:9888"
 
@@ -40,7 +47,15 @@ def _verify(**overrides):
         "received_at": _FIXTURE_RECEIVED_AT,
     }
     base.update(overrides)
-    verify_signature(**base)
+    sig = parse_signature_header(base["signature_header"])
+    validate_timestamp(
+        timestamp=sig.t,
+        received_at=base["received_at"],
+        max_age_seconds=base.get("max_age_seconds", 300),
+    )
+    key = known_key(base["api_uri"], sig.kid)
+    assert key is not None
+    verify_signature(signature=sig, key=key, body=normalize_body(base["body"]))
 
 
 @pytest.mark.parametrize(
@@ -81,10 +96,29 @@ def test_rejects_signature_dated_too_far_in_future():
         _verify(received_at=_FIXTURE_RECEIVED_AT - 301, max_age_seconds=300)
 
 
-def test_rejects_unknown_kid_for_api_uri():
-    # The prod URI doesn't know about the localhost dev kid.
-    with pytest.raises(InstantError, match="No trusted signing key"):
-        _verify(api_uri="https://api.instantdb.com")
+def test_known_key_misses_unknown_kid_for_api_uri():
+    # The prod URI doesn't know about the localhost dev kid; callers can then
+    # fall back to JWKS.
+    sig = parse_signature_header(_FIXTURE_SIG)
+    assert known_key("https://api.instantdb.com", sig.kid) is None
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"not json",
+        b'{"payloadUrl": "x"}',
+        b'{"token": "x"}',
+        b'"a string, not an object"',
+        b'{"payloadUrl": null, "token": "t"}',
+        b'{"payloadUrl": "", "token": "t"}',
+        b'{"payloadUrl": "x", "token": null}',
+        b'{"payloadUrl": "x", "token": ""}',
+    ],
+)
+def test_rejects_malformed_webhook_body(body):
+    with pytest.raises(InstantError):
+        parse_webhook_body(body)
 
 
 def test_rejects_when_body_tampered():

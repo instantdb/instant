@@ -455,8 +455,7 @@ The Python SDK ships the same two-layer webhook surface as the JS SDK,
 bundled as `instantdb.webhooks`.
 
 - `db.webhooks.manager.*` for CRUD on subscriptions
-- `db.webhooks.validate_signature / fetch_payloads / process_payload` for
-  receiving events
+- `db.webhooks.validate / fetch_payloads / process_payload` for receiving events
 
 ### Managing subscriptions
 
@@ -496,16 +495,16 @@ Returned dicts keep camelCase wire-format keys (`webhookId`,
 Three primitives compose into framework integration:
 
 ```python
-# 1. Verify the Ed25519 signature
-db.webhooks.validate_signature(
+# 1. Verify the Ed25519 signature and parse the signed body
+webhook_body = db.webhooks.validate(
     signature_header=request.headers["Instant-Signature"],
     body=raw_bytes,
     max_age_seconds=300,
 )
 # Raises InstantError on bad signature or stale timestamp
 
-# 2. Exchange the JWT body for the full payload of records
-payload = db.webhooks.fetch_payloads(body=raw_bytes)
+# 2. Exchange the payload reference for the full payload of records
+payload = db.webhooks.fetch_payloads(webhook_body)
 
 # 3. Dispatch records to handlers (most-specific-wins)
 db.webhooks.process_payload(handlers, payload)
@@ -524,9 +523,7 @@ handlers = {
         "create": on_goal_create,
         "$default": lambda record: None,
     },
-    "$default": {
-        "$default": lambda record: None,
-    },
+    "$default": lambda record: None,
 }
 
 db.webhooks.process_payload(handlers, payload)
@@ -551,18 +548,19 @@ async def webhook_in(request: Request):
     body = await request.body()
     sig = request.headers.get("Instant-Signature", "")
     try:
-        db.webhooks.validate_signature(signature_header=sig, body=body)
+        webhook_body = await db.webhooks.validate(signature_header=sig, body=body)
     except InstantError:
         raise HTTPException(401)
 
-    payload = await db.webhooks.fetch_payloads(body)
+    payload = await db.webhooks.fetch_payloads(webhook_body)
     await db.webhooks.process_payload(handlers, payload)
     return {"ok": True}
 ```
 
-`validate_signature` is sync (pure crypto, no HTTP). `fetch_payloads`
-and `process_payload` are awaitable under `AsyncInstant`. Handlers must
-match: `async def` for `AsyncInstant`, plain `def` for `Instant`.
+`validate`, `fetch_payloads`, and `process_payload` are awaitable under
+`AsyncInstant`. `validate` falls back to Instant's JWKS endpoint when a
+signing key is not already cached or bundled. Handlers must match:
+`async def` for `AsyncInstant`, plain `def` for `Instant`.
 
 ### Typed webhook handlers
 

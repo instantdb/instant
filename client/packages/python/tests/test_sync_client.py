@@ -17,6 +17,8 @@ from instantdb import Instant, InstantAPIError, InstantError
 from instantdb._sync.http import _HTTP
 from instantdb._version import __version__
 
+_CUSTOM_URI = "https://custom-api.example.test"
+
 # ---------- sync-only surface ----------
 
 
@@ -115,21 +117,21 @@ def test_webhooks_process_payload_dispatches_to_sync_handler():
 def test_webhooks_fetch_payloads_raises_on_non_2xx(mock_transport):
     transport, _ = mock_transport(lambda r: httpx.Response(404, json={"message": "nope"}))
     with Instant(app_id="app", admin_token="abc", _transport=transport) as db:
-        body = json.dumps({"payloadUrl": "https://x/p", "token": "t"}).encode()
+        body = {"payloadUrl": "https://x/p", "token": "t"}
         with pytest.raises(InstantAPIError) as exc:
             db.webhooks.fetch_payloads(body)
     assert exc.value.status == 404
 
 
-def test_webhooks_validate_signature_rejects_tampered_body():
-    # validate_signature is sync on both clients (pure crypto). Verifies the
-    # api_uri threading still works for the sync flavor.
+def test_webhooks_validate_uses_sync_jwks_fetch(mock_transport):
+    transport, captured = mock_transport(lambda r: httpx.Response(200, json={"keys": []}))
     with (
-        Instant(app_id="app", admin_token="abc") as db,
-        pytest.raises(InstantError, match="No trusted signing key"),
+        Instant(app_id="app", admin_token="abc", api_uri=_CUSTOM_URI, _transport=transport) as db,
+        pytest.raises(InstantError, match="Could not find matching signing key"),
     ):
-        db.webhooks.validate_signature(
+        db.webhooks.validate(
             signature_header="t=1778610366,kid=503090235,v1=ab",
             body=b"{}",
             received_at=1778610366,
         )
+    assert str(captured[0].url) == f"{_CUSTOM_URI}/.well-known/webhooks/jwks.json"

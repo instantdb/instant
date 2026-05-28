@@ -558,7 +558,7 @@ async def _delete_stream_by_client_id(db: AsyncInstant, client_id: str) -> None:
 
 # A signature + body captured from a real webhook delivery from a localhost
 # Instant server, signed by the kid=503090235 dev key the local Docker image
-# always serves. Reused here for validate_signature; matches the JS test fixture.
+# always serves. Reused here for validate; matches the JS test fixture.
 _FIXTURE_SIG_HEADER = (
     "t=1778610366,kid=503090235,"
     "v1=b4385e8285de38d22b6d8a6bdd03cc75287e356f1adf48cea257a8e6c056c04e"
@@ -703,27 +703,29 @@ async def test_webhooks_resend_event(db: AsyncInstant) -> None:
         await db.webhooks.manager.delete(webhook_id)
 
 
-async def test_webhooks_validate_signature_with_fixture(db: AsyncInstant) -> None:
+async def test_webhooks_validate_with_fixture(db: AsyncInstant) -> None:
     # Captured fixture is signed by the localhost dev key; the local server
-    # we're talking to serves that same key, so validate_signature should pass.
-    db.webhooks.validate_signature(
+    # we're talking to serves that same key, so validate should pass.
+    webhook_body = await db.webhooks.validate(
         signature_header=_FIXTURE_SIG_HEADER,
         body=_FIXTURE_BODY,
         received_at=_FIXTURE_RECEIVED_AT,
     )
-    print("✓ webhooks validate_signature accepted the fixture")
+    assert webhook_body["payloadUrl"].startswith("http://localhost:8888/webhooks/payload/")
+    assert webhook_body["token"].startswith("eyJraWQiOiI1MDMwOTAyMzUi")
+    print("✓ webhooks validate accepted the fixture")
 
 
-async def test_webhooks_validate_signature_rejects_tampered(db: AsyncInstant) -> None:
+async def test_webhooks_validate_rejects_tampered(db: AsyncInstant) -> None:
     tampered = _FIXTURE_BODY.replace(b"5307A1A0", b"5307A1A1")
     try:
-        db.webhooks.validate_signature(
+        await db.webhooks.validate(
             signature_header=_FIXTURE_SIG_HEADER,
             body=tampered,
             received_at=_FIXTURE_RECEIVED_AT,
         )
     except InstantError as e:
-        print(f"✓ webhooks validate_signature rejected tampered body: {e}")
+        print(f"✓ webhooks validate rejected tampered body: {e}")
     else:
         raise AssertionError("expected InstantError on tampered body")
 
@@ -966,8 +968,8 @@ async def main() -> None:
         # await test_webhooks_enable_disable_round_trip(db)
         # await test_webhooks_get_event_and_payload(db)
         # await test_webhooks_resend_event(db)
-        # await test_webhooks_validate_signature_with_fixture(db)
-        # await test_webhooks_validate_signature_rejects_tampered(db)
+        # await test_webhooks_validate_with_fixture(db)
+        # await test_webhooks_validate_rejects_tampered(db)
         #
         # codegen:
         # await test_genpy_writes_typed_files_to_out_dir(db)

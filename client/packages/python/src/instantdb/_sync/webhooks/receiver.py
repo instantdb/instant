@@ -3,8 +3,8 @@
 """Receiver primitives for incoming webhook requests.
 
 Three independent steps users compose into framework integration:
-    1. `validate_signature` — verify Ed25519 over the raw body (sync, pure crypto)
-    2. `fetch_payloads` — exchange the signed body for the full record payload
+    1. `validate` — verify Ed25519 over the raw body and parse the payload reference
+    2. `fetch_payloads` — exchange the payload reference for the full record payload
     3. `process_payload` — dispatch each record to its matching handler
 
 No framework adapter (FastAPI / Flask / Django) is bundled — users wire those
@@ -13,14 +13,25 @@ in ~10 lines per framework using these primitives.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
-from instantdb._errors import InstantError
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
 from instantdb._http_errors import api_error_from_response
 from instantdb._sync.http import _HTTP
 from instantdb._sync.webhooks.manager import WebhooksManager
-from instantdb._webhooks_crypto import DEFAULT_MAX_AGE_SECONDS, verify_signature
+from instantdb._webhooks_crypto import (
+    DEFAULT_MAX_AGE_SECONDS,
+    WebhookBody,
+    coerce_webhook_body,
+    key_from_jwks,
+    known_key,
+    normalize_body,
+    parse_signature_header,
+    parse_webhook_body,
+    validate_timestamp,
+    verify_signature,
+)
 
 
 class Webhooks:
@@ -35,47 +46,52 @@ class Webhooks:
         self._schema = schema
         self.manager = WebhooksManager(http, app_id=app_id)
 
-    def validate_signature(
+    def validate(
         self,
         *,
         signature_header: str,
-        body: bytes,
+        body: bytes | str,
         max_age_seconds: int = DEFAULT_MAX_AGE_SECONDS,
         received_at: int | None = None,
-    ) -> None:
-        """Verify the `Instant-Signature` header against the raw body.
+    ) -> WebhookBody:
+        """Verify `Instant-Signature` and return the parsed webhook body.
 
-        Sync — pure Ed25519 crypto, no HTTP fetch. Raises `InstantError` on a
-        malformed header, stale timestamp, unknown key id, or signature
-        mismatch. Returns `None` on success.
+        Raises `InstantError` on a malformed header, stale timestamp, unknown
+        key id, signature mismatch, or invalid webhook body. Falls back to the
+        API's JWKS endpoint when the key is not already known.
         """
-        verify_signature(
-            api_uri=self._http._api_uri,
-            signature_header=signature_header,
-            body=body,
+        sig = parse_signature_header(signature_header)
+        validate_timestamp(
+            timestamp=sig.t,
             max_age_seconds=max_age_seconds,
             received_at=received_at,
         )
+        key = known_key(self._http._api_uri, sig.kid)
+        if key is None:
+            key = self._fetch_jwks_key(sig.kid)
+        body_bytes = normalize_body(body)
+        verify_signature(signature=sig, key=key, body=body_bytes)
+        return parse_webhook_body(body_bytes)
 
-    def fetch_payloads(self, body: bytes) -> dict[str, Any]:
+    def _fetch_jwks_key(self, kid: str) -> Ed25519PublicKey:
+        response = self._http._client.get(
+            "/.well-known/webhooks/jwks.json",
+            headers={"accept": "application/json"},
+        )
+        if not response.is_success:
+            raise api_error_from_response(response)
+        return key_from_jwks(self._http._api_uri, kid, response.json())
+
+    def fetch_payloads(self, webhook_body: WebhookBody) -> dict[str, Any]:
         """Exchange the signed body for the full payload of records.
 
-        The body delivered to your webhook URL is a small JSON object with a
-        `payloadUrl` + JWT `token`. This fetches that URL with the token, and
-        returns the full payload (`{"data": [...], "idempotencyKey": "..."}`).
+        `validate` returns a small object with a `payloadUrl` + JWT `token`.
+        This fetches that URL with the token and returns the full payload
+        (`{"data": [...], "idempotencyKey": "..."}`).
         """
-        try:
-            parsed = json.loads(body)
-        except ValueError as e:
-            raise InstantError("Webhook body is not valid JSON") from e
-        if not isinstance(parsed, dict):
-            raise InstantError("Invalid webhook body: expected an object with payloadUrl and token")
-        payload_url = parsed.get("payloadUrl")
-        token = parsed.get("token")
-        if not (isinstance(payload_url, str) and payload_url) or not (
-            isinstance(token, str) and token
-        ):
-            raise InstantError("Invalid webhook body: expected an object with payloadUrl and token")
+        parsed = coerce_webhook_body(webhook_body)
+        payload_url = parsed["payloadUrl"]
+        token = parsed["token"]
         response = self._http._client.get(
             payload_url,
             headers={
