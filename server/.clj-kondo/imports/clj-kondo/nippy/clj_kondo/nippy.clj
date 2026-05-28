@@ -1,4 +1,4 @@
-(ns hooks.nippy)
+(ns clj-kondo.nippy)
 
 (defmacro extend-freeze
   [type type-id [x out] & body]

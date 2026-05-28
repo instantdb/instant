@@ -1,0 +1,2 @@
+{:hooks {:macroexpand {taoensso.nippy/extend-freeze clj-kondo.nippy/extend-freeze
+                       taoensso.nippy/extend-thaw clj-kondo.nippy/extend-thaw}}}
