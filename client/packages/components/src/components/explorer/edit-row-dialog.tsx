@@ -690,10 +690,9 @@ export function EditRowDialog({
   const explorerProps = useExplorerProps();
   const formBodyRef = useRef<HTMLDivElement>(null);
   const fieldSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const setFieldSectionRef =
-    (name: string) => (el: HTMLDivElement | null) => {
-      fieldSectionRefs.current[name] = el;
-    };
+  const setFieldSectionRef = (name: string) => (el: HTMLDivElement | null) => {
+    fieldSectionRefs.current[name] = el;
+  };
   const [pendingFocusField, setPendingFocusField] = useState<string | null>(
     null,
   );
@@ -776,9 +775,7 @@ export function EditRowDialog({
     }
     const field = blobUpdates[focusAttr];
     if (field?.type === 'boolean' && !nullFields[focusAttr]) {
-      section
-        ?.querySelector<HTMLElement>('[role="combobox"]')
-        ?.focus();
+      section?.querySelector<HTMLElement>('[role="combobox"]')?.focus();
     }
   }, [focusAttr, blobUpdates, nullFields]);
 
@@ -789,9 +786,7 @@ export function EditRowDialog({
     const section = fieldSectionRefs.current[pendingFocusField];
     if (section) {
       scrollFieldSectionIntoView(section, formBodyRef.current);
-      section
-        .querySelector<HTMLElement>('input, textarea')
-        ?.focus();
+      section.querySelector<HTMLElement>('input, textarea')?.focus();
     }
     setPendingFocusField(null);
   }, [pendingFocusField, nullFields]);
@@ -1019,7 +1014,9 @@ export function EditRowDialog({
       if (!attr.isRequired) {
         continue;
       }
-      if (getEffectiveRefLinkCount(item, attr.name, refUpdates[attr.name]) === 0) {
+      if (
+        getEffectiveRefLinkCount(item, attr.name, refUpdates[attr.name]) === 0
+      ) {
         requiredRefErrors[attr.name] = REQUIRED_FIELD_ERROR;
       }
     }
@@ -1109,251 +1106,254 @@ export function EditRowDialog({
       </div>
       <div
         ref={formBodyRef}
-        className="mt-4 min-h-0 flex-1 overflow-y-auto px-4 scrollbar-gutter-stable"
+        className="scrollbar-gutter-stable mt-4 min-h-0 flex-1 overflow-y-auto px-4"
       >
         <div className="flex flex-col gap-4">
-        {op === 'add' ? (
-          <div key="id" className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <Label className="font-mono">
-                <div className="flex gap-1">
-                  id{' '}
-                  <Button
-                    type="link"
-                    size="mini"
-                    variant="subtle"
-                    onClick={() => handleUpdateFieldValue('id', id())}
-                  >
-                    <ArrowPathIcon height={14} />
-                  </Button>
-                </div>
-              </Label>
-            </div>
-            <div className="flex flex-col gap-1">
-              <input
-                className="flex w-full flex-1 rounded-xs border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
-                value={blobUpdates.id?.value ?? ''}
-                onChange={(e) =>
-                  handleUpdateFieldValue('id', e.target.value, uuidValidate)
-                }
-              />
-            </div>{' '}
-            {blobUpdates.id?.error && shouldDisplayErrors && (
-              <span className="text-sm font-medium text-red-500">
-                {blobUpdates.id.error}
-              </span>
-            )}
-          </div>
-        ) : null}
-
-        {editableBlobAttrs.map((attr, i) => {
-          const tabIndex = i + 1;
-          const { type, value, error } = blobUpdates[attr.name] || {
-            type: 'string',
-            value: defaultValueByType['string'],
-          };
-          const json =
-            jsonUpdates[attr.name] ||
-            (value !== null ? JSON.stringify(value, null, 2) : 'null');
-          const isNullField = nullFields[attr.name];
-          const autoFocusField = shouldAutoFocus(attr.name);
-
-          return (
-            <div
-              key={attr.name}
-              ref={setFieldSectionRef(attr.name)}
-              className="flex flex-col gap-1"
-            >
+          {op === 'add' ? (
+            <div key="id" className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <Label className="font-mono">{attr.name}</Label>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center">
-                    {!attr.isRequired && (
-                      <Checkbox
-                        checked={isNullField}
-                        onChange={(checked) =>
-                          handleNullToggle(attr.name, checked)
-                        }
-                        label={
-                          <span className="text-[10px] text-gray-600 uppercase dark:text-neutral-600">
-                            null
-                          </span>
-                        }
-                      />
-                    )}
+                <Label className="font-mono">
+                  <div className="flex gap-1">
+                    id{' '}
+                    <Button
+                      type="link"
+                      size="mini"
+                      variant="subtle"
+                      onClick={() => handleUpdateFieldValue('id', id())}
+                    >
+                      <ArrowPathIcon height={14} />
+                    </Button>
                   </div>
-                  <Select
-                    className="w-24 rounded-sm px-2 py-0.5 text-sm"
-                    value={type}
-                    options={validFieldTypeOptions(attr.checkedDataType)}
-                    onChange={(option) =>
-                      handleChangeFieldType(
-                        attr.name,
-                        option!.value as FieldType,
-                      )
-                    }
-                  />
-                </div>
+                </Label>
               </div>
               <div className="flex flex-col gap-1">
-                {!isNullField ? (
-                  <div className="flex space-x-1">
-                    <div className="flex-1">
-                      {type === 'json' ? (
-                        <div className="h-32 w-full rounded-sm border">
-                          <CodeEditor
-                            darkMode={explorerProps.darkMode}
-                            tabIndex={tabIndex}
-                            language="json"
-                            value={json}
-                            onChange={(code) =>
-                              handleUpdateJson(attr.name, code)
-                            }
-                            onMount={(editor) => {
-                              if (autoFocusField) {
-                                editor.focus();
-                              }
-                            }}
-                          />
-                        </div>
-                      ) : type === 'boolean' ? (
-                        <Select
-                          tabIndex={tabIndex}
-                          value={value}
-                          options={[
-                            { value: 'false', label: 'false' },
-                            { value: 'true', label: 'true' },
-                          ]}
-                          onChange={(option) =>
-                            handleUpdateFieldValue(attr.name, option!.value)
+                <input
+                  className="flex w-full flex-1 rounded-xs border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
+                  value={blobUpdates.id?.value ?? ''}
+                  onChange={(e) =>
+                    handleUpdateFieldValue('id', e.target.value, uuidValidate)
+                  }
+                />
+              </div>{' '}
+              {blobUpdates.id?.error && shouldDisplayErrors && (
+                <span className="text-sm font-medium text-red-500">
+                  {blobUpdates.id.error}
+                </span>
+              )}
+            </div>
+          ) : null}
+
+          {editableBlobAttrs.map((attr, i) => {
+            const tabIndex = i + 1;
+            const { type, value, error } = blobUpdates[attr.name] || {
+              type: 'string',
+              value: defaultValueByType['string'],
+            };
+            const json =
+              jsonUpdates[attr.name] ||
+              (value !== null ? JSON.stringify(value, null, 2) : 'null');
+            const isNullField = nullFields[attr.name];
+            const autoFocusField = shouldAutoFocus(attr.name);
+
+            return (
+              <div
+                key={attr.name}
+                ref={setFieldSectionRef(attr.name)}
+                className="flex flex-col gap-1"
+              >
+                <div className="flex items-center justify-between">
+                  <Label className="font-mono">{attr.name}</Label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center">
+                      {!attr.isRequired && (
+                        <Checkbox
+                          checked={isNullField}
+                          onChange={(checked) =>
+                            handleNullToggle(attr.name, checked)
                           }
-                        />
-                      ) : type === 'number' ? (
-                        <input
-                          tabIndex={tabIndex}
-                          type="number"
-                          autoFocus={autoFocusField}
-                          className="flex w-full flex-1 rounded-xs border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
-                          value={value ?? ''}
-                          onChange={(num) =>
-                            handleUpdateFieldValue(attr.name, num.target.value)
+                          label={
+                            <span className="text-[10px] text-gray-600 uppercase dark:text-neutral-600">
+                              null
+                            </span>
                           }
-                        />
-                      ) : (
-                        <ResizingTextArea
-                          tabIndex={tabIndex}
-                          autoFocus={autoFocusField}
-                          value={value ?? ''}
-                          onChange={(e) =>
-                            handleUpdateFieldValue(attr.name, e.target.value)
-                          }
-                          onSave={handleSaveRow}
                         />
                       )}
                     </div>
-                    {attr.checkedDataType === 'date' && (
-                      <Button
-                        variant="subtle"
-                        size="mini"
-                        onClick={() => {
-                          handleUpdateFieldValue(
-                            attr.name,
-                            type === 'number'
-                              ? Date.now()
-                              : new Date().toISOString(),
-                          );
-                        }}
-                      >
-                        <ClockIcon height={14} />
-                        now
-                      </Button>
-                    )}
+                    <Select
+                      className="w-24 rounded-sm px-2 py-0.5 text-sm"
+                      value={type}
+                      options={validFieldTypeOptions(attr.checkedDataType)}
+                      onChange={(option) =>
+                        handleChangeFieldType(
+                          attr.name,
+                          option!.value as FieldType,
+                        )
+                      }
+                    />
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    autoFocus={autoFocusField}
-                    onClick={() => handleNullToggle(attr.name, false)}
-                    className="flex-1 rounded-xs border border-gray-200 bg-gray-50 px-3 py-1 text-left text-gray-500 italic dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
-                  >
-                    null
-                  </button>
-                )}
-                {error && shouldDisplayErrors && (
-                  <span className="text-sm font-medium text-red-500">
-                    {error}
+                </div>
+                <div className="flex flex-col gap-1">
+                  {!isNullField ? (
+                    <div className="flex space-x-1">
+                      <div className="flex-1">
+                        {type === 'json' ? (
+                          <div className="h-32 w-full rounded-sm border">
+                            <CodeEditor
+                              darkMode={explorerProps.darkMode}
+                              tabIndex={tabIndex}
+                              language="json"
+                              value={json}
+                              onChange={(code) =>
+                                handleUpdateJson(attr.name, code)
+                              }
+                              onMount={(editor) => {
+                                if (autoFocusField) {
+                                  editor.focus();
+                                }
+                              }}
+                            />
+                          </div>
+                        ) : type === 'boolean' ? (
+                          <Select
+                            tabIndex={tabIndex}
+                            value={value}
+                            options={[
+                              { value: 'false', label: 'false' },
+                              { value: 'true', label: 'true' },
+                            ]}
+                            onChange={(option) =>
+                              handleUpdateFieldValue(attr.name, option!.value)
+                            }
+                          />
+                        ) : type === 'number' ? (
+                          <input
+                            tabIndex={tabIndex}
+                            type="number"
+                            autoFocus={autoFocusField}
+                            className="flex w-full flex-1 rounded-xs border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
+                            value={value ?? ''}
+                            onChange={(num) =>
+                              handleUpdateFieldValue(
+                                attr.name,
+                                num.target.value,
+                              )
+                            }
+                          />
+                        ) : (
+                          <ResizingTextArea
+                            tabIndex={tabIndex}
+                            autoFocus={autoFocusField}
+                            value={value ?? ''}
+                            onChange={(e) =>
+                              handleUpdateFieldValue(attr.name, e.target.value)
+                            }
+                            onSave={handleSaveRow}
+                          />
+                        )}
+                      </div>
+                      {attr.checkedDataType === 'date' && (
+                        <Button
+                          variant="subtle"
+                          size="mini"
+                          onClick={() => {
+                            handleUpdateFieldValue(
+                              attr.name,
+                              type === 'number'
+                                ? Date.now()
+                                : new Date().toISOString(),
+                            );
+                          }}
+                        >
+                          <ClockIcon height={14} />
+                          now
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      autoFocus={autoFocusField}
+                      onClick={() => handleNullToggle(attr.name, false)}
+                      className="flex-1 rounded-xs border border-gray-200 bg-gray-50 px-3 py-1 text-left text-gray-500 italic dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
+                    >
+                      null
+                    </button>
+                  )}
+                  {error && shouldDisplayErrors && (
+                    <span className="text-sm font-medium text-red-500">
+                      {error}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {editableRefAttrs.map((attr, i) => {
+            const namespace = attr.isForward
+              ? attr.linkConfig.reverse!.nsMap
+              : attr.linkConfig.forward.nsMap;
+
+            if (!namespace) {
+              // Sometimes we get links to namespaces that don't exist
+              return null;
+            }
+
+            return (
+              <div
+                key={attr.name}
+                ref={setFieldSectionRef(attr.name)}
+                className="flex flex-col gap-1"
+              >
+                <div className="flex items-center justify-between">
+                  <Label className="font-mono">{attr.name}</Label>
+                  <span className="rounded-sm px-2 py-0.5 text-sm">
+                    Link to <code>{namespace.name}</code>
                   </span>
-                )}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <RefItem
+                    db={db}
+                    item={item}
+                    namespace={namespace}
+                    attr={attr}
+                    refUpdates={refUpdates[attr.name]}
+                    handleLinkRef={handleLinkRef}
+                    handleUnlinkRef={handleUnlinkRef}
+                  />
+                  {refFieldErrors[attr.name] && shouldDisplayErrors && (
+                    <span className="text-sm font-medium text-red-500">
+                      {refFieldErrors[attr.name]}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-
-        {editableRefAttrs.map((attr, i) => {
-          const namespace = attr.isForward
-            ? attr.linkConfig.reverse!.nsMap
-            : attr.linkConfig.forward.nsMap;
-
-          if (!namespace) {
-            // Sometimes we get links to namespaces that don't exist
-            return null;
-          }
-
-          return (
-            <div
-              key={attr.name}
-              ref={setFieldSectionRef(attr.name)}
-              className="flex flex-col gap-1"
-            >
-              <div className="flex items-center justify-between">
-                <Label className="font-mono">{attr.name}</Label>
-                <span className="rounded-sm px-2 py-0.5 text-sm">
-                  Link to <code>{namespace.name}</code>
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <RefItem
-                  db={db}
-                  item={item}
-                  namespace={namespace}
-                  attr={attr}
-                  refUpdates={refUpdates[attr.name]}
-                  handleLinkRef={handleLinkRef}
-                  handleUnlinkRef={handleUnlinkRef}
-                />
-                {refFieldErrors[attr.name] && shouldDisplayErrors && (
-                  <span className="text-sm font-medium text-red-500">
-                    {refFieldErrors[attr.name]}
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
         </div>
       </div>
-      <div className="shrink-0 border-t border-gray-200 bg-white mt-2 px-1 pt-4 dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="mt-2 shrink-0 border-t border-gray-200 bg-white px-1 pt-4 dark:border-neutral-700 dark:bg-neutral-800">
         <div className="flex flex-row items-center justify-between gap-1">
           {shouldDisplayErrors && hasFormErrors ? (
-          <span className="text-sm font-medium text-red-500">
-            Failed to save. Please check above for errors.
-          </span>
+            <span className="text-sm font-medium text-red-500">
+              Failed to save. Please check above for errors.
+            </span>
           ) : (
             <span />
           )}
           <div className="flex flex-row items-center gap-1">
-          <Button type="button" variant="secondary" onClick={handleResetForm}>
-            Reset
-          </Button>
-          <ActionButton
-            tabIndex={editableBlobAttrs.length + 1}
-            type="submit"
-            variant="primary"
-            label="Save"
-            submitLabel="Saving..."
-            errorMessage="Failed to save row."
-            onClick={handleSaveRow}
-          />
+            <Button type="button" variant="secondary" onClick={handleResetForm}>
+              Reset
+            </Button>
+            <ActionButton
+              tabIndex={editableBlobAttrs.length + 1}
+              type="submit"
+              variant="primary"
+              label="Save"
+              submitLabel="Saving..."
+              errorMessage="Failed to save row."
+              onClick={handleSaveRow}
+            />
           </div>
         </div>
       </div>

@@ -122,87 +122,87 @@ export const TableHeader = ({
             : flexRender(header.column.columnDef.header, header.getContext())}
         </div>
       ) : (
-      <div className="flex h-full items-stretch justify-between overflow-hidden">
-        <div
-          className={`flex shrink items-center gap-1 truncate px-2 py-1 font-semibold th-${header.column.id}`}
-        >
-          {isSortable ? (
-            <button
-              className="relative z-50 flex items-center gap-1 py-2 pr-5"
-              onClick={() => {
-                if (onSort) {
-                  let thisAttrName =
-                    headerText === 'id' ? 'serverCreatedAt' : headerText;
-                  onSort(thisAttrName, currentSortAttr, currentSortAsc);
-                }
-              }}
-            >
-              <span className={cn(isCurrentSort && 'underline')}>
+        <div className="flex h-full items-stretch justify-between overflow-hidden">
+          <div
+            className={`flex shrink items-center gap-1 truncate px-2 py-1 font-semibold th-${header.column.id}`}
+          >
+            {isSortable ? (
+              <button
+                className="relative z-50 flex items-center gap-1 py-2 pr-5"
+                onClick={() => {
+                  if (onSort) {
+                    let thisAttrName =
+                      headerText === 'id' ? 'serverCreatedAt' : headerText;
+                    onSort(thisAttrName, currentSortAttr, currentSortAsc);
+                  }
+                }}
+              >
+                <span className={cn(isCurrentSort && 'underline')}>
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )}
+                </span>
+                <span
+                  className="opacity-50 transition-opacity group-hover:opacity-70"
+                  style={{
+                    opacity: isCurrentSort ? 1 : undefined,
+                    fontWeight: isCurrentSort ? 'bold' : 'normal',
+                  }}
+                >
+                  {isCurrentSort ? (
+                    currentSortAsc ? (
+                      <ArrowUpIcon strokeWidth={3} width={10} />
+                    ) : (
+                      <ArrowDownIcon strokeWidth={3} width={10} />
+                    )
+                  ) : (
+                    <ArrowsUpDownIcon strokeWidth={3} width={10} />
+                  )}
+                </span>
+              </button>
+            ) : (
+              <>
                 {header.isPlaceholder
                   ? null
                   : flexRender(
                       header.column.columnDef.header,
                       header.getContext(),
                     )}
-              </span>
-              <span
-                className="opacity-50 transition-opacity group-hover:opacity-70"
-                style={{
-                  opacity: isCurrentSort ? 1 : undefined,
-                  fontWeight: isCurrentSort ? 'bold' : 'normal',
-                }}
-              >
-                {isCurrentSort ? (
-                  currentSortAsc ? (
-                    <ArrowUpIcon strokeWidth={3} width={10} />
-                  ) : (
-                    <ArrowDownIcon strokeWidth={3} width={10} />
-                  )
-                ) : (
-                  <ArrowsUpDownIcon strokeWidth={3} width={10} />
-                )}
-              </span>
-            </button>
-          ) : (
-            <>
-              {header.isPlaceholder
-                ? null
-                : flexRender(
-                    header.column.columnDef.header,
-                    header.getContext(),
-                  )}
-            </>
-          )}
-        </div>
-
-        <div className="flex h-full items-center justify-between">
-          <div
-            {...{
-              onDoubleClick: () => setMinViableColWidth(header.column.id),
-              onMouseDown: (e) => {
-                e.stopPropagation();
-                return header.getResizeHandler()(e);
-              },
-              onTouchStart: header.getResizeHandler(),
-              className: cn(
-                `resizer h-full flex justify-center z-50 ${
-                  table.options.columnResizeDirection
-                } ${header.column.getIsResizing() ? 'isResizing' : ''}`,
-                headerGroup.headers.length - 1 == index && 'justify-end',
-                header.id !== 'select-col' && 'hover:cursor-col-resize',
-              ),
-              style: {
-                width: 8,
-                pointerEvents: 'auto',
-              },
-            }}
-          >
-            {headerGroup.headers.length - 1 !== index && (
-              <div className="h-full w-0.5 bg-neutral-200 dark:bg-neutral-700"></div>
+              </>
             )}
           </div>
+
+          <div className="flex h-full items-center justify-between">
+            <div
+              {...{
+                onDoubleClick: () => setMinViableColWidth(header.column.id),
+                onMouseDown: (e) => {
+                  e.stopPropagation();
+                  return header.getResizeHandler()(e);
+                },
+                onTouchStart: header.getResizeHandler(),
+                className: cn(
+                  `resizer h-full flex justify-center z-50 ${
+                    table.options.columnResizeDirection
+                  } ${header.column.getIsResizing() ? 'isResizing' : ''}`,
+                  headerGroup.headers.length - 1 == index && 'justify-end',
+                  header.id !== 'select-col' && 'hover:cursor-col-resize',
+                ),
+                style: {
+                  width: 8,
+                  pointerEvents: 'auto',
+                },
+              }}
+            >
+              {headerGroup.headers.length - 1 !== index && (
+                <div className="h-full w-0.5 bg-neutral-200 dark:bg-neutral-700"></div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
       )}
     </div>
   );
@@ -234,8 +234,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
 
     const checkOverflow = () => {
       setIsOverflow(
-        el.scrollWidth > el.clientWidth ||
-          el.scrollHeight > el.clientHeight,
+        el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight,
       );
     };
 
@@ -268,17 +267,14 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
     meta.attr &&
     Array.isArray(realValue) &&
     realValue.length > 0;
-  const canCopy =
-    meta?.copyable && isCopyableCellValue(realValue, meta);
+  const canCopy = meta?.copyable && isCopyableCellValue(realValue, meta);
 
   const cellInner = (
     <div
       ref={setNodeRef}
       style={{
         ...style,
-        ...(isSelectCol || disablePadding
-          ? {}
-          : { padding: '0.5rem' }),
+        ...(isSelectCol || disablePadding ? {} : { padding: '0.5rem' }),
       }}
       className={cn(
         'group/cell relative flex min-w-0 cursor-default items-center whitespace-nowrap',
@@ -333,7 +329,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
         <button
           type="button"
           title={`Edit ${meta.attr.name}`}
-          className="absolute top-1/2 right-1 z-20 -translate-y-1/2 rounded-xs p-0.5 opacity-0 transition-opacity group-hover/cell:opacity-100 hover:bg-neutral-100 focus-visible:opacity-100 focus-visible:bg-neutral-100 focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:outline-hidden dark:hover:bg-neutral-700 dark:focus-visible:bg-neutral-700 dark:focus-visible:ring-neutral-500"
+          className="absolute top-1/2 right-1 z-20 -translate-y-1/2 rounded-xs p-0.5 opacity-0 transition-opacity group-hover/cell:opacity-100 hover:bg-neutral-100 focus-visible:bg-neutral-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:outline-hidden dark:hover:bg-neutral-700 dark:focus-visible:bg-neutral-700 dark:focus-visible:ring-neutral-500"
           onClick={(e) => {
             e.stopPropagation();
             setDialog({
@@ -363,7 +359,7 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
         <TooltipContent
           collisionPadding={10}
           className={cn(
-            'max-h-[min(50vh,var(--radix-popper-available-height))] max-w-[min(75rem,80vw)] min-w-0 overflow-x-hidden overflow-y-auto whitespace-pre-wrap wrap-break-word [&_code]:wrap-break-word [&_pre]:whitespace-pre-wrap [&_pre]:wrap-break-word',
+            'max-h-[min(50vh,var(--radix-popper-available-height))] max-w-[min(75rem,80vw)] min-w-0 overflow-x-hidden overflow-y-auto wrap-break-word whitespace-pre-wrap [&_code]:wrap-break-word [&_pre]:wrap-break-word [&_pre]:whitespace-pre-wrap',
             isObject(realValue) && 'p-0',
           )}
           side="bottom"
