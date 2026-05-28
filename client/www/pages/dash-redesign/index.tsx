@@ -30,6 +30,11 @@ import {
 } from './_views/UserSettings';
 import { OrgSubState, ORG_SUB_STATES, OrgView } from './_views/Org';
 import { AdminSubState, ADMIN_SUB_STATES, AdminView } from './_views/Admin';
+import {
+  AdminRamsSubState,
+  ADMIN_RAMS_SUB_STATES,
+  AdminRamsView,
+} from './_views/AdminRams';
 import { BillingView } from './_views/Billing';
 import {
   OAuthAppsSubState,
@@ -53,6 +58,7 @@ type ViewKey =
   | 'user-settings'
   | 'org'
   | 'admin'
+  | 'admin-rams'
   | 'billing'
   | 'oauth-apps';
 
@@ -81,6 +87,11 @@ const NAV: NavItem[] = [
   },
   { view: 'org', label: 'Org', stages: ORG_SUB_STATES },
   { view: 'admin', label: 'Admin', stages: ADMIN_SUB_STATES },
+  {
+    view: 'admin-rams',
+    label: 'Admin (Rams)',
+    stages: ADMIN_RAMS_SUB_STATES,
+  },
   { view: 'billing', label: 'Billing' },
   {
     view: 'oauth-apps',
@@ -102,6 +113,7 @@ type FlatItem =
         | 'org'
         | 'oauth-apps'
         | 'admin'
+        | 'admin-rams'
       >;
     }
   | { kind: 'stage'; view: 'onboarding'; stage: OnboardingStage }
@@ -111,7 +123,8 @@ type FlatItem =
   | { kind: 'stage'; view: 'user-settings'; stage: UserSettingsSubState }
   | { kind: 'stage'; view: 'org'; stage: OrgSubState }
   | { kind: 'stage'; view: 'oauth-apps'; stage: OAuthAppsSubState }
-  | { kind: 'stage'; view: 'admin'; stage: AdminSubState };
+  | { kind: 'stage'; view: 'admin'; stage: AdminSubState }
+  | { kind: 'stage'; view: 'admin-rams'; stage: AdminRamsSubState };
 
 const FLAT_NAV: FlatItem[] = [
   { kind: 'view', view: 'login' },
@@ -146,6 +159,9 @@ const FLAT_NAV: FlatItem[] = [
   ...ADMIN_SUB_STATES.map(
     (s): FlatItem => ({ kind: 'stage', view: 'admin', stage: s.key }),
   ),
+  ...ADMIN_RAMS_SUB_STATES.map(
+    (s): FlatItem => ({ kind: 'stage', view: 'admin-rams', stage: s.key }),
+  ),
   { kind: 'view', view: 'billing' },
   ...OAUTH_APPS_SUB_STATES.map(
     (s): FlatItem => ({ kind: 'stage', view: 'oauth-apps', stage: s.key }),
@@ -164,6 +180,7 @@ function ViewerSidebar({
   orgSub,
   oauthAppsSub,
   adminSub,
+  adminRamsSub,
   onSelectView,
   onSelectStage,
   buttonRefs,
@@ -177,6 +194,7 @@ function ViewerSidebar({
   orgSub: OrgSubState;
   oauthAppsSub: OAuthAppsSubState;
   adminSub: AdminSubState;
+  adminRamsSub: AdminRamsSubState;
   onSelectView: (v: ViewKey) => void;
   onSelectStage: (view: ViewKey, stageKey: string) => void;
   buttonRefs: React.MutableRefObject<Map<string, HTMLButtonElement | null>>;
@@ -191,6 +209,7 @@ function ViewerSidebar({
     if (itemView === 'org') return orgSub === key;
     if (itemView === 'oauth-apps') return oauthAppsSub === key;
     if (itemView === 'admin') return adminSub === key;
+    if (itemView === 'admin-rams') return adminRamsSub === key;
     return false;
   };
 
@@ -261,6 +280,7 @@ function flatIndex(
   orgSub: OrgSubState,
   oauthAppsSub: OAuthAppsSubState,
   adminSub: AdminSubState,
+  adminRamsSub: AdminRamsSubState,
 ): number {
   if (view === 'onboarding') {
     return FLAT_NAV.findIndex(
@@ -313,6 +333,14 @@ function flatIndex(
       (i) => i.kind === 'stage' && i.view === 'admin' && i.stage === adminSub,
     );
   }
+  if (view === 'admin-rams') {
+    return FLAT_NAV.findIndex(
+      (i) =>
+        i.kind === 'stage' &&
+        i.view === 'admin-rams' &&
+        i.stage === adminRamsSub,
+    );
+  }
   return FLAT_NAV.findIndex((i) => i.kind === 'view' && i.view === view);
 }
 
@@ -328,6 +356,7 @@ export default function DashRedesignViewer() {
   const [orgSub, setOrgSub] = useState<OrgSubState>('members');
   const [oauthAppsSub, setOauthAppsSub] = useState<OAuthAppsSubState>('list');
   const [adminSub, setAdminSub] = useState<AdminSubState>('default');
+  const [adminRamsSub, setAdminRamsSub] = useState<AdminRamsSubState>('list');
 
   const buttonRefs = useRef<Map<string, HTMLButtonElement | null>>(new Map());
   const isFirstRender = useRef(true);
@@ -350,6 +379,8 @@ export default function DashRedesignViewer() {
         return `stage:oauth-apps:${oauthAppsSub}`;
       case 'admin':
         return `stage:admin:${adminSub}`;
+      case 'admin-rams':
+        return `stage:admin-rams:${adminRamsSub}`;
       default:
         return `view:${view}`;
     }
@@ -363,6 +394,7 @@ export default function DashRedesignViewer() {
     orgSub,
     oauthAppsSub,
     adminSub,
+    adminRamsSub,
   ]);
 
   // Park focus on the active sidebar button after a view/stage change.
@@ -415,6 +447,7 @@ export default function DashRedesignViewer() {
         orgSub,
         oauthAppsSub,
         adminSub,
+        adminRamsSub,
       );
       const next = FLAT_NAV[(idx + delta + FLAT_NAV.length) % FLAT_NAV.length];
       setView(next.view);
@@ -442,6 +475,9 @@ export default function DashRedesignViewer() {
       if (next.kind === 'stage' && next.view === 'admin') {
         setAdminSub(next.stage);
       }
+      if (next.kind === 'stage' && next.view === 'admin-rams') {
+        setAdminRamsSub(next.stage);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -455,6 +491,7 @@ export default function DashRedesignViewer() {
     orgSub,
     oauthAppsSub,
     adminSub,
+    adminRamsSub,
   ]);
 
   const onSelectStage = (targetView: ViewKey, stageKey: string) => {
@@ -483,6 +520,9 @@ export default function DashRedesignViewer() {
     if (targetView === 'admin') {
       setAdminSub(stageKey as AdminSubState);
     }
+    if (targetView === 'admin-rams') {
+      setAdminRamsSub(stageKey as AdminRamsSubState);
+    }
   };
 
   return (
@@ -501,6 +541,7 @@ export default function DashRedesignViewer() {
           orgSub={orgSub}
           oauthAppsSub={oauthAppsSub}
           adminSub={adminSub}
+          adminRamsSub={adminRamsSub}
           onSelectView={setView}
           onSelectStage={onSelectStage}
           buttonRefs={buttonRefs}
@@ -542,6 +583,7 @@ export default function DashRedesignViewer() {
           )}
           {view === 'org' && <OrgView sub={orgSub} />}
           {view === 'admin' && <AdminView sub={adminSub} />}
+          {view === 'admin-rams' && <AdminRamsView sub={adminRamsSub} />}
           {view === 'billing' && <BillingView />}
           {view === 'oauth-apps' && <OAuthAppsView sub={oauthAppsSub} />}
         </main>

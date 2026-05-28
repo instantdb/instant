@@ -33,7 +33,3 @@ When asked to add a new page to the redesign viewer:
 
 - This file is a **viewer**, not the real app. Don't add real navigation, real mutations, or analytics here.
 - Once `index.tsx` gets unwieldy (~1000+ lines), suggest splitting views into separate files. Next.js pages router treats `_`-prefixed files/folders as non-routes, so something like `pages/dash-redesign/_views/HomeView.tsx` would work — or move the components to `components/dash-redesign/` and import them.
-
-## Reference: design system
-
-See `./design_system/dashboard-patterns.md` and `./design_system/README.md` (inside this folder) for the broader brand and dashboard conventions (colors, typography, layout patterns, dark mode mapping, destructive flows, etc.). When redesigning, those are the source of truth.

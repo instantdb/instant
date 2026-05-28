@@ -327,17 +327,21 @@ export function DashShell({
   active,
   app,
   children,
+  hideNav,
 }: {
   active: DashTabId;
   app: InstantApp;
   children: ReactNode;
+  // When a view provides its own merged nav (e.g. the merged-nav auth flow),
+  // suppress the standard left nav so we don't end up with two rails.
+  hideNav?: boolean;
 }) {
   return (
     <div className="flex h-screen flex-col bg-[#fbfaf8] text-gray-950 dark:bg-neutral-950 dark:text-white">
       <MockTopBar appTitle={app.title} />
       <AppHeader app={app} />
       <div className="flex w-full grow flex-col overflow-hidden md:flex-row">
-        <LeftNav active={active} />
+        {hideNav ? null : <LeftNav active={active} />}
         <div className="flex w-full flex-1 flex-col overflow-auto bg-[#fbfaf8] dark:bg-neutral-950">
           {children}
         </div>

@@ -1,6 +1,16 @@
 export { Current as AuthView } from './Current';
 
 export type AuthSubState =
+  | 'flow-drill'
+  | 'flow-master'
+  | 'flow-merged'
+  | 'flow-sheet'
+  | 'redesign-quiet-panels'
+  | 'redesign-quiet-rows'
+  | 'redesign-quiet-column'
+  | 'redesign-tracks'
+  | 'redesign-columns'
+  | 'redesign-focused'
   | 'clients-empty'
   | 'clients-overview'
   | 'picker'
@@ -16,6 +26,16 @@ export type AuthSubState =
   | 'magic-email';
 
 export const AUTH_SUB_STATES: { key: AuthSubState; label: string }[] = [
+  { key: 'flow-drill', label: 'Flow · drill-in' },
+  { key: 'flow-master', label: 'Flow · master-detail' },
+  { key: 'flow-merged', label: 'Flow · merged nav' },
+  { key: 'flow-sheet', label: 'Flow · sheet' },
+  { key: 'redesign-quiet-panels', label: 'Quiet · two panels' },
+  { key: 'redesign-quiet-rows', label: 'Quiet · settings rows' },
+  { key: 'redesign-quiet-column', label: 'Quiet · one column' },
+  { key: 'redesign-tracks', label: 'Bold · stacked tracks' },
+  { key: 'redesign-columns', label: 'Bold · two columns' },
+  { key: 'redesign-focused', label: 'Bold · focused method' },
   { key: 'clients-overview', label: 'Clients · overview' },
   { key: 'clients-empty', label: 'Clients · empty' },
   { key: 'picker', label: 'Add client · picker' },

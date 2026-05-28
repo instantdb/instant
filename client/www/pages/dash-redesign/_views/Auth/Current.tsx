@@ -1,8 +1,15 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { PlusIcon } from '@heroicons/react/24/solid';
+import { PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
 
-import { Button, Content, SectionHeading } from '@/components/ui';
+import {
+  BlockHeading,
+  Button,
+  cn,
+  Content,
+  SectionHeading,
+  TextInput,
+} from '@/components/ui';
 import config from '@/lib/config';
 import { useAuthedFetch } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
@@ -37,7 +44,11 @@ import {
   LinkedInClient,
   AddLinkedInClientForm,
 } from '@/components/dash/auth/LinkedIn';
-import { AuthorizedOrigins } from '@/components/dash/auth/Origins';
+import {
+  AuthorizedOrigins,
+  AuthorizedOriginRow,
+  AuthorizedOriginsForm,
+} from '@/components/dash/auth/Origins';
 import {
   FirebaseClient,
   AddFirebaseClientForm,
@@ -61,6 +72,7 @@ import {
   useFetchedDash,
 } from '../_shared';
 import { AuthSubState } from './index';
+import { AuthFlows, FlowIdea } from './Flows';
 
 // -------------- mock data --------------
 
@@ -126,6 +138,14 @@ function planForSubState(real: AppsAuthResponse, sub: AuthSubState): Plan {
   };
 
   switch (sub) {
+    case 'redesign-quiet-panels':
+    case 'redesign-quiet-rows':
+    case 'redesign-quiet-column':
+    case 'redesign-tracks':
+    case 'redesign-columns':
+    case 'redesign-focused':
+      return { ...base, data: populatedDemo(real) };
+
     case 'clients-empty':
       return {
         ...base,
@@ -235,6 +255,10 @@ function planForSubState(real: AppsAuthResponse, sub: AuthSubState): Plan {
 
     case 'magic-email':
       return { ...base, scrollTo: 'magic-email' };
+
+    // flow-* states are routed before this loader and never reach here.
+    default:
+      return base;
   }
 }
 
@@ -244,6 +268,22 @@ function ensureGoogleProvider(real: AppsAuthResponse): AppsAuthResponse {
   return {
     ...real,
     oauth_service_providers: [MOCK_GOOGLE_PROVIDER, ...providers],
+  };
+}
+
+// The redesign reads best with a populated app, so the two-method hierarchy is
+// legible. Inject a sample client + origins only when the real app has none.
+function populatedDemo(real: AppsAuthResponse): AppsAuthResponse {
+  const withClient =
+    (real.oauth_clients?.length ?? 0) > 0
+      ? real
+      : injectGoogleClient(real, MOCK_GOOGLE_CLIENT_CUSTOM);
+  return {
+    ...withClient,
+    authorized_redirect_origins:
+      (real.authorized_redirect_origins?.length ?? 0) > 0
+        ? real.authorized_redirect_origins
+        : MOCK_ORIGINS,
   };
 }
 
@@ -822,6 +862,890 @@ function AuthBody({
   );
 }
 
+// ============================================================
+// Redesign: auth organized by the two ways people sign in.
+//
+// Instead of four equal cards, the page groups around two "methods",
+// each owning its dependency:
+//   Social login → auth clients + redirect origins
+//   Magic codes  → magic-code email + test users (static codes)
+//
+// Variants share the same content (the *Inner components) and only
+// differ in chrome: three quiet/functional layouts and three bolder
+// "control panel" ones.
+// ============================================================
+
+type RedesignVariant =
+  | 'tracks'
+  | 'columns'
+  | 'focused'
+  | 'quiet-panels'
+  | 'quiet-rows'
+  | 'quiet-column';
+
+function expiryLabel(minutes?: number | null) {
+  switch (minutes ?? 10) {
+    case 60:
+      return '1 hour';
+    case 1440:
+      return '24 hours';
+    default:
+      return `${minutes ?? 10} minutes`;
+  }
+}
+
+// ---- shared content (the substance, free of any section chrome) ----
+// Each "inner" renders just the functional body; the bold and quiet variants
+// wrap them differently, so the layout exploration never duplicates logic.
+
+function ClientsInner({
+  app,
+  clients,
+  providersById,
+  providersByName,
+  usedClientNames,
+  onAddProvider,
+  onAddClient,
+  onUpdateClient,
+  onDeleteClient,
+}: {
+  app: InstantApp;
+  clients: OAuthClient[];
+  providersById: Record<string, OAuthServiceProvider>;
+  providersByName: Record<string, OAuthServiceProvider>;
+  usedClientNames: Set<string>;
+  onAddProvider: (provider: OAuthServiceProvider) => void;
+  onAddClient: (client: OAuthClient) => void;
+  onUpdateClient: (client: OAuthClient) => void;
+  onDeleteClient: (client: OAuthClient) => void;
+}) {
+  const [showAddFlow, setShowAddFlow] = useState(false);
+  const [lastCreatedClientId, setLastCreatedClientId] = useState<string | null>(
+    null,
+  );
+  const hasClients = clients.length > 0;
+  const handleAdd = (client: OAuthClient) => {
+    setLastCreatedClientId(client.id);
+    setShowAddFlow(false);
+    onAddClient(client);
+  };
+  return (
+    <>
+      {!hasClients && !showAddFlow && (
+        <EmptyState onAddClient={() => setShowAddFlow(true)} />
+      )}
+      {hasClients && (
+        <div className="flex flex-col gap-3">
+          {clients.map((client) => {
+            const provider = providersById[client.provider_id];
+            const providerName = provider?.provider_name || 'unknown';
+            const open = client.id === lastCreatedClientId;
+            return (
+              <ClientItem
+                key={open ? `${client.id}-open` : client.id}
+                app={app}
+                client={client}
+                providerName={providerName}
+                onUpdateClient={onUpdateClient}
+                onDeleteClient={onDeleteClient}
+                defaultOpen={open}
+              />
+            );
+          })}
+        </div>
+      )}
+      {(hasClients || showAddFlow) && (
+        <div className="mt-4">
+          <AddClientFlow
+            key={showAddFlow ? 'adding' : 'idle'}
+            app={app}
+            providers={providersByName}
+            usedClientNames={usedClientNames}
+            onAddProvider={onAddProvider}
+            onAddClient={handleAdd}
+            onCancel={() => setShowAddFlow(false)}
+            initialFlowState={showAddFlow ? { step: 'picking' } : { step: 'idle' }}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+function OriginsInner({
+  app,
+  origins,
+  onAdd,
+  onRemove,
+}: {
+  app: InstantApp;
+  origins: AuthorizedOrigin[];
+  onAdd: (origin: AuthorizedOrigin) => void;
+  onRemove: (origin: AuthorizedOrigin) => void;
+}) {
+  const [showForm, setShowForm] = useState(origins.length === 0);
+  return (
+    <div className="flex flex-col gap-2">
+      {origins.map((o) => (
+        <AuthorizedOriginRow
+          key={o.id}
+          app={app}
+          origin={o}
+          onRemoveOrigin={onRemove}
+        />
+      ))}
+      {showForm ? (
+        <AuthorizedOriginsForm
+          app={app}
+          onAddOrigin={(o) => {
+            setShowForm(false);
+            onAdd(o);
+          }}
+          onCancel={() => setShowForm(false)}
+        />
+      ) : (
+        <Button variant="secondary" onClick={() => setShowForm(true)}>
+          <PlusIcon height={14} /> Add an origin
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function EmailInner({ app }: { app: InstantApp }) {
+  const subject =
+    app.magic_code_email_template?.subject ||
+    '{code} is your code for {app_title}';
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <div className="text-xs text-gray-400 dark:text-neutral-500">
+          Subject
+        </div>
+        <div className="mt-0.5 truncate font-mono text-sm text-gray-700 dark:text-neutral-300">
+          {subject}
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-gray-500 dark:text-neutral-400">
+          Expires after {expiryLabel(app.magic_code_expiry_minutes)}.
+        </span>
+        <Button variant="secondary">Customize</Button>
+      </div>
+    </div>
+  );
+}
+
+// Local-only test users (the viewer keeps state but makes no network calls).
+type LocalTestUser = { id: string; email: string; code: string };
+
+function TestUsersInner() {
+  const [users, setUsers] = useState<LocalTestUser[]>([
+    { id: 'seed', email: 'reviewer@example.com', code: '424242' },
+  ]);
+  const [showForm, setShowForm] = useState(false);
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('424242');
+
+  const valid = email.trim().length > 0 && /^\d{6}$/.test(code);
+  const add = () => {
+    if (!valid) return;
+    setUsers((u) => [
+      { id: crypto.randomUUID(), email: email.trim().toLowerCase(), code },
+      ...u,
+    ]);
+    setEmail('');
+    setCode('424242');
+    setShowForm(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {users.map((user) => (
+        <div
+          key={user.id}
+          className="flex items-center justify-between rounded-md border border-gray-200 bg-[#fbfaf8] px-3 py-2.5 dark:border-neutral-800 dark:bg-neutral-950"
+        >
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-gray-900 dark:text-white">
+              {user.email}
+            </span>
+            <span className="font-mono text-xs text-gray-500 dark:text-neutral-400">
+              code {user.code}
+            </span>
+          </div>
+          <button
+            type="button"
+            aria-label="Remove test user"
+            className="cursor-pointer text-gray-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400"
+            onClick={() => setUsers((u) => u.filter((x) => x.id !== user.id))}
+          >
+            <TrashIcon height="1rem" />
+          </button>
+        </div>
+      ))}
+      {showForm ? (
+        <div className="flex items-start gap-2 rounded-md border border-gray-200 bg-[#fbfaf8] p-3 dark:border-neutral-800 dark:bg-neutral-950">
+          <div className="flex-1">
+            <TextInput
+              label="Email"
+              placeholder="test@example.com"
+              value={email}
+              onChange={setEmail}
+              autoFocus
+            />
+          </div>
+          <div className="w-32">
+            <TextInput
+              label="Code"
+              placeholder="123456"
+              value={code}
+              onChange={setCode}
+              error={
+                code && !/^\d{6}$/.test(code) ? 'Must be 6 digits' : undefined
+              }
+            />
+          </div>
+          <div className="pt-6">
+            <Button variant="primary" onClick={add} disabled={!valid}>
+              Add
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="secondary" onClick={() => setShowForm(true)}>
+          <PlusIcon height={14} /> Add a test user
+        </Button>
+      )}
+    </div>
+  );
+}
+
+// ---- bold ("control panel") chrome ----
+
+// Small mono telemetry pill: a dot + uppercase label, like a status readout.
+function StatusPill({ on, children }: { on: boolean; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 font-mono text-[11px] tracking-wider text-gray-500 uppercase dark:text-neutral-400">
+      <span
+        className={cn(
+          'h-1.5 w-1.5 rounded-full',
+          on ? 'bg-orange-500' : 'bg-gray-300 dark:bg-neutral-700',
+        )}
+      />
+      {children}
+    </span>
+  );
+}
+
+// The dominant hierarchy level: a big mono index, a Switzer title, a blurb,
+// and a live status line, all over a hairline rule.
+function MethodHeader({
+  index,
+  title,
+  blurb,
+  status,
+  compact,
+}: {
+  index: string;
+  title: string;
+  blurb: string;
+  status: ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-2 border-b border-gray-200 pb-3 sm:flex-row sm:items-start sm:justify-between dark:border-neutral-800">
+      <div className="flex items-baseline gap-3">
+        <span className="font-mono text-2xl leading-none font-bold tabular-nums text-orange-500">
+          {index}
+        </span>
+        <div>
+          <h3
+            className={cn(
+              'font-semibold tracking-tight text-gray-950 dark:text-white',
+              compact ? 'text-base' : 'text-xl',
+            )}
+          >
+            {title}
+          </h3>
+          <p className="mt-0.5 text-sm text-gray-600 dark:text-neutral-400">
+            {blurb}
+          </p>
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 sm:justify-end sm:pt-1">
+        {status}
+      </div>
+    </div>
+  );
+}
+
+// A block is the secondary level: hairline card, small label.
+function MethodBlock({
+  children,
+  nested,
+  className,
+}: {
+  children: ReactNode;
+  nested?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-md border border-gray-200 bg-white p-4 shadow-xs dark:border-neutral-800 dark:bg-neutral-900',
+        nested && 'border-l-2 border-l-orange-500/40',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+function BlockLabel({
+  title,
+  hint,
+  badge,
+}: {
+  title: ReactNode;
+  hint?: ReactNode;
+  badge?: ReactNode;
+}) {
+  return (
+    <div className="mb-3 flex items-start justify-between gap-3">
+      <div>
+        <BlockHeading>{title}</BlockHeading>
+        {hint ? <Content className="mt-0.5 text-sm">{hint}</Content> : null}
+      </div>
+      {badge ? <div className="shrink-0">{badge}</div> : null}
+    </div>
+  );
+}
+
+// Mono "dependency" note that ties a nested block to its parent method.
+function DependencyNote({ children }: { children: ReactNode }) {
+  return (
+    <div className="mb-3 font-mono text-[11px] tracking-wider text-orange-500/80 uppercase">
+      ↳ {children}
+    </div>
+  );
+}
+
+// ---- quiet ("Dieter Rams") chrome: hierarchy from type + space, no decoration ----
+
+function QuietMethodTitle({
+  title,
+  meta,
+}: {
+  title: string;
+  meta?: ReactNode;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <h3 className="text-lg font-semibold tracking-tight text-gray-950 dark:text-white">
+        {title}
+      </h3>
+      {meta ? (
+        <span className="text-sm text-gray-400 dark:text-neutral-500">
+          {meta}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function QuietItem({
+  title,
+  helper,
+  children,
+  className,
+}: {
+  title: ReactNode;
+  helper?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn('py-5', className)}>
+      <div className="text-sm font-semibold text-gray-900 dark:text-white">
+        {title}
+      </div>
+      {helper ? (
+        <p className="mt-0.5 text-sm text-gray-500 dark:text-neutral-400">
+          {helper}
+        </p>
+      ) : null}
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
+function FocusedSwitch({
+  value,
+  onChange,
+}: {
+  value: 'social' | 'magic';
+  onChange: (v: 'social' | 'magic') => void;
+}) {
+  const options: { id: 'magic' | 'social'; label: string }[] = [
+    { id: 'magic', label: '02 · Magic codes' },
+    { id: 'social', label: '01 · Social login' },
+  ];
+  return (
+    <div className="inline-flex rounded-md border border-gray-200 bg-white p-1 shadow-xs dark:border-neutral-800 dark:bg-neutral-900">
+      {options.map((o) => {
+        const active = o.id === value;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => onChange(o.id)}
+            className={cn(
+              'rounded-sm px-3 py-1.5 font-mono text-xs tracking-wider uppercase transition-colors',
+              active
+                ? 'bg-orange-500 text-white'
+                : 'text-gray-500 hover:text-gray-900 dark:text-neutral-400 dark:hover:text-white',
+            )}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AuthRedesign({
+  app,
+  initialData,
+  variant,
+}: {
+  app: InstantApp;
+  initialData: AppsAuthResponse;
+  variant: RedesignVariant;
+}) {
+  const [data, setData] = useState<AppsAuthResponse>(initialData);
+  const [focusedMethod, setFocusedMethod] = useState<'social' | 'magic'>(
+    'magic',
+  );
+
+  const handleAddOrigin = (origin: AuthorizedOrigin) =>
+    setData((d) => ({
+      ...d,
+      authorized_redirect_origins: [
+        origin,
+        ...(d.authorized_redirect_origins || []),
+      ],
+    }));
+
+  const handleRemoveOrigin = (origin: AuthorizedOrigin) =>
+    setData((d) => ({
+      ...d,
+      authorized_redirect_origins: d.authorized_redirect_origins?.filter(
+        (o) => o.id !== origin.id,
+      ),
+    }));
+
+  const handleAddProvider = (provider: OAuthServiceProvider) =>
+    setData((d) => ({
+      ...d,
+      oauth_service_providers: [provider, ...(d.oauth_service_providers || [])],
+    }));
+
+  const handleAddClient = (client: OAuthClient) =>
+    setData((d) => ({
+      ...d,
+      oauth_clients: [client, ...(d.oauth_clients || [])],
+    }));
+
+  const handleDeleteClient = (client: OAuthClient) =>
+    setData((d) => ({
+      ...d,
+      oauth_clients: (d.oauth_clients || []).filter((c) => c.id !== client.id),
+    }));
+
+  const handleUpdateClient = (client: OAuthClient) =>
+    setData((d) => ({
+      ...d,
+      oauth_clients: (d.oauth_clients || []).map((c) =>
+        c.id !== client.id ? c : client,
+      ),
+    }));
+
+  const providersByName: Record<string, OAuthServiceProvider> =
+    data.oauth_service_providers?.reduce(
+      (acc: Record<string, OAuthServiceProvider>, p) => {
+        acc[p.provider_name] = p;
+        return acc;
+      },
+      {},
+    ) || {};
+
+  const providersById: Record<string, OAuthServiceProvider> =
+    data.oauth_service_providers?.reduce(
+      (acc: Record<string, OAuthServiceProvider>, p) => {
+        acc[p.id] = p;
+        return acc;
+      },
+      {},
+    ) || {};
+
+  const usedClientNames = new Set<string>();
+  for (const client of data.oauth_clients || []) {
+    usedClientNames.add(client.client_name);
+  }
+
+  const clients = data.oauth_clients || [];
+  const origins = data.authorized_redirect_origins || [];
+  const hasClients = clients.length > 0;
+  const hasCustomEmail = Boolean(app.magic_code_email_template);
+
+  // Shared content, wrapped differently by each variant.
+  const clientsInner = (
+    <ClientsInner
+      app={app}
+      clients={clients}
+      providersById={providersById}
+      providersByName={providersByName}
+      usedClientNames={usedClientNames}
+      onAddProvider={handleAddProvider}
+      onAddClient={handleAddClient}
+      onUpdateClient={handleUpdateClient}
+      onDeleteClient={handleDeleteClient}
+    />
+  );
+  const originsInner = (
+    <OriginsInner
+      app={app}
+      origins={origins}
+      onAdd={handleAddOrigin}
+      onRemove={handleRemoveOrigin}
+    />
+  );
+  const emailInner = <EmailInner app={app} />;
+  const testUsersInner = <TestUsersInner />;
+
+  // Plain, factual state lines for the quiet variants.
+  const socialMeta =
+    hasClients || origins.length > 0
+      ? `${clients.length} client${clients.length === 1 ? '' : 's'}, ${
+          origins.length
+        } origin${origins.length === 1 ? '' : 's'}`
+      : 'Not set up';
+  const magicMeta = hasCustomEmail ? 'Custom email' : 'Default email';
+
+  // ---- quiet · two panels (methods side by side, hairline-divided items) ----
+  if (variant === 'quiet-panels') {
+    return (
+      <DashPage size="wide">
+        <div className="grid gap-5 duration-500 animate-in fade-in lg:grid-cols-2">
+          <div className="rounded-lg border border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="border-b border-gray-100 px-5 py-4 dark:border-neutral-800">
+              <QuietMethodTitle title="Social login" meta={socialMeta} />
+            </div>
+            <div className="divide-y divide-gray-100 px-5 dark:divide-neutral-800">
+              <QuietItem title="Auth clients">{clientsInner}</QuietItem>
+              <QuietItem
+                title="Redirect origins"
+                helper="Allowed URLs for the OAuth redirect flow."
+              >
+                {originsInner}
+              </QuietItem>
+            </div>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="border-b border-gray-100 px-5 py-4 dark:border-neutral-800">
+              <QuietMethodTitle title="Magic codes" meta={magicMeta} />
+            </div>
+            <div className="divide-y divide-gray-100 px-5 dark:divide-neutral-800">
+              <QuietItem title="Magic code email">{emailInner}</QuietItem>
+              <QuietItem
+                title="Test users"
+                helper="Codes that never expire."
+              >
+                {testUsersInner}
+              </QuietItem>
+            </div>
+          </div>
+        </div>
+      </DashPage>
+    );
+  }
+
+  // ---- quiet · settings rows (grouped containers, stacked) ----
+  if (variant === 'quiet-rows') {
+    return (
+      <DashPage size="narrow">
+        <div className="flex flex-col gap-8 duration-500 animate-in fade-in">
+          <section>
+            <QuietMethodTitle title="Social login" meta={socialMeta} />
+            <div className="mt-3 divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white px-5 dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+              <QuietItem title="Auth clients">{clientsInner}</QuietItem>
+              <QuietItem
+                title="Redirect origins"
+                helper="Allowed URLs for the OAuth redirect flow."
+              >
+                {originsInner}
+              </QuietItem>
+            </div>
+          </section>
+          <section>
+            <QuietMethodTitle title="Magic codes" meta={magicMeta} />
+            <div className="mt-3 divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white px-5 dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+              <QuietItem title="Magic code email">{emailInner}</QuietItem>
+              <QuietItem
+                title="Test users"
+                helper="Codes that never expire."
+              >
+                {testUsersInner}
+              </QuietItem>
+            </div>
+          </section>
+        </div>
+      </DashPage>
+    );
+  }
+
+  // ---- quiet · one column (no card chrome, space + a single rule) ----
+  if (variant === 'quiet-column') {
+    return (
+      <DashPage size="narrow">
+        <div className="duration-500 animate-in fade-in">
+          <section className="pb-10">
+            <QuietMethodTitle title="Social login" meta={socialMeta} />
+            <div className="mt-2">
+              <QuietItem title="Auth clients">{clientsInner}</QuietItem>
+              <QuietItem
+                title="Redirect origins"
+                helper="Allowed URLs for the OAuth redirect flow."
+              >
+                {originsInner}
+              </QuietItem>
+            </div>
+          </section>
+          <div className="border-t border-gray-200 dark:border-neutral-800" />
+          <section className="pt-10">
+            <QuietMethodTitle title="Magic codes" meta={magicMeta} />
+            <div className="mt-2">
+              <QuietItem title="Magic code email">{emailInner}</QuietItem>
+              <QuietItem
+                title="Test users"
+                helper="Codes that never expire."
+              >
+                {testUsersInner}
+              </QuietItem>
+            </div>
+          </section>
+        </div>
+      </DashPage>
+    );
+  }
+
+  // ---- bold variants (the "control panel" direction) ----
+  const clientsBlock = (
+    <MethodBlock>
+      <BlockLabel
+        title="Auth clients"
+        hint="Sign in with Google, Apple, GitHub, and more."
+      />
+      {clientsInner}
+    </MethodBlock>
+  );
+
+  const emailBlock = (
+    <MethodBlock>
+      <BlockLabel
+        title="Magic code email"
+        hint="The email people get when they sign in with a code."
+        badge={
+          <StatusPill on={hasCustomEmail}>
+            {hasCustomEmail ? 'Custom' : 'Default'}
+          </StatusPill>
+        }
+      />
+      {emailInner}
+    </MethodBlock>
+  );
+
+  const originsBlockBold = (nested: boolean) => (
+    <MethodBlock nested={nested}>
+      {nested ? (
+        <DependencyNote>Required for the OAuth redirect flow</DependencyNote>
+      ) : null}
+      <BlockLabel
+        title="Redirect origins"
+        hint="Allow OAuth sign-in to start from your site's URLs."
+      />
+      {originsInner}
+    </MethodBlock>
+  );
+
+  const testUsersBlockBold = (nested: boolean) => (
+    <MethodBlock nested={nested}>
+      {nested ? (
+        <DependencyNote>A magic code that never expires</DependencyNote>
+      ) : null}
+      <BlockLabel
+        title="Test users"
+        hint="Static codes for development, CI, and app-store review."
+      />
+      {testUsersInner}
+    </MethodBlock>
+  );
+
+  const socialStatus = (
+    <>
+      <StatusPill on={hasClients}>
+        {clients.length} client{clients.length === 1 ? '' : 's'}
+      </StatusPill>
+      <StatusPill on={origins.length > 0}>
+        {origins.length} origin{origins.length === 1 ? '' : 's'}
+      </StatusPill>
+    </>
+  );
+
+  const magicStatus = (
+    <>
+      <StatusPill on>Always on</StatusPill>
+      <StatusPill on={hasCustomEmail}>
+        {hasCustomEmail ? 'Custom email' : 'Default email'}
+      </StatusPill>
+    </>
+  );
+
+  const header = (
+    <div>
+      <div className="font-mono text-[11px] tracking-[0.2em] text-orange-500 uppercase">
+        Authentication
+      </div>
+      <h2 className="mt-1 text-2xl font-semibold tracking-tight text-gray-950 dark:text-white">
+        Two ways people sign in
+      </h2>
+      <Content className="mt-1">
+        Configure how users authenticate with {app.title}. Social login and
+        magic codes are independent — set up either or both.
+      </Content>
+    </div>
+  );
+
+  // ---- tracks: stacked methods, dependencies nested + indented ----
+  if (variant === 'tracks') {
+    return (
+      <DashPage size="wide">
+        {header}
+        <section className="flex flex-col gap-4 duration-500 animate-in fade-in slide-in-from-bottom-2">
+          <MethodHeader
+            index="01"
+            title="Social login"
+            blurb="Let people sign in with an existing account. Opt-in."
+            status={socialStatus}
+          />
+          {clientsBlock}
+          <div className="pl-4 sm:pl-8">{originsBlockBold(true)}</div>
+        </section>
+        <section
+          className="flex flex-col gap-4 duration-500 animate-in fade-in slide-in-from-bottom-2"
+          style={{ animationDelay: '120ms' }}
+        >
+          <MethodHeader
+            index="02"
+            title="Magic codes"
+            blurb="Email a one-time code. On by default for every app."
+            status={magicStatus}
+          />
+          {emailBlock}
+          <div className="pl-4 sm:pl-8">{testUsersBlockBold(true)}</div>
+        </section>
+      </DashPage>
+    );
+  }
+
+  // ---- columns: methods side by side, dependencies as peers ----
+  if (variant === 'columns') {
+    return (
+      <DashPage size="wide">
+        {header}
+        <div className="flex flex-col gap-1 rounded-md border border-gray-200 bg-white px-4 py-3 font-mono text-xs shadow-xs sm:flex-row sm:items-center sm:gap-8 dark:border-neutral-800 dark:bg-neutral-900">
+          <span className="flex items-center gap-2">
+            <span className="text-orange-500">SOCIAL ▸</span>
+            <span className="text-gray-500 dark:text-neutral-400">
+              {clients.length} client{clients.length === 1 ? '' : 's'} ·{' '}
+              {origins.length} origin{origins.length === 1 ? '' : 's'}
+            </span>
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="text-orange-500">MAGIC ▸</span>
+            <span className="text-gray-500 dark:text-neutral-400">
+              {hasCustomEmail ? 'custom' : 'default'} email · always on
+            </span>
+          </span>
+        </div>
+        <div className="grid gap-6 duration-500 animate-in fade-in slide-in-from-bottom-2 lg:grid-cols-2">
+          <section className="flex flex-col gap-4">
+            <MethodHeader
+              index="01"
+              title="Social login"
+              blurb="Sign in with an existing account."
+              status={socialStatus}
+              compact
+            />
+            {clientsBlock}
+            {originsBlockBold(false)}
+          </section>
+          <section className="flex flex-col gap-4">
+            <MethodHeader
+              index="02"
+              title="Magic codes"
+              blurb="Email a one-time code."
+              status={magicStatus}
+              compact
+            />
+            {emailBlock}
+            {testUsersBlockBold(false)}
+          </section>
+        </div>
+      </DashPage>
+    );
+  }
+
+  // ---- focused: one method at a time via a segmented switch ----
+  return (
+    <DashPage size="wide">
+      {header}
+      <FocusedSwitch value={focusedMethod} onChange={setFocusedMethod} />
+      <section
+        key={focusedMethod}
+        className="flex flex-col gap-4 duration-300 animate-in fade-in slide-in-from-bottom-1"
+      >
+        {focusedMethod === 'social' ? (
+          <>
+            <MethodHeader
+              index="01"
+              title="Social login"
+              blurb="Let people sign in with an existing account. Opt-in."
+              status={socialStatus}
+            />
+            {clientsBlock}
+            {originsBlockBold(true)}
+          </>
+        ) : (
+          <>
+            <MethodHeader
+              index="02"
+              title="Magic codes"
+              blurb="Email a one-time code. On by default for every app."
+              status={magicStatus}
+            />
+            {emailBlock}
+            {testUsersBlockBold(true)}
+          </>
+        )}
+      </section>
+    </DashPage>
+  );
+}
+
 // -------------- outer view --------------
 
 function AuthDataLoader({ app, sub }: { app: InstantApp; sub: AuthSubState }) {
@@ -856,6 +1780,18 @@ function AuthDataLoader({ app, sub }: { app: InstantApp; sub: AuthSubState }) {
 
   const plan = planForSubState(authResponse.data, sub);
 
+  if (sub.startsWith('redesign-')) {
+    const variant = sub.slice('redesign-'.length) as RedesignVariant;
+    return (
+      <AuthRedesign
+        key={sub}
+        app={app}
+        initialData={plan.data}
+        variant={variant}
+      />
+    );
+  }
+
   return <AuthBody key={sub} app={app} initialData={plan.data} plan={plan} />;
 }
 
@@ -882,9 +1818,17 @@ export function Current({ sub }: { sub: AuthSubState }) {
     );
   }
 
+  const flowIdea = sub.startsWith('flow-')
+    ? (sub.slice('flow-'.length) as FlowIdea)
+    : null;
+
   return (
-    <DashShell active="auth" app={app}>
-      <AuthDataLoader app={app} sub={sub} />
+    <DashShell active="auth" app={app} hideNav={flowIdea === 'merged'}>
+      {flowIdea ? (
+        <AuthFlows key={sub} idea={flowIdea} appTitle={app.title} />
+      ) : (
+        <AuthDataLoader app={app} sub={sub} />
+      )}
     </DashShell>
   );
 }
