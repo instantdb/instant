@@ -3,6 +3,7 @@ import { id, InstantReactWebDatabase, tx } from '@instantdb/react';
 import {
   TextareaHTMLAttributes,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -37,7 +38,6 @@ import { validate } from 'uuid';
 import clsx from 'clsx';
 import { ClockIcon } from '@heroicons/react/24/outline';
 import { useExplorerProps } from '.';
-import { useShadowRoot } from '@lib/components/StyleMe';
 
 type FieldType = 'string' | 'number' | 'boolean' | 'json';
 type FieldTypeOption = { value: FieldType; label: string };
@@ -525,7 +525,6 @@ function RefItem({
   refUpdates,
   handleLinkRef,
   handleUnlinkRef,
-  autoOpenSearch,
 }: {
   db: InstantReactWebDatabase<any>;
   item: Record<string, any>;
@@ -534,13 +533,8 @@ function RefItem({
   refUpdates: null | Record<string, { action: 'link' | 'unlink'; item: any }>;
   handleLinkRef: (attr: SchemaAttr, item: any) => void;
   handleUnlinkRef: (attr: SchemaAttr, id: string) => void;
-  autoOpenSearch?: boolean;
 }) {
-  const [showAddLink, setShowAddLink] = useState(autoOpenSearch ?? false);
-
-  useEffect(() => {
-    setShowAddLink(autoOpenSearch ?? false);
-  }, [autoOpenSearch]);
+  const [showAddLink, setShowAddLink] = useState(false);
   const searchIgnoreIds = useMemo(() => {
     const res: Set<string> = new Set();
     for (const [k] of Object.entries(refUpdates || {})) {
@@ -617,11 +611,7 @@ function RefItem({
           onClose={() => setShowAddLink(false)}
         />
       ) : (
-        <Button
-          data-explorer-add-link
-          variant="secondary"
-          onClick={() => setShowAddLink(true)}
-        >
+        <Button variant="secondary" onClick={() => setShowAddLink(true)}>
           {cardinality === 'many' || !hasLink ? 'Add link' : 'Replace link'}
         </Button>
       )}
@@ -667,6 +657,22 @@ export function isEditableExplorerAttr(
   );
 }
 
+function scrollFieldSectionIntoView(
+  section: HTMLElement,
+  scrollParent: HTMLElement | null,
+) {
+  if (scrollParent) {
+    const parentRect = scrollParent.getBoundingClientRect();
+    const sectionRect = section.getBoundingClientRect();
+    scrollParent.scrollTop +=
+      sectionRect.top -
+      parentRect.top -
+      (parentRect.height - sectionRect.height) / 2;
+    return;
+  }
+  section.scrollIntoView({ block: 'center', inline: 'nearest' });
+}
+
 export function EditRowDialog({
   db,
   namespace,
@@ -682,7 +688,15 @@ export function EditRowDialog({
 }) {
   const op: 'edit' | 'add' = item.id ? 'edit' : 'add';
   const explorerProps = useExplorerProps();
-  const shadowRoot = useShadowRoot();
+  const formBodyRef = useRef<HTMLDivElement>(null);
+  const fieldSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const setFieldSectionRef =
+    (name: string) => (el: HTMLDivElement | null) => {
+      fieldSectionRefs.current[name] = el;
+    };
+  const [pendingFocusField, setPendingFocusField] = useState<string | null>(
+    null,
+  );
 
   const editableBlobAttrs: SchemaAttr[] = [];
   const editableRefAttrs: SchemaAttr[] = [];
@@ -749,6 +763,38 @@ export function EditRowDialog({
   const hasFormErrors =
     Object.values(blobUpdates).some((u) => !!u.error) || hasRefFieldErrors;
   const [shouldDisplayErrors, setShouldDisplayErrors] = useState(false);
+
+  const shouldAutoFocus = (fieldName: string) => focusAttr === fieldName;
+
+  useLayoutEffect(() => {
+    if (!focusAttr) {
+      return;
+    }
+    const section = fieldSectionRefs.current[focusAttr];
+    if (section) {
+      scrollFieldSectionIntoView(section, formBodyRef.current);
+    }
+    const field = blobUpdates[focusAttr];
+    if (field?.type === 'boolean' && !nullFields[focusAttr]) {
+      section
+        ?.querySelector<HTMLElement>('[role="combobox"]')
+        ?.focus();
+    }
+  }, [focusAttr, blobUpdates, nullFields]);
+
+  useLayoutEffect(() => {
+    if (!pendingFocusField) {
+      return;
+    }
+    const section = fieldSectionRefs.current[pendingFocusField];
+    if (section) {
+      scrollFieldSectionIntoView(section, formBodyRef.current);
+      section
+        .querySelector<HTMLElement>('input, textarea')
+        ?.focus();
+    }
+    setPendingFocusField(null);
+  }, [pendingFocusField, nullFields]);
 
   const handleResetForm = () => {
     setRefUpdates({});
@@ -880,6 +926,7 @@ export function EditRowDialog({
       if (currentType === 'json') {
         setJsonUpdates((prev) => ({ ...prev, [field]: '{}' }));
       }
+      setPendingFocusField(field);
     }
   };
 
@@ -950,89 +997,6 @@ export function EditRowDialog({
       };
     });
   };
-
-  const focusElementAtTabIndex = (index: number) => {
-    // Use requestAnimationFrame to wait for the next render cycle
-    // so that the input is shown to focus
-    requestAnimationFrame(() => {
-      const root = shadowRoot ?? document;
-      const element = root.querySelector(`[tabindex="${index}"]`);
-      if (element && element instanceof HTMLElement) {
-        element.focus();
-      }
-    });
-  };
-
-  const scrollFieldSectionIntoView = (section: Element) => {
-    const scrollParent = section.closest(
-      '[data-explorer-edit-form-body], [data-slot="dialog-content"]',
-    ) as HTMLElement | null;
-    if (scrollParent) {
-      const parentRect = scrollParent.getBoundingClientRect();
-      const sectionRect = section.getBoundingClientRect();
-      scrollParent.scrollTop +=
-        sectionRect.top -
-        parentRect.top -
-        (parentRect.height - sectionRect.height) / 2;
-      return;
-    }
-    section.scrollIntoView({ block: 'center', inline: 'nearest' });
-  };
-
-  const mainFieldFocusSelector =
-    'input:not([type="hidden"]):not([type="checkbox"]), textarea, [contenteditable="true"], button, .monaco-editor textarea';
-
-  const findFocusableInEditor = (
-    editor: HTMLElement | null,
-  ): HTMLElement | null => {
-    if (!editor) {
-      return null;
-    }
-    if (editor.matches(mainFieldFocusSelector)) {
-      return editor;
-    }
-    return editor.querySelector<HTMLElement>(mainFieldFocusSelector);
-  };
-
-  const focusExplorerField = (section: Element) => {
-    scrollFieldSectionIntoView(section);
-    const editor = section.querySelector<HTMLElement>(
-      '[data-explorer-field-input]',
-    );
-    const focusable = findFocusableInEditor(editor);
-    if (focusable) {
-      focusable.focus();
-      return;
-    }
-    const addLink = section.querySelector<HTMLElement>(
-      '[data-explorer-add-link]',
-    );
-    if (addLink) {
-      addLink.click();
-      requestAnimationFrame(() => {
-        section.querySelector<HTMLElement>('input')?.focus();
-        scrollFieldSectionIntoView(section);
-      });
-    }
-  };
-
-  useEffect(() => {
-    if (!focusAttr) {
-      return;
-    }
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const root = shadowRoot ?? document;
-        const section = root.querySelector(
-          `[data-explorer-field="${focusAttr}"]`,
-        );
-        if (!section) {
-          return;
-        }
-        focusExplorerField(section);
-      });
-    });
-  }, [focusAttr, shadowRoot]);
 
   const handleSaveRow = async () => {
     const requiredBlobErrors: Record<string, string> = {};
@@ -1144,7 +1108,7 @@ export function EditRowDialog({
         </code>
       </div>
       <div
-        data-explorer-edit-form-body
+        ref={formBodyRef}
         className="mt-4 min-h-0 flex-1 overflow-y-auto px-4 scrollbar-gutter-stable"
       >
         <div className="flex flex-col gap-4">
@@ -1192,11 +1156,12 @@ export function EditRowDialog({
             jsonUpdates[attr.name] ||
             (value !== null ? JSON.stringify(value, null, 2) : 'null');
           const isNullField = nullFields[attr.name];
+          const autoFocusField = shouldAutoFocus(attr.name);
 
           return (
             <div
               key={attr.name}
-              data-explorer-field={attr.name}
+              ref={setFieldSectionRef(attr.name)}
               className="flex flex-col gap-1"
             >
               <div className="flex items-center justify-between">
@@ -1233,7 +1198,7 @@ export function EditRowDialog({
               <div className="flex flex-col gap-1">
                 {!isNullField ? (
                   <div className="flex space-x-1">
-                    <div className="flex-1" data-explorer-field-input>
+                    <div className="flex-1">
                       {type === 'json' ? (
                         <div className="h-32 w-full rounded-sm border">
                           <CodeEditor
@@ -1244,6 +1209,11 @@ export function EditRowDialog({
                             onChange={(code) =>
                               handleUpdateJson(attr.name, code)
                             }
+                            onMount={(editor) => {
+                              if (autoFocusField) {
+                                editor.focus();
+                              }
+                            }}
                           />
                         </div>
                       ) : type === 'boolean' ? (
@@ -1262,6 +1232,7 @@ export function EditRowDialog({
                         <input
                           tabIndex={tabIndex}
                           type="number"
+                          autoFocus={autoFocusField}
                           className="flex w-full flex-1 rounded-xs border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
                           value={value ?? ''}
                           onChange={(num) =>
@@ -1271,6 +1242,7 @@ export function EditRowDialog({
                       ) : (
                         <ResizingTextArea
                           tabIndex={tabIndex}
+                          autoFocus={autoFocusField}
                           value={value ?? ''}
                           onChange={(e) =>
                             handleUpdateFieldValue(attr.name, e.target.value)
@@ -1299,11 +1271,9 @@ export function EditRowDialog({
                   </div>
                 ) : (
                   <button
-                    data-explorer-field-input
-                    onClick={() => {
-                      handleNullToggle(attr.name, false);
-                      focusElementAtTabIndex(tabIndex);
-                    }}
+                    type="button"
+                    autoFocus={autoFocusField}
+                    onClick={() => handleNullToggle(attr.name, false)}
                     className="flex-1 rounded-xs border border-gray-200 bg-gray-50 px-3 py-1 text-left text-gray-500 italic dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
                   >
                     null
@@ -1332,7 +1302,7 @@ export function EditRowDialog({
           return (
             <div
               key={attr.name}
-              data-explorer-field={attr.name}
+              ref={setFieldSectionRef(attr.name)}
               className="flex flex-col gap-1"
             >
               <div className="flex items-center justify-between">
@@ -1350,7 +1320,6 @@ export function EditRowDialog({
                   refUpdates={refUpdates[attr.name]}
                   handleLinkRef={handleLinkRef}
                   handleUnlinkRef={handleUnlinkRef}
-                  autoOpenSearch={focusAttr === attr.name}
                 />
                 {refFieldErrors[attr.name] && shouldDisplayErrors && (
                   <span className="text-sm font-medium text-red-500">
