@@ -181,11 +181,7 @@ export type InstantConfig<
   appId: string;
   schema?: S;
   websocketURI?: string;
-  /** @deprecated use firstParty.path instead */
   firstPartyPath?: string;
-  firstParty: {
-    path: string;
-  };
   apiURI?: string;
   devtool?: boolean | DevtoolConfig;
   verbose?: boolean;

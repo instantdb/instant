@@ -371,16 +371,6 @@ export default class Reactor {
 
     this._oauthCallbackResponse = this._oauthLoginInit();
 
-    // kick off a request to cache it
-    this.getCurrentUser().then((userInfo) => {
-      this.syncUserToEndpoint(userInfo.user);
-    });
-
-    setInterval(async () => {
-      const currentUser = await this.getCurrentUser();
-      this.syncUserToEndpoint(currentUser.user);
-    }, ONE_MIN_MS);
-
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;
       this._startSocket();
@@ -2200,7 +2190,7 @@ export default class Reactor {
   async syncUserToEndpoint(user) {
     if (!this.config.firstPartyPath) return;
     try {
-      await fetch(this.config.firstPartyPath + '/', {
+      const response = await fetch(this.config.firstPartyPath + '/', {
         method: 'POST',
         body: JSON.stringify({
           type: 'sync-user',
@@ -2211,6 +2201,9 @@ export default class Reactor {
           'Content-Type': 'application/json',
         },
       });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
     } catch (error) {
       this._log.error('Error syncing user with external endpoint', error);
     }
