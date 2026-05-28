@@ -1,10 +1,18 @@
 import { ErrorMessage, Loading } from '@/components/dash/shared';
 import config from '@/lib/config';
-import { ReactNode, useContext, useEffect, useRef } from 'react';
+import { ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { encode } from 'querystring';
 import Link from 'next/link';
 
-import { Button, Divider, SectionHeading, Content } from '@/components/ui';
+import {
+  Button,
+  Content,
+  Dialog,
+  Divider,
+  SectionHeading,
+  SubsectionHeading,
+  useDialog,
+} from '@/components/ui';
 import { useAuthedFetch } from '@/lib/auth';
 import {
   AppsAuthResponse,
@@ -26,7 +34,7 @@ import { GoogleClient, AddGoogleClientForm } from './auth/Google';
 import { LinkedInClient, AddLinkedInClientForm } from './auth/LinkedIn';
 import { AuthorizedOrigins } from './auth/Origins';
 import { FirebaseClient, AddFirebaseClientForm } from './auth/Firebase';
-import { addProvider } from './auth/shared';
+import { addProvider, deleteClient } from './auth/shared';
 import { TokenContext } from '@/lib/contexts';
 import { errorToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
@@ -270,20 +278,18 @@ function AddClientForm({
   }
 }
 
-// Renders the provider-specific client detail (credentials, redirect URLs,
-// example code, delete).
+// Renders the provider-specific client detail body (credentials, redirect URLs,
+// example code). Delete lives in the shared ClientDetail header.
 function ClientItem({
   app,
   client,
   providerName,
   onUpdateClient,
-  onDeleteClient,
 }: {
   app: InstantApp;
   client: OAuthClient;
   providerName: string;
   onUpdateClient: (client: OAuthClient) => void;
-  onDeleteClient: (client: OAuthClient) => void;
 }) {
   switch (providerName) {
     case 'google':
@@ -292,24 +298,16 @@ function ClientItem({
           app={app}
           client={client}
           onUpdateClient={onUpdateClient}
-          onDeleteClient={onDeleteClient}
         />
       );
     case 'apple':
-      return (
-        <AppleClient
-          app={app}
-          client={client}
-          onDeleteClient={onDeleteClient}
-        />
-      );
+      return <AppleClient client={client} />;
     case 'github':
       return (
         <GitHubClient
           app={app}
           client={client}
           onUpdateClient={onUpdateClient}
-          onDeleteClient={onDeleteClient}
         />
       );
     case 'linkedin':
@@ -318,7 +316,6 @@ function ClientItem({
           app={app}
           client={client}
           onUpdateClient={onUpdateClient}
-          onDeleteClient={onDeleteClient}
         />
       );
     case 'clerk':
@@ -327,17 +324,10 @@ function ClientItem({
           app={app}
           client={client}
           onUpdateClient={onUpdateClient}
-          onDeleteClient={onDeleteClient}
         />
       );
     case 'firebase':
-      return (
-        <FirebaseClient
-          app={app}
-          client={client}
-          onDeleteClient={onDeleteClient}
-        />
-      );
+      return <FirebaseClient app={app} client={client} />;
     default:
       return null;
   }
@@ -359,13 +349,15 @@ function AuthBackLink() {
 // content sits at the same vertical position whether or not a back link shows.
 function AuthLayout({
   showBack,
+  maxWidth = 'max-w-2xl',
   children,
 }: {
   showBack: boolean;
+  maxWidth?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
+    <div className={`mx-auto flex w-full ${maxWidth} flex-col gap-6 p-4`}>
       <div className="flex h-5 items-center">
         {showBack ? <AuthBackLink /> : null}
       </div>
@@ -376,13 +368,15 @@ function AuthLayout({
 
 function AuthDetailLayout({
   title,
+  wide = false,
   children,
 }: {
   title: ReactNode;
+  wide?: boolean;
   children: ReactNode;
 }) {
   return (
-    <AuthLayout showBack>
+    <AuthLayout showBack maxWidth={wide ? 'max-w-4xl' : 'max-w-2xl'}>
       <SectionHeading>{title}</SectionHeading>
       {children}
     </AuthLayout>
@@ -438,34 +432,84 @@ function ClientDetail({
   onUpdateClient: (client: OAuthClient) => void;
   onDeleteClient: (client: OAuthClient) => void;
 }) {
+  const token = useContext(TokenContext);
+  const deleteDialog = useDialog();
+  const [isDeleting, setIsDeleting] = useState(false);
   const cfg = providerConfig(providerName);
   const label = cfg?.label ?? providerName;
+
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true);
+      const resp = await deleteClient({
+        token,
+        appId: app.id,
+        clientDatabaseId: client.id,
+      });
+      onDeleteClient(resp.client);
+    } catch (e) {
+      console.error(e);
+      const msg =
+        messageFromInstantError(e as InstantIssue) || 'Error deleting client.';
+      errorToast(msg, { autoClose: 5000 });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <AuthDetailLayout title={`${label} client`}>
-      <div className="flex items-center gap-2">
-        {cfg ? (
-          <Image
-            alt={`${label} logo`}
-            src={cfg.icon}
-            width={20}
-            height={20}
-            className={cfg.darkInvert ? 'dark:invert' : ''}
-          />
-        ) : null}
-        <span className="font-medium">{client.client_name}</span>
-        {client.use_shared_credentials ? (
-          <span className="rounded-full border px-2 py-0.5 text-xs text-gray-500 dark:border-neutral-700 dark:text-neutral-400">
-            Instant dev keys
-          </span>
-        ) : null}
+      <div className="flex items-center justify-between rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="flex items-center gap-2">
+          {cfg ? (
+            <Image
+              alt={`${label} logo`}
+              src={cfg.icon}
+              width={20}
+              height={20}
+              className={cfg.darkInvert ? 'dark:invert' : ''}
+            />
+          ) : null}
+          <span className="font-medium">{client.client_name}</span>
+          <span className="text-gray-400 dark:text-neutral-500">({label})</span>
+          {client.use_shared_credentials ? (
+            <span className="rounded-full border px-2 py-0.5 text-xs text-gray-500 dark:border-neutral-700 dark:text-neutral-400">
+              Instant dev keys
+            </span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={deleteDialog.onOpen}
+          className="cursor-pointer text-sm text-gray-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400"
+        >
+          Delete
+        </button>
       </div>
+
       <ClientItem
         app={app}
         client={client}
         providerName={providerName}
         onUpdateClient={onUpdateClient}
-        onDeleteClient={onDeleteClient}
       />
+
+      <Dialog title="Delete client" {...deleteDialog}>
+        <div className="flex flex-col gap-2">
+          <SubsectionHeading>Delete {client.client_name}</SubsectionHeading>
+          <Content>
+            Deleting this client will prevent users from logging in with it.
+            Make sure you've removed any references to it in your code first.
+          </Content>
+          <Button
+            loading={isDeleting}
+            variant="destructive"
+            onClick={handleDelete}
+          >
+            Delete client
+          </Button>
+        </div>
+      </Dialog>
     </AuthDetailLayout>
   );
 }
@@ -754,8 +798,8 @@ export function AppAuth({
 
   if (authView === 'magic-email') {
     return (
-      <AuthDetailLayout title="Magic code email">
-        <Email app={app} page />
+      <AuthDetailLayout title="Magic code email" wide>
+        <Email app={app} />
       </AuthDetailLayout>
     );
   }

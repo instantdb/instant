@@ -94,22 +94,22 @@ export function TestUsers({ app }: { app: InstantApp }) {
   return (
     <div className="flex flex-col gap-2">
       <BlockHeading>Test users</BlockHeading>
-      <Content>
-        Test users have static magic codes that never expire. When a test user
-        signs in, they can use their static code instead of receiving an email.
-        This is useful for development, automated testing, and app store review.
+      <Content className="text-sm text-gray-500 dark:text-neutral-400">
+        Static magic codes that never expire, so a test user can sign in with a
+        fixed code instead of a real email. Handy for development, automated
+        testing, and app store review.
       </Content>
 
       {fetchResult.isLoading ? (
         <div className="text-sm text-gray-400">Loading...</div>
       ) : (
-        <>
-          {testUsers.length > 0 && (
-            <div className="flex flex-col gap-2">
+        <div className="overflow-hidden rounded-sm border dark:border-neutral-700">
+          {testUsers.length > 0 ? (
+            <div className="divide-y dark:divide-neutral-700">
               {testUsers.map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between rounded border p-3 dark:border-neutral-700"
+                  className="flex items-center justify-between p-3"
                 >
                   <div className="flex flex-col gap-0.5">
                     <div className="text-sm">
@@ -142,73 +142,87 @@ export function TestUsers({ app }: { app: InstantApp }) {
                 </div>
               ))}
             </div>
+          ) : (
+            <div className="px-4 py-6 text-center text-sm text-gray-500 dark:text-neutral-400">
+              No test users yet.
+            </div>
           )}
 
-          <Dialog title="Remove test user" {...deleteDialog}>
-            <div className="flex flex-col gap-4">
-              <SectionHeading>Remove test user</SectionHeading>
-              <Content>
-                Remove test user <strong>{deletingUser?.email}</strong>?
-              </Content>
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" onClick={deleteDialog.onClose}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  loading={isDeleting}
-                  onClick={handleDelete}
-                >
-                  Remove
-                </Button>
+          <div className="border-t p-3 dark:border-neutral-700">
+            {showAddForm ? (
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <TextInput
+                    label="Email"
+                    placeholder="test@example.com"
+                    value={email}
+                    onChange={(v) => setEmail(v)}
+                    autoFocus
+                  />
+                </div>
+                <div className="w-36">
+                  <TextInput
+                    label="Magic code"
+                    placeholder="123456"
+                    value={code}
+                    onChange={(v) => setCode(v)}
+                    error={
+                      code && !/^\d{6}$/.test(code)
+                        ? 'Must be 6 digits'
+                        : undefined
+                    }
+                  />
+                </div>
+                <div className="flex gap-2 pt-6">
+                  <Button
+                    onClick={handleAdd}
+                    loading={isAdding}
+                    disabled={!email || !/^\d{6}$/.test(code)}
+                    variant="primary"
+                  >
+                    Add
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setShowAddForm(false);
+                      setEmail('');
+                      setCode('424242');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
-            </div>
-          </Dialog>
-
-          {showAddForm ? (
-            <div className="flex items-start gap-2">
-              <div className="flex-1">
-                <TextInput
-                  label="Email"
-                  placeholder="test@example.com"
-                  value={email}
-                  onChange={(v) => setEmail(v)}
-                  autoFocus
-                />
-              </div>
-              <div className="w-36">
-                <TextInput
-                  label="Magic code"
-                  placeholder="123456"
-                  value={code}
-                  onChange={(v) => setCode(v)}
-                  error={
-                    code && !/^\d{6}$/.test(code)
-                      ? 'Must be 6 digits'
-                      : undefined
-                  }
-                />
-              </div>
-              <div className="pt-6">
-                <Button
-                  onClick={handleAdd}
-                  loading={isAdding}
-                  disabled={!email || !/^\d{6}$/.test(code)}
-                  variant="primary"
-                >
-                  Add
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div>
+            ) : (
               <Button variant="secondary" onClick={() => setShowAddForm(true)}>
                 Add a test user
               </Button>
-            </div>
-          )}
-        </>
+            )}
+          </div>
+        </div>
       )}
+
+      <Dialog title="Remove test user" {...deleteDialog}>
+        <div className="flex flex-col gap-4">
+          <SectionHeading>Remove test user</SectionHeading>
+          <Content>
+            Remove test user <strong>{deletingUser?.email}</strong>?
+          </Content>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={deleteDialog.onClose}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              loading={isDeleting}
+              onClick={handleDelete}
+            >
+              Remove
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

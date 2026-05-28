@@ -3,20 +3,17 @@ import { errorToast } from '@/lib/toast';
 import { TokenContext } from '@/lib/contexts';
 import {
   Button,
-  Content,
   Copyable,
-  Dialog,
   SubsectionHeading,
   TextInput,
   TextArea,
-  useDialog,
 } from '@/components/ui';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
 import logo from '../../../public/img/apple_logo_black.svg';
 import Image from 'next/image';
 import { messageFromInstantError } from '@/lib/errors';
-import { addProvider, addClient, deleteClient, findName } from './shared';
+import { addProvider, addClient, findName } from './shared';
 import {
   InstantApp,
   InstantIssue,
@@ -29,39 +26,7 @@ import {
   APPLE_TOKEN_ENDPOINT,
 } from '@instantdb/platform';
 
-export function AppleClient({
-  app,
-  client,
-  onDeleteClient,
-}: {
-  app: InstantApp;
-  client: OAuthClient;
-  onDeleteClient: (client: OAuthClient) => void;
-}) {
-  const token = useContext(TokenContext);
-  const [isLoading, setIsLoading] = useState(false);
-  const deleteDialog = useDialog();
-
-  const handleDelete = async () => {
-    try {
-      setIsLoading(true);
-      const resp = await deleteClient({
-        token,
-        appId: app.id,
-        clientDatabaseId: client.id,
-      });
-      onDeleteClient(resp.client);
-      deleteDialog.onClose();
-    } catch (e) {
-      console.error(e);
-      const msg =
-        messageFromInstantError(e as InstantIssue) || 'Error deleting client.';
-      errorToast(msg, { autoClose: 5000 });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+export function AppleClient({ client }: { client: OAuthClient }) {
   return (
     <div className="flex flex-col gap-4">
       <Copyable label="Client Name" value={client.client_name} />
@@ -84,33 +49,6 @@ export function AppleClient({
       >
         Setup and Usage
       </a>
-
-      <div>
-        <Button
-          onClick={deleteDialog.onOpen}
-          loading={isLoading}
-          variant="destructive"
-        >
-          Delete
-        </Button>
-      </div>
-      <Dialog title="Delete Client" {...deleteDialog}>
-        <div className="flex flex-col gap-2">
-          <SubsectionHeading>Delete client</SubsectionHeading>
-          <Content>
-            Deleting the client will prevent users from using this client to log
-            in to your app. Be sure that you've removed any reference to it in
-            your code before deleting.
-          </Content>
-          <Button
-            loading={isLoading}
-            variant="destructive"
-            onClick={handleDelete}
-          >
-            Delete
-          </Button>
-        </div>
-      </Dialog>
     </div>
   );
 }

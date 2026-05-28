@@ -6,17 +6,14 @@ import {
   Checkbox,
   Content,
   Copyable,
-  Dialog,
-  Divider,
   Fence,
   SubsectionHeading,
   TextInput,
-  useDialog,
 } from '@/components/ui';
 import firebaseLogoSvg from '../../../public/img/firebase_auth.svg';
 import Image from 'next/image';
 import { messageFromInstantError } from '@/lib/errors';
-import { addProvider, addClient, deleteClient, findName } from './shared';
+import { addProvider, addClient, findName } from './shared';
 import {
   InstantApp,
   InstantIssue,
@@ -113,37 +110,12 @@ function App() {
 export function FirebaseClient({
   app,
   client,
-  onDeleteClient,
 }: {
   app: InstantApp;
   client: OAuthClient;
-  onDeleteClient: (client: OAuthClient) => void;
 }) {
-  const token = useContext(TokenContext);
-  const [isLoading, setIsLoading] = useState(false);
-  const deleteDialog = useDialog();
-
   const { darkMode } = useDarkMode();
 
-  const handleDelete = async () => {
-    try {
-      setIsLoading(true);
-      const resp = await deleteClient({
-        token,
-        appId: app.id,
-        clientDatabaseId: client.id,
-      });
-      onDeleteClient(resp.client);
-      deleteDialog.onClose();
-    } catch (e) {
-      console.error(e);
-      const msg =
-        messageFromInstantError(e as InstantIssue) || 'Error deleting client.';
-      errorToast(msg, { autoClose: 5000 });
-    } finally {
-      setIsLoading(false);
-    }
-  };
   const projectId = client.discovery_endpoint?.match(
     /^https:\/\/securetoken\.google\.com\/(.+)\/\.well-known\/openid-configuration$/,
   )?.[1];
@@ -175,35 +147,6 @@ export function FirebaseClient({
           language="typescript"
         />
       </div>
-
-      <Divider />
-
-      <div>
-        <Button
-          onClick={deleteDialog.onOpen}
-          loading={isLoading}
-          variant="destructive"
-        >
-          Delete
-        </Button>
-      </div>
-      <Dialog title="Delete Client" {...deleteDialog}>
-        <div className="flex flex-col gap-2">
-          <SubsectionHeading>Delete client</SubsectionHeading>
-          <Content>
-            Deleting the client will prevent users from using this client to log
-            in to your app. Be sure that you've removed any reference to it in
-            your code before deleting.
-          </Content>
-          <Button
-            loading={isLoading}
-            variant="destructive"
-            onClick={handleDelete}
-          >
-            Delete
-          </Button>
-        </div>
-      </Dialog>
     </div>
   );
 }

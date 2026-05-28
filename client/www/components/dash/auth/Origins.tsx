@@ -21,11 +21,7 @@ import {
   TextInput,
   useDialog,
 } from '@/components/ui';
-import {
-  InformationCircleIcon,
-  PlusIcon,
-  TrashIcon,
-} from '@heroicons/react/24/solid';
+import { InformationCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
 import {
   DevicePhoneMobileIcon,
   GlobeAltIcon,
@@ -90,11 +86,9 @@ const serviceOptions: { label: string; value: AuthorizedOriginService }[] = [
 export function AuthorizedOriginsForm({
   app,
   onAddOrigin,
-  onCancel,
 }: {
   app: InstantApp;
   onAddOrigin: (origin: AuthorizedOrigin) => void;
-  onCancel: () => void;
 }) {
   const token = useContext(TokenContext);
   const [url, setUrl] = useState<string>('');
@@ -164,6 +158,7 @@ export function AuthorizedOriginsForm({
         params: validated.params,
       });
       onAddOrigin(resp.origin);
+      setUrl('');
     } catch (e) {
       console.error(e);
       const msg =
@@ -184,11 +179,8 @@ export function AuthorizedOriginsForm({
     );
   };
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-4 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800/50"
-    >
-      <div className="flex flex-row gap-2">
+    <form onSubmit={onSubmit} className="flex flex-col gap-2">
+      <div className="flex items-end gap-2">
         <div className="flex flex-col gap-0.75">
           <Label>Type</Label>
           <Select
@@ -209,6 +201,9 @@ export function AuthorizedOriginsForm({
             placeholder={originInputPlaceholder(service)}
           />
         </div>
+        <Button loading={isLoading} variant="primary" type="submit">
+          Add
+        </Button>
       </div>
       {service === 'vercel' ? (
         <TypeHelp text="Vercel preview origins will allow all preview urls for the project." />
@@ -219,14 +214,6 @@ export function AuthorizedOriginsForm({
       {service === 'custom-scheme' ? (
         <TypeHelp text="Use app scheme if you're implementing the OAuth flow in a native app." />
       ) : null}
-      <div className="flex flex-row gap-2">
-        <Button loading={isLoading} variant="primary" type="submit">
-          Add
-        </Button>
-        <Button variant="secondary" onClick={() => onCancel()}>
-          Cancel
-        </Button>
-      </div>
     </form>
   );
 }
@@ -390,9 +377,6 @@ export function AuthorizedOrigins({
   onAddOrigin: (origin: AuthorizedOrigin) => void;
   onRemoveOrigin: (origin: AuthorizedOrigin) => void;
 }) {
-  const [showAddOriginForm, setShowAddOriginForm] = useState(
-    origins.length === 0,
-  );
   return (
     <div className="flex flex-col gap-2">
       <div>
@@ -403,37 +387,20 @@ export function AuthorizedOrigins({
         </Content>
       </div>
 
-      {showAddOriginForm ? null : (
-        <Button onClick={() => setShowAddOriginForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add an origin
-        </Button>
-      )}
-
-      {showAddOriginForm ? (
-        <>
-          <AuthorizedOriginsForm
-            app={app}
-            onAddOrigin={(origin) => {
-              setShowAddOriginForm(false);
-              onAddOrigin(origin);
-            }}
-            onCancel={() => setShowAddOriginForm(false)}
-          />
-        </>
-      ) : null}
-
-      <>
-        {origins.map((o) => {
-          return (
+      {origins.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {origins.map((o) => (
             <AuthorizedOriginRow
               key={o.id}
               app={app}
               origin={o}
               onRemoveOrigin={onRemoveOrigin}
             />
-          );
-        })}
-      </>
+          ))}
+        </div>
+      ) : null}
+
+      <AuthorizedOriginsForm app={app} onAddOrigin={onAddOrigin} />
     </div>
   );
 }

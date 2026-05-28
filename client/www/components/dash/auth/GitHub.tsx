@@ -6,13 +6,10 @@ import {
   Content,
   Copyable,
   Copytext,
-  Dialog,
-  Divider,
   Fence,
   SectionHeading,
   SubsectionHeading,
   TextInput,
-  useDialog,
 } from '@/components/ui';
 import { TokenContext } from '@/lib/contexts';
 import {
@@ -24,7 +21,6 @@ import {
 import {
   addProvider,
   addClient,
-  deleteClient,
   findName,
   RedirectUrlInput,
   EditableRedirectUrl,
@@ -254,39 +250,15 @@ export function AddGitHubClientForm({
 export function GitHubClient({
   app,
   client,
-  onDeleteClient,
   onUpdateClient,
 }: {
   app: InstantApp;
   client: OAuthClient;
-  onDeleteClient: (client: OAuthClient) => void;
   onUpdateClient: (client: OAuthClient) => void;
 }) {
   const token = useContext(TokenContext);
-  const [isLoading, setIsLoading] = useState(false);
-  const deleteDialog = useDialog();
 
   const { darkMode } = useDarkMode();
-
-  const handleDelete = async () => {
-    try {
-      setIsLoading(true);
-      const resp = await deleteClient({
-        token,
-        appId: app.id,
-        clientDatabaseId: client.id,
-      });
-      onDeleteClient(resp.client);
-      deleteDialog.onClose();
-    } catch (e) {
-      console.error(e);
-      const msg =
-        messageFromInstantError(e as InstantIssue) || 'Error deleting client.';
-      errorToast(msg, { autoClose: 5000 });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -339,32 +311,6 @@ export function GitHubClient({
           language="typescript"
         />
       </div>
-
-      <Divider />
-      <Button
-        onClick={deleteDialog.onOpen}
-        loading={isLoading}
-        variant="destructive"
-      >
-        Delete client
-      </Button>
-      <Dialog title="Delete Client" {...deleteDialog}>
-        <div className="flex flex-col gap-2">
-          <SubsectionHeading>Delete client</SubsectionHeading>
-          <Content>
-            Deleting the client will prevent users from signing in with this
-            GitHub configuration. Make sure you have removed any references to
-            it in your code before deleting.
-          </Content>
-          <Button
-            loading={isLoading}
-            variant="destructive"
-            onClick={handleDelete}
-          >
-            Delete
-          </Button>
-        </div>
-      </Dialog>
     </div>
   );
 }

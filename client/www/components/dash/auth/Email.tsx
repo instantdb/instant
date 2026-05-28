@@ -11,7 +11,6 @@ import {
   Content,
   Dialog,
   Label,
-  SectionHeading,
   SubsectionHeading,
   TextInput,
   useDialog,
@@ -60,17 +59,13 @@ export function getSenderVerification({
   });
 }
 
-export function Email({
-  app,
-  page = false,
-}: {
-  app: InstantApp;
-  page?: boolean;
-}) {
+export function Email({ app }: { app: InstantApp }) {
   const dashResponse = useFetchedDash();
   const template = app.magic_code_email_template;
   const token = useContext(TokenContext);
-  const [isEditing, setIsEditing] = useState(page || Boolean(template));
+  const [showCustomSender, setShowCustomSender] = useState(
+    Boolean(template?.email),
+  );
   const [{ isVerifying, verification }, setVerification] = useState<{
     isVerifying: boolean;
     verification: SenderVerificationInfo | null;
@@ -156,96 +151,102 @@ export function Email({
     }
   }, []);
 
-  if (!isEditing) {
-    return (
-      <div className="flex flex-col gap-2">
-        {!page && <SectionHeading>Custom Magic Code Email</SectionHeading>}
-        <Button onClick={() => setIsEditing(true)}>
-          Customize your magic code email
-        </Button>
-      </div>
-    );
-  }
   return (
-    <div>
-      <form {...form.formProps()} className="flex flex-col gap-2">
-        {!page && <SectionHeading>Custom Magic Code Email</SectionHeading>}
-
-        <div className="flex flex-col gap-1 rounded-sm border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
-          <BlockHeading>Template variables</BlockHeading>
-          <Content className="text-sm">
-            We provide a few dynamic variables for you to use in your email:
-            <ul>
-              <li>
-                <VariableName>code</VariableName>, the magic code e.g.{' '}
-                <strong className="dark:text-white">123456</strong>
-              </li>
-              <li>
-                <VariableName>app_title</VariableName>, your app's title, i.e.{' '}
-                <strong className="dark:text-white">{app.title}</strong>
-              </li>
-              <li>
-                <VariableName>user_email</VariableName>, the user's email
-                address, e.g.{' '}
-                <strong className="dark:text-white">happyuser@gmail.com</strong>
-              </li>
-            </ul>
-          </Content>
-          <Content className="text-sm">
-            <strong className="dark:text-white">Note:</strong>{' '}
-            <VariableName>code</VariableName>
-            is required in both the subject and body.
-          </Content>
-        </div>
-
-        <TextInput
-          {...form.inputProps('subject')}
-          label="Subject"
-          placeholder="Hey there!  Your code for {app_title} is: {code}"
-        />
-
-        <TextInput
-          {...form.inputProps('from')}
-          label="From"
-          placeholder="YourName from YourCo"
-        />
-
-        <div className="flex flex-col gap-1">
-          <Label>Body (HTML or plain-text)</Label>
-          <div
-            className={clsx('h-64 rounded-sm border dark:border-neutral-700', {
-              'border-red-500': form.getError('bodyHtml'),
-            })}
-          >
-            <CodeEditor
-              darkMode={darkMode}
-              className="dark:border-neutral-600"
-              language="html"
-              {...form.inputProps('bodyHtml')}
+    <div className="flex flex-col gap-6">
+      <form {...form.formProps()} className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
+          {/* Email content */}
+          <div className="flex flex-1 flex-col gap-4">
+            <TextInput
+              {...form.inputProps('subject')}
+              label="Subject"
+              placeholder="Hey there!  Your code for {app_title} is: {code}"
             />
-          </div>
-          {form.getError('bodyHtml') ? (
-            <div className="text-sm text-red-600">
-              {form.getError('bodyHtml')}
-            </div>
-          ) : null}
-        </div>
 
-        <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
-          <SubsectionHeading>
-            Use a custom 'From' address (optional)
-          </SubsectionHeading>
-          <Content className="text-sm">
-            By default emails are sent from our domain. Add a custom sender to
-            send emails from your own domain and build trust with recipients.
-            Our email partner will send a confirmation to the provided address
-            with a link to verify.
-          </Content>
-          <TextInput
-            {...form.inputProps('senderEmail')}
-            label="Sender email address"
-            placeholder="hi@yourdomain.co"
-          />
+            <div className="flex flex-col gap-1">
+              <TextInput
+                {...form.inputProps('from')}
+                label="Sender name"
+                placeholder="YourName from YourCo"
+              />
+              <p className="text-xs text-gray-500 dark:text-neutral-400">
+                The name people see in their inbox. Leave blank to use the
+                default.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <Label>Body (HTML or plain-text)</Label>
+              <div
+                className={clsx(
+                  'h-96 rounded-sm border dark:border-neutral-700',
+                  {
+                    'border-red-500': form.getError('bodyHtml'),
+                  },
+                )}
+              >
+                <CodeEditor
+                  darkMode={darkMode}
+                  className="dark:border-neutral-600"
+                  language="html"
+                  {...form.inputProps('bodyHtml')}
+                />
+              </div>
+              {form.getError('bodyHtml') ? (
+                <div className="text-sm text-red-600">
+                  {form.getError('bodyHtml')}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Reference + sender */}
+          <div className="flex flex-col gap-4 lg:w-72">
+            <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
+              <BlockHeading>Template variables</BlockHeading>
+              <Content className="flex flex-col gap-1 text-sm">
+                <div>
+                  <VariableName>code</VariableName> — the magic code, e.g.{' '}
+                  <strong className="dark:text-white">123456</strong>
+                </div>
+                <div>
+                  <VariableName>app_title</VariableName> — your app's title,{' '}
+                  <strong className="dark:text-white">{app.title}</strong>
+                </div>
+                <div>
+                  <VariableName>user_email</VariableName> — the recipient's
+                  email
+                </div>
+              </Content>
+              <Content className="text-sm text-gray-500 dark:text-neutral-400">
+                <VariableName>code</VariableName> is required in the subject and
+                body.
+              </Content>
+            </div>
+
+            <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
+              <BlockHeading>Custom sender</BlockHeading>
+              <Content className="text-sm">
+                By default emails come from our domain. Send from your own
+                domain to build trust with recipients.
+              </Content>
+              {showCustomSender ? (
+                <TextInput
+                  {...form.inputProps('senderEmail')}
+                  label="Sender email address"
+                  placeholder="hi@yourdomain.co"
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="self-start text-sm text-blue-600 hover:underline dark:text-blue-400"
+                  onClick={() => setShowCustomSender(true)}
+                >
+                  Send from a custom domain
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {verification && (
@@ -368,14 +369,13 @@ export function Email({
           </div>
         )}
 
-        <Button {...form.submitButtonProps()} />
-
-        <>
+        <div className="flex items-center gap-2">
+          <Button {...form.submitButtonProps()} />
           <ActionButton
-            variant="destructive"
-            label="Delete template"
-            submitLabel="Deleting..."
-            errorMessage="Failed to delete template"
+            variant="secondary"
+            label="Reset to default"
+            submitLabel="Resetting..."
+            errorMessage="Failed to reset template"
             onClick={async () => {
               if (template?.id) {
                 await dashResponse.optimisticUpdate(
@@ -390,10 +390,10 @@ export function Email({
               }
 
               form.reset(formDefaults);
-              setIsEditing(false);
+              setShowCustomSender(false);
             }}
           />
-        </>
+        </div>
       </form>
 
       <MagicCodeExpirationSection app={app} />
@@ -435,7 +435,7 @@ function MagicCodeExpirationSection({ app }: { app: InstantApp }) {
   };
 
   return (
-    <div className="mt-4">
+    <div>
       <button
         type="button"
         className="text-sm text-gray-400 underline hover:text-gray-600 dark:text-neutral-500 dark:hover:text-neutral-300"
