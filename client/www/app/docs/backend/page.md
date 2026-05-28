@@ -513,5 +513,5 @@ The first party path will be called whenever a user's `user` information is chan
 ```typescript
 db.core._reactor
   .getCurrentUser()
-  .then((user) => db.core._reactor.syncUserToEndpoint(user));
+  .then((res) => db.core._reactor.syncUserToEndpoint(res.user));
 ```
