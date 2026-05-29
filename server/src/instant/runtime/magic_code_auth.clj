@@ -115,7 +115,7 @@
         (format "%s hour%s" hours (if (> hours 1) "s" "")))
       (format "%s minute%s" minutes (if (> minutes 1) "s" "")))))
 
-(defn send-test-email!
+(defn send-test!
   "Sends a one-off test of the magic-code email to `to`, rendering the given
    (possibly unsaved) subject/body with sample template params. Falls back to
    the default sender if the custom sender isn't confirmed."

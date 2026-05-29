@@ -37,6 +37,34 @@
        (cache/invalidate-all app-cache ids#)
        res#)))
 
+(def authorized-users-q
+  (uhsql/preformat
+   {:union [;; creator (personal apps)
+            {:select [:u.id :u.email]
+             :from [[:instant-users :u]]
+             :join [[:apps :a] [:= :a.creator-id :u.id]]
+             :where [:= :a.id :?app-id]}
+            ;; app collaborators
+            {:select [:u.id :u.email]
+             :from [[:instant-users :u]]
+             :join [[:app-members :m] [:= :m.user-id :u.id]]
+             :where [:= :m.app-id :?app-id]}
+            ;; org members (for org-owned apps)
+            {:select [:u.id :u.email]
+             :from [[:instant-users :u]]
+             :join [[:org-members :om] [:= :om.user-id :u.id]
+                    [:apps :a] [:= :a.org-id :om.org-id]]
+             :where [:= :a.id :?app-id]}]}))
+
+(defn authorized-users
+  "Users with access to the app: the creator, app collaborators, and (for
+   org-owned apps) all org members. Used to check who a test/preview email may
+   be sent to."
+  ([app-id] (authorized-users (aurora/conn-pool :read) app-id))
+  ([conn app-id]
+   (sql/select ::authorized-users conn
+               (uhsql/formatp authorized-users-q {:app-id app-id}))))
+
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [id title creator-id org-id admin-token]}]
