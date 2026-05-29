@@ -28,7 +28,11 @@ import {
   AddClientExpanded as AddAppleClientForm,
 } from './auth/Apple';
 import { ClerkClient, AddClerkClientForm } from './auth/Clerk';
-import { Email } from './auth/Email';
+import {
+  Email,
+  substituteSampleVars,
+  DEFAULT_MAGIC_CODE_SUBJECT,
+} from './auth/Email';
 import { TestUsers } from './auth/TestUsers';
 import { GitHubClient, AddGitHubClientForm } from './auth/GitHub';
 import { GoogleClient, AddGoogleClientForm } from './auth/Google';
@@ -929,12 +933,27 @@ export function AppAuth({
             href={authViewHref(router, 'magic-email')}
             className="flex items-center justify-between gap-3 rounded-sm border px-4 py-3 hover:bg-gray-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
           >
-            <div className="flex flex-col gap-0.5">
-              <span className="font-medium">Magic code email</span>
-              <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
-                {app.magic_code_email_template?.subject ??
-                  '{code} is your code for {app_title}'}
-              </span>
+            <div className="flex min-w-0 flex-col gap-0.5 text-sm">
+              <div className="flex gap-2">
+                <span className="w-14 shrink-0 text-gray-400 dark:text-neutral-500">
+                  From
+                </span>
+                <span className="truncate text-gray-600 dark:text-neutral-300">
+                  {app.magic_code_email_template?.name || app.title}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <span className="w-14 shrink-0 text-gray-400 dark:text-neutral-500">
+                  Subject
+                </span>
+                <span className="truncate font-medium">
+                  {substituteSampleVars(
+                    app.magic_code_email_template?.subject ??
+                      DEFAULT_MAGIC_CODE_SUBJECT,
+                    app,
+                  )}
+                </span>
+              </div>
             </div>
             <ChevronRightIcon
               height={18}

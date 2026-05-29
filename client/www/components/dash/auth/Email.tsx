@@ -82,6 +82,27 @@ function escapeHtml(s: string) {
     .replace(/'/g, '&#39;');
 }
 
+export const DEFAULT_MAGIC_CODE_SUBJECT = '{code} is your code for {app_title}';
+
+// Fill template variables with sample values the same way the server does
+// (literal {var} replace). Body values are HTML-escaped; subjects/plain text
+// are not. Shared by the editor preview and the auth landing summary.
+export function substituteSampleVars(
+  template: string,
+  app: InstantApp,
+  escape = false,
+): string {
+  const v = (raw: string) => (escape ? escapeHtml(raw) : raw);
+  return (template ?? '')
+    .replace(/\{code\}/g, v('123456'))
+    .replace(/\{app_title\}/g, v(app.title))
+    .replace(/\{user_email\}/g, v('happyuser@gmail.com'))
+    .replace(
+      /\{expiration\}/g,
+      v(expirationLabel(app.magic_code_expiry_minutes)),
+    );
+}
+
 export function Email({ app }: { app: InstantApp }) {
   const dashResponse = useFetchedDash();
   const template = app.magic_code_email_template;
@@ -182,21 +203,8 @@ export function Email({ app }: { app: InstantApp }) {
   const fromValue = form.inputProps('from').value as string;
   const senderEmailValue = form.inputProps('senderEmail').value as string;
 
-  // Substitute template variables the same way the server does (literal {var}
-  // replace; body values HTML-escaped, subject not).
-  const substitute = (templateStr: string, escape: boolean) => {
-    const v = (raw: string) => (escape ? escapeHtml(raw) : raw);
-    return (templateStr ?? '')
-      .replace(/\{code\}/g, v('123456'))
-      .replace(/\{app_title\}/g, v(app.title))
-      .replace(/\{user_email\}/g, v('happyuser@gmail.com'))
-      .replace(
-        /\{expiration\}/g,
-        v(expirationLabel(app.magic_code_expiry_minutes)),
-      );
-  };
-  const previewBody = substitute(bodyValue, true);
-  const previewSubject = substitute(subjectValue, false);
+  const previewBody = substituteSampleVars(bodyValue, app, true);
+  const previewSubject = substituteSampleVars(subjectValue, app);
   const previewFrom = fromValue || app.title;
 
   const useInstantSender = () => {
@@ -656,7 +664,7 @@ const defaultMagicCodeEmailHtml = /* html */ `<div style="background: #f6f6f6; f
 `;
 
 const formDefaults = {
-  subject: '{code} is your code for {app_title}',
+  subject: DEFAULT_MAGIC_CODE_SUBJECT,
   bodyHtml: defaultMagicCodeEmailHtml,
   from: '',
   senderEmail: '',
