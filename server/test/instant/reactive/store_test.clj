@@ -255,6 +255,37 @@
                                                  :value "he%"
                                                  :data-type :string}} false)
 
+  ;; Wildcards must match newlines to agree with Postgres LIKE/ILIKE
+  (is-match-topic-part #{"a\nb"} {:$comparator {:op :$like
+                                                :value "a%b"
+                                                :data-type :string}} true)
+
+  (is-match-topic-part #{"a\nb"} {:$comparator {:op :$like
+                                                :value "a_b"
+                                                :data-type :string}} true)
+
+  (is-match-topic-part #{"x\ny"} {:$comparator {:op :$like
+                                                :value "%"
+                                                :data-type :string}} true)
+
+  (is-match-topic-part #{"A\nB"} {:$comparator {:op :$ilike
+                                                :value "a%b"
+                                                :data-type :string}} true)
+
+  ;; `_` still matches exactly one char, so \r\n (two chars) should not match
+  (is-match-topic-part #{"a\r\nb"} {:$comparator {:op :$like
+                                                  :value "a_b"
+                                                  :data-type :string}} false)
+
+  (is-match-topic-part #{"a\r\nb"} {:$comparator {:op :$like
+                                                  :value "a__b"
+                                                  :data-type :string}} true)
+
+  ;; A trailing newline should not match a pattern with no trailing wildcard
+  (is-match-topic-part #{"abc\n"} {:$comparator {:op :$like
+                                                 :value "abc"
+                                                 :data-type :string}} false)
+
   (is-match-topic-part #{true} {:$comparator {:op :$gte
                                               :value true
                                               :data-type :boolean}} true)
