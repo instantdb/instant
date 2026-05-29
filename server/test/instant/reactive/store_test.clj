@@ -272,6 +272,20 @@
                                                 :value "a%b"
                                                 :data-type :string}} true)
 
+  ;; `_` still matches exactly one char, so \r\n (two chars) should not match
+  (is-match-topic-part #{"a\r\nb"} {:$comparator {:op :$like
+                                                  :value "a_b"
+                                                  :data-type :string}} false)
+
+  (is-match-topic-part #{"a\r\nb"} {:$comparator {:op :$like
+                                                  :value "a__b"
+                                                  :data-type :string}} true)
+
+  ;; A trailing newline should not match a pattern with no trailing wildcard
+  (is-match-topic-part #{"abc\n"} {:$comparator {:op :$like
+                                                 :value "abc"
+                                                 :data-type :string}} false)
+
   (is-match-topic-part #{true} {:$comparator {:op :$gte
                                               :value true
                                               :data-type :boolean}} true)
