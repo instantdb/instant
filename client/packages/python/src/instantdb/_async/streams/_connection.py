@@ -63,6 +63,7 @@ class _AsyncStreamConnection:
         self._is_first_connect = True
         self._task: asyncio.Task[None] | None = None
         self._reconnect_task: asyncio.Task[None] | None = None
+        self._force_reconnect_tasks: set[asyncio.Task[None]] = set()
         self._send_lock = asyncio.Lock()
         self._event_source: httpx_sse.EventSource | None = None
         self._closed = False
@@ -86,6 +87,14 @@ class _AsyncStreamConnection:
             return
         self._closed = True
         self._ready_event.set()
+        if self._force_reconnect_tasks:
+            tasks = list(self._force_reconnect_tasks)
+            for task in tasks:
+                task.cancel()
+            for task in tasks:
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
+            self._force_reconnect_tasks.clear()
         # Cancel an in-flight reconnect before the receive loop, so a pending
         # writer/reader re-handshake can't post against a closing httpx client.
         if self._reconnect_task is not None and not self._reconnect_task.done():
@@ -105,6 +114,20 @@ class _AsyncStreamConnection:
         if self._closed:
             raise InstantError("Connection is closed")
         return await self._send_internal(msg, client_event_id=client_event_id)
+
+    def request_reconnect(self) -> None:
+        """Schedule `force_reconnect()` while retaining the task until it finishes."""
+        if self._closed:
+            return
+        task = asyncio.create_task(self.force_reconnect())
+        self._force_reconnect_tasks.add(task)
+
+        def _drop_task(done: asyncio.Future[None]) -> None:
+            self._force_reconnect_tasks.discard(task)
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                done.result()
+
+        task.add_done_callback(_drop_task)
 
     async def force_reconnect(self) -> None:
         """Drop the current SSE so the retry loop re-opens it.
@@ -243,13 +266,10 @@ class _AsyncStreamConnection:
         self._on_message(msg)
 
     async def _do_reconnect(self) -> None:
-        # Reconnect errors are caught by the writer/reader's own _on_reconnect
-        # (which stash them into their respective self._error fields and
-        # surface on the next write() / iteration). No connection-layer error
-        # handling needed beyond ensuring the ready gate releases.
         try:
             if self._on_reconnect is not None:
-                with contextlib.suppress(Exception):
-                    await self._on_reconnect()
+                await self._on_reconnect()
+        except Exception as e:
+            self._error = e
         finally:
             self._ready_event.set()

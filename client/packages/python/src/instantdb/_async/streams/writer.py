@@ -174,7 +174,7 @@ class AsyncStreamWriter:
             # Server-side append failed (stream-state mismatch). Drop the SSE
             # so the retry loop re-handshakes via _on_reconnect.
             if self._connection is not None:
-                asyncio.create_task(self._connection.force_reconnect())
+                self._connection.request_reconnect()
         elif op == "error":
             self._handle_error_msg(msg)
 

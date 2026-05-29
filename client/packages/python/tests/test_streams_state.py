@@ -13,6 +13,7 @@ import pytest
 from instantdb import InstantError
 from instantdb._async.http import _AsyncHTTP
 from instantdb._async.streams import AsyncStreams
+from instantdb._async.streams._connection import _AsyncStreamConnection
 from instantdb._async.streams.reader import AsyncStreamReader
 from instantdb._async.streams.writer import AsyncStreamWriter
 
@@ -164,16 +165,33 @@ async def test_reader_on_reconnect_resubscribes_with_current_offset():
     assert r._event_id == "evt-after-reconnect"
 
 
+async def test_reader_on_reconnect_surfaces_resubscribe_error():
+    class _FailingConn:
+        async def _send_internal(self, msg, *, client_event_id=None):
+            raise RuntimeError("push failed")
+
+    r = AsyncStreamReader(_http(), client_id="c")
+    r._connection = _FailingConn()  # type: ignore[assignment]
+    r._event_id = "evt-original"
+
+    with pytest.raises(RuntimeError, match="push failed"):
+        await r._on_reconnect()
+
+    with pytest.raises(RuntimeError, match="push failed"):
+        await r.__anext__()
+    assert r._inbox.get_nowait() is None
+
+
 # ---------- message-level reconnect triggers ----------
 
 
 class _ReconnectTrackingConn:
-    """Minimal connection stand-in that records force_reconnect calls."""
+    """Minimal connection stand-in that records reconnect requests."""
 
     def __init__(self) -> None:
         self.reconnects = 0
 
-    async def force_reconnect(self) -> None:
+    def request_reconnect(self) -> None:
         self.reconnects += 1
 
 
@@ -184,7 +202,6 @@ async def test_writer_append_failed_triggers_force_reconnect():
     w = _writer()
     w._connection = conn  # type: ignore[assignment]
     w._on_message({"op": "append-failed", "stream-id": "s-1"})
-    await asyncio.sleep(0)  # flush the create_task
     assert conn.reconnects == 1
 
 
@@ -202,7 +219,6 @@ async def test_reader_stream_append_with_retry_triggers_force_reconnect():
             "retry": True,
         }
     )
-    await asyncio.sleep(0)
     assert conn.reconnects == 1
     # The message must NOT also have been pushed onto the materializer inbox.
     assert r._inbox.qsize() == 0
@@ -236,6 +252,47 @@ class _MockResponse:
         pass
 
 
+class _BlockingResponse:
+    """Response stand-in that blocks forever while streaming the body."""
+
+    status_code = 200
+    is_success = True
+
+    def __init__(self) -> None:
+        self.started = asyncio.Event()
+        self.closed = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def aread(self) -> bytes:
+        return b""
+
+    async def aiter_bytes(self):  # type: ignore[no-untyped-def]
+        self.started.set()
+        await self.release.wait()
+        yield b"unreachable"
+
+    async def aclose(self) -> None:
+        self.closed.set()
+
+
+async def test_reader_aclose_cancels_active_file_fetch():
+    response = _BlockingResponse()
+
+    async def blocking_fetch(url: str) -> _BlockingResponse:
+        return response
+
+    r = AsyncStreamReader(_http(), client_id="c")
+    r._fetch = blocking_fetch  # type: ignore[assignment]
+    r._materializer_task = asyncio.create_task(r._materialize_loop())
+    r._inbox.put_nowait({"offset": 0, "files": [{"url": "A"}]})
+
+    await asyncio.wait_for(response.started.wait(), timeout=1)
+    await asyncio.wait_for(r.aclose(), timeout=1)
+
+    assert response.closed.is_set()
+    assert r._materializer_task.done()
+
+
 async def test_reader_fetch_failure_triggers_reconnect_within_budget():
     conn = _ReconnectTrackingConn()
     r = AsyncStreamReader(_http(), client_id="c")
@@ -246,7 +303,6 @@ async def test_reader_fetch_failure_triggers_reconnect_within_budget():
 
     r._fetch = failing_fetch  # type: ignore[assignment]
     err = await r._process_append({"offset": 0, "files": [{"url": "https://x/y", "size": 10}]})
-    await asyncio.sleep(0)
     assert err is None  # error suppressed; reconnect will retry
     assert conn.reconnects == 1
     assert r._fetch_failures == 1
@@ -332,8 +388,6 @@ async def test_connection_aclose_cancels_inflight_reconnect_task():
     # _do_reconnect is spawned by _dispatch on each post-init sse-init.
     # If the user aclose()s mid-handshake, the task must be cancelled
     # rather than left dangling to post against a half-closed httpx client.
-    from instantdb._async.streams._connection import _AsyncStreamConnection
-
     on_reconnect_started = asyncio.Event()
     release_on_reconnect = asyncio.Event()
 
@@ -362,6 +416,63 @@ async def test_connection_aclose_cancels_inflight_reconnect_task():
     # should not be left pending.
     await conn.aclose()
     assert conn._reconnect_task.done()
+
+
+class _SlowForceReconnectConnection(_AsyncStreamConnection):
+    def __init__(self) -> None:
+        super().__init__(_http(), on_message=lambda _: None)
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def force_reconnect(self) -> None:
+        self.started.set()
+        await self.release.wait()
+
+
+async def test_connection_request_reconnect_retains_task_until_done():
+    conn = _SlowForceReconnectConnection()
+
+    conn.request_reconnect()
+    await conn.started.wait()
+
+    assert len(conn._force_reconnect_tasks) == 1
+    task = next(iter(conn._force_reconnect_tasks))
+
+    conn.release.set()
+    await task
+    await asyncio.sleep(0)
+
+    assert conn._force_reconnect_tasks == set()
+
+
+async def test_connection_aclose_cancels_scheduled_force_reconnect():
+    conn = _SlowForceReconnectConnection()
+
+    conn.request_reconnect()
+    await conn.started.wait()
+    task = next(iter(conn._force_reconnect_tasks))
+
+    await conn.aclose()
+
+    assert conn._force_reconnect_tasks == set()
+    assert task.cancelled()
+
+
+async def test_connection_reconnect_hook_error_is_recorded_and_releases_ready():
+    err = RuntimeError("hook failed")
+
+    async def failing_on_reconnect() -> None:
+        raise err
+
+    conn = _AsyncStreamConnection(
+        _http(), on_message=lambda _: None, on_reconnect=failing_on_reconnect
+    )
+    conn._ready_event.clear()
+
+    await conn._do_reconnect()
+
+    assert conn._error is err
+    assert conn._ready_event.is_set()
 
 
 async def test_writer_finalize_stashes_close_send_error():

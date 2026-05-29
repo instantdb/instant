@@ -89,10 +89,12 @@ class AsyncStreamReader:
     async def _on_reconnect(self) -> None:
         if self._closed or self._connection is None:
             return
-        # If the re-subscribe fails, surface on the next iteration — the
-        # materializer ends when the inbox stalls and the user's loop exits.
-        with contextlib.suppress(Exception):
+        try:
             self._event_id = await self._connection._send_internal(self._subscribe_msg())
+        except Exception as e:
+            self._out.put_nowait(e)
+            self._inbox.put_nowait(None)
+            raise
 
     async def __aexit__(
         self,
@@ -115,7 +117,7 @@ class AsyncStreamReader:
                     }
                 )
         if self._materializer_task is not None and not self._materializer_task.done():
-            self._inbox.put_nowait(None)
+            self._materializer_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._materializer_task
         if self._connection is not None:
@@ -142,7 +144,7 @@ class AsyncStreamReader:
             # loop re-handshakes and re-subscribes at the current offset.
             if msg.get("error") and msg.get("retry"):
                 if self._connection is not None:
-                    asyncio.create_task(self._connection.force_reconnect())
+                    self._connection.request_reconnect()
                 return
             self._inbox.put_nowait(msg)
         elif op == "error":
@@ -198,7 +200,7 @@ class AsyncStreamReader:
                         if self._fetch_failures > _MAX_FETCH_RETRIES:
                             return InstantError("Unable to process stream after fetch retries")
                         if self._connection is not None:
-                            asyncio.create_task(self._connection.force_reconnect())
+                            self._connection.request_reconnect()
                         return None
                     discard_len = result
                 self._fetch_failures = 0
