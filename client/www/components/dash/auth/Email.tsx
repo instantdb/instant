@@ -360,10 +360,7 @@ export function Email({ app }: { app: InstantApp }) {
             ) : (
               <div className="flex items-center justify-between gap-2 rounded-sm bg-gray-50 px-3 py-2 text-sm dark:bg-neutral-800">
                 <span className="text-gray-600 dark:text-neutral-300">
-                  {DEFAULT_SENDER_EMAIL}{' '}
-                  <span className="text-gray-400 dark:text-neutral-500">
-                    · Instant
-                  </span>
+                  {DEFAULT_SENDER_EMAIL}
                 </span>
                 <button
                   type="button"
