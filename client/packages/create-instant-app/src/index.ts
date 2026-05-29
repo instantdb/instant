@@ -92,10 +92,10 @@ const main = async () => {
     // Generate the schema-bound `instant_types` module. Failure is
     // non-fatal: the template ships a fallback shim and the user can
     // re-run `npx instant-cli genpy` later.
-    const instantCliBin = createRequire(import.meta.url).resolve(
-      'instant-cli/bin/index.js',
-    );
     try {
+      const instantCliBin = createRequire(import.meta.url).resolve(
+        'instant-cli/bin/index.js',
+      );
       await execa('node', [instantCliBin, 'genpy'], {
         cwd: projectDir,
         stdio: 'inherit',
