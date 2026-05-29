@@ -9,6 +9,7 @@ import {
   Content,
   Dialog,
   Divider,
+  Label,
   SectionHeading,
   SubsectionHeading,
   useDialog,
@@ -36,11 +37,10 @@ import { AuthorizedOrigins } from './auth/Origins';
 import { FirebaseClient, AddFirebaseClientForm } from './auth/Firebase';
 import { addProvider, deleteClient } from './auth/shared';
 import { TokenContext } from '@/lib/contexts';
-import { errorToast, successToast } from '@/lib/toast';
+import { errorToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantIssue } from '@instantdb/core';
 import { useReadyRouter } from '../clientOnlyPage';
-import { DesignVariantSwitcher } from './auth/designVariants';
 
 import Image from 'next/image';
 import googleIconSvg from '../../public/img/google_g.svg';
@@ -149,7 +149,7 @@ function ProviderPickerButton({
   return (
     <button
       onClick={onClick}
-      className="flex cursor-pointer flex-col items-center gap-2 rounded border p-4 transition-colors hover:bg-gray-50 dark:border-neutral-700 dark:hover:bg-neutral-700"
+      className="flex cursor-pointer flex-col items-center gap-2 rounded-sm border p-4 transition-colors hover:border-gray-300 hover:bg-gray-50 dark:border-neutral-700 dark:hover:border-neutral-600 dark:hover:bg-neutral-700"
     >
       <Image
         alt={`${cfg.label} icon`}
@@ -171,8 +171,17 @@ function ProviderPicker({
   onCancel: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-4 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
-      <SectionHeading>Select auth provider</SectionHeading>
+    <div className="flex flex-col gap-3 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="flex items-center justify-between">
+        <Label>Choose a provider</Label>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="cursor-pointer text-sm text-gray-500 hover:text-gray-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+        >
+          Cancel
+        </button>
+      </div>
       <div className="grid grid-cols-3 gap-2">
         {PROVIDER_ORDER.map((providerType) => (
           <ProviderPickerButton
@@ -182,9 +191,6 @@ function ProviderPicker({
           />
         ))}
       </div>
-      <Button variant="secondary" onClick={onCancel}>
-        Cancel
-      </Button>
     </div>
   );
 }
@@ -359,7 +365,6 @@ function AuthLayout({
 }) {
   return (
     <div className={`mx-auto flex w-full ${maxWidth} flex-col gap-6 p-4`}>
-      <DesignVariantSwitcher />
       <div className="flex h-5 items-center">
         {showBack ? <AuthBackLink /> : null}
       </div>
@@ -394,6 +399,25 @@ function AuthDetailLayout({
   );
 }
 
+// A top-level section header: title plus a one-line description. This is where
+// the page's primary hierarchy lives, so every section gets the same treatment.
+function SectionHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <SectionHeading>{title}</SectionHeading>
+      <p className="text-sm text-gray-500 dark:text-neutral-400">
+        {description}
+      </p>
+    </div>
+  );
+}
+
 function ClientRow({
   client,
   providerName,
@@ -408,9 +432,9 @@ function ClientRow({
   return (
     <Link
       href={href}
-      className="flex items-center justify-between rounded-sm border bg-gray-50 p-4 hover:bg-gray-100 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+      className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-neutral-800"
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {cfg ? (
           <Image
             alt={`${label} logo`}
@@ -420,12 +444,15 @@ function ClientRow({
             className={cfg.darkInvert ? 'dark:invert' : ''}
           />
         ) : null}
-        <div className="font-medium">
-          {client.client_name}{' '}
-          <span className="text-gray-400 dark:text-neutral-500">({label})</span>
-        </div>
+        <span className="font-medium">{client.client_name}</span>
+        <span className="text-sm text-gray-400 dark:text-neutral-500">
+          {label}
+        </span>
       </div>
-      <ChevronRightIcon height={20} className="text-gray-400" />
+      <ChevronRightIcon
+        height={18}
+        className="text-gray-300 dark:text-neutral-600"
+      />
     </Link>
   );
 }
@@ -449,6 +476,19 @@ function ClientDetail({
   const cfg = providerConfig(providerName);
   const label = cfg?.label ?? providerName;
 
+  // Some providers (e.g. Google) tag the platform on the client. Surface it as
+  // a pill next to the name so the provider body doesn't have to repeat it.
+  const appType =
+    typeof client.meta?.appType === 'string' ? client.meta.appType : null;
+  const appTypeLabel =
+    appType === 'ios'
+      ? 'iOS'
+      : appType === 'button-for-web'
+        ? 'Web button'
+        : appType
+          ? appType[0].toUpperCase() + appType.slice(1)
+          : null;
+
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
@@ -470,8 +510,8 @@ function ClientDetail({
 
   return (
     <AuthDetailLayout title={`${label} client`}>
-      <div className="flex items-center justify-between rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-3 rounded-sm border px-4 py-3 dark:border-neutral-700">
+        <div className="flex items-center gap-3">
           {cfg ? (
             <Image
               alt={`${label} logo`}
@@ -482,7 +522,11 @@ function ClientDetail({
             />
           ) : null}
           <span className="font-medium">{client.client_name}</span>
-          <span className="text-gray-400 dark:text-neutral-500">({label})</span>
+          {appTypeLabel ? (
+            <span className="rounded-full border px-2 py-0.5 text-xs text-gray-500 dark:border-neutral-700 dark:text-neutral-400">
+              {appTypeLabel}
+            </span>
+          ) : null}
           {client.use_shared_credentials ? (
             <span className="rounded-full border px-2 py-0.5 text-xs text-gray-500 dark:border-neutral-700 dark:text-neutral-400">
               Instant dev keys
@@ -594,33 +638,30 @@ function AddClientView({
 
 function EmptyState({ onAddClient }: { onAddClient: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-sm border border-dashed bg-white p-8 text-center dark:border-neutral-700 dark:bg-neutral-800">
-      <div className="flex gap-2">
-        {PROVIDER_ORDER.slice(0, 4).map((providerType) => (
+    <div className="flex flex-col items-center gap-4 rounded-sm border border-dashed px-6 py-10 text-center dark:border-neutral-700">
+      <div className="flex items-center gap-3">
+        {PROVIDER_ORDER.slice(0, 5).map((providerType) => (
           <Image
             key={providerType}
             alt={`${PROVIDER_CONFIG[providerType].label} icon`}
             src={PROVIDER_CONFIG[providerType].icon}
-            width={20}
-            height={20}
+            width={24}
+            height={24}
             className={
-              PROVIDER_CONFIG[providerType].darkInvert
-                ? 'opacity-40 dark:opacity-80 dark:invert'
-                : 'opacity-40 dark:opacity-80'
+              PROVIDER_CONFIG[providerType].darkInvert ? 'dark:invert' : ''
             }
           />
         ))}
       </div>
       <div className="flex flex-col gap-1">
-        <div className="dark:text-white">
-          <strong>No social logins yet</strong>
+        <div className="font-semibold dark:text-white">
+          No social logins yet
         </div>
-        <Content>
-          Add an auth client to enable social login or third-party
-          authentication for your app.
-        </Content>
+        <p className="mx-auto max-w-xs text-sm text-gray-500 dark:text-neutral-400">
+          Add a provider to let users sign in with their existing accounts.
+        </p>
       </div>
-      <Button onClick={onAddClient} variant="secondary">
+      <Button onClick={onAddClient} variant="primary">
         <PlusIcon height={14} /> Add client
       </Button>
     </div>
@@ -710,13 +751,9 @@ export function AppAuth({
       ...data,
       oauth_clients: [client, ...(data.oauth_clients || [])],
     });
-    // Replace so the transient add form isn't left behind in history.
-    if (router.query.dvAfter === 'list') {
-      successToast('Client created');
-      router.replace(authLandingHref(router));
-    } else {
-      router.replace(clientHref(router, client.id));
-    }
+    // Replace so the transient add form isn't left behind in history. Land on
+    // the new client's detail view, where the setup instructions live.
+    router.replace(clientHref(router, client.id));
   };
 
   const handleDeleteClient = (client: OAuthClient) => {
@@ -813,12 +850,17 @@ export function AppAuth({
   }
 
   if (authView === 'magic-email') {
+    // The editor seeds its form from the template once, at mount. Key it on the
+    // saved sender fields so it re-seeds if that data arrives or changes after
+    // mount, instead of sticking on a stale (e.g. empty) first snapshot.
+    const t = app.magic_code_email_template;
+    const emailFormKey = `${t?.id ?? 'new'}:${t?.email ?? ''}:${t?.name ?? ''}`;
     return (
       <AuthDetailLayout
         title="Magic code email"
         description="The email your users receive with their sign-in code."
       >
-        <Email app={app} />
+        <Email key={emailFormKey} app={app} />
       </AuthDetailLayout>
     );
   }
@@ -826,16 +868,21 @@ export function AppAuth({
   return (
     <AuthLayout showBack={false}>
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <SectionHeading>Social login</SectionHeading>
-            <span className="text-sm text-gray-400 dark:text-neutral-500">
-              {hasClients ? `${clients.length} configured` : 'Not set up'}
-            </span>
-          </div>
+        <div className="flex flex-col gap-3">
+          <SectionHeader
+            title="Social login"
+            description="Let users sign in with Google, Apple, GitHub, and other providers."
+          />
 
-          {hasClients ? (
-            <div className="flex flex-col gap-2">
+          {showPicker ? (
+            <ProviderPicker
+              onSelect={(providerType) =>
+                router.replace(addClientHref(router, providerType))
+              }
+              onCancel={() => router.replace(authLandingHref(router))}
+            />
+          ) : hasClients ? (
+            <div className="divide-y overflow-hidden rounded-sm border dark:divide-neutral-700 dark:border-neutral-700">
               {clients.map((client) => {
                 const provider = providersById[client.provider_id];
                 const providerName = provider?.provider_name || 'unknown';
@@ -848,26 +895,17 @@ export function AppAuth({
                   />
                 );
               })}
+              <button
+                type="button"
+                onClick={() => router.push(pickerHref(router))}
+                className="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                <PlusIcon height={14} /> Add client
+              </button>
             </div>
-          ) : !showPicker ? (
+          ) : (
             <EmptyState onAddClient={() => router.push(pickerHref(router))} />
-          ) : null}
-
-          {showPicker ? (
-            <ProviderPicker
-              onSelect={(providerType) =>
-                router.replace(addClientHref(router, providerType))
-              }
-              onCancel={() => router.replace(authLandingHref(router))}
-            />
-          ) : hasClients ? (
-            <Button
-              variant="secondary"
-              onClick={() => router.push(pickerHref(router))}
-            >
-              <PlusIcon height={14} /> Add client
-            </Button>
-          ) : null}
+          )}
         </div>
 
         <AuthorizedOrigins
@@ -881,26 +919,27 @@ export function AppAuth({
       <Divider />
 
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <SectionHeading>Magic code emails</SectionHeading>
-            <span className="text-sm text-gray-400 dark:text-neutral-500">
-              {app.magic_code_email_template ? 'Custom email' : 'Default email'}
-            </span>
-          </div>
+        <div className="flex flex-col gap-3">
+          <SectionHeader
+            title="Magic codes"
+            description="Customize the email with the one-time sign-in code users receive."
+          />
 
           <Link
             href={authViewHref(router, 'magic-email')}
-            className="flex items-center justify-between rounded-sm border bg-gray-50 p-4 hover:bg-gray-100 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+            className="flex items-center justify-between gap-3 rounded-sm border px-4 py-3 hover:bg-gray-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
           >
-            <div className="flex flex-col">
-              <div className="font-medium">Magic code email</div>
-              <div className="font-mono text-sm text-gray-500 dark:text-neutral-400">
+            <div className="flex flex-col gap-0.5">
+              <span className="font-medium">Magic code email</span>
+              <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
                 {app.magic_code_email_template?.subject ??
                   '{code} is your code for {app_title}'}
-              </div>
+              </span>
             </div>
-            <ChevronRightIcon height={20} className="text-gray-400" />
+            <ChevronRightIcon
+              height={18}
+              className="text-gray-300 dark:text-neutral-600"
+            />
           </Link>
         </div>
 

@@ -25,17 +25,14 @@ import {
   Copytext,
   Fence,
   Label,
-  Select,
   SubsectionHeading,
   TextInput,
   ToggleGroup,
 } from '@/components/ui';
 import Image from 'next/image';
-import clsx from 'clsx';
 import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
 import googleIconSvg from '../../../public/img/google_g.svg';
 import { useDarkMode } from '../DarkModeToggle';
-import { useTypeVariant } from './designVariants';
 
 type AppType = 'web' | 'ios' | 'android' | 'button-for-web';
 function isNative(appType: AppType) {
@@ -60,13 +57,11 @@ const TYPE_OPTIONS: { id: AppType; label: string; desc: string }[] = [
   },
   {
     id: 'button-for-web',
-    label: 'Google button (web)',
+    label: 'Google button',
     desc: 'The @react-oauth/google button (idToken flow).',
   },
 ];
 
-// Three candidate renderings of the "Type" selector, toggled by the design
-// variant switcher.
 function TypeControl({
   appType,
   onChange,
@@ -74,78 +69,21 @@ function TypeControl({
   appType: AppType;
   onChange: (item: { id: string; label: string }) => void;
 }) {
-  const variant = useTypeVariant();
   const selected =
     TYPE_OPTIONS.find((o) => o.id === appType) ?? TYPE_OPTIONS[0];
-  const desc = (
-    <p className="text-xs text-gray-500 dark:text-neutral-400">
-      {selected.desc}
-    </p>
-  );
-
-  if (variant === 'segments') {
-    return (
-      <div className="flex flex-col gap-1">
-        <Label>Type</Label>
-        <div className="inline-flex self-start gap-1 rounded-sm border border-gray-300 bg-gray-200 p-0.5 text-sm dark:border-neutral-700 dark:bg-neutral-800">
-          {TYPE_OPTIONS.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => onChange({ id: o.id, label: o.label })}
-              className={clsx(
-                'rounded-sm px-3 py-1',
-                appType === o.id
-                  ? 'bg-white dark:bg-neutral-600/50'
-                  : 'text-gray-600 dark:text-neutral-300',
-              )}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-        {desc}
-      </div>
-    );
-  }
-
-  if (variant === 'tiles') {
-    return (
-      <div className="flex flex-col gap-1">
-        <Label>Type</Label>
-        <div className="grid grid-cols-2 gap-2">
-          {TYPE_OPTIONS.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => onChange({ id: o.id, label: o.label })}
-              className={clsx(
-                'rounded-sm border px-3 py-2 text-left text-sm',
-                appType === o.id
-                  ? 'border-gray-900 dark:border-white'
-                  : 'border-gray-200 text-gray-600 dark:border-neutral-700 dark:text-neutral-300',
-              )}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-        {desc}
-      </div>
-    );
-  }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1.5">
       <Label>Type</Label>
-      <Select
-        options={TYPE_OPTIONS.map((o) => ({ label: o.label, value: o.id }))}
-        value={appType}
-        onChange={(o) => {
-          if (o) onChange({ id: o.value, label: o.label as string });
-        }}
+      <ToggleGroup
+        items={TYPE_OPTIONS.map((o) => ({ id: o.id, label: o.label }))}
+        selectedId={appType}
+        onChange={onChange}
+        ariaLabel="Client type"
       />
-      {desc}
+      <p className="text-sm text-gray-500 dark:text-neutral-400">
+        {selected.desc}
+      </p>
     </div>
   );
 }
@@ -245,7 +183,7 @@ export function AddGoogleClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 rounded-sm border p-4 dark:border dark:border-neutral-700"
+      className="flex flex-col gap-4"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -253,22 +191,17 @@ export function AddGoogleClientForm({
       data-bwignore="true"
       data-form-type="other"
     >
-      <SubsectionHeading>Add a new Google client</SubsectionHeading>
-      <div className="mb-2">
-        <TypeControl appType={appType} onChange={onChangeAppType} />
-      </div>
+      <TypeControl appType={appType} onChange={onChangeAppType} />
       {appType === 'web' && (
-        <div className="mb-2">
-          <ToggleGroup
-            items={[
-              { id: 'dev', label: 'Use dev credentials' },
-              { id: 'custom', label: 'Use my own' },
-            ]}
-            selectedId={credentialMode}
-            onChange={({ id }) => setCredentialMode(id as 'dev' | 'custom')}
-            ariaLabel="Credential mode"
-          />
-        </div>
+        <ToggleGroup
+          items={[
+            { id: 'dev', label: 'Use dev credentials' },
+            { id: 'custom', label: 'Use my own' },
+          ]}
+          selectedId={credentialMode}
+          onChange={({ id }) => setCredentialMode(id as 'dev' | 'custom')}
+          ariaLabel="Credential mode"
+        />
       )}
       <TextInput
         tabIndex={1}
@@ -377,12 +310,14 @@ export function AddGoogleClientForm({
           )}
         </>
       )}
-      <Button loading={isLoading} type="submit">
-        Add client
-      </Button>
-      <Button variant="secondary" onClick={onCancel}>
-        Cancel
-      </Button>
+      <div className="flex gap-2 pt-1">
+        <Button loading={isLoading} type="submit">
+          Add client
+        </Button>
+        <Button variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }
@@ -430,15 +365,6 @@ export function AddGoogleProviderForm({
       </Button>
     </div>
   );
-}
-
-function appTypeLabel(appType: AppType): string {
-  switch (appType) {
-    case 'ios':
-      return 'iOS';
-    default:
-      return appType.charAt(0).toUpperCase() + appType.slice(1);
-  }
 }
 
 function CredentialsEditor({
@@ -688,8 +614,6 @@ function Login() {
 }`.trim();
   return (
     <div className="flex flex-col gap-4">
-      <div className="">App Type: {appTypeLabel(appType)}</div>
-
       <Copyable label="Client name" value={client.client_name} />
       <CredentialsEditor
         app={app}

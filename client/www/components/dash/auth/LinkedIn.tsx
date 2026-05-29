@@ -167,12 +167,11 @@ export function AddLinkedInClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 rounded-sm border p-4 dark:border dark:border-neutral-700"
+      className="flex flex-col gap-4"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
     >
-      <SubsectionHeading>Add a new LinkedIn client</SubsectionHeading>
       <TextInput
         tabIndex={1}
         value={clientName}
@@ -245,12 +244,14 @@ export function AddLinkedInClientForm({
         </p>
       </div>
 
-      <Button loading={isLoading} type="submit">
-        Add client
-      </Button>
-      <Button variant="secondary" onClick={onCancel}>
-        Cancel
-      </Button>
+      <div className="flex gap-2 pt-1">
+        <Button loading={isLoading} type="submit">
+          Add client
+        </Button>
+        <Button variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }

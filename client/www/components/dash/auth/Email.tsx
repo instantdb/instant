@@ -291,7 +291,7 @@ export function Email({ app }: { app: InstantApp }) {
                 )}
 
                 {verification ? (
-                  <div className="overflow-hidden rounded-md border dark:border-neutral-700">
+                  <div className="overflow-hidden rounded-sm border dark:border-neutral-700">
                     <button
                       type="button"
                       onClick={() => setShowDnsRecords((v) => !v)}
@@ -346,7 +346,7 @@ export function Email({ app }: { app: InstantApp }) {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-2 rounded-md bg-gray-50 px-3 py-2 text-sm dark:bg-neutral-800">
+              <div className="flex items-center justify-between gap-2 rounded-sm bg-gray-50 px-3 py-2 text-sm dark:bg-neutral-800">
                 <span className="text-gray-600 dark:text-neutral-300">
                   {DEFAULT_SENDER_EMAIL}{' '}
                   <span className="text-gray-400 dark:text-neutral-500">
@@ -370,7 +370,7 @@ export function Email({ app }: { app: InstantApp }) {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <Label>Body</Label>
-              <div className="inline-flex items-center rounded-md bg-gray-100 p-0.5 text-sm dark:bg-neutral-800">
+              <div className="inline-flex items-center rounded-sm bg-gray-100 p-0.5 text-sm dark:bg-neutral-800">
                 {(['edit', 'preview'] as const).map((t) => (
                   <button
                     key={t}
@@ -410,7 +410,7 @@ export function Email({ app }: { app: InstantApp }) {
               </div>
               <div
                 className={clsx(
-                  'h-[28rem] overflow-hidden rounded-md border dark:border-neutral-700',
+                  'h-[28rem] overflow-hidden rounded-sm border dark:border-neutral-700',
                   {
                     'border-red-500': form.getError('bodyHtml'),
                   },
@@ -431,7 +431,7 @@ export function Email({ app }: { app: InstantApp }) {
             </>
           ) : (
             <>
-              <div className="overflow-hidden rounded-md border dark:border-neutral-700">
+              <div className="overflow-hidden rounded-sm border dark:border-neutral-700">
                 <div className="flex flex-col gap-0.5 border-b bg-gray-50 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800">
                   <div className="flex gap-2">
                     <span className="w-14 shrink-0 text-gray-400 dark:text-neutral-500">

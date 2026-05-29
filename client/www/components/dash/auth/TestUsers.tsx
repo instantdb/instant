@@ -109,48 +109,41 @@ export function TestUsers({ app }: { app: InstantApp }) {
               {testUsers.map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between p-3"
+                  className="flex items-center justify-between gap-3 px-4 py-3"
                 >
-                  <div className="flex flex-col gap-0.5">
-                    <div className="text-sm">
-                      <span className="text-gray-500 dark:text-neutral-400">
-                        Email:{' '}
-                      </span>
-                      <span className="font-medium">{user.email}</span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="text-gray-500 dark:text-neutral-400">
-                        Code:{' '}
-                      </span>
-                      <span className="font-mono font-semibold">
-                        {user.code}
-                      </span>
-                    </div>
+                  <span className="truncate font-medium">{user.email}</span>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="text-xs text-gray-400 dark:text-neutral-500">
+                      signs in with
+                    </span>
+                    <span className="rounded-sm bg-gray-100 px-2 py-0.5 font-mono text-sm dark:bg-neutral-800">
+                      {user.code}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Remove user"
+                      title="Remove user"
+                      className="cursor-pointer text-gray-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400"
+                      onClick={() => {
+                        setDeletingUser(user);
+                        deleteDialog.onOpen();
+                      }}
+                    >
+                      <TrashIcon height="1rem" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    aria-label="Remove user"
-                    title="Remove user"
-                    className="cursor-pointer text-gray-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400"
-                    onClick={() => {
-                      setDeletingUser(user);
-                      deleteDialog.onOpen();
-                    }}
-                  >
-                    <TrashIcon height="1rem" />
-                  </button>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="px-4 py-6 text-center text-sm text-gray-500 dark:text-neutral-400">
+            <div className="px-4 py-8 text-center text-sm text-gray-500 dark:text-neutral-400">
               No test users yet.
             </div>
           )}
 
           <div className="border-t p-3 dark:border-neutral-700">
             {showAddForm ? (
-              <div className="flex items-start gap-2">
+              <div className="flex items-end gap-2">
                 <div className="flex-1">
                   <TextInput
                     label="Email"
@@ -173,26 +166,24 @@ export function TestUsers({ app }: { app: InstantApp }) {
                     }
                   />
                 </div>
-                <div className="flex gap-2 pt-6">
-                  <Button
-                    onClick={handleAdd}
-                    loading={isAdding}
-                    disabled={!email || !/^\d{6}$/.test(code)}
-                    variant="primary"
-                  >
-                    Add
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setShowAddForm(false);
-                      setEmail('');
-                      setCode('424242');
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
+                <Button
+                  onClick={handleAdd}
+                  loading={isAdding}
+                  disabled={!email || !/^\d{6}$/.test(code)}
+                  variant="primary"
+                >
+                  Add
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setEmail('');
+                    setCode('424242');
+                  }}
+                >
+                  Cancel
+                </Button>
               </div>
             ) : (
               <Button variant="secondary" onClick={() => setShowAddForm(true)}>

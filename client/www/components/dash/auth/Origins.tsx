@@ -331,20 +331,25 @@ export function AuthorizedOriginRow({
   const Icon = originIcon(origin);
 
   return (
-    <div className="flex items-center justify-between rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800/50">
-      <div className="flex items-center gap-4">
-        <Icon height="1.5em" />
-        <div className="flex flex-col leading-4">
-          <span className="text-xs font-light text-gray-500 dark:text-neutral-400">
+    <div className="flex items-center justify-between gap-3 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <Icon
+          height="1.25em"
+          className="text-gray-400 dark:text-neutral-500"
+        />
+        <div className="flex flex-col leading-tight">
+          <span className="text-xs text-gray-400 dark:text-neutral-500">
             {originSource(origin)}
           </span>
-          <span className="font-medium text-gray-700 dark:text-neutral-200">
-            {originDisplay(origin)}
-          </span>
+          <span className="font-medium">{originDisplay(origin)}</span>
         </div>
       </div>
-      <button className="cursor-pointer" onClick={deleteDialog.onOpen}>
-        <TrashIcon height={'1rem'} />
+      <button
+        aria-label="Delete origin"
+        className="cursor-pointer text-gray-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400"
+        onClick={deleteDialog.onOpen}
+      >
+        <TrashIcon height="1rem" />
       </button>
       <Dialog title="Delete Origin" {...deleteDialog}>
         <div className="flex flex-col gap-2">
@@ -381,14 +386,14 @@ export function AuthorizedOrigins({
     <div className="flex flex-col gap-2">
       <div>
         <BlockHeading>Redirect origins</BlockHeading>
-        <Content className="text-sm text-gray-500 dark:text-neutral-500">
+        <Content className="text-sm text-gray-500 dark:text-neutral-400">
           Add your site's url so that you can initiate the OAuth flow from your
           site.
         </Content>
       </div>
 
       {origins.length > 0 ? (
-        <div className="flex flex-col gap-2">
+        <div className="divide-y overflow-hidden rounded-sm border dark:divide-neutral-700 dark:border-neutral-700">
           {origins.map((o) => (
             <AuthorizedOriginRow
               key={o.id}
