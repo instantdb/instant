@@ -137,9 +137,13 @@ function makeLikeMatcher(caseSensitive: boolean, pattern: string) {
   const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regexPattern = escapedPattern.replace(/%/g, '.*').replace(/_/g, '.');
 
+  // The `s` (dotall) flag makes `%` (-> .*) and `_` (-> .) match newline
+  // characters, matching Postgres LIKE/ILIKE on the server. Without it, the
+  // optimistic client result diverges from the server for values containing
+  // newlines (the wildcards would stop at a `\n`).
   const regex = new RegExp(
     `^${regexPattern}$`,
-    caseSensitive ? undefined : 'i',
+    caseSensitive ? 's' : 'is',
   );
 
   return function likeMatcher(value) {
