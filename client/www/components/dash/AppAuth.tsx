@@ -767,7 +767,7 @@ export function AppAuth({
         (c) => c.id !== client.id,
       ),
     });
-    router.push(authLandingHref(router));
+    router.replace(authLandingHref(router));
   };
 
   const handleUpdateClient = (client: OAuthClient) => {

@@ -54,7 +54,7 @@
             [instant.postmark :as postmark]
             [instant.runtime.magic-code-auth :refer [check-send-rate-limit!
                                                      check-verify-rate-limit!
-                                                     send-test!]]
+                                                     send-test-email!]]
             [instant.session-counter :as session-counter]
             [instant.storage.coordinator :as storage-coordinator]
             [instant.stripe :as stripe]
@@ -1393,7 +1393,7 @@
     (app-email-template-model/delete-by-id! {:id id :app-id (:id app)})
     (response/ok {})))
 
-(defn email-test-send-post [req]
+(defn send-test-email-post [req]
   (let [{app :app user :user} (req->app-and-user! :admin req)
         subject (ex/get-param! req [:body :subject] string-util/coerce-non-blank-str)
         body (ex/get-param! req [:body :body] string-util/coerce-non-blank-str)
@@ -1401,12 +1401,12 @@
         sender-name (string-util/coerce-non-blank-str
                      (get-in req [:body :sender-name])) ;; optional
         to (:email user)]
-    (send-test! {:app app
-                 :to to
-                 :subject subject
-                 :body body
-                 :sender-email sender-email
-                 :sender-name sender-name})
+    (send-test-email! {:app app
+                       :to to
+                       :subject subject
+                       :body body
+                       :sender-email sender-email
+                       :sender-name sender-name})
     (response/ok {:sent-to to})))
 
 (defn app-rename-post [req]
@@ -2244,7 +2244,7 @@
 
   (GET "/dash/apps/:app_id/sender-verification" [] sender-verification-get)
   (POST "/dash/apps/:app_id/email_templates" [] email-template-post)
-  (POST "/dash/apps/:app_id/send-test-email" [] email-test-send-post)
+  (POST "/dash/apps/:app_id/send-test-email" [] send-test-email-post)
   (DELETE "/dash/apps/:app_id/email_templates/:id" [] email-template-delete)
 
   (POST "/dash/invites/accept" [] team-member-invite-accept-post)
