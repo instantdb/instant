@@ -333,10 +333,7 @@ export function AuthorizedOriginRow({
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3">
       <div className="flex items-center gap-3">
-        <Icon
-          height="1.25em"
-          className="text-gray-400 dark:text-neutral-500"
-        />
+        <Icon height="1.25em" className="text-gray-400 dark:text-neutral-500" />
         <div className="flex flex-col leading-tight">
           <span className="text-xs text-gray-400 dark:text-neutral-500">
             {originSource(origin)}

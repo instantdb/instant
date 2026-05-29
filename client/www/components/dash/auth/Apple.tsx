@@ -1,12 +1,7 @@
 import { FormEventHandler, useContext, useState } from 'react';
 import { errorToast } from '@/lib/toast';
 import { TokenContext } from '@/lib/contexts';
-import {
-  Button,
-  Copyable,
-  TextInput,
-  TextArea,
-} from '@/components/ui';
+import { Button, Copyable, TextInput, TextArea } from '@/components/ui';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
 import logo from '../../../public/img/apple_logo_black.svg';
