@@ -926,14 +926,14 @@ async def main() -> None:
     async with AsyncInstant(api_uri=api_uri) as db:
         # Uncomment a call to run it.
         #
-        # auth:
+        # # auth:
         # await test_send_magic_code(db)
         # await test_check_magic_code_round_trip(db)
         # await test_create_and_verify_token_round_trip(db)
         # await test_get_and_delete_user(db)
         # await test_sign_out_does_not_error(db)
         #
-        # query + transact:
+        # # query + transact:
         # await test_transact_query_delete_cycle(db)
         # await test_link_and_nested_query_via_chained_ops(db)
         # await test_unlink_removes_the_link(db)
@@ -941,37 +941,37 @@ async def main() -> None:
         # await test_tx_rule_params_op_accepted_by_server(db)
         # await test_merge_preserves_other_keys(db)
         #
-        # impersonation + debug:
+        # # impersonation + debug:
         # await test_as_guest_query_doesnt_crash(db)
         # await test_debug_query_returns_check_results(db)
         # await test_debug_transact_returns_check_results(db)
         #
-        # storage:
+        # # storage:
         # await test_storage_upload_bytes(db)
         # await test_storage_upload_path(db)
         # await test_storage_upload_open_file_object(db)
         #
-        # rooms:
+        # # rooms:
         # await test_rooms_get_presence_returns_dict(db)
         #
-        # error path:
+        # # error path:
         # await test_invalid_app_id_raises_parsed_error(db)
         #
-        # subscriptions:
+        # # subscriptions:
         # await test_subscribe_query_emits_initial_data(db)
         # await test_subscribe_query_emits_live_update(db)
         # await test_subscribe_query_emits_error_on_bad_creds(db)
         # await test_subscribe_query_cleanup_on_context_exit(db)
         # await test_subscribe_query_reconnects_after_sse_dropped(db)
         #
-        # streams:
+        # # streams:
         # await test_stream_write_then_read_by_client_id(db)
         # await test_stream_read_by_stream_id(db)
         # await test_stream_read_with_byte_offset_resumes_mid_stream(db)
         # await test_streams_queryable_via_query_api(db)
         # await test_writer_reconnects_after_sse_dropped(db)
         #
-        # webhooks:
+        # # webhooks:
         # await test_webhooks_create_list_delete(db)
         # await test_webhooks_update_changes_fields(db)
         # await test_webhooks_enable_disable_round_trip(db)
@@ -980,7 +980,7 @@ async def main() -> None:
         # await test_webhooks_validate_with_fixture(db)
         # await test_webhooks_validate_rejects_tampered(db)
         #
-        # codegen:
+        # # codegen:
         # await test_genpy_writes_typed_files_to_out_dir(db)
         # await test_genpy_entity_models_validate_with_nested_links(db)
         # await test_genpy_emits_tx_typing_block(db)

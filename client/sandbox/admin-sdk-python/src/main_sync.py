@@ -260,28 +260,28 @@ def main() -> None:
     with Instant(api_uri=api_uri) as db:
         # Uncomment a call to run it.
         #
-        # auth:
+        # # auth:
         # test_check_magic_code_round_trip(db)
         # test_create_and_verify_token_round_trip(db)
         #
-        # query + transact:
+        # # query + transact:
         # test_transact_query_delete_cycle(db)
         # test_link_and_nested_query_via_chained_ops(db)
         #
-        # impersonation + debug:
+        # # impersonation + debug:
         # test_debug_query_returns_check_results(db)
         #
-        # storage:
+        # # storage:
         # test_storage_upload_bytes(db)
         # test_storage_upload_path(db)
         #
-        # rooms:
+        # # rooms:
         # test_rooms_get_presence_returns_dict(db)
         #
-        # error path:
+        # # error path:
         # test_invalid_app_id_raises_parsed_error(db)
         #
-        # webhooks:
+        # # webhooks:
         # test_webhooks_create_list_delete(db)
         # test_webhooks_process_payload_dispatches_to_sync_handler(db)
         # test_webhooks_validate_with_fixture(db)
