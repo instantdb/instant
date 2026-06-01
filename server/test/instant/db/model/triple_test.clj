@@ -1,7 +1,10 @@
 (ns instant.db.model.triple-test
   (:require [instant.db.model.triple :as triple]
+            [instant.db.model.attr :as attr-model]
+            [instant.fixtures :refer [with-empty-app]]
             [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
+            [instant.util.test :as test-util]
             [instant.util.json :refer [->json]]
             [honey.sql :as hsql]
             [clojure.test :refer [is deftest testing]])
@@ -81,3 +84,31 @@
   (doseq [s ["2025-01-0"
              "\"2025-01-0\""]]
     (is (thrown-with-msg? Exception #"Unable to parse" (triple/parse-date-value s)))))
+
+(defn- result-pairs [rows]
+  (set (map (juxt :entity_id :attr_id) rows)))
+
+(deftest insert-multi-skips-same-value-updates-except-id-triples
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{id-attr :items/id
+             title-attr :items/title}
+            (test-util/make-attrs app-id [[:items/id :unique? :index?]
+                                          [:items/title]])
+            attrs (attr-model/get-by-app-id app-id)
+            conn (aurora/conn-pool :write)
+            eid (random-uuid)]
+        (triple/insert-multi! conn attrs app-id [[eid id-attr eid]
+                                                 [eid title-attr "first"]])
+
+        (is (= #{[eid id-attr]}
+               (result-pairs
+                (triple/insert-multi! conn attrs app-id [[eid id-attr eid]
+                                                         [eid title-attr "first"]]))))
+        (is (= #{[eid title-attr]}
+               (result-pairs
+                (triple/insert-multi! conn attrs app-id [[eid title-attr "second"]]))))
+        (is (= #{[eid title-attr]}
+               (result-pairs
+                (triple/insert-multi! conn attrs app-id [[eid title-attr "second"]]
+                                      {:overwrite-t true}))))))))

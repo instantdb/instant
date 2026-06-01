@@ -954,9 +954,10 @@
   [case-insensitive? pattern]
   (let [parts (like-parts pattern)]
     (Pattern/compile (string/join "" parts)
-                     (if case-insensitive?
-                       Pattern/CASE_INSENSITIVE
-                       0))))
+                     (bit-or Pattern/DOTALL ; match newlines, same as postgres
+                             (if case-insensitive?
+                               Pattern/CASE_INSENSITIVE
+                               0)))))
 
 (defn make-like-match? [case-insensitive? text pattern]
   (let [regex-pattern (like-pattern case-insensitive? pattern)]

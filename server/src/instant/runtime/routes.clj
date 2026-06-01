@@ -372,19 +372,18 @@
                :else (ucoll/select-keys-no-ns user :app_user_oauth_links))
          :created false)))))
 
-
 (def oauth-callback-testing-landing
   "Helps users test that their redirect is working properly."
   {:status 200
    :headers {"content-type" "text/html"}
    :body (str (h/html (h/raw "<!DOCTYPE html>")
-                [:html {:lang "en"}
-                 [:head
-                  [:meta {:charset "UTF-8"}]
-                  [:meta {:name "viewport"
-                          :content "width=device-width, initial-scale=1.0"}]
-                  [:title "Test redirect"]
-                  [:style "
+                      [:html {:lang "en"}
+                       [:head
+                        [:meta {:charset "UTF-8"}]
+                        [:meta {:name "viewport"
+                                :content "width=device-width, initial-scale=1.0"}]
+                        [:title "Test redirect"]
+                        [:style "
                            body {
                              margin: 0;
                              height: 100vh;

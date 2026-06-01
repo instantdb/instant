@@ -33,13 +33,17 @@
                      t.app_id,
                      t.email_type,
                      t.body,
+                     t.sender_id,
                      t.name,
                      t.subject,
                      s.email,
-                     s.postmark_id
+                     s.postmark_id,
+                     v.verified
                     FROM app_email_templates t
                     LEFT JOIN app_email_senders s
                      ON t.sender_id = s.id
+                    LEFT JOIN app_email_verifications v
+                     ON t.sender_id = v.sender_id AND t.app_id = v.app_id
                     WHERE t.app_id = ?::uuid
                     AND t.email_type = ?"
                     app-id email-type])))

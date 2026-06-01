@@ -4,18 +4,22 @@
    [clojure.test :refer [deftest is testing use-fixtures]]
    [instant.config :as config]
    [instant.fixtures :refer [random-email with-empty-app with-org with-pro-app with-startup-org with-free-org with-user]]
+   [instant.flags :as flags]
    [instant.dash.ephemeral-app :as ephemeral-app]
    [instant.dash.get-a-db :as get-a-db]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
+   [instant.model.app-email-verification :as app-email-verification]
    [instant.model.app-oauth-client :as app-oauth-client-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.shared-oauth-client :refer [shared-credentials-user-limit]]
    [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
    [instant.model.instant-stripe-customer :as stripe-customer-model]
    [instant.model.org-members :as org-members]
+   [instant.postmark :as postmark]
    [instant.model.app-members :as app-members]
+   [instant.runtime.magic-code-auth :as magic-code-auth]
    [instant.stripe :as stripe]
    [instant.util.crypt :as crypt-util]
    [instant.util.http :refer [req->app-and-user!]]
@@ -1060,6 +1064,50 @@
               (is (= 400 (:status resp)))
               (is (= "admin-token-mismatch"
                      (-> resp :body <-json (get "hint") (get "reason")))))))))))
+
+(deftest sender-verification-magic-code-flow
+  (with-user
+    (fn [user]
+      (with-empty-app
+        (:id user)
+        (fn [app]
+          (with-redefs [flags/use-app-email-verification? (constantly true)]
+            (let [sender-email (random-email)
+                  letter (atom nil)]
+              (with-redefs [postmark/add-sender! (constantly {:body {:ID 123456}})
+                            postmark/send-structured! #(reset! letter %)
+                            magic-code-auth/check-custom-sender-rate-limit! (constantly nil)]
+                (let [template-resp (http/post (str config/server-origin "/dash/apps/" (:id app) "/email_templates")
+                                               {:headers {:Authorization (str "Bearer " (:refresh-token user))
+                                                          :Content-Type "application/json"}
+                                                :as :json
+                                                :body (->json {:email-type "magic-code"
+                                                               :sender-email sender-email
+                                                               :sender-name "Custom Sender"
+                                                               :subject "{code} is your code"
+                                                               :body "Your code is {code}"})})]
+                  (is (= 200 (:status template-resp))))
+
+                (let [send-resp (http/post (str config/server-origin "/dash/apps/" (:id app) "/sender-verification/send-magic-code")
+                                           {:headers {:Authorization (str "Bearer " (:refresh-token user))
+                                                      :Content-Type "application/json"}
+                                            :as :json})
+                      code (re-find #"\d+" (:subject @letter))]
+                  (is (= 200 (:status send-resp)))
+                  (is (= true (get-in send-resp [:body :sent])))
+                  (is (= sender-email (get-in @letter [:to 0 :email])))
+
+                  (let [verify-resp (http/post (str config/server-origin "/dash/apps/" (:id app) "/sender-verification/verify-magic-code")
+                                               {:headers {:Authorization (str "Bearer " (:refresh-token user))
+                                                          :Content-Type "application/json"}
+                                                :as :json
+                                                :body (->json {:code code})})
+                        verification (app-email-verification/get-by-app-id-and-email-type-with-template
+                                      {:app-id (:id app)
+                                       :email-type "magic-code"})]
+                    (is (= 200 (:status verify-resp)))
+                    (is (= true (get-in verify-resp [:body :verified])))
+                    (is (= true (:verification_verified verification)))))))))))))
 
 ;; ---
 ;; get-a-db

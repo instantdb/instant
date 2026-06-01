@@ -64,6 +64,14 @@
                                          :source "bucket4j"}})
       (ex/throw-record-email-rate-limited!))))
 
+(defn check-custom-sender-rate-limit! [params]
+  (when (flags/toggled? :use-bucket4j true)
+    (when-not (rate-limit/try-custom-sender (eph/get-rate-limit) params)
+      (tracer/record-info! {:name "custom-sender/consume-rate-limited"
+                            :attributes {:email (:email params)
+                                         :source "bucket4j"}})
+      (ex/throw-record-email-rate-limited!))))
+
 (def postmark-unconfirmed-sender-body-error-code 400)
 
 (def postmark-not-found-sender-body-error-code 401)
@@ -153,10 +161,18 @@
                          :code code
                          :app_title (:title app)
                          :expiration (friendly-expiration app)}
-
         {default-sender-email :email} (config/app-email-sender)
 
-        sender-email    (or (:email template) default-sender-email)
+        custom-email (:email template)
+        custom-email-verified? (and (seq custom-email)
+                                    (:verified template))
+
+        sender-email (if (flags/use-app-email-verification?)
+                       (if custom-email-verified?
+                         custom-email
+                         default-sender-email)
+                       (or custom-email default-sender-email))
+
         email-params    (if template
                           {:sender-email sender-email
                            :sender-name (or (:name template) (:title app))
