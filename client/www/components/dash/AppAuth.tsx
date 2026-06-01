@@ -8,7 +8,6 @@ import {
   Button,
   Content,
   Dialog,
-  Divider,
   Label,
   SectionHeading,
   SubsectionHeading,
@@ -436,7 +435,7 @@ function ClientRow({
   return (
     <Link
       href={href}
-      className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-neutral-800"
+      className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-neutral-700"
     >
       <div className="flex items-center gap-3">
         {cfg ? (
@@ -642,7 +641,7 @@ function AddClientView({
 
 function EmptyState({ onAddClient }: { onAddClient: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-sm border border-dashed px-6 py-10 text-center dark:border-neutral-700">
+    <div className="flex flex-col items-center gap-4 rounded-sm border border-dashed bg-white px-6 py-10 text-center dark:border-neutral-700 dark:bg-neutral-800">
       <div className="flex items-center gap-3">
         {PROVIDER_ORDER.slice(0, 5).map((providerType) => (
           <Image
@@ -886,7 +885,7 @@ export function AppAuth({
               onCancel={() => router.replace(authLandingHref(router))}
             />
           ) : hasClients ? (
-            <div className="divide-y overflow-hidden rounded-sm border dark:divide-neutral-700 dark:border-neutral-700">
+            <div className="divide-y overflow-hidden rounded-sm border bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
               {clients.map((client) => {
                 const provider = providersById[client.provider_id];
                 const providerName = provider?.provider_name || 'unknown';
@@ -902,7 +901,7 @@ export function AppAuth({
               <button
                 type="button"
                 onClick={() => router.push(pickerHref(router))}
-                className="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                className="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:text-neutral-300 dark:hover:bg-neutral-700"
               >
                 <PlusIcon height={14} /> Add client
               </button>
@@ -920,9 +919,7 @@ export function AppAuth({
         />
       </div>
 
-      <Divider />
-
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 pt-6">
         <div className="flex flex-col gap-3">
           <SectionHeader
             title="Magic codes"
@@ -931,7 +928,7 @@ export function AppAuth({
 
           <Link
             href={authViewHref(router, 'magic-email')}
-            className="flex items-center justify-between gap-3 rounded-sm border px-4 py-3 hover:bg-gray-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+            className="flex items-center justify-between gap-3 rounded-sm border bg-white px-4 py-3 hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700"
           >
             <div className="flex min-w-0 flex-col gap-0.5 text-sm">
               <div className="flex gap-2">

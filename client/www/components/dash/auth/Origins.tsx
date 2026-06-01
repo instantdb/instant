@@ -15,7 +15,6 @@ import {
   Button,
   Content,
   Dialog,
-  Label,
   SubsectionHeading,
   Select,
   TextInput,
@@ -180,28 +179,25 @@ export function AuthorizedOriginsForm({
   };
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-2">
-      <div className="flex items-end gap-2">
-        <div className="flex flex-col gap-0.75">
-          <Label>Type</Label>
-          <Select
-            options={serviceOptions}
-            onChange={(v) => {
-              if (v) {
-                setService(v.value as AuthorizedOriginService);
-              }
-            }}
-            value={service}
-          />
-        </div>
+      <div className="flex items-center gap-2">
+        <Select
+          className="w-44"
+          options={serviceOptions}
+          onChange={(v) => {
+            if (v) {
+              setService(v.value as AuthorizedOriginService);
+            }
+          }}
+          value={service}
+        />
         <div className="grow">
           <TextInput
             value={url}
             onChange={setUrl}
-            label={originInputLabel(service)}
             placeholder={originInputPlaceholder(service)}
           />
         </div>
-        <Button loading={isLoading} variant="primary" type="submit">
+        <Button loading={isLoading} variant="secondary" type="submit">
           Add
         </Button>
       </div>
@@ -382,11 +378,13 @@ export function AuthorizedOrigins({
   return (
     <div className="flex flex-col gap-2">
       <div>
-        <BlockHeading>Redirect origins</BlockHeading>
-        <Content className="text-sm text-gray-500 dark:text-neutral-400">
+        <BlockHeading className="text-sm font-semibold text-gray-700 dark:text-neutral-300">
+          Redirect origins
+        </BlockHeading>
+        <p className="text-sm text-gray-500 dark:text-neutral-400">
           Add your site's url so that you can initiate the OAuth flow from your
           site.
-        </Content>
+        </p>
       </div>
 
       {origins.length > 0 ? (
@@ -399,10 +397,13 @@ export function AuthorizedOrigins({
               onRemoveOrigin={onRemoveOrigin}
             />
           ))}
+          <div className="px-4 py-3">
+            <AuthorizedOriginsForm app={app} onAddOrigin={onAddOrigin} />
+          </div>
         </div>
-      ) : null}
-
-      <AuthorizedOriginsForm app={app} onAddOrigin={onAddOrigin} />
+      ) : (
+        <AuthorizedOriginsForm app={app} onAddOrigin={onAddOrigin} />
+      )}
     </div>
   );
 }
