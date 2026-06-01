@@ -86,10 +86,6 @@ const DefaultEmailTemplateSchema = Schema.Struct({
   'sender-email': Schema.String.pipe(Schema.optional),
 });
 
-class MissingDefaultTemplateError extends TaggedError<MissingDefaultTemplateError>(
-  'MissingDefaultTemplateError',
-)('MissingDefaultTemplateError', {}) {}
-
 export const getDefaultEmailTemplate = Effect.gen(function* () {
   const http = yield* InstantHttp;
   const template = yield* http
@@ -101,10 +97,6 @@ export const getDefaultEmailTemplate = Effect.gen(function* () {
     );
 
   const appName = yield* getAppName;
-
-  if (!template) {
-    return yield* MissingDefaultTemplateError.make({});
-  }
 
   return {
     subject: template.subject,

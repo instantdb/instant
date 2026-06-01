@@ -13,7 +13,7 @@ export const verifyCmd = Effect.fn(function* (
 
   if (
     verificationInfo.instant['verified?'] &&
-    verificationInfo.verification.Confirmed
+    verificationInfo.verification?.Confirmed
   ) {
     yield* Effect.log('Verification successful for both Postmark and Instant!');
   }
