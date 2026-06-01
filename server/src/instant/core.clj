@@ -401,7 +401,7 @@
       (with-log-init :stripe
         (stripe/init))
       (with-log-init :session
-        (session/start))
+        (session/start rs/store))
       (with-log-init :webhook-processor
         (webhook-processor/start-global))
       (with-log-init :invalidator

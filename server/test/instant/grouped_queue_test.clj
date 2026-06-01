@@ -38,8 +38,9 @@
             output (atom [])
             q (grouped-queue/start
                (merge
-                {:group-key-fn :group
-                 :process-fn (fn [_group item]
+                {:group-key-fn (fn [_ item]
+                                 (:group item))
+                 :process-fn (fn [_ctx _group item]
                                (swap! output conj item))}
                 opts))]
         (try
@@ -63,11 +64,12 @@
             output (atom [])
             q (grouped-queue/start
                (merge
-                {:group-key-fn :group
-                 :combine-fn   (fn [item1 item2]
+                {:group-key-fn (fn [_ctx item]
+                                 (:group item))
+                 :combine-fn   (fn [_ item1 item2]
                                  (when (= (:id item2) (inc (:id item1)))
                                    item2))
-                 :process-fn   (fn [_group item]
+                 :process-fn   (fn [_ _group item]
                                  (swap! output conj item))}
                 opts))]
         (try
@@ -90,9 +92,10 @@
                 {:group group :id id})
         latch (CountDownLatch. 500)
         q     (grouped-queue/start
-               {:group-key-fn :group
+               {:group-key-fn (fn [_ctx item]
+                                (:group item))
                 :max-workers  10
-                :process-fn   (fn [_group _item]
+                :process-fn   (fn [_ctx _group _item]
                                 (Thread/sleep 10)
                                 (.countDown latch))})
         t0    (System/currentTimeMillis)]
@@ -116,9 +119,10 @@
         processed (atom [])
         stopped (promise)
         q (grouped-queue/start
-           {:group-key-fn :group
+           {:group-key-fn (fn [_ctx item]
+                            (:group item))
             :max-workers  1
-            :process-fn   (fn [_group items]
+            :process-fn   (fn [_ctx _group items]
                           (if (< 3 (count (swap! processed conj items)))
                             (do
                               (deliver stopped true)
@@ -126,7 +130,7 @@
                             (do
                               (grouped-queue/put! @q-promise {:group 2})
                               (grouped-queue/put! @q-promise {:group 1}))))
-            :error-fn     (fn [_])})]
+            :error-fn     (fn [_ctx _])})]
     (deliver q-promise q)
 
     (grouped-queue/put! q {:group 1})

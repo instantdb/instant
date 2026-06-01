@@ -58,9 +58,10 @@
           (let [store (rs/init)
                 _ (eph/init-store store)
                 receive-q
-                (grouped-queue/start {:group-key-fn session/group-key
+                (grouped-queue/start {:ctx {:store store}
+                                      :group-key-fn session/group-key
                                       :combine-fn   session/combine
-                                      :process-fn   #(session/straight-jacket-process-receive-q-event store %1 %2)
+                                      :process-fn   #(session/straight-jacket-process-receive-q-event store %2 %3)
                                       :max-workers  1})
 
                 realized-eph?   (atom false)
@@ -1414,17 +1415,17 @@
       (with-session
         (fn [_store {:keys [socket]}]
           (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
-          (let [eid         (resolvers/->uuid r "eid-robocop")
-                attr-id     (resolvers/->uuid r :movie/title)
-                a-entered   (promise)
-                release     (promise)
-                call-count  (atom 0)
+          (let [eid (resolvers/->uuid r "eid-robocop")
+                attr-id (resolvers/->uuid r :movie/title)
+                a-entered (promise)
+                release (promise)
+                call-count (atom 0)
                 orig-handle session/handle-transact!
-                event       (fn [client-id v]
-                              {:op :transact
-                               :session-id (:id socket)
-                               :client-event-id client-id
-                               :tx-steps [["add-triple" eid attr-id v {:mode :upsert}]]})]
+                event (fn [client-id v]
+                        {:op :transact
+                         :session-id (:id socket)
+                         :client-event-id client-id
+                         :tx-steps [["add-triple" eid attr-id v {:mode :upsert}]]})]
             (with-redefs [session/handle-transact!
                           (fn [store sess-id evt]
                             (swap! call-count inc)
@@ -1464,15 +1465,14 @@
               (testing "value-c (event2 of the combined batch) is what's persisted"
                 (let [resp   (blocking-send-msg :add-query-ok
                                                 socket {:op :add-query
-                                                        :q (:kw-q query-1987)})
-                      titles (->> resp :result
-                                  (mapcat iq/data-seq)
-                                  (map :datalog-result)
-                                  (mapcat :join-rows)
-                                  (#(apply concat %))
-                                  (map (comp last drop-last))
-                                  set)]
-                  (is (contains? titles "value-c")))))))))))
+                                                        :return-type :tree
+                                                        :q {:movie {:$ {:where {:id (str eid)}}}}})
+                      title (-> resp
+                                :result
+                                (get "movie")
+                                first
+                                (get "title"))]
+                  (is (= title "value-c")))))))))))
 
 (deftest transact-combiner-fans-out-errors
   (with-movies-app
@@ -1480,17 +1480,17 @@
       (with-session
         (fn [_store {:keys [socket]}]
           (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
-          (let [eid         (resolvers/->uuid r "eid-robocop")
-                attr-id     (resolvers/->uuid r :movie/title)
-                a-entered   (promise)
-                release     (promise)
-                call-count  (atom 0)
+          (let [eid (resolvers/->uuid r "eid-robocop")
+                attr-id (resolvers/->uuid r :movie/title)
+                a-entered (promise)
+                release (promise)
+                call-count (atom 0)
                 orig-handle session/handle-transact!
-                event       (fn [client-id v]
-                              {:op :transact
-                               :session-id (:id socket)
-                               :client-event-id client-id
-                               :tx-steps [["add-triple" eid attr-id v {:mode :upsert}]]})]
+                event (fn [client-id v]
+                        {:op :transact
+                         :session-id (:id socket)
+                         :client-event-id client-id
+                         :tx-steps [["add-triple" eid attr-id v {:mode :upsert}]]})]
             (with-redefs [permissioned-tx/transact!
                           (fn [_ctx _coerced]
                             (ex/throw-validation-err! :tx-steps [] [{:message "test boom"}]))
@@ -1538,3 +1538,75 @@
 
               (testing "handle-transact! ran twice (a alone, b+c combined)"
                 (is (= 2 @call-count))))))))))
+
+(deftest transact-combiner-skips-has-many-refs
+  (with-zeneca-app
+    (fn [{app-id :id} r]
+      (with-session
+        (fn [_store {:keys [socket]}]
+          (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
+          (let [shelf (resolvers/->uuid r "eid-the-way-of-the-gentleman")
+                books-attr (resolvers/->uuid r :bookshelves/books)
+                ;; Three books that are NOT already on the Worldview shelf
+                book-a (resolvers/->uuid r "eid-hackers-&-painters")
+                book-b (resolvers/->uuid r "eid-antifragile")
+                book-c (resolvers/->uuid r "eid-fooled-by-randomness")
+                a-entered (promise)
+                release (promise)
+                call-count (atom 0)
+                orig-handle session/handle-transact!
+                event (fn [client-id target]
+                        {:op :transact
+                         :session-id (:id socket)
+                         :client-event-id client-id
+                         :tx-steps [["add-triple" shelf books-attr target]]})]
+            (with-redefs [session/handle-transact!
+                          (fn [store sess-id evt]
+                            (swap! call-count inc)
+                            (when (= "client-a" (:client-event-id evt))
+                              (deliver a-entered :go)
+                              (deref release 2000 :timeout))
+                            (orig-handle store sess-id evt))]
+              (receive-queue/put! (event "client-a" book-a))
+              (is (not= :timeout (deref a-entered 2000 :timeout))
+                  "worker should enter handle-transact! for client-a")
+              ;; b and c land in the queue together; they would combine if
+              ;; matching-steps? said yes. For has-many refs, each add carries
+              ;; a different target value, so combine-transact must reject.
+              (receive-queue/put! (event "client-b" book-b))
+              (receive-queue/put! (event "client-c" book-c))
+              (deliver release :go)
+
+              (let [msgs (vec (repeatedly 3
+                                          #(let [m (ua/<!!-timeout (:ws-conn socket))]
+                                             (when (= :timeout m)
+                                               (throw (ex-info "timeout waiting for ack" {})))
+                                             m)))
+                    by-id (into {} (map (juxt :client-event-id identity) msgs))]
+                (testing "every add got its own transact-ok"
+                  (is (every? #(= :transact-ok (:op %)) msgs))
+                  (is (= #{"client-a" "client-b" "client-c"} (set (keys by-id)))))
+
+                (testing "tx-ids are all distinct — no two adds collapsed"
+                  (is (= 3 (count (set (map :tx-id (vals by-id))))))))
+
+              (testing "handle-transact! ran three times (no combining)"
+                (is (= 3 @call-count)))
+
+              (testing "all three refs were persisted"
+                (let [resp     (blocking-send-msg
+                                :add-query-ok
+                                socket {:op :add-query
+                                        :return-type :tree
+                                        :q {:bookshelves {:$ {:where {:id (str shelf)}}
+                                                          :books {}}}})
+                      book-ids (->> resp
+                                    :result
+                                    (#(get % "bookshelves"))
+                                    first
+                                    (#(get % "books"))
+                                    (map #(get % "id"))
+                                    set)]
+                  (is (contains? book-ids (str book-a)))
+                  (is (contains? book-ids (str book-b)))
+                  (is (contains? book-ids (str book-c))))))))))))

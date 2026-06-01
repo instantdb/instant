@@ -40,6 +40,7 @@
    [instant.util.semver :as semver]
    [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.instaql :as instaql-util]
+   [instant.util.memoize :refer [vmemoize]]
    [instant.util.request :refer [*request-info*]]
    [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
@@ -330,8 +331,8 @@
                                                                 :admin? admin?
                                                                 :token token
                                                                 :topics topics})
-                                        ;; Make sure this happens before we update the store
-                                        ;; or else we could get a refresh before we send init
+                                       ;; Make sure this happens before we update the store
+                                       ;; or else we could get a refresh before we send init
                                        (rs/send-event! store app-id sess-id
                                                        {:op :sync-init-finish
                                                         :subscription-id sub-id
@@ -341,8 +342,8 @@
                                                                   (:db/id query-ent)
                                                                   tx-id
                                                                   topics)
-                                        ;; This will cause us to catch up on any transactions that were
-                                        ;; handled while we were syncing
+                                       ;; This will cause us to catch up on any transactions that were
+                                       ;; handled while we were syncing
                                        (receive-queue/put! receive-q
                                                            {:op :refresh-sync-table
                                                             :app-id (:app-id ctx)
@@ -1377,49 +1378,67 @@
 ;; ------
 ;; System
 
-(defn matching-steps? [steps1 steps2]
-  (and (= (count steps1)
-          (count steps2))
-       (loop [steps1 steps1
-              steps2 steps2]
-         (if (empty? steps1)
-           true
-           (let [step1 (first steps1)
-                 step2 (first steps2)]
-             (when (and
-                    ;; same op
-                    ;; limit to just add-triple for now
-                    (= (first step1)
-                       (first step2)
-                       "add-triple")
+(defn matching-steps? [store
+                       session-id
+                       steps1
+                       steps2]
+  (let [get-attrs (vmemoize (fn []
+                              (when-let [app-id (-> (rs/session store session-id)
+                                                    :session/auth
+                                                    :app
+                                                    :id)]
+                                (attr-model/get-by-app-id app-id))))]
+    (and (= (count steps1)
+            (count steps2))
+         (loop [steps1 steps1
+                steps2 steps2]
+           (if (empty? steps1)
+             true
+             (let [step1 (first steps1)
+                   step2 (first steps2)]
+               (when (and
+                      ;; same op
+                      ;; limit to just add-triple for now
+                      (= (first step1)
+                         (first step2)
+                         "add-triple")
 
-                    ;; includes mode
-                    (= (count step1)
-                       (count step2)
-                       5)
+                      ;; includes mode
+                      (= (count step1)
+                         (count step2)
+                         5)
 
-                    ;; same eid
-                    (= (second step1)
-                       (second step2))
+                      ;; same eid
+                      (= (second step1)
+                         (second step2))
 
-                    ;; same aid
-                    (= (nth step1 2)
-                       (nth step2 2))
+                      ;; same aid
+                      (= (nth step1 2)
+                         (nth step2 2))
 
-                    ;; same mode
-                    (= (nth step1 4)
-                       (nth step2 4)))
-               (recur (next steps1)
-                      (next steps2))))))))
+                      ;; same mode
+                      (= (nth step1 4)
+                         (nth step2 4))
 
-(defn combine-transact [event1 event2]
+                      (when-let [attrs (get-attrs)]
+                        (= :one (:cardinality (attr-model/seek-by-id (uuid-util/coerce (nth step1 2))
+                                                                     attrs)))))
+                 (recur (next steps1)
+                        (next steps2)))))))))
+
+(defn combine-transact [{:keys [store]} event1 event2]
+  (tool/def-locals)
   (when (and (flags/combine-transacts?)
-             (matching-steps? (:tx-steps event1) (:tx-steps event2)))
+             (try (matching-steps? store (:session-id event1) (:tx-steps event1) (:tx-steps event2))
+                  (catch Throwable t
+                    (tracer/record-exception-span! t {:name "session/combine-transact-error"
+                                                      :attributes {:session-id (:session-id event1)}})
+                    nil)))
     (-> event2
         (assoc :redundant-events (conj (or (:redundant-events event1) [])
                                        (dissoc event1 :redundant-events))))))
 
-(defn group-key [{:keys [op session-id room-id q subscription-id stream-id] :as event}]
+(defn group-key [_ctx {:keys [op session-id room-id q subscription-id stream-id] :as event}]
   (case op
     :transact
     [:transact session-id]
@@ -1469,29 +1488,29 @@
     [session-id (rand-int 100000)]))
 
 (defmulti combine
-  (fn [event1 event2]
+  (fn [_ctx event1 event2]
     [(:op event1) (:op event2)]))
 
-(defmethod combine :default [_ _]
+(defmethod combine :default [_ _ _]
   nil)
 
-(defmethod combine [:refresh :refresh] [event1 event2]
+(defmethod combine [:refresh :refresh] [_ctx event1 event2]
   (e2e-tracer/invalidator-tracking-step!
    {:name          "skipped-refresh"
     :tx-id         (:tx-id event1)
     :tx-created-at (:tx-created-at event1)})
   event2)
 
-(defmethod combine [:refresh-presence :refresh-presence] [event1 event2]
+(defmethod combine [:refresh-presence :refresh-presence] [_ctx event1 event2]
   (update event2 :edits #(into (vec (:edits event1)) %)))
 
-(defmethod combine [:set-presence :set-presence] [_event1 event2]
+(defmethod combine [:set-presence :set-presence] [_ctx _event1 event2]
   event2)
 
-(defmethod combine [:refresh-sync-table :refresh-sync-table] [_ event2]
+(defmethod combine [:refresh-sync-table :refresh-sync-table] [_ctx _ event2]
   event2)
 
-(defmethod combine [:server-broadcast :server-broadcast] [event1 event2]
+(defmethod combine [:server-broadcast :server-broadcast] [_ctx event1 event2]
   (if-let [payloads (::payloads event1)]
     (assoc event1 ::payloads (conj payloads {:topic (:topic event2)
                                              :data (:data event2)}))
@@ -1502,24 +1521,25 @@
                             :data (:data event2)}])
         (dissoc :topic :data))))
 
-(defmethod combine [:append-stream :append-stream] [event1 event2]
+(defmethod combine [:append-stream :append-stream] [_ctx event1 event2]
   (-> event2
       (update :chunks (fn [new-chunks]
                         (into (:chunks event1) new-chunks)))
       (assoc :offset (:offset event1))))
 
-(defmethod combine [:transact :transact] [event1 event2]
-  (combine-transact event1 event2))
+(defmethod combine [:transact :transact] [ctx event1 event2]
+  (combine-transact ctx event1 event2))
 
-(defn process [group-key event]
+(defn process [_ctx group-key event]
   (straight-jacket-process-receive-q-event rs/store group-key event))
 
-(defn start []
+(defn start [store]
   (let [vfutures-executor (ua/make-limited-concurrency-executor vfutures-num-receive-workers)
         threads-executor (Executors/newFixedThreadPool threads-num-receive-workers)]
     (receive-queue/start
      (grouped-queue/start
-      {:group-key-fn #'group-key
+      {:ctx {:store store}
+       :group-key-fn #'group-key
        :combine-fn   #'combine
        :process-fn   #'process
        :get-executor (fn []
@@ -1533,10 +1553,10 @@
 
 (defn restart []
   (stop)
-  (start))
+  (start rs/store))
 
 (defn before-ns-unload []
   (stop))
 
 (defn after-ns-reload []
-  (start))
+  (start rs/store))

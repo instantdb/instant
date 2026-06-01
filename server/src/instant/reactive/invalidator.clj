@@ -153,7 +153,7 @@
   "Combines a list of wal-records into a single wal-record.
    We combine all of the change lists and advance the tx-id to the
    latest tx-id in the list."
-  [r1 r2]
+  [_ctx r1 r2]
   (when (< (::grouped-queue/combined r1 1) (flags/flag :invalidator-batch-limit 500))
     ;; Complain loudly if we accidently mix wal-records from multiple apps
     (when (not= (:app-id r1) (:app-id r2))
@@ -272,9 +272,11 @@
   (tracer/record-info! {:name "invalidation-worker/start"})
   (let [queue
         (grouped-queue/start
-         {:group-key-fn :app-id
+         {:ctx nil
+          :group-key-fn (fn [_ctx item]
+                          (:app-id item))
           :combine-fn   combine-wal-records
-          :process-fn   (fn [_key wal-record]
+          :process-fn   (fn [_ctx _key wal-record]
                           (process-wal-record process-id
                                               store
                                               (::grouped-queue/combined wal-record 1)
@@ -837,9 +839,11 @@
         acquire-slot-interrupt-chan (a/chan (a/sliding-buffer 1))
 
         queue (grouped-queue/start
-               {:group-key-fn :app-id
+               {:ctx nil
+                :group-key-fn (fn [_ctx item]
+                                (:app-id item))
                 :combine-fn combine-wal-records
-                :process-fn (fn [_key wal-record]
+                :process-fn (fn [_ctx _key wal-record]
                               ;; Just testing what kind of latency we'll see with this setup
                               (tracer/with-span! {:name "singleton-topic-latency"
                                                   :attributes {:tx-id (:tx-id wal-record)
