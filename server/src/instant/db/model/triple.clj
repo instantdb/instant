@@ -401,6 +401,28 @@
 
 (def value-lookup-error-prefix "missing-lookup-value")
 
+(defn- id-attr-conflict? []
+  [:exists {:select :1
+            :from [[:attrs :id-attr]]
+            :where [:and
+                    [:= :id-attr.id :triples.attr-id]
+                    [:or
+                     [:= :id-attr.app-id :triples.app-id]
+                     [:= :id-attr.app-id system-catalog-app-id]]
+                    [:= :id-attr.label "id"]]}])
+
+(defn- ea-conflict-update-set [overwrite-t]
+  (let [fields (merge {:value :excluded.value
+                       :value-md5 :excluded.value-md5}
+                      (when overwrite-t
+                        {:created_at [:current_unix_timestamp_ms]}))]
+    (if overwrite-t
+      fields
+      {:fields fields
+       :where [:or
+               [:is-distinct-from :triples.value-md5 :excluded.value-md5]
+               (id-attr-conflict?)]})))
+
 (defn insert-multi!
   "Given a set of raw triples, we enhance each triple with metadata based on
    the triple's underlying attr and then insert these enhanced triples into
@@ -596,10 +618,7 @@
                          :from :ea-triples-distinct
                          :order-by [:app-id :entity-id :attr-id :value-md5]}]
           :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
-          :do-update-set (merge {:value :excluded.value
-                                 :value-md5 :excluded.value-md5}
-                                (when overwrite-t
-                                  {:created_at [:current_unix_timestamp_ms]}))
+          :do-update-set (ea-conflict-update-set overwrite-t)
           :returning :*}
 
          remaining-inserts
