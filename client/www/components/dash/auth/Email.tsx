@@ -21,6 +21,7 @@ import { errorToast, successToast } from '@/lib/toast';
 import clsx from 'clsx';
 import { useFetchedDash } from '../MainDashLayout';
 import { useDarkMode } from '../DarkModeToggle';
+import { useCustomSenderVerification } from '@/lib/hooks/useCustomSenderVerification';
 
 export type EmailValues = {
   from: string;
@@ -41,58 +42,13 @@ export type SenderVerificationInfo = {
   ReturnPathDomainCNAMEValue: string;
 };
 
-export function getSenderVerification({
-  token,
-  appId,
-}: {
-  token: string;
-  appId: string;
-}): Promise<{
-  senderEmail: string;
-  verification: SenderVerificationInfo | null;
-}> {
-  return jsonFetch(`${config.apiURI}/dash/apps/${appId}/sender-verification`, {
-    method: 'GET',
-    headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
-    },
-  });
-}
-
 export function Email({ app }: { app: InstantApp }) {
   const dashResponse = useFetchedDash();
   const template = app.magic_code_email_template;
   const token = useContext(TokenContext);
   const [isEditing, setIsEditing] = useState(Boolean(template) ?? false);
-  const [{ isVerifying, verification }, setVerification] = useState<{
-    isVerifying: boolean;
-    verification: SenderVerificationInfo | null;
-  }>({
-    isVerifying: false,
-    verification: null,
-  });
-
+  const verification = useCustomSenderVerification(app);
   const { darkMode } = useDarkMode();
-
-  const checkVerification = async () => {
-    setVerification((prev) => ({ ...prev, isVerifying: true }));
-    try {
-      const response = await getSenderVerification({
-        token,
-        appId: app.id,
-      });
-      setVerification((prev) => ({
-        ...prev,
-        verification: response.verification,
-      }));
-    } catch (error) {
-      console.error('Failed to check verification:', error);
-      errorToast('Failed to check verification status');
-    } finally {
-      setVerification((prev) => ({ ...prev, isVerifying: false }));
-    }
-  };
 
   async function onSubmit(values: EmailValues) {
     return dashResponse
@@ -112,10 +68,30 @@ export function Email({ app }: { app: InstantApp }) {
         ),
       )
       .then(
-        () => {
+        async () => {
           successToast('Email template saved!');
           if (values.senderEmail) {
-            checkVerification();
+            const res = await verification.refetch();
+            if (!res?.instant?.['verified?']) {
+              verification
+                .sendCode()
+                .then(() => {
+                  successToast(
+                    `Verification code sent to ${values.senderEmail}`,
+                  );
+                })
+                .catch((error) => {
+                  if (error?.body?.message) {
+                    errorToast(
+                      `Failed to send verification code: ${error.body.message}`,
+                    );
+                  } else {
+                    errorToast(
+                      `Failed to send verification code: ${error instanceof Error ? error.message : String(error)}`,
+                    );
+                  }
+                });
+            }
           }
         },
         (errorRes) =>
@@ -146,7 +122,7 @@ export function Email({ app }: { app: InstantApp }) {
 
   useEffect(() => {
     if (template?.email) {
-      checkVerification();
+      verification.refetch();
     }
   }, []);
 
@@ -242,16 +218,16 @@ export function Email({ app }: { app: InstantApp }) {
           />
         </div>
 
-        {verification && (
+        {verification.raw.data?.verification && (
           <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
             <div className="flex items-center justify-between">
               <SubsectionHeading>
-                Verify {verification.EmailAddress}
+                Verify {verification.raw.data?.verification?.EmailAddress}
               </SubsectionHeading>
               <Button
                 type="button"
-                onClick={checkVerification}
-                loading={isVerifying}
+                onClick={() => verification.refetch()}
+                loading={verification.loading}
                 variant="primary"
                 size="mini"
               >
@@ -261,13 +237,15 @@ export function Email({ app }: { app: InstantApp }) {
 
             <div className="rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-700/60">
               <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-medium">Email Confirmation</div>
+                <div className="text-sm font-medium">
+                  Postmark Email Confirmation
+                </div>
                 <div className="flex items-center gap-2">
                   <StatusCircle
-                    isLoading={isVerifying}
-                    isSuccess={verification.Confirmed}
+                    isLoading={verification.loading}
+                    isSuccess={verification.postmarkVerified}
                   />
-                  {verification.Confirmed ? (
+                  {verification.postmarkVerified ? (
                     <div className="text-xs font-medium text-green-600">
                       Confirmed
                     </div>
@@ -279,10 +257,32 @@ export function Email({ app }: { app: InstantApp }) {
                 </div>
               </div>
               <Content className="text-sm text-gray-600">
-                {verification.Confirmed
-                  ? `Great! You've confirmed ${verification.EmailAddress} and can now send emails from this address.`
-                  : `We've sent a confirmation email to ${verification.EmailAddress}. Please click the link in that email to confirm ownership.`}
+                {!verification.postmarkVerified &&
+                  `Postmark has sent a confirmation email to ${verification.raw.data.verification?.EmailAddress}. Please click the link in that email to confirm ownership.`}
               </Content>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-sm font-medium">
+                  Instant Email Confirmation
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusCircle
+                    isLoading={verification.loading}
+                    isSuccess={verification.instantVerified}
+                  />
+                  {verification.instantVerified ? (
+                    <div className="text-xs font-medium text-green-600">
+                      Confirmed
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-500 dark:text-neutral-400">
+                      Pending confirmation
+                    </div>
+                  )}
+                </div>
+              </div>
+              {!verification.instantVerified ? (
+                <SenderOtpVerification verification={verification} />
+              ) : null}
             </div>
 
             {/* Domain Verification */}
@@ -317,7 +317,8 @@ export function Email({ app }: { app: InstantApp }) {
                         Hostname:
                       </div>
                       <code className="block rounded-sm bg-gray-100 px-2 py-1 text-xs break-all select-all dark:bg-neutral-700">
-                        {verification.DKIMPendingHost || verification.DKIMHost}
+                        {verification.raw.data?.verification?.DKIMPendingHost ||
+                          verification.raw.data?.verification?.DKIMHost}
                       </code>
                     </div>
                     <div>
@@ -325,8 +326,9 @@ export function Email({ app }: { app: InstantApp }) {
                         Value:
                       </div>
                       <code className="block rounded-sm bg-gray-100 px-2 py-1 text-xs break-all select-all dark:bg-neutral-700">
-                        {verification.DKIMPendingTextValue ||
-                          verification.DKIMTextValue}
+                        {verification.raw.data?.verification
+                          ?.DKIMPendingTextValue ||
+                          verification.raw.data?.verification?.DKIMTextValue}
                       </code>
                     </div>
                   </div>
@@ -344,7 +346,7 @@ export function Email({ app }: { app: InstantApp }) {
                         Hostname:
                       </div>
                       <code className="block rounded-sm bg-gray-100 px-2 py-1 text-xs break-all select-all dark:bg-neutral-700">
-                        {verification.ReturnPathDomain}
+                        {verification.raw.data?.verification?.ReturnPathDomain}
                       </code>
                     </div>
                     <div>
@@ -352,7 +354,10 @@ export function Email({ app }: { app: InstantApp }) {
                         Value:
                       </div>
                       <code className="block rounded-sm bg-gray-100 px-2 py-1 text-xs break-all select-all dark:bg-neutral-700">
-                        {verification.ReturnPathDomainCNAMEValue}
+                        {
+                          verification.raw.data?.verification
+                            ?.ReturnPathDomainCNAMEValue
+                        }
                       </code>
                     </div>
                   </div>
@@ -391,6 +396,77 @@ export function Email({ app }: { app: InstantApp }) {
       </form>
 
       <MagicCodeExpirationSection app={app} />
+    </div>
+  );
+}
+
+function SenderOtpVerification({
+  verification,
+}: {
+  verification: ReturnType<typeof useCustomSenderVerification>;
+}) {
+  const [code, setCode] = useState('');
+  const normalizedCode = code.replace(/\D/g, '');
+  const address = verification.raw.data?.verification?.EmailAddress;
+
+  return (
+    <div className="mt-2 rounded-sm border bg-gray-50 p-3 dark:border-neutral-600 dark:bg-neutral-800/60">
+      <Content className="mb-3 text-sm text-gray-600 dark:text-neutral-300">
+        {verification.justSentCode
+          ? `We emailed ${address} a six-digit code to verify the email address with this app. Check your inbox for the code.`
+          : `Send a one-time passcode to ${address}, then enter the 6 digits here to confirm you can receive email at this address.`}
+      </Content>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <Button
+          type="button"
+          variant="secondary"
+          loading={verification.verifyCode.isMutating}
+          onClick={() =>
+            verification
+              .sendCode()
+              .then(() => {
+                successToast(`Verification code sent to ${address}`);
+              })
+              .catch((error) => {
+                if (error?.body?.message) {
+                  errorToast(
+                    `Failed to send verification code: ${error.body.message}`,
+                  );
+                } else {
+                  errorToast(
+                    `Failed to send verification code: ${error instanceof Error ? error.message : String(error)}`,
+                  );
+                }
+              })
+          }
+        >
+          {verification.justSentCode ? 'Resend code' : 'Send code'}
+        </Button>
+        <div className="flex flex-1 gap-2">
+          <TextInput
+            label="Verification code"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                verification.verifyCode.trigger(normalizedCode);
+              }
+            }}
+            value={code}
+            onChange={(e) => setCode(e)}
+            placeholder="123456"
+            inputMode="numeric"
+          />
+          <Button
+            type="button"
+            variant="primary"
+            loading={verification.verifyCode.isMutating}
+            disabled={normalizedCode.length !== 6}
+            onClick={() => verification.verifyCode.trigger(normalizedCode)}
+            className="self-end"
+          >
+            Verify
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

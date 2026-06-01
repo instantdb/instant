@@ -1,21 +1,24 @@
 (ns instant.runtime.routes-test
   (:require
    [clojure.test :refer [deftest is testing]]
+   [instant.config :as config]
    [instant.core :as core]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triples]
    [instant.db.permissioned-transaction :as permissioned-tx]
-   [instant.fixtures :refer [with-empty-app]]
+   [instant.fixtures :refer [random-email with-empty-app]]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
+   [instant.model.app-email-template :as app-email-template-model]
+   [instant.model.app-email-verification :as app-email-verification]
    [instant.model.app-oauth-service-provider :as provider-model]
-   [instant.model.shared-oauth-client :refer [shared-credentials-user-limit]]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
+   [instant.model.shared-oauth-client :refer [shared-credentials-user-limit]]
    [instant.postmark :as postmark]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.store :as rs]
@@ -164,6 +167,59 @@
     (is (re-find #"MyApp" body))
     (is (re-find #"123456" body))
     (is (re-find #"10 minutes" body))))
+
+(defn- create-email-sender! [{:keys [user-id email]}]
+  (sql/execute-one!
+   (aurora/conn-pool :write)
+   ["INSERT INTO app_email_senders
+     (id, user_id, postmark_id, email, name)
+     VALUES (?::uuid, ?::uuid, ?, ?, ?)
+     RETURNING *"
+    (random-uuid) user-id 123456 email "Custom Sender"]))
+
+(defn- create-magic-code-template! [{:keys [app-id sender-id]}]
+  (app-email-template-model/put! {:app-id app-id
+                                  :sender-id sender-id
+                                  :email-type "magic-code"
+                                  :name "Custom Sender"
+                                  :subject "{code} is your code"
+                                  :body "Your code is {code}"}))
+
+(deftest magic-code-custom-sender-requires-instant-verification-when-flagged
+  (with-empty-app
+    (fn [app]
+      (let [custom-email (random-email)
+            sender (create-email-sender! {:user-id (:creator_id app)
+                                          :email custom-email})]
+        (create-magic-code-template! {:app-id (:id app)
+                                      :sender-id (:id sender)})
+
+        (testing "unverified custom sender falls back to the default sender"
+          (app-email-verification/put! {:app-id (:id app)
+                                        :sender-id (:id sender)
+                                        :verified false})
+          (binding [flags/*toggle-overrides* {:use-app-email-verification? true}]
+            (let [letter (atom nil)]
+              (with-redefs [magic-code-auth/check-send-rate-limit! (constantly nil)
+                            postmark/send-structured! #(reset! letter %)]
+                (magic-code-auth/send! {:app-id (:id app)
+                                        :email "recipient@example.com"}))
+              (is (= (:email (config/app-email-sender))
+                     (get-in @letter [:from :email]))))))
+
+        (testing "verified custom sender is used"
+          (app-email-verification/mark-verified! {:id (:id (app-email-verification/get-by-app-and-sender
+                                                            (:id app)
+                                                            (:id sender)))
+                                                  :app-id (:id app)})
+          (binding [flags/*toggle-overrides* {:use-app-email-verification? true}]
+            (let [letter (atom nil)]
+              (with-redefs [magic-code-auth/check-send-rate-limit! (constantly nil)
+                            postmark/send-structured! #(reset! letter %)]
+                (magic-code-auth/send! {:app-id (:id app)
+                                        :email "recipient@example.com"}))
+              (is (= custom-email
+                     (get-in @letter [:from :email]))))))))))
 
 (defn update-created-at [app-id code created-at]
   (sql/execute!
@@ -410,25 +466,25 @@
 (deftest upsert-oauth-link-disambiguates-with-email
   (with-empty-app
     (fn [app]
-      ;; Apple OAuth lets you provide "relay" emails: 
-      ;; these are anonymous emails that forward to the user's real email. 
+      ;; Apple OAuth lets you provide "relay" emails:
+      ;; these are anonymous emails that forward to the user's real email.
 
-      ;; This opens up a potential problem. 
+      ;; This opens up a potential problem.
 
-      ;; Consider the following scenario: 
-      ;; (1) User signs in with magic code: stopa@instantdb.com 
-      ;; (2) User signs in with with Apple, private relay on: foo@privaterelay.appleid.com  
+      ;; Consider the following scenario:
+      ;; (1) User signs in with magic code: stopa@instantdb.com
+      ;; (2) User signs in with with Apple, private relay on: foo@privaterelay.appleid.com
 
-      ;; At this point we'll have _2_ separate users. 
+      ;; At this point we'll have _2_ separate users.
 
-      ;; Now 
-      ;; (3) The user signs in with Apple, private relay off: stopa@instantdb.com. 
+      ;; Now
+      ;; (3) The user signs in with Apple, private relay off: stopa@instantdb.com.
 
-      ;; Which user should we link this 3rd sign up too? It matches _both_ the 
-      ;; existing email user, and the existing Apple Oauth link. 
+      ;; Which user should we link this 3rd sign up too? It matches _both_ the
+      ;; existing email user, and the existing Apple Oauth link.
 
-      ;; Currently, we choose the existing email user. 
-      ;; This means that the user with the private relay email will get stranded. 
+      ;; Currently, we choose the existing email user.
+      ;; This means that the user with the private relay email will get stranded.
       ;; However, in the worst case scenario, they can be recovered manually.
       (let [provider (provider-model/create! {:app-id (:id app)
                                               :provider-name "apple"})
@@ -899,4 +955,3 @@
           (is (thrown-with-msg?
                ExceptionInfo #"Unauthorized origin"
                (route/assert-authorized-request-origin! shared-client "https://attacker.com"))))))))
-
