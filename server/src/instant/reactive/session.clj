@@ -531,7 +531,7 @@
 ;; transact
 
 (defn handle-transact!
-  [store sess-id {:keys [tx-steps client-event-id] :as _event}]
+  [store sess-id {:keys [tx-steps] :as event}]
   (let [start (System/currentTimeMillis)
         auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
@@ -564,11 +564,12 @@
                                     :max-isn-wait-ms max-wait-ms
                                     :used-fallback-isn (not isn)}})
 
-    (rs/send-event! store app-id sess-id
-                    {:op :transact-ok
-                     :tx-id tx-id
-                     :isn (or isn fallback-isn)
-                     :client-event-id client-event-id})))
+    (doseq [{:keys [client-event-id]} (conj (:redundant-events event) event)]
+      (rs/send-event! store app-id sess-id
+                      {:op :transact-ok
+                       :tx-id tx-id
+                       :isn (or isn fallback-isn)
+                       :client-event-id client-event-id}))))
 
 ;; -----
 ;; error
@@ -580,13 +581,24 @@
                                            type
                                            message
                                            hint]}]
+  (doseq [event (:redundant-events original-event)]
+    (rs/send-event! store
+                    app-id
+                    sess-id
+                    {:op :error
+                     :status status
+                     :client-event-id (:client-event-id event)
+                     :original-event event
+                     :type type
+                     :message message
+                     :hint hint}))
   (rs/send-event! store
                   app-id
                   sess-id
                   {:op :error
                    :status status
                    :client-event-id client-event-id
-                   :original-event original-event
+                   :original-event (dissoc original-event :redundant-events)
                    :type type
                    :message message
                    :hint hint}))
@@ -1365,6 +1377,48 @@
 ;; ------
 ;; System
 
+(defn matching-steps? [steps1 steps2]
+  (and (= (count steps1)
+          (count steps2))
+       (loop [steps1 steps1
+              steps2 steps2]
+         (if (empty? steps1)
+           true
+           (let [step1 (first steps1)
+                 step2 (first steps2)]
+             (when (and
+                    ;; same op
+                    ;; limit to just add-triple for now
+                    (= (first step1)
+                       (first step2)
+                       "add-triple")
+
+                    ;; includes mode
+                    (= (count step1)
+                       (count step2)
+                       5)
+
+                    ;; same eid
+                    (= (second step1)
+                       (second step2))
+
+                    ;; same aid
+                    (= (nth step1 2)
+                       (nth step2 2))
+
+                    ;; same mode
+                    (= (nth step1 4)
+                       (nth step2 4)))
+               (recur (next steps1)
+                      (next steps2))))))))
+
+(defn combine-transact [event1 event2]
+  (when (and (flags/combine-transacts?)
+             (matching-steps? (:tx-steps event1) (:tx-steps event2)))
+    (-> event2
+        (assoc :redundant-events (conj (or (:redundant-events event1) [])
+                                       (dissoc event1 :redundant-events))))))
+
 (defn group-key [{:keys [op session-id room-id q subscription-id stream-id] :as event}]
   (case op
     :transact
@@ -1453,6 +1507,9 @@
       (update :chunks (fn [new-chunks]
                         (into (:chunks event1) new-chunks)))
       (assoc :offset (:offset event1))))
+
+(defmethod combine [:transact :transact] [event1 event2]
+  (combine-transact event1 event2))
 
 (defn process [group-key event]
   (straight-jacket-process-receive-q-event rs/store group-key event))
