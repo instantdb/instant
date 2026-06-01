@@ -1,7 +1,6 @@
 import { ErrorMessage, Loading } from '@/components/dash/shared';
 import config from '@/lib/config';
 import { ReactNode, useContext, useEffect, useRef, useState } from 'react';
-import { encode } from 'querystring';
 import Link from 'next/link';
 
 import {
@@ -105,7 +104,12 @@ function authHref(
   router: ReturnType<typeof useReadyRouter>,
   set?: { key: string; value: string },
 ) {
-  const params = new URLSearchParams(encode(router.query));
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(router.query)) {
+    if (value == null) continue;
+    if (Array.isArray(value)) params.set(key, value[0] ?? '');
+    else params.set(key, value);
+  }
   for (const key of AUTH_VIEW_PARAMS) {
     params.delete(key);
   }

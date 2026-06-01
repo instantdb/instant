@@ -1463,7 +1463,7 @@
     (when-not (contains? allowed-emails to)
       (ex/throw-validation-err!
        :to to [{:message "You can only send a test email to a member of this app."}]))
-    (check-send-rate-limit! {:email to})
+    (check-send-rate-limit! {:app-id (:id app) :email to})
     (magic-code-auth/send-test! {:app app
                                  :to to
                                  :subject subject
