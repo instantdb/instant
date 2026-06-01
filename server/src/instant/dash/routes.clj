@@ -1344,8 +1344,6 @@
   (let [params (magic-code-auth/default-email-template-params)]
     (response/ok {:email-type "magic-code"
                   :sender-email (:sender-email params)
-                  :email (:sender-email params)
-                  :reply-to (:sender-email params)
                   :subject (:subject params)
                   :body (:body params)})))
 
