@@ -630,18 +630,22 @@ export function Admin({
             variant="destructive"
             onClick={async () => {
               setIsClearingApp(true);
-              await jsonFetch(`${config.apiURI}/dash/apps/${app.id}/clear`, {
-                method: 'POST',
-                headers: {
-                  authorization: `Bearer ${token}`,
-                  'content-type': 'application/json',
-                },
-              });
-
-              setIsClearingApp(false);
-              clearDialog.onClose();
-              dashResponse.mutate();
-              successToast('App cleared!');
+              try {
+                await jsonFetch(`${config.apiURI}/dash/apps/${app.id}/clear`, {
+                  method: 'POST',
+                  headers: {
+                    authorization: `Bearer ${token}`,
+                    'content-type': 'application/json',
+                  },
+                });
+                clearDialog.onClose();
+                dashResponse.mutate();
+                successToast('App cleared!');
+              } catch {
+                errorToast('Failed to clear the app.');
+              } finally {
+                setIsClearingApp(false);
+              }
             }}
           >
             {isClearingApp ? 'Clearing data...' : 'Clear data'}
@@ -666,15 +670,19 @@ export function Admin({
             variant="destructive"
             onClick={async () => {
               setIsDeletingApp(true);
-              await jsonFetch(`${config.apiURI}/dash/apps/${app.id}`, {
-                method: 'DELETE',
-                headers: {
-                  authorization: `Bearer ${token}`,
-                  'content-type': 'application/json',
-                },
-              });
-              setIsDeletingApp(false);
-              onDelete();
+              try {
+                await jsonFetch(`${config.apiURI}/dash/apps/${app.id}`, {
+                  method: 'DELETE',
+                  headers: {
+                    authorization: `Bearer ${token}`,
+                    'content-type': 'application/json',
+                  },
+                });
+                onDelete();
+              } catch {
+                errorToast('Failed to delete the app.');
+                setIsDeletingApp(false);
+              }
             }}
           >
             Delete
