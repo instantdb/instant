@@ -31,5 +31,7 @@ export const authEmailResetCmd = Effect.fn(function* () {
     confirmOverwrite: false,
   });
 
-  yield* Effect.log('Email template reset.');
+  yield* Effect.log(
+    'instant.email.ts file reset to default. To apply this change, run instant-cli auth email push',
+  );
 });
