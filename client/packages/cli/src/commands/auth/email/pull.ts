@@ -12,7 +12,6 @@ import type { authEmailPullDef, OptsFromCommand } from '../../../index.ts';
 import { InstantHttp } from '../../../lib/http.ts';
 import { getAppName } from '../../../util/getAppName.ts';
 import type { EmailConfig } from '../../../lib/email.ts';
-import { TaggedError } from 'effect/Schema';
 
 export const authEmailPullCmd = Effect.fn(function* (
   opts: OptsFromCommand<typeof authEmailPullDef>,
