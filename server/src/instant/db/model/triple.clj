@@ -401,14 +401,21 @@
 
 (def value-lookup-error-prefix "missing-lookup-value")
 
-(defn- id-attr-ids [attrs]
-  (with-meta (set (keep (fn [attr]
-                          (when (= "id" (attr-model/fwd-label attr))
-                            (:id attr)))
-                        attrs))
-    {:pgtype "uuid[]"}))
+(defn- id-attr-conflict? []
+  [:exists {:select :1
+            :from [[:attrs :id-attr]]
+            :join [[:idents :id-ident]
+                   [:and
+                    [:= :id-ident.id :id-attr.forward-ident]
+                    [:= :id-ident.label "id"]]]
+            :where [:and
+                    [:= :id-attr.id :triples.attr-id]
+                    [:or
+                     [:= :id-attr.app-id :triples.app-id]
+                     [:= :id-attr.app-id system-catalog-app-id]]
+                    [:= nil :id-attr.deletion-marked-at]]}])
 
-(defn- ea-conflict-update-set [attrs overwrite-t]
+(defn- ea-conflict-update-set [overwrite-t]
   (let [fields (merge {:value :excluded.value
                        :value-md5 :excluded.value-md5}
                       (when overwrite-t
@@ -418,7 +425,7 @@
       {:fields fields
        :where [:or
                [:is-distinct-from :triples.value-md5 :excluded.value-md5]
-               [:= :triples.attr-id [:any (id-attr-ids attrs)]]]})))
+               (id-attr-conflict?)]})))
 
 (defn insert-multi!
   "Given a set of raw triples, we enhance each triple with metadata based on
@@ -615,7 +622,7 @@
                          :from :ea-triples-distinct
                          :order-by [:app-id :entity-id :attr-id :value-md5]}]
           :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
-          :do-update-set (ea-conflict-update-set attrs overwrite-t)
+          :do-update-set (ea-conflict-update-set overwrite-t)
           :returning :*}
 
          remaining-inserts
