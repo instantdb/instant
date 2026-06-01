@@ -54,7 +54,7 @@ export const formatSenderVerificationDnsRecords = (verification: {
 
 export const EmailTemplateInfoSchema = Schema.Struct({
   id: Schema.String,
-  email: Schema.String.pipe(Schema.NullishOr),
+  email: Schema.String.pipe(Schema.optional),
   name: Schema.String,
   sender_id: Schema.String.pipe(Schema.NullishOr),
   app_id: Schema.String,

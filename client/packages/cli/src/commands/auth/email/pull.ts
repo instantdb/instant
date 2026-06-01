@@ -1,5 +1,4 @@
 import { HttpClientResponse, Path } from '@effect/platform';
-import { defaultMagicCodeEmailConfig } from '@instantdb/platform';
 import { Effect, Schema } from 'effect';
 import { ProjectInfo } from '../../../context/projectInfo.ts';
 import { BadArgsError } from '../../../errors.ts';
@@ -13,6 +12,7 @@ import type { authEmailPullDef, OptsFromCommand } from '../../../index.ts';
 import { InstantHttp } from '../../../lib/http.ts';
 import { getAppName } from '../../../util/getAppName.ts';
 import type { EmailConfig } from '../../../lib/email.ts';
+import { TaggedError } from 'effect/Schema';
 
 export const authEmailPullCmd = Effect.fn(function* (
   opts: OptsFromCommand<typeof authEmailPullDef>,
@@ -83,8 +83,12 @@ export const writeEmailTemplate = (
 const DefaultEmailTemplateSchema = Schema.Struct({
   subject: Schema.String,
   body: Schema.String,
-  email: Schema.String.pipe(Schema.NullishOr),
-}).pipe(Schema.NullishOr);
+  'sender-email': Schema.String.pipe(Schema.optional),
+});
+
+class MissingDefaultTemplateError extends TaggedError<MissingDefaultTemplateError>(
+  'MissingDefaultTemplateError',
+)('MissingDefaultTemplateError', {}) {}
 
 export const getDefaultEmailTemplate = Effect.gen(function* () {
   const http = yield* InstantHttp;
@@ -98,18 +102,22 @@ export const getDefaultEmailTemplate = Effect.gen(function* () {
 
   const appName = yield* getAppName;
 
+  if (!template) {
+    return yield* MissingDefaultTemplateError.make({});
+  }
+
   return {
-    subject: template?.subject ?? defaultMagicCodeEmailConfig.authEmail.subject,
+    subject: template.subject,
     senderName: appName,
-    senderEmail: template?.email ?? undefined,
-    body: template?.body ?? defaultMagicCodeEmailConfig.authEmail.body,
+    senderEmail: template['sender-email'],
+    body: template.body,
   };
 });
 
 const infoToEmailConfig = (info: EmailTemplateInfo) => ({
   subject: info.subject,
   senderName: info.name,
-  senderEmail: info.email ?? undefined,
+  senderEmail: info.email,
   body: info.body,
 });
 
