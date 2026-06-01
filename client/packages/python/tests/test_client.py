@@ -142,61 +142,7 @@ async def test_query_injects_rule_params_inside_query_not_at_body_level(mock_tra
     body = json.loads(captured[0].content)
     assert body["query"]["$$ruleParams"] == {"region": "us"}
     assert "$$ruleParams" not in body  # not at body top level
-
-
-async def test_query_enables_inference_when_schema_is_present(mock_transport):
-    transport, captured = mock_transport(lambda r: httpx.Response(200, json={"goals": []}))
-    async with AsyncInstant(
-        app_id="app",
-        admin_token="abc",
-        _schema={"entities": {}, "records": {}},
-        _transport=transport,
-    ) as db:
-        await db.query({"goals": {}})
-
-    body = json.loads(captured[0].content)
-    assert body["inference?"] is True
-
-
-async def test_transact_enables_missing_attr_errors_when_schema_is_present(mock_transport):
-    transport, captured = mock_transport(lambda r: httpx.Response(200, json={"tx-id": "tx-1"}))
-    async with AsyncInstant(
-        app_id="app",
-        admin_token="abc",
-        _schema={"entities": {}, "records": {}},
-        _transport=transport,
-    ) as db:
-        await db.transact(db.tx.goals[id()].update({"title": "x"}))
-
-    body = json.loads(captured[0].content)
-    assert body["throw-on-missing-attrs?"] is True
-
-
-async def test_subscribe_query_enables_inference_when_schema_is_present():
-    async with AsyncInstant(
-        app_id="app",
-        admin_token="abc",
-        _schema={"entities": {}, "records": {}},
-    ) as db:
-        sub = db.subscribe_query({"goals": {}})
-        try:
-            assert sub._inference is True
-        finally:
-            await sub.aclose()
-
-
-async def test_debug_query_enables_inference_when_schema_is_present(mock_transport):
-    transport, captured = mock_transport(lambda r: httpx.Response(200, json={"result": {}}))
-    async with AsyncInstant(
-        app_id="app",
-        admin_token="abc",
-        _schema={"entities": {}, "records": {}},
-        _transport=transport,
-    ) as db:
-        await db.as_user(guest=True).debug_query({"goals": {}})
-
-    body = json.loads(captured[0].content)
-    assert body["inference?"] is True
+    assert body["inference?"] is False
 
 
 async def test_transact_serializes_datetime_values(mock_transport):
@@ -207,25 +153,4 @@ async def test_transact_serializes_datetime_values(mock_transport):
 
     body = json.loads(captured[0].content)
     assert body["steps"][0][3]["dueAt"] == due_at.isoformat()
-
-
-# ---------- typed-client subclass pattern (mirrors genpy emit) ----------
-
-
-async def test_typed_subclass_wires_schema_via_super_init():
-    # Mirror the codegen pattern: subclass defaults `_schema` via setdefault
-    # so `_clone()` can override without double-passing. `as_user` returns
-    # the concrete subclass (typed `Self`), so scoped clients keep the
-    # subclass typing through impersonation chains.
-    test_schema = {"entities": {}, "records": {}}
-
-    class TypedAsyncInstant(AsyncInstant):
-        def __init__(self, **kwargs):
-            kwargs.setdefault("_schema", test_schema)
-            super().__init__(**kwargs)
-
-    async with TypedAsyncInstant(app_id="app", admin_token="abc") as db:
-        assert db._schema is test_schema
-        async with db.as_user(email="a@b.com") as scoped:
-            assert isinstance(scoped, TypedAsyncInstant)
-            assert scoped._schema is test_schema
+    assert body["throw-on-missing-attrs?"] is False

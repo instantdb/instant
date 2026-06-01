@@ -184,60 +184,6 @@ async def test_process_payload_treats_null_data_as_no_records():
     assert called is False
 
 
-async def test_process_payload_validates_records_when_schema_passed():
-    """With a schema configured, each record is validated into its
-    Pydantic model before dispatch; handlers see typed instances, not dicts.
-    """
-    from typing import Literal
-
-    from pydantic import BaseModel, ConfigDict
-
-    class Profile(BaseModel):
-        model_config = ConfigDict(extra="ignore")
-        id: str
-        handle: str
-
-    class ProfileCreateRecord(BaseModel):
-        model_config = ConfigDict(extra="ignore")
-        namespace: Literal["profiles"]
-        id: str
-        action: Literal["create"]
-        before: None
-        after: Profile
-        idempotencyKey: str
-
-    schema: dict = {
-        "entities": {"profiles": Profile},
-        "records": {("profiles", "create"): ProfileCreateRecord},
-    }
-    seen: list = []
-
-    async def on_create(record):
-        seen.append(record)
-
-    async with AsyncInstant(app_id="app", admin_token="abc", _schema=schema) as db:
-        await db.webhooks.process_payload(
-            {"profiles": {"create": on_create}},
-            {
-                "data": [
-                    {
-                        "namespace": "profiles",
-                        "id": "rec-1",
-                        "action": "create",
-                        "before": None,
-                        "after": {"id": "p-1", "handle": "alyssa"},
-                        "idempotencyKey": "key-1",
-                    },
-                ],
-                "idempotencyKey": "p",
-            },
-        )
-
-    assert len(seen) == 1
-    assert isinstance(seen[0], ProfileCreateRecord)
-    assert seen[0].after.handle == "alyssa"
-
-
 # ---------- fetch_payloads (mock transport) ----------
 
 

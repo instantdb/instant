@@ -1,11 +1,11 @@
 """Smoke tests for the generated sync `Instant` client.
 
 The async client is the source of truth; these tests verify the unasync
-codegen produces a working sync surface. They mirror the most load-bearing
+rewrite produces a working sync surface. They mirror the most load-bearing
 async tests in test_client.py + test_validation.py + test_webhooks_dispatch.py.
 
 Subscribe and streams are async-only and not generated into _sync/ —
-absence is asserted explicitly so the codegen exclusion stays honest.
+absence is asserted explicitly so the unasync exclusion stays honest.
 """
 
 import json
@@ -24,7 +24,7 @@ _CUSTOM_URI = "https://custom-api.example.test"
 
 def test_instant_does_not_expose_subscribe_query_or_streams():
     # Subscribe + streams are async-only; spec § Sync surface area. If the
-    # codegen ever stops stripping these, this test catches it.
+    # unasync rewrite ever stops stripping these, this test catches it.
     db = Instant(app_id="app", admin_token="abc")
     try:
         assert not hasattr(db, "subscribe_query")

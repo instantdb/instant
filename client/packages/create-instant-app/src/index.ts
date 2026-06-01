@@ -22,7 +22,6 @@ import {
 import { promptClaude } from './claude.js';
 import { parseNameAndPath } from './utils/validateAppName.js';
 import { execa } from 'execa';
-import { createRequire } from 'node:module';
 import { getRules, getSchema } from './utils/appConfig.js';
 import { printAppCreateResult } from './utils/printAppCreateResult.js';
 
@@ -88,24 +87,6 @@ const main = async () => {
       pyprojectPath,
       pyproject.replace(/^name = .*$/m, `name = "${pyName}"`),
     );
-
-    // Generate the schema-bound `instant_types` module. Failure is
-    // non-fatal: the template ships a fallback shim and the user can
-    // re-run `npx instant-cli genpy` later.
-    try {
-      const instantCliBin = createRequire(import.meta.url).resolve(
-        'instant-cli/bin/index.js',
-      );
-      await execa('node', [instantCliBin, 'genpy'], {
-        cwd: projectDir,
-        stdio: 'inherit',
-      });
-    } catch (e) {
-      log.warn(
-        'instant-cli genpy failed; run `npx instant-cli genpy` in your project to refresh Python types.',
-      );
-      log.warn(e instanceof Error ? e.message : String(e));
-    }
   } else {
     // Update package.json with app name
     const pkgJson = fs.readJSONSync(
@@ -146,6 +127,9 @@ const main = async () => {
     1. ${getCodeColors(theme, 'cd ' + appDir)}
     2. ${getCodeColors(theme, 'uv sync')}
     3. ${getCodeColors(theme, 'uv run --env-file .env python main.py')}
+
+  To push schema and permissions:
+    ${getCodeColors(theme, 'npx instant-cli push')}
   `);
       if (possibleAppTokenPair.approach === 'ephemeral') {
         console.log(`
@@ -163,6 +147,9 @@ const main = async () => {
     3. Add your APP_ID to the .env file
     4. ${getCodeColors(theme, 'uv sync')}
     5. ${getCodeColors(theme, 'uv run --env-file .env python main.py')}
+
+  To push schema and permissions:
+    ${getCodeColors(theme, 'npx instant-cli push')}
   `);
     }
   } else {

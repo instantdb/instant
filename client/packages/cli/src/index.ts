@@ -21,7 +21,6 @@ import { infoCommand } from './commands/info.ts';
 import { pullCommand } from './commands/pull.ts';
 import type { SchemaPermsOrBoth } from './commands/pull.ts';
 import { claimCommand } from './commands/claim.ts';
-import { genpyCommand } from './commands/genpy.ts';
 import { pushCommand } from './commands/push.ts';
 import { explorerCmd } from './commands/explorer.ts';
 import { queryCmd } from './commands/query.ts';
@@ -834,28 +833,6 @@ Environment Variables:
           }),
         ),
       ),
-    );
-  });
-
-export const genpyDef = program
-  .command('genpy')
-  .description(
-    'Generate a schema-bound instant_types.py from instant.schema.ts.',
-  )
-  .option(
-    '-o --out-dir <path>',
-    'Directory to write instant_types.py into. Defaults to the schema file directory.',
-  )
-  .addHelpText(
-    'after',
-    `
-Environment Variables:
-  INSTANT_SCHEMA_FILE_PATH    Override schema file location (default: instant.schema.ts)
-`,
-  )
-  .action(async (opts) => {
-    return runCommandEffect(
-      genpyCommand({ outDir: opts.outDir }).pipe(Effect.provide(BaseLayerLive)),
     );
   });
 

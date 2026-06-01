@@ -6,12 +6,9 @@ from __future__ import annotations
 
 import os
 from types import TracebackType
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import httpx
-
-if TYPE_CHECKING:
-    from typing_extensions import Self
 
 from instantdb._errors import InstantError
 from instantdb._sync.auth import Auth
@@ -29,9 +26,6 @@ class Instant:
         app_id: str | None = None,
         admin_token: str | None = None,
         api_uri: str = DEFAULT_API_URI,
-        # Private. Users get this via the typed `Instant` in
-        # `instant_types.py` (genpy output), which sets it through setdefault.
-        _schema: dict[str, Any] | None = None,
         _impersonation: dict[str, str] | None = None,
         _transport: httpx.BaseTransport | None = None,
         _shared_client: httpx.Client | None = None,
@@ -48,7 +42,6 @@ class Instant:
         self._admin_token = admin_token
         self._api_uri = api_uri
         self._impersonation = _impersonation
-        self._schema = _schema
         self._http = _HTTP(
             app_id=app_id,
             admin_token=admin_token,
@@ -61,7 +54,7 @@ class Instant:
         self.auth = Auth(self._http, app_id=app_id)
         self.storage = Storage(self._http, app_id=app_id)
         self.rooms = Rooms(self._http, app_id=app_id)
-        self.webhooks = Webhooks(self._http, app_id=app_id, schema=_schema)
+        self.webhooks = Webhooks(self._http, app_id=app_id)
 
     def as_user(
         self,
@@ -69,7 +62,7 @@ class Instant:
         email: str | None = None,
         token: str | None = None,
         guest: bool = False,
-    ) -> Self:
+    ) -> Instant:
         if sum([email is not None, token is not None, guest]) != 1:
             raise InstantError("as_user requires exactly one of: email, token, or guest=True")
         if email is not None:
@@ -80,12 +73,11 @@ class Instant:
             headers = {"as-guest": "true"}
         return self._clone(_impersonation=headers)
 
-    def _clone(self, **overrides: Any) -> Self:
+    def _clone(self, **overrides: Any) -> Instant:
         return type(self)(
             app_id=self._app_id,
             admin_token=self._admin_token if self._admin_token is not None else "",
             api_uri=self._api_uri,
-            _schema=self._schema,
             _shared_client=self._http._client,
             **overrides,
         )
@@ -98,14 +90,11 @@ class Instant:
     ) -> dict[str, Any]:
         if rule_params is not None:
             q = {"$$ruleParams": rule_params, **q}
-        result = self._http.post(
+        return self._http.post(
             "/admin/query",
             params={"app_id": self._app_id},
-            json={"query": q, "inference?": self._has_schema()},
+            json={"query": q, "inference?": False},
         )
-        if self._schema is not None:
-            return _validate_query_result(result, self._schema)
-        return result
 
     def transact(self, chunks: _TxChunk | list[_TxChunk]) -> dict[str, Any]:
         return self._http.post(
@@ -113,7 +102,7 @@ class Instant:
             params={"app_id": self._app_id},
             json={
                 "steps": _flatten_chunks(chunks),
-                "throw-on-missing-attrs?": self._has_schema(),
+                "throw-on-missing-attrs?": False,
             },
         )
 
@@ -127,7 +116,7 @@ class Instant:
         self._require_impersonation("debug_query")
         if rule_params is not None:
             q = {"$$ruleParams": rule_params, **q}
-        body: dict[str, Any] = {"query": q, "inference?": self._has_schema()}
+        body: dict[str, Any] = {"query": q, "inference?": False}
         if rules is not None:
             body["rules-override"] = rules
         return self._http.post(
@@ -159,9 +148,6 @@ class Instant:
                 "since permission checks are user-scoped"
             )
 
-    def _has_schema(self) -> bool:
-        return self._schema is not None
-
     def close(self) -> None:
         self._http.close()
 
@@ -175,19 +161,3 @@ class Instant:
         tb: TracebackType | None,
     ) -> None:
         self.close()
-
-
-def _validate_query_result(result: Any, schema: dict[str, Any]) -> dict[str, Any]:
-    """Route each top-level namespace's rows through its Pydantic model.
-
-    Unknown namespaces and non-list payloads pass through untouched.
-    """
-    entities = schema.get("entities", {})
-    out: dict[str, Any] = {}
-    for ns, items in result.items():
-        model = entities.get(ns)
-        if model is None or not isinstance(items, list):
-            out[ns] = items
-            continue
-        out[ns] = [model.model_validate(item) for item in items]
-    return out

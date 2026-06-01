@@ -67,11 +67,9 @@ class AsyncSubscription:
         http: _AsyncHTTP,
         *,
         query: dict[str, Any],
-        inference: bool = False,
     ) -> None:
         self._http = http
         self._query = query
-        self._inference = inference
         self._queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
         self._task: asyncio.Task[None] | None = None
         self._session_info: dict[str, str] | None = None
@@ -236,7 +234,7 @@ class AsyncSubscription:
         url = f"{self._http._api_uri}/admin/subscribe-query"
         body = {
             "query": self._query,
-            "inference?": self._inference,
+            "inference?": False,
             "versions": {
                 "@instantdb/admin": __version__,
                 "@instantdb/core": __version__,

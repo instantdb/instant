@@ -169,14 +169,12 @@ describe.concurrent('create-instant-app e2e', { timeout: 120_000 }, () => {
         expect(files).toContain('instant.schema.ts');
         expect(files).toContain('instant.perms.ts');
         expect(files).not.toContain('package.json');
-        // Scaffold runs `instant-cli genpy`, so the typed client module
-        // exists in the working tree without the user doing anything.
-        expect(files).toContain('instant_types.py');
+        expect(files).not.toContain('instant_types.py');
 
         const mainPy = await readFile(join(projectDir, 'main.py'), 'utf-8');
-        expect(mainPy).toMatch(/from instant_types import Instant/);
-        expect(mainPy).toMatch(/model_dump/);
-        expect(mainPy).toMatch(/row\["done"\]/);
+        expect(mainPy).toMatch(/from instantdb import Instant/);
+        expect(mainPy).not.toMatch(/model_dump/);
+        expect(mainPy).toMatch(/todo\["done"\]/);
 
         const envContents = await readFile(join(projectDir, '.env'), 'utf-8');
         expect(envContents).toMatch(/^INSTANT_APP_ID=.+/m);
@@ -192,6 +190,7 @@ describe.concurrent('create-instant-app e2e', { timeout: 120_000 }, () => {
         const output = result.stdout + result.stderr;
         expect(output).toMatch(/uv sync/);
         expect(output).toMatch(/uv run .* python main\.py/);
+        expect(output).toMatch(/npx instant-cli push/);
       } finally {
         await t.cleanup();
       }

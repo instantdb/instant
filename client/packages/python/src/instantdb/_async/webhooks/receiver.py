@@ -38,10 +38,8 @@ class AsyncWebhooks:
         http: _AsyncHTTP,
         *,
         app_id: str,
-        schema: dict[str, Any] | None = None,
     ) -> None:
         self._http = http
-        self._schema = schema
         self.manager = AsyncWebhooksManager(http, app_id=app_id)
 
     async def validate(
@@ -113,10 +111,7 @@ class AsyncWebhooks:
             handlers[namespace]["$default"] →
             handlers["$default"]
 
-        When the client is constructed from `instant_types` (the codegen
-        output), each record is validated into its generated Pydantic
-        model before being handed to the handler. Records with no
-        matching handler are skipped.
+        Records with no matching handler are skipped.
 
         Sequential await (rather than `asyncio.gather`) is deliberate:
         unasync strips the `await` keyword on the way to the sync flavor,
@@ -129,16 +124,13 @@ class AsyncWebhooks:
         Handlers under `AsyncInstant` must be `async def`; under `Instant`
         they're plain `def`. Mixing flavors is unsupported.
         """
-        records_map = self._schema.get("records", {}) if self._schema else {}
         for record in payload.get("data") or []:
             namespace = record.get("namespace")
             action = record.get("action")
             handler = _resolve_handler(handlers, namespace, action)
             if handler is None:
                 continue
-            record_model = records_map.get((namespace, action))
-            arg = record_model.model_validate(record) if record_model else record
-            await handler(arg)
+            await handler(record)
 
 
 def _resolve_handler(

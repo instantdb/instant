@@ -1,7 +1,7 @@
 """Chunk-read helpers used by `_async/_upload_io.py`.
 
 The async helper offloads via `asyncio.to_thread` so large uploads don't
-stall the event loop. The unasync codegen swaps it for the sync helper
+stall the event loop. The unasync rewrite swaps it for the sync helper
 in the generated `_sync/` tree.
 """
 

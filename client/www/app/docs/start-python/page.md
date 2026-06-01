@@ -27,8 +27,9 @@ cd my-app
 uv sync
 ```
 
-This creates a starter script with `instant.schema.ts`, `instant.perms.ts`,
-a `.env`, and a `main.py`.
+This creates a starter script with a `.env`, `main.py`,
+`instant.schema.ts`, and `instant.perms.ts`. Schema and permission files are included so you can manage
+your app with the Instant CLI.
 
 ## Usage
 
@@ -55,30 +56,6 @@ for goal in result["goals"]:
     print(goal["title"])
 ```
 
-We also provide a typed client via codegen. Run `npx instant-cli genpy` to
-generate `instant_types.py` with Pydantic models for your schema and a typed
-`Instant` class that autocompletes your entities and validates mutation shapes.
-
-```python {% showCopy=true %}
-from instant_types import Instant, id
-
-db = Instant()
-
-# Write data
-goal_id = id()
-db.transact(db.tx.goals[goal_id].update({"title": "Get fit"}))
-
-# Read data
-result = db.query({"goals": {}})
-for goal in result["goals"]:
-    print(goal.title)
-```
-
-When you scaffold with `npx create-instant-app --python`, we generate
-`instant_types.py` for you as part of the setup. The remaining examples on this
-page use the typed client, but the untyped `Instant` from `instantdb` works the
-same way at runtime.
-
 {% callout type="warning" %}
 
 Exposing your `app_id` is fine, but the `admin_token` bypasses permission
@@ -93,7 +70,7 @@ Use `AsyncInstant` and `await` each call:
 
 ```python {% showCopy=true %}
 import asyncio
-from instant_types import AsyncInstant, id
+from instantdb import AsyncInstant, id
 
 db = AsyncInstant()
 
@@ -103,41 +80,59 @@ async def main():
 
     result = await db.query({"goals": {}})
     for goal in result["goals"]:
-        print(goal.title)
+        print(goal["title"])
 
 asyncio.run(main())
 ```
 
 `subscribe_query` and `streams` are only available on `AsyncInstant`.
-Everything else works on both.
+Everything else works on both the sync and async client.
 
-## Schema and typed results
+## Schema and permissions
 
-`instant-cli genpy` regenerates `instant_types.py` from your
-`instant.schema.ts`. Run it after schema changes.
+The Python starter includes `instant.schema.ts` and `instant.perms.ts`
+so you can manage your app from your python project. Push changes with
+the Instant CLI as you would normally:
 
 ```shell {% showCopy=true %}
-npx instant-cli genpy
+npx instant-cli push
 ```
 
-Query results come back as Pydantic models with typed link fields:
+## FastAPI with Pydantic
+
+At the moment the SDK doesn't generate Python types from your schema file.
+Queries return as dictionaries. If you want typed objects, define them in your
+application and validate the returned data there.
+
+Here's an example of how you can use Pydantic models in a FastAPI app
 
 ```python {% showCopy=true %}
-from instant_types import Instant, Goal
+from fastapi import FastAPI
+from pydantic import BaseModel
+from instantdb import Instant, id
 
 db = Instant()
+app = FastAPI()
 
-result = db.query({"goals": {}})
-goals: list[Goal] = result["goals"]
-for goal in goals:
-    print(goal.title)
+class TodoIn(BaseModel):
+    text: str
+    done: bool = False
+
+class Todo(TodoIn):
+    id: str
+
+@app.post("/todos", response_model=Todo)
+def create_todo(todo: TodoIn):
+    todo_id = id()
+    db.transact(db.tx.todos[todo_id].update(todo.model_dump()))
+    return Todo(id=todo_id, **todo.model_dump())
 ```
 
 See [Modeling data](/docs/modeling-data) for the full schema reference.
 
 ## Reading data
 
-`db.query` takes the same InstaQL dict shape used elsewhere in Instant:
+`db.query` takes the same InstaQL dict shape as our JS SDK:
 
 ```python {% showCopy=true %}
 # Top-level fetch
@@ -146,7 +141,7 @@ result = db.query({"goals": {}, "todos": {}})
 # Nested children
 result = db.query({"goals": {"todos": {}}})
 
-# Operators (camelCase keys, matching the wire format)
+# Operators
 db.query({"goals": {"$": {"where": {"title": {"$ne": "Get fit"}}}}})
 
 # Pagination + ordering
@@ -155,8 +150,8 @@ db.query({"goals": {"$": {"limit": 10, "order": {"createdAt": "desc"}}}})
 
 ### Rule params
 
-Use the `rule_params` keyword argument to pass values into permission
-rules. It maps to `$$ruleParams` on the wire.
+Use `rule_params` keyword argument to pass values for permission
+rules.
 
 ```python {% showCopy=true %}
 db.query({"goals": {}}, rule_params={"region": "us"})
@@ -164,11 +159,10 @@ db.query({"goals": {}}, rule_params={"region": "us"})
 
 ## Writing data
 
-Mutations use the InstaML proxy syntax. Each chunk is built with
-`db.tx.<namespace>[id].<op>(...)`.
+Mutations use the same InstaML proxy syntax.
 
 ```python {% showCopy=true %}
-from instant_types import Instant, id, lookup
+from instantdb import Instant, id, lookup
 
 db = Instant()
 
@@ -185,35 +179,27 @@ db.transact([
 ])
 ```
 
-Supported ops: `update`, `create`, `link`, `unlink`, `delete`, `merge`,
-`rule_params`. `transact` accepts a single chunk or a list, commits
-atomically, and returns `{"tx-id": int}`.
-
-`id()` returns a UUID string. `lookup(attr, value)` returns an opaque
-sentinel usable as an entity id, handy for upserts keyed on a unique
-attribute like email.
-
 ### Special namespaces
 
 System namespaces like `$files` and `$users` aren't valid Python
-attribute names. Use subscript access:
+attribute names. Use subscript access for those:
 
 ```python {% showCopy=true %}
 db.transact(db.tx["$files"][file_id].delete())
 ```
 
-`db.tx.goals` and `db.tx["goals"]` are interchangeable for regular names.
+`db.tx.goals` and `db.tx["goals"]` are interchangeable for regular namespaces.
 
 See [Writing data](/docs/instaml) for the full mutation reference.
 
 ## Subscribing to queries
 
 `AsyncInstant.subscribe_query` opens an SSE stream and yields payloads as
-the query result changes:
+the query result changes. Similar to our JS SDK:
 
 ```python {% showCopy=true %}
 import asyncio
-from instant_types import AsyncInstant
+from instantdb import AsyncInstant
 
 db = AsyncInstant()
 
@@ -228,11 +214,6 @@ async def main():
 asyncio.run(main())
 ```
 
-The connection opens in `__aenter__` and closes on context exit,
-including on exception. Transient SSE drops after the first connection
-reconnect silently with exponential backoff. HTTP errors on the initial
-connect surface as an `error` payload and end iteration.
-
 {% callout type="note" %}
 
 Subscriptions keep a live connection open. Keep the `async with` block
@@ -242,15 +223,15 @@ alive as long as you need updates.
 
 ## Streams
 
-Instant Streams are durable, append-only byte sequences over a
-bidirectional SSE connection. They're excellent for LLM completions, chat
-streaming, and resumable log writes.
+Streams are also supported in the Python SDK, but only on the `AsyncInstant`
+client. Writing and reading streams are similar to the JS SDK, but with Pythonic
+async iterators and context managers.
 
 ### Writing
 
 ```python {% showCopy=true %}
 import asyncio
-from instant_types import AsyncInstant
+from instantdb import AsyncInstant
 
 db = AsyncInstant()
 
@@ -264,10 +245,6 @@ async def main():
 asyncio.run(main())
 ```
 
-`write(chunk: str)` appends a string chunk. `await writer.stream_id`
-resolves once the server confirms the start handshake. The stream closes
-durably on context exit; an exception aborts it.
-
 ### Reading
 
 ```python {% showCopy=true %}
@@ -276,7 +253,7 @@ async with db.streams.read(stream_id="...") as reader:
         print(chunk)
 ```
 
-Identify the stream by `stream_id=` or `client_id=`. Pass `byte_offset=`
+You can identify the stream by `stream_id=` or `client_id=`. Pass `byte_offset=`
 to resume from a specific position after a disconnect.
 
 ### Querying stream metadata
@@ -295,8 +272,7 @@ See [Streams](/docs/streams) for the full reference.
 
 ## Auth
 
-Mirrors the JS `db.auth` namespace. Method names are snake_case;
-overload-style arguments are keyword-only.
+Mirrors the JS `db.auth` namespace.
 
 ### Magic codes
 
@@ -339,9 +315,8 @@ db.auth.sign_out(email="alyssa@instantdb.com")
 
 ## Impersonation
 
-The admin client bypasses permissions by default. To run queries and
-transactions _with_ permission checks, scope the client to a user with
-`as_user`:
+You can also use the impersonation api to run queries and transactions as if you
+were a specific user or guest.
 
 ```python {% showCopy=true %}
 # As a specific user
@@ -371,14 +346,10 @@ user_db = db.as_user(token="...")
 user_db.query({"todos": {}})
 ```
 
-This is useful for running the SDK on untrusted machines where shipping
-the admin token would be a leak.
-
 ## Storage
 
 `db.storage.upload_file` accepts `bytes`, `pathlib.Path`, or a binary
-file-like object. File-backed inputs stream from disk rather than
-buffering into memory.
+file-like object.
 
 ```python {% showCopy=true %}
 from pathlib import Path
@@ -533,7 +504,7 @@ db.webhooks.process_payload(handlers, payload)
 
 ```python {% showCopy=true %}
 from fastapi import FastAPI, Request, HTTPException
-from instant_types import AsyncInstant, InstantError
+from instantdb import AsyncInstant, InstantError
 
 app = FastAPI()
 db = AsyncInstant()
@@ -562,27 +533,6 @@ async def webhook_in(request: Request):
 signing key is not already cached or bundled. Handlers must match:
 `async def` for `AsyncInstant`, plain `def` for `Instant`.
 
-### Typed webhook handlers
-
-`instant_types` ships a `WebhookHandlers` TypedDict and per-namespace
-record types so handlers can take typed Pydantic instances:
-
-```python {% showCopy=true %}
-from instant_types import Instant, WebhookHandlers, GoalCreateRecord
-
-db = Instant()
-
-def on_goal_create(record: GoalCreateRecord) -> None:
-    print(record.after.title)
-
-handlers: WebhookHandlers = {"goals": {"create": on_goal_create}}
-db.webhooks.process_payload(handlers, payload)
-```
-
-Records are validated into the matching Pydantic model before dispatch.
-Wrong namespace, wrong action, or a mismatched handler signature fails
-the type check.
-
 See [Webhooks](/docs/webhooks) for the broader webhook model.
 
 ## Errors
@@ -592,7 +542,7 @@ returns a non-2xx response as `InstantAPIError`, which carries `status`
 and `body`:
 
 ```python {% showCopy=true %}
-from instant_types import Instant, InstantAPIError, id
+from instantdb import Instant, InstantAPIError, id
 
 db = Instant()
 
