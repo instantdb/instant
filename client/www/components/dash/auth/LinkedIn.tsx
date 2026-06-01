@@ -1,5 +1,4 @@
 import { FormEventHandler, useContext, useState } from 'react';
-import Image from 'next/image';
 
 import {
   Button,
@@ -24,17 +23,15 @@ import {
   LINKEDIN_DISCOVERY_ENDPOINT,
 } from '@instantdb/platform';
 import {
-  addProvider,
   addClient,
   findName,
   RedirectUrlInput,
   EditableRedirectUrl,
-  TestRedirectButton,
+  RedirectForwardingNote,
 } from './shared';
 import { errorToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
 
-import linkedinIconSvg from '../../../public/img/linkedin.svg';
 import { useDarkMode } from '../DarkModeToggle';
 
 function exampleCode({ clientName }: { clientName: string }) {
@@ -47,52 +44,6 @@ const url = db.auth.createAuthorizationURL({
 // Create a link with the url
 <a href={url}>Log in with LinkedIn</a>
 `;
-}
-
-export function AddLinkedInProviderForm({
-  app,
-  onAddProvider,
-}: {
-  app: InstantApp;
-  onAddProvider: (provider: OAuthServiceProvider) => void;
-}) {
-  const token = useContext(TokenContext);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  const addLinkedInProvider = async () => {
-    setIsLoading(true);
-    try {
-      const resp = await addProvider({
-        token,
-        appId: app.id,
-        providerName: 'linkedin',
-      });
-      onAddProvider(resp.provider);
-    } catch (e) {
-      console.error(e);
-      const msg =
-        messageFromInstantError(e as InstantIssue) ||
-        'There was an error setting up LinkedIn.';
-      errorToast(msg, { autoClose: 5000 });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div>
-      <Button
-        loading={isLoading}
-        variant="secondary"
-        onClick={addLinkedInProvider}
-      >
-        <span className="flex items-center space-x-2">
-          <Image alt="linkedin icon" src={linkedinIconSvg} width={16} />
-          <span>Setup LinkedIn</span>
-        </span>
-      </Button>
-    </div>
-  );
 }
 
 export function AddLinkedInClientForm({
@@ -227,16 +178,7 @@ export function AddLinkedInClientForm({
           Add <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> as a
           redirect URI for your LinkedIn app.
         </p>
-        {redirectTo && (
-          <>
-            <p className="text-sm text-gray-500 dark:text-neutral-400">
-              Your redirect URL should forward to{' '}
-              <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
-              parameters.
-            </p>
-            <TestRedirectButton redirectTo={redirectTo} />
-          </>
-        )}
+        {redirectTo && <RedirectForwardingNote redirectTo={redirectTo} />}
         <p className="text-sm text-gray-500 dark:text-neutral-400">
           LinkedIn requires exact matches for redirect URLs. Make sure the URI
           above is added in the "Authorized redirect URLs" section of your app
@@ -298,14 +240,7 @@ export function LinkedInClient({
         value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
       />
       {client.redirect_to && (
-        <>
-          <Content className="text-sm text-gray-500 dark:text-neutral-400">
-            Your redirect URL should forward to{' '}
-            <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
-            parameters.
-          </Content>
-          <TestRedirectButton redirectTo={client.redirect_to} />
-        </>
+        <RedirectForwardingNote redirectTo={client.redirect_to} />
       )}
       <Content>
         <strong className="dark:text-white">2.</strong> Use the code below to

@@ -10,10 +10,8 @@ import {
   SubsectionHeading,
   TextInput,
 } from '@/components/ui';
-import firebaseLogoSvg from '../../../public/img/firebase_auth.svg';
-import Image from 'next/image';
 import { messageFromInstantError } from '@/lib/errors';
-import { addProvider, addClient, findName } from './shared';
+import { addClient, findName } from './shared';
 import {
   InstantApp,
   InstantIssue,
@@ -21,51 +19,6 @@ import {
   OAuthServiceProvider,
 } from '@/lib/types';
 import { useDarkMode } from '../DarkModeToggle';
-
-export function AddFirebaseProviderForm({
-  app,
-  onAddProvider,
-}: {
-  app: InstantApp;
-  onAddProvider: (provider: OAuthServiceProvider) => void;
-}) {
-  const token = useContext(TokenContext);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const addFirebaseProvider = async () => {
-    setIsLoading(true);
-    try {
-      const resp = await addProvider({
-        token,
-        appId: app.id,
-        providerName: 'firebase',
-      });
-      onAddProvider(resp.provider);
-    } catch (e) {
-      console.error(e);
-      const msg =
-        messageFromInstantError(e as InstantIssue) ||
-        'There was an error setting up Firebase.';
-      errorToast(msg, { autoClose: 5000 });
-      // report error
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  return (
-    <div>
-      <Button
-        loading={isLoading}
-        variant="secondary"
-        onClick={addFirebaseProvider}
-      >
-        <span className="flex items-center space-x-2">
-          <Image alt="firebase logo" src={firebaseLogoSvg} />
-          <span>Setup Firebase</span>
-        </span>
-      </Button>
-    </div>
-  );
-}
 
 function firebaseExampleCode({
   appId,

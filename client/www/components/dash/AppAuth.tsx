@@ -171,7 +171,7 @@ function ProviderPickerButton({
   );
 }
 
-function ProviderPicker({
+function ProviderPickerContent({
   onSelect,
   onCancel,
 }: {
@@ -179,7 +179,7 @@ function ProviderPicker({
   onCancel: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
+    <>
       <div className="flex items-center justify-between">
         <Label>Choose a provider</Label>
         <button
@@ -199,6 +199,20 @@ function ProviderPicker({
           />
         ))}
       </div>
+    </>
+  );
+}
+
+function ProviderPicker({
+  onSelect,
+  onCancel,
+}: {
+  onSelect: (providerType: ProviderType) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
+      <ProviderPickerContent onSelect={onSelect} onCancel={onCancel} />
     </div>
   );
 }
@@ -884,14 +898,7 @@ export function AppAuth({
             description="Let users sign in with Google, Apple, GitHub, and other providers."
           />
 
-          {showPicker ? (
-            <ProviderPicker
-              onSelect={(providerType) =>
-                router.replace(addClientHref(router, providerType))
-              }
-              onCancel={() => router.replace(authLandingHref(router))}
-            />
-          ) : hasClients ? (
+          {hasClients ? (
             <div className="divide-y overflow-hidden rounded-sm border bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
               {clients.map((client) => {
                 const provider = providersById[client.provider_id];
@@ -905,14 +912,32 @@ export function AppAuth({
                   />
                 );
               })}
-              <button
-                type="button"
-                onClick={() => router.push(pickerHref(router))}
-                className="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:text-neutral-300 dark:hover:bg-neutral-700"
-              >
-                <PlusIcon height={14} /> Add client
-              </button>
+              {showPicker ? (
+                <div className="flex flex-col gap-3 px-4 py-4">
+                  <ProviderPickerContent
+                    onSelect={(providerType) =>
+                      router.replace(addClientHref(router, providerType))
+                    }
+                    onCancel={() => router.replace(authLandingHref(router))}
+                  />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => router.push(pickerHref(router))}
+                  className="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                >
+                  <PlusIcon height={14} /> Add client
+                </button>
+              )}
             </div>
+          ) : showPicker ? (
+            <ProviderPicker
+              onSelect={(providerType) =>
+                router.replace(addClientHref(router, providerType))
+              }
+              onCancel={() => router.replace(authLandingHref(router))}
+            />
           ) : (
             <EmptyState onAddClient={() => router.push(pickerHref(router))} />
           )}

@@ -19,6 +19,7 @@ import {
 } from '@/components/ui';
 import { errorToast, successToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
+import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
 
 export function findName(prefix: string, used: Set<string>): string {
   if (!used.has(prefix)) {
@@ -285,6 +286,23 @@ export function TestRedirectButton({ redirectTo }: { redirectTo: string }) {
   );
 }
 
+// Shown once a custom redirect URL is set: the provider sends users to your URL,
+// which must forward to Instant's callback. Pairs the reminder with a test link.
+export function RedirectForwardingNote({ redirectTo }: { redirectTo: string }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm text-gray-500 dark:text-neutral-400">
+        Your redirect URL should forward to{' '}
+        <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
+        parameters.
+      </p>
+      <div className="flex">
+        <TestRedirectButton redirectTo={redirectTo} />
+      </div>
+    </div>
+  );
+}
+
 export function EditableRedirectUrl({
   app,
   client,
@@ -414,10 +432,14 @@ export function EditableRedirectUrl({
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 truncate text-sm text-gray-700 dark:text-neutral-300">
-        <span className="font-medium">Custom Redirect URL:</span>{' '}
-        <span className="font-mono">{client.redirect_to}</span>
+    <div className="flex items-center justify-between gap-3 rounded border bg-gray-50 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-800">
+      <div className="min-w-0 flex-1">
+        <div className="text-xs text-gray-500 dark:text-neutral-400">
+          Custom Redirect URL
+        </div>
+        <div className="truncate font-mono text-sm text-gray-700 dark:text-neutral-300">
+          {client.redirect_to}
+        </div>
       </div>
       <Button
         variant="secondary"

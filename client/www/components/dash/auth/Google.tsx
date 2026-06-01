@@ -8,12 +8,11 @@ import {
   OAuthServiceProvider,
 } from '@/lib/types';
 import {
-  addProvider,
   addClient,
   findName,
   RedirectUrlInput,
   EditableRedirectUrl,
-  TestRedirectButton,
+  RedirectForwardingNote,
   updateClient,
 } from './shared';
 import { messageFromInstantError } from '@/lib/errors';
@@ -29,9 +28,7 @@ import {
   TextInput,
   ToggleGroup,
 } from '@/components/ui';
-import Image from 'next/image';
 import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
-import googleIconSvg from '../../../public/img/google_g.svg';
 import { useDarkMode } from '../DarkModeToggle';
 
 type AppType = 'web' | 'ios' | 'android' | 'button-for-web';
@@ -291,16 +288,7 @@ export function AddGoogleClientForm({
                 </a>
                 .
               </p>
-              {redirectTo && (
-                <>
-                  <p className="text-sm text-gray-500 dark:text-neutral-400">
-                    Your redirect URL should forward to{' '}
-                    <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all
-                    query parameters.
-                  </p>
-                  <TestRedirectButton redirectTo={redirectTo} />
-                </>
-              )}
+              {redirectTo && <RedirectForwardingNote redirectTo={redirectTo} />}
               <Checkbox
                 checked={updatedRedirectURL}
                 onChange={setUpdatedRedirectURL}
@@ -319,51 +307,6 @@ export function AddGoogleClientForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-export function AddGoogleProviderForm({
-  app,
-  onAddProvider,
-}: {
-  app: InstantApp;
-  onAddProvider: (provider: OAuthServiceProvider) => void;
-}) {
-  const token = useContext(TokenContext);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const addGoogleProvider = async () => {
-    setIsLoading(true);
-    try {
-      const resp = await addProvider({
-        token,
-        appId: app.id,
-        providerName: 'google',
-      });
-      onAddProvider(resp.provider);
-    } catch (e) {
-      console.error(e);
-      const msg =
-        messageFromInstantError(e as InstantIssue) ||
-        'There was an error setting up Google.';
-      errorToast(msg, { autoClose: 5000 });
-      // report error
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  return (
-    <div>
-      <Button
-        loading={isLoading}
-        variant="secondary"
-        onClick={addGoogleProvider}
-      >
-        <span className="flex items-center space-x-2">
-          <Image alt="google icon" src={googleIconSvg} />
-          <span>Setup Google</span>
-        </span>
-      </Button>
-    </div>
   );
 }
 
@@ -660,14 +603,7 @@ function Login() {
                 value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
               />
               {client.redirect_to && (
-                <>
-                  <Content className="text-sm text-gray-500 dark:text-neutral-400">
-                    Your redirect URL should forward to{' '}
-                    <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all
-                    query parameters.
-                  </Content>
-                  <TestRedirectButton redirectTo={client.redirect_to} />
-                </>
+                <RedirectForwardingNote redirectTo={client.redirect_to} />
               )}
             </>
           )}

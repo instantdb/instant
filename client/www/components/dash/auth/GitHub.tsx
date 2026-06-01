@@ -1,5 +1,4 @@
 import { FormEventHandler, useContext, useState } from 'react';
-import Image from 'next/image';
 
 import {
   Button,
@@ -19,18 +18,16 @@ import {
   OAuthServiceProvider,
 } from '@/lib/types';
 import {
-  addProvider,
   addClient,
   findName,
   RedirectUrlInput,
   EditableRedirectUrl,
-  TestRedirectButton,
+  RedirectForwardingNote,
 } from './shared';
 import { errorToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
 
 import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
-import githubIconSvg from '../../../public/img/github.svg';
 import { useDarkMode } from '../DarkModeToggle';
 
 function exampleCode({ clientName }: { clientName: string }) {
@@ -43,52 +40,6 @@ const url = db.auth.createAuthorizationURL({
 // Create a link with the url
 <a href={url}>Log in with GitHub</a>
 `;
-}
-
-export function AddGitHubProviderForm({
-  app,
-  onAddProvider,
-}: {
-  app: InstantApp;
-  onAddProvider: (provider: OAuthServiceProvider) => void;
-}) {
-  const token = useContext(TokenContext);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  const addGitHubProvider = async () => {
-    setIsLoading(true);
-    try {
-      const resp = await addProvider({
-        token,
-        appId: app.id,
-        providerName: 'github',
-      });
-      onAddProvider(resp.provider);
-    } catch (e) {
-      console.error(e);
-      const msg =
-        messageFromInstantError(e as InstantIssue) ||
-        'There was an error setting up GitHub.';
-      errorToast(msg, { autoClose: 5000 });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div>
-      <Button
-        loading={isLoading}
-        variant="secondary"
-        onClick={addGitHubProvider}
-      >
-        <span className="flex items-center space-x-2">
-          <Image alt="github icon" src={githubIconSvg} width={16} />
-          <span>Setup GitHub</span>
-        </span>
-      </Button>
-    </div>
-  );
 }
 
 export function AddGitHubClientForm({
@@ -220,16 +171,7 @@ export function AddGitHubClientForm({
           Add <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> as
           the Authorization callback URL in your GitHub OAuth App settings.
         </p>
-        {redirectTo && (
-          <>
-            <p className="text-sm text-gray-500 dark:text-neutral-400">
-              Your redirect URL should forward to{' '}
-              <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
-              parameters.
-            </p>
-            <TestRedirectButton redirectTo={redirectTo} />
-          </>
-        )}
+        {redirectTo && <RedirectForwardingNote redirectTo={redirectTo} />}
         <p className="text-sm text-gray-500 dark:text-neutral-400">
           GitHub requires an exact match for the callback URL. Make sure to add
           this URL in your OAuth App's settings on GitHub.
@@ -290,14 +232,7 @@ export function GitHubClient({
         value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
       />
       {client.redirect_to && (
-        <>
-          <Content className="text-sm text-gray-500 dark:text-neutral-400">
-            Your redirect URL should forward to{' '}
-            <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
-            parameters.
-          </Content>
-          <TestRedirectButton redirectTo={client.redirect_to} />
-        </>
+        <RedirectForwardingNote redirectTo={client.redirect_to} />
       )}
       <Content>
         <strong className="dark:text-white">2.</strong> Use the code below to
