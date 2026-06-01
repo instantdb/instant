@@ -2210,12 +2210,6 @@ export default class Reactor {
   }
 
   async updateUser(newUser) {
-    try {
-      await this.syncUserToEndpoint(newUser);
-    } catch (error) {
-      this._log.error('Error syncing user with external endpoint', error);
-    }
-
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
     this._dataForQueryCache = {};
@@ -2244,6 +2238,11 @@ export default class Reactor {
     this._transport.close();
     this._oauthCallbackResponse = null;
     this.notifyAuthSubs(newV);
+    try {
+      await this.syncUserToEndpoint(newUser);
+    } catch (error) {
+      this._log.error('Error syncing user with external endpoint', error);
+    }
   }
 
   sendMagicCode({ email }) {
