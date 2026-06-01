@@ -143,12 +143,10 @@
                          :app_title (:title app)
                          :expiration (friendly-expiration app)}
         {default-sender-email :email} (config/app-email-sender)
-        from-email (if (flags/use-app-email-verification?)
-                     (if (and (seq sender-email)
-                              (instant-verified-sender? (:id app) sender-email))
-                       sender-email
-                       default-sender-email)
-                     (or sender-email default-sender-email))
+        from-email (if (and (seq sender-email)
+                            (instant-verified-sender? (:id app) sender-email))
+                     sender-email
+                     default-sender-email)
         email-params {:sender-email from-email
                       :sender-name (or sender-name (:title app))
                       :subject (template-replace subject template-params false)

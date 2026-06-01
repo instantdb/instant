@@ -58,8 +58,7 @@
 
 (defn authorized-users
   "Users with access to the app: the creator, app collaborators, and (for
-   org-owned apps) all org members. Used to check who a test/preview email may
-   be sent to."
+   org-owned apps) all org members."
   ([app-id] (authorized-users (aurora/conn-pool :read) app-id))
   ([conn app-id]
    (sql/select ::authorized-users conn
