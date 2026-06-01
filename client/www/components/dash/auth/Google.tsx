@@ -57,7 +57,7 @@ const TYPE_OPTIONS: { id: AppType; label: string; desc: string }[] = [
   },
   {
     id: 'button-for-web',
-    label: 'Google button',
+    label: 'Google Button for Web',
     desc: 'The @react-oauth/google button (idToken flow).',
   },
 ];

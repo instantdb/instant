@@ -266,13 +266,9 @@ export function Email({ app }: { app: InstantApp }) {
                   <p className="text-sm text-gray-500 dark:text-neutral-400">
                     Save to email a confirmation link to this address.
                   </p>
-                ) : fullyVerified ? (
-                  <Content className="text-sm text-gray-500 dark:text-neutral-400">
-                    {senderInfo.EmailAddress} is verified.
-                  </Content>
                 ) : (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex flex-col gap-1">
+                  <div className="divide-y overflow-hidden rounded-sm border dark:divide-neutral-700 dark:border-neutral-700">
+                    <div className="flex flex-col gap-1 px-3 py-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-medium text-gray-700 dark:text-neutral-300">
                           Domain confirmation
@@ -297,7 +293,7 @@ export function Email({ app }: { app: InstantApp }) {
                       ) : null}
                     </div>
 
-                    <div className="flex flex-col gap-2 border-t pt-3 dark:border-neutral-700">
+                    <div className="flex flex-col gap-2 px-3 py-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-medium text-gray-700 dark:text-neutral-300">
                           Email confirmation
@@ -311,54 +307,52 @@ export function Email({ app }: { app: InstantApp }) {
                         <SenderOtpVerification verification={verification} />
                       ) : null}
                     </div>
+
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setShowDnsRecords((v) => !v)}
+                        className="flex w-full cursor-pointer items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-neutral-800"
+                      >
+                        <span className="text-gray-600 dark:text-neutral-300">
+                          DNS records{' '}
+                          <span className="text-gray-400 dark:text-neutral-500">
+                            (optional, improves deliverability)
+                          </span>
+                        </span>
+                        {showDnsRecords ? (
+                          <ChevronUpIcon height={14} className="text-gray-400" />
+                        ) : (
+                          <ChevronDownIcon
+                            height={14}
+                            className="text-gray-400"
+                          />
+                        )}
+                      </button>
+                      {showDnsRecords ? (
+                        <div className="flex flex-col gap-3 border-t p-3 dark:border-neutral-700">
+                          <DnsRecord
+                            label="DKIM"
+                            type="TXT"
+                            host={
+                              senderInfo.DKIMPendingHost || senderInfo.DKIMHost
+                            }
+                            value={
+                              senderInfo.DKIMPendingTextValue ||
+                              senderInfo.DKIMTextValue
+                            }
+                          />
+                          <DnsRecord
+                            label="Return-Path"
+                            type="CNAME"
+                            host={senderInfo.ReturnPathDomain}
+                            value={senderInfo.ReturnPathDomainCNAMEValue}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 )}
-
-                {senderInfo ? (
-                  <div className="overflow-hidden rounded-sm border dark:border-neutral-700">
-                    <button
-                      type="button"
-                      onClick={() => setShowDnsRecords((v) => !v)}
-                      className="flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-sm"
-                    >
-                      <span className="text-gray-600 dark:text-neutral-300">
-                        DNS records{' '}
-                        <span className="text-gray-400 dark:text-neutral-500">
-                          (optional, improves deliverability)
-                        </span>
-                      </span>
-                      {showDnsRecords ? (
-                        <ChevronUpIcon height={14} className="text-gray-400" />
-                      ) : (
-                        <ChevronDownIcon
-                          height={14}
-                          className="text-gray-400"
-                        />
-                      )}
-                    </button>
-                    {showDnsRecords ? (
-                      <div className="flex flex-col gap-3 border-t p-3 dark:border-neutral-700">
-                        <DnsRecord
-                          label="DKIM"
-                          type="TXT"
-                          host={
-                            senderInfo.DKIMPendingHost || senderInfo.DKIMHost
-                          }
-                          value={
-                            senderInfo.DKIMPendingTextValue ||
-                            senderInfo.DKIMTextValue
-                          }
-                        />
-                        <DnsRecord
-                          label="Return-Path"
-                          type="CNAME"
-                          host={senderInfo.ReturnPathDomain}
-                          value={senderInfo.ReturnPathDomainCNAMEValue}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
 
                 <button
                   type="button"
