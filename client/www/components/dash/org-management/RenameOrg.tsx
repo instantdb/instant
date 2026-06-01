@@ -9,8 +9,10 @@ import { useReadyRouter } from '@/components/clientOnlyPage';
 export const RenameOrg = () => {
   const dash = useFetchedDash();
   const token = useContext(TokenContext);
-  const [value, setValue] = useState('');
   const router = useReadyRouter();
+  const currentTitle =
+    dash.data.workspace.type === 'org' ? dash.data.workspace.org.title : '';
+  const [value, setValue] = useState(currentTitle);
 
   const submit = async () => {
     if (dash.data.workspace.type !== 'org') {
@@ -51,31 +53,33 @@ export const RenameOrg = () => {
 
   return (
     <form
-      className="pt-4"
+      className="flex flex-col gap-3 pt-6"
       onSubmit={async (e) => {
         e.preventDefault();
         await submit();
       }}
     >
-      <SectionHeading className="pb-2">Rename Organization</SectionHeading>
-      <div className="flex flex-col items-start md:flex-row md:items-end md:justify-stretch md:gap-2">
+      <div className="flex flex-col gap-1">
+        <SectionHeading>Rename organization</SectionHeading>
+        <p className="text-sm text-gray-500 dark:text-neutral-400">
+          This name is shown across your dashboard.
+        </p>
+      </div>
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-end">
         <TextInput
           value={value}
-          label="New Name"
-          className="min-w-[300px]"
-          placeholder="Enter new organization name"
+          label="Name"
+          className="w-full sm:max-w-xs"
+          placeholder="Enter a new organization name"
           onChange={(e) => setValue(e)}
         />
-
-        <div className="flex justify-end gap-2 pt-2 md:pt-4">
-          <Button
-            disabled={!value || value === dash.data.workspace.org.title}
-            variant="secondary"
-            type="submit"
-          >
-            Rename
-          </Button>
-        </div>
+        <Button
+          disabled={!value || value === currentTitle}
+          variant="primary"
+          type="submit"
+        >
+          Rename
+        </Button>
       </div>
     </form>
   );

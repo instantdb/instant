@@ -1,4 +1,4 @@
-import { SectionHeading, Button, Content } from '@/components/ui';
+import { SectionHeading, Button } from '@/components/ui';
 import { friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
 import { messageFromInstantError } from '@/lib/errors';
 import config, { stripeKey } from '@/lib/config';
@@ -6,7 +6,7 @@ import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { AppsSubscriptionResponse, InstantIssue } from '@/lib/types';
 import { loadStripe } from '@stripe/stripe-js';
-import { useContext, useRef } from 'react';
+import { useContext } from 'react';
 import { Loading, ErrorMessage } from '@/components/dash/shared';
 import { errorToast } from '@/lib/toast';
 import confetti from 'canvas-confetti';
@@ -96,9 +96,89 @@ export function ProgressBar({ width }: { width: number }) {
   );
 }
 
+// A title plus a one-line description. Mirrors the auth dashboard so billing
+// reads as part of the same product.
+export function BillingHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <SectionHeading>{title}</SectionHeading>
+      <p className="text-sm text-gray-500 dark:text-neutral-400">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+// The usage readout: headline number against its limit, a progress bar, and the
+// DB/Storage split. Shared by app and org billing. A null limit (free org tier)
+// hides the denominator and bar, since there's nothing to measure against.
+export function UsageMeter({
+  label,
+  usedBytes,
+  limitBytes,
+  dbBytes,
+  storageBytes,
+}: {
+  label: string;
+  usedBytes: number;
+  limitBytes: number | null;
+  dbBytes: number;
+  storageBytes: number;
+}) {
+  const progress = limitBytes
+    ? Math.min(100, Math.round((usedBytes / limitBytes) * 100))
+    : 0;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm font-medium">{label}</span>
+        <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
+          {friendlyUsage(usedBytes)}
+          {limitBytes ? ` / ${friendlyUsage(limitBytes)}` : null}
+        </span>
+      </div>
+      {limitBytes ? <ProgressBar width={progress} /> : null}
+      <div className="flex gap-4 font-mono text-xs text-gray-500 dark:text-neutral-400">
+        <span>DB · {friendlyUsage(dbBytes)}</span>
+        <span>Storage · {friendlyUsage(storageBytes)}</span>
+      </div>
+    </div>
+  );
+}
+
+// The paid-plan badge: click it for confetti. Pure delight, so it only shows
+// once you've actually upgraded.
+function PaidPlanBadge({ name }: { name: string }) {
+  return (
+    <div style={{ animation: 'wiggle 5s infinite' }} className="self-start">
+      <div
+        className="cursor-pointer rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 font-mono font-bold text-purple-800 transition-all select-none hover:-translate-y-1 active:scale-90 dark:border-purple-400/50 dark:bg-purple-800/40 dark:text-purple-100"
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const originX = (rect.x + 0.5 * rect.width) / window.innerWidth;
+          const originY = (rect.y + 0.5 * rect.height) / window.innerHeight;
+          confetti({
+            angle: randomInRange(55, 125),
+            spread: randomInRange(50, 70),
+            particleCount: randomInRange(50, 100),
+            origin: { x: originX, y: originY },
+          });
+        }}
+      >
+        {name} <span>🎉</span>
+      </div>
+    </div>
+  );
+}
+
 export default function Billing({ appId }: { appId: string }) {
   const token = useContext(TokenContext);
-  const confettiRef = useRef<HTMLDivElement>(null);
 
   const onUpgrade = async (
     e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
@@ -126,11 +206,18 @@ export default function Billing({ appId }: { appId: string }) {
 
   if (orgIsPaid) {
     return (
-      <div className="">
-        <div className="parent rounded-sm p-3">
-          <div className="p-2">This app is part of a paid organization.</div>
+      <div className="flex max-w-xl flex-col gap-6 p-4">
+        <BillingHeader
+          title="Billing"
+          description="This app is billed as part of your organization."
+        />
+        <div className="flex flex-col items-start gap-3 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
+          <p className="text-sm text-gray-600 dark:text-neutral-300">
+            Usage and payment for this app are managed in your organization's
+            billing settings.
+          </p>
           <Link href={'/dash/org?tab=billing'}>
-            <Button>Manage Organization Billing</Button>
+            <Button variant="primary">Manage organization billing</Button>
           </Link>
         </div>
       </div>
@@ -141,7 +228,7 @@ export default function Billing({ appId }: { appId: string }) {
 
   if (!data) {
     return (
-      <div className="mx-auto flex max-w-xl flex-col gap-4 p-2">
+      <div className="flex max-w-xl flex-col gap-4 p-4">
         <ErrorMessage>
           <div className="flex gap-2">
             There was an error loading the data.{' '}
@@ -166,76 +253,53 @@ export default function Billing({ appId }: { appId: string }) {
   const totalStorageBytes = data['total-storage-bytes'] || 0;
   const totalUsageBytes = totalAppBytes + totalStorageBytes;
   const progressDen = isFreeTier ? GB_1 : GB_10;
-  const progress = Math.round((totalUsageBytes / progressDen) * 100);
 
   return (
-    <div className="flex max-w-md flex-col gap-4 p-4">
-      <SectionHeading>Billing</SectionHeading>
-      <div className="flex items-center gap-2">
-        <h1 className="font-bold">Current plan</h1>
+    <div className="flex max-w-xl flex-col gap-6 p-4">
+      <BillingHeader
+        title="Billing"
+        description="Keep track of your usage and manage your plan."
+      />
+
+      <div className="rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-gray-500 dark:text-neutral-400">
+              Current plan
+            </span>
+            {isFreeTier ? (
+              <span className="text-lg font-semibold">Free</span>
+            ) : (
+              <PaidPlanBadge name={subscriptionName} />
+            )}
+          </div>
+          {isFreeTier ? (
+            <Button variant="primary" onClick={onUpgrade}>
+              Upgrade to Pro
+            </Button>
+          ) : (
+            <Button variant="secondary" onClick={onManage}>
+              Manage subscription
+            </Button>
+          )}
+        </div>
         {isFreeTier ? (
-          <div className="rounded-sm border px-2 py-1 font-bold dark:border-neutral-600">
-            {subscriptionName}
-          </div>
-        ) : (
-          <div style={{ animation: 'wiggle 5s infinite' }}>
-            <div
-              ref={confettiRef}
-              className="translate-y-0 cursor-pointer rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 font-mono font-bold text-purple-800 transition-all select-none hover:-translate-y-1 active:scale-90 dark:border-purple-400/50 dark:bg-purple-800/40 dark:text-purple-100"
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-
-                const originX = (rect.x + 0.5 * rect.width) / window.innerWidth;
-                const originY =
-                  (rect.y + 0.5 * rect.height) / window.innerHeight;
-
-                confetti({
-                  angle: randomInRange(55, 125),
-                  spread: randomInRange(50, 70),
-                  particleCount: randomInRange(50, 100),
-                  origin: { x: originX, y: originY },
-                });
-              }}
-            >
-              {subscriptionName} <span>🎉</span>
-            </div>
-          </div>
-        )}
+          <p className="mt-3 text-sm text-gray-500 dark:text-neutral-400">
+            Pro includes 10 GB of storage, backups, multiple team members, and
+            priority support.
+          </p>
+        ) : null}
       </div>
 
-      <div className="gap flex flex-col rounded-sm border bg-white px-2 pt-1 pb-3 dark:border-neutral-700 dark:bg-neutral-800">
-        <h2 className="flex justify-between gap-2 p-2">
-          <span className="font-bold">Usage</span>{' '}
-          <span className="font-mono text-sm">
-            {friendlyUsage(totalUsageBytes)} / {friendlyUsage(progressDen)}
-          </span>
-        </h2>
-        <ProgressBar width={progress} />
-        <div className="flex justify-start gap-4 pt-3 pl-2 text-sm">
-          <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
-            DB ({friendlyUsage(totalAppBytes)})
-          </span>
-
-          <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
-            Storage ({friendlyUsage(totalStorageBytes)})
-          </span>
-        </div>
+      <div className="rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
+        <UsageMeter
+          label="Usage"
+          usedBytes={totalUsageBytes}
+          limitBytes={progressDen}
+          dbBytes={totalAppBytes}
+          storageBytes={totalStorageBytes}
+        />
       </div>
-      {isFreeTier ? (
-        <div className="flex flex-col space-y-4">
-          <Button variant="primary" onClick={onUpgrade}>
-            Upgrade to Pro
-          </Button>
-          <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
-            Pro offers 10GB of storage, backups, multiple team members for apps,
-            and priority support.
-          </Content>
-        </div>
-      ) : (
-        <Button variant="primary" onClick={onManage}>
-          Manage Pro subscription
-        </Button>
-      )}
     </div>
   );
 }

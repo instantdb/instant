@@ -1,9 +1,11 @@
 import { TokenContext } from '@/lib/contexts';
 import { useContext } from 'react';
 import { useFetchedDash } from './MainDashLayout';
-import { ActionButton, Content, SectionHeading } from '../ui';
+import { ActionButton } from '@/components/ui';
 import { jsonMutate } from '@/lib/fetch';
 import config from '@/lib/config';
+import { EnvelopeIcon } from '@heroicons/react/24/outline';
+import { SettingsEmptyState, SettingsSection } from './userSettingsShared';
 
 export function Invites() {
   const token = useContext(TokenContext);
@@ -11,22 +13,23 @@ export function Invites() {
   const invites = dashResponse.data.invites ?? [];
 
   return (
-    <div className="flex w-full max-w-2xl flex-col gap-4 px-4 py-8">
-      <div className="mb-2 flex text-4xl">📫</div>
-      <SectionHeading>Team Invites</SectionHeading>
-      <div className="flex flex-1 flex-col gap-4">
-        {invites.length ? (
-          invites.map((invite) => (
+    <SettingsSection
+      title="Team Invites"
+      description="Accept an invite to join a team and collaborate on its apps."
+    >
+      {invites.length ? (
+        <div className="flex flex-col gap-3">
+          {invites.map((invite) => (
             <div
               key={invite.id}
-              className="flex flex-col justify-between gap-2"
+              className="flex flex-col gap-3 rounded-sm border p-4 dark:border-neutral-700"
             >
-              <div>
+              <div className="text-sm">
                 <strong>{invite.inviter_email}</strong> invited you to{' '}
                 <strong>{invite.title}</strong> as{' '}
                 <strong>{invite.invitee_role}</strong>.
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-2">
                 <ActionButton
                   variant="primary"
                   label="Accept"
@@ -57,22 +60,19 @@ export function Invites() {
                     });
 
                     await dashResponse.mutate();
-
-                    const firstApp = dashResponse.data?.apps?.[0];
-                    if (invites.length === 1 && firstApp) {
-                      // nav({ s: 'main', t: 'home', app: firstApp.id });
-                    }
                   }}
                 />
               </div>
             </div>
-          ))
-        ) : (
-          <Content className="dark:text-netural-400 text-gray-400 italic">
-            You have no pending invites.
-          </Content>
-        )}
-      </div>
-    </div>
+          ))}
+        </div>
+      ) : (
+        <SettingsEmptyState
+          icon={<EnvelopeIcon height={28} />}
+          title="No pending invites"
+          description="When someone invites you to a team, it'll show up here."
+        />
+      )}
+    </SettingsSection>
   );
 }

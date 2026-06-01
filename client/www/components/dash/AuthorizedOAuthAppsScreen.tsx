@@ -1,11 +1,23 @@
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
-import { Button, cn, Content, SectionHeading } from '@/components/ui';
+import {
+  Button,
+  Content,
+  Dialog,
+  IconButton,
+  SubsectionHeading,
+} from '@/components/ui';
+import { Loading } from '@/components/dash/shared';
 import { TokenContext } from '@/lib/contexts';
 import { errorToast } from '@/lib/toast';
 import { AppLogo } from './OAuthApps';
-import { ArrowPathIcon } from '@heroicons/react/24/solid';
+import { ArrowPathIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
+import {
+  SettingsEmptyState,
+  SettingsList,
+  SettingsSection,
+} from './userSettingsShared';
 
 type OAuthApp = {
   id: string;
@@ -17,8 +29,6 @@ type OAuthApp = {
 };
 
 async function fetchOAuthApps(token: string): Promise<OAuthApp[]> {
-  console.log('fetch apps');
-
   const data = await jsonFetch(`${config.apiURI}/dash/user/oauth_apps`, {
     method: 'GET',
     headers: {
@@ -71,7 +81,6 @@ function useOAuthApps(
       setError(null);
 
       const results = await fetchOAuthApps(token);
-      console.log('results', results);
       setOAuthApps(results);
     } catch (err) {
       setError(err);
@@ -98,114 +107,145 @@ function useOAuthApps(
   return [oAuthApps, isLoading, error, refresh, revoke];
 }
 
-export default function OAuthAppsTab({ className }: { className?: string }) {
+export default function OAuthAppsTab() {
   const authToken = useContext(TokenContext);
   const [oAuthApps, isLoading, error, refresh, revoke] =
     useOAuthApps(authToken);
+  const [pendingRevoke, setPendingRevoke] = useState<OAuthApp | null>(null);
+  const [isRevoking, setIsRevoking] = useState(false);
 
-  const handleRevokeAccess = async ({
-    name,
-    id,
-  }: {
-    name: string;
-    id: string;
-  }) => {
-    if (!confirm(`Are you sure you want to revoke access to ${name}?`)) {
+  const handleRevokeAccess = async () => {
+    if (!pendingRevoke) {
       return;
     }
-
     try {
-      await revoke(id);
+      setIsRevoking(true);
+      await revoke(pendingRevoke.id);
+      setPendingRevoke(null);
     } catch (err: any) {
       console.error('Failed to revoke access:', err);
-      errorToast(`Failed to revoke access: ${err.body.message}`);
+      errorToast(
+        `Failed to revoke access: ${err.body?.message ?? err.message}`,
+      );
+    } finally {
+      setIsRevoking(false);
     }
   };
+
   return (
-    <div className={cn('flex max-w-2xl flex-1 flex-col p-4', className)}>
-      <div className="flex flex-row items-center gap-4 pb-4">
-        <SectionHeading className="font-bold">
-          Authorized OAuth Apps
-        </SectionHeading>
-        <Button
-          className="bg-transparent py-2"
-          onClick={refresh}
+    <SettingsSection
+      title="OAuth Apps"
+      description="Apps you've granted access to your Instant account."
+      action={
+        <IconButton
           variant="subtle"
-          size="mini"
-        >
-          <ArrowPathIcon height={20} />
-        </Button>
-      </div>
-      {error ? <div>{error.message}</div> : null}
-      <Content className="dark:text-neutral-400">
-        <p>
-          Below are any OAuth apps that you have granted access to your Instant
-          Account.
-        </p>
-      </Content>
-      <div className="mt-4 space-y-4">
-        {(oAuthApps || []).map(
-          ({ id, name, logo, homePage, privacyPolicyLink, tosLink }) => (
-            <div className="group flex flex-row items-center gap-4 dark:text-white">
-              <div key={id} className="flex h-full">
-                <AppLogo app={{ appLogo: logo, appName: name }} />
-              </div>
-              <Content>
-                <p>
-                  {homePage ? (
-                    <a
-                      href={homePage}
-                      target="_blank"
-                      className="dark:text-white"
-                      rel="noopener noreferrer"
-                    >
-                      {name}
-                    </a>
-                  ) : (
-                    name
-                  )}
-                  <span>
-                    {tosLink || privacyPolicyLink ? (
-                      <>
-                        <br />
-                        <span className="text-xs">
-                          {tosLink ? (
-                            <a
-                              href={tosLink}
-                              target="_blank"
-                              className="dark:text-white"
-                              rel="noopener noreferrer"
-                            >
-                              Terms of Service
-                            </a>
-                          ) : null}{' '}
-                          {privacyPolicyLink ? (
-                            <a
-                              href={privacyPolicyLink}
-                              target="_blank"
-                              className="dark:text-white"
-                              rel="noopener noreferrer"
-                            >
-                              Privacy Policy
-                            </a>
-                          ) : null}
-                        </span>
-                      </>
-                    ) : null}
-                  </span>
-                </p>
-              </Content>
-              <Button
-                className="ml-4 hidden text-sm group-hover:block"
-                variant="destructive"
-                onClick={() => handleRevokeAccess({ id, name })}
+          label="Refresh"
+          onClick={refresh}
+          icon={<ArrowPathIcon height={16} />}
+        />
+      }
+    >
+      {error ? <p className="text-sm text-red-500">{error.message}</p> : null}
+
+      {isLoading ? (
+        <Loading />
+      ) : oAuthApps.length ? (
+        <SettingsList>
+          {oAuthApps.map(
+            ({ id, name, logo, homePage, privacyPolicyLink, tosLink }) => (
+              <div
+                key={id}
+                className="flex items-center justify-between gap-3 px-4 py-3"
               >
-                Revoke access
-              </Button>
-            </div>
-          ),
-        )}
-      </div>
-    </div>
+                <div className="flex items-center gap-3">
+                  <AppLogo app={{ appLogo: logo, appName: name }} />
+                  <div className="flex flex-col">
+                    {homePage ? (
+                      <a
+                        href={homePage}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium hover:underline"
+                      >
+                        {name}
+                      </a>
+                    ) : (
+                      <span className="font-medium">{name}</span>
+                    )}
+                    {tosLink || privacyPolicyLink ? (
+                      <span className="flex gap-2 text-xs text-gray-400 dark:text-neutral-500">
+                        {tosLink ? (
+                          <a
+                            href={tosLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                          >
+                            Terms of Service
+                          </a>
+                        ) : null}
+                        {privacyPolicyLink ? (
+                          <a
+                            href={privacyPolicyLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                          >
+                            Privacy Policy
+                          </a>
+                        ) : null}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPendingRevoke({
+                      id,
+                      name,
+                      logo,
+                      homePage,
+                      privacyPolicyLink,
+                      tosLink,
+                    })
+                  }
+                  className="cursor-pointer text-sm text-gray-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400"
+                >
+                  Revoke
+                </button>
+              </div>
+            ),
+          )}
+        </SettingsList>
+      ) : (
+        <SettingsEmptyState
+          icon={<ShieldCheckIcon height={28} />}
+          title="No authorized apps"
+          description="Apps you grant access to your Instant account will show up here."
+        />
+      )}
+
+      <Dialog
+        title="Revoke access"
+        open={Boolean(pendingRevoke)}
+        onClose={() => setPendingRevoke(null)}
+      >
+        <div className="flex flex-col gap-2">
+          <SubsectionHeading>Revoke {pendingRevoke?.name}</SubsectionHeading>
+          <Content>
+            {pendingRevoke?.name} will lose access to your Instant account. You
+            can grant access again at any time.
+          </Content>
+          <Button
+            variant="destructive"
+            loading={isRevoking}
+            onClick={handleRevokeAccess}
+          >
+            Revoke access
+          </Button>
+        </div>
+      </Dialog>
+    </SettingsSection>
   );
 }

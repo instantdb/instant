@@ -61,14 +61,10 @@ const OrgSettingsPage: NextPageWithLayout = () => {
     <>
       <BackToAppsButton />
       <div className="bg-gray-50 dark:bg-neutral-800">
-        <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 md:flex-row md:gap-4 dark:border-b-neutral-800">
-          <div className="flex items-center gap-2">
-            <h2 className="font-mono font-bold md:text-xl">
-              <div className="flex items-center gap-4">
-                <BuildingOffice2Icon className="opacity-40" width={20} />
-                <div className="text-lg font-bold">{org.org.title}</div>
-              </div>
-            </h2>
+        <div className="flex flex-col justify-between gap-1 border-b border-b-gray-300 px-4 py-3 md:flex-row md:items-center md:gap-4 dark:border-b-neutral-800">
+          <div className="flex items-center gap-3">
+            <BuildingOffice2Icon className="text-gray-400" width={22} />
+            <h2 className="font-mono text-xl font-bold">{org.org.title}</h2>
             {billingInfo.data && (
               <Badge>{billingInfo.data['subscription-name']} Plan</Badge>
             )}
@@ -85,9 +81,8 @@ const OrgSettingsPage: NextPageWithLayout = () => {
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[680px] overflow-scroll px-4 pt-6 lg:px-12">
+      <div className="mx-auto w-full max-w-[680px] px-4 pt-6 pb-16 lg:px-8">
         <NavTabBar
-          className="border-transparent"
           tabs={tabs}
           selectedId={tab}
           onSelect={(t) => setTab(t.id as 'members' | 'billing' | 'manage')}

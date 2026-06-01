@@ -1,21 +1,13 @@
 import { useReadyRouter } from '@/components/clientOnlyPage';
 import { useFetchedDash } from '../MainDashLayout';
-import {
-  Badge,
-  Button,
-  Content,
-  SubsectionHeading,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  useDialog,
-} from '@/components/ui';
+import { Badge, Button, SectionHeading, useDialog } from '@/components/ui';
 import { InviteToOrgDialog } from './InviteToOrgDialog';
 import { isMinRole, Role } from '@/pages/dash';
 import config from '@/lib/config';
 import { useAuthToken } from '@/lib/auth';
 import { MemberMenu } from './MemberMenu';
 import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
+import { parseAsStringEnum, useQueryState } from 'nuqs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,6 +37,11 @@ export const Members = () => {
 
   const dialog = useDialog();
   const token = useAuthToken();
+
+  const [, setTab] = useQueryState(
+    'tab',
+    parseAsStringEnum(['members', 'billing', 'manage']).withDefault('members'),
+  );
 
   const revoke = async (inviteId: string) => {
     console.log('Revoking invite...', inviteId);
@@ -93,65 +90,86 @@ export const Members = () => {
   const myRole = org.org.role as Role;
   const myEmail = dashResponse.data.user.email;
 
+  const canInvite = isMinRole('admin', myRole);
+
   return (
-    <div className="">
-      <div className="flex items-end justify-between py-2">
-        <SubsectionHeading>Current Members</SubsectionHeading>
-        {isMinRole('admin', myRole) && (
-          <Tooltip>
-            <TooltipTrigger>
-              <Button
-                disabled={!canAddMembers}
-                onClick={() => dialog.onOpen()}
-                size="mini"
-              >
-                Invite
-              </Button>
-            </TooltipTrigger>
-            {!canAddMembers && (
-              <TooltipContent>
-                Invitations are only available for paid orgs
-              </TooltipContent>
-            )}
-          </Tooltip>
-        )}
-      </div>
-      <InviteToOrgDialog dialog={dialog} />
-      <div className="divide-y rounded-xs border bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
-        {org.members.map((member) => (
-          <div
-            className="flex w-full items-center justify-between gap-2 rounded-xs p-2 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700/40"
-            key={member.id}
-          >
-            <div className="flex items-center gap-3">
-              {member.email}
-              {member.email === myEmail && <Badge>Me</Badge>}
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-sm">{READABLE_ROLES[member.role]}</div>
-              <MemberMenu member={member} />
-            </div>
+    <div className="flex flex-col gap-6 pt-6">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-1">
+            <SectionHeading>Team members</SectionHeading>
+            <p className="text-sm text-gray-500 dark:text-neutral-400">
+              People with access to this organization and its apps.
+            </p>
           </div>
-        ))}
+          {canInvite && canAddMembers && (
+            <Button onClick={() => dialog.onOpen()} size="mini">
+              Invite
+            </Button>
+          )}
+        </div>
+
+        {canInvite && !canAddMembers && (
+          <div className="rounded-sm border bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:border-neutral-700 dark:bg-neutral-800/50 dark:text-neutral-400">
+            Inviting teammates is available on the Startup plan.{' '}
+            <button
+              type="button"
+              onClick={() => setTab('billing')}
+              className="font-medium text-[#606AF4] hover:underline"
+            >
+              Upgrade
+            </button>
+          </div>
+        )}
+
+        <InviteToOrgDialog dialog={dialog} />
+
+        <div className="divide-y overflow-hidden rounded-sm border bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
+          {org.members.map((member) => (
+            <div
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700/40"
+              key={member.id}
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{member.email}</span>
+                {member.email === myEmail && <Badge>Me</Badge>}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 dark:text-neutral-400">
+                  {READABLE_ROLES[member.role]}
+                </span>
+                <MemberMenu member={member} />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="mt-6">
-        <SubsectionHeading>Pending Invites</SubsectionHeading>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <SectionHeading>Pending invites</SectionHeading>
+          <p className="text-sm text-gray-500 dark:text-neutral-400">
+            Invites that haven't been accepted yet.
+          </p>
+        </div>
         {invites.length === 0 ? (
-          <div className="w-full py-8 text-center text-sm opacity-50">
+          <div className="rounded-sm border border-dashed px-3 py-6 text-center text-sm text-gray-400 dark:border-neutral-700 dark:text-neutral-500">
             No pending invites
           </div>
         ) : (
-          <div className="divide-y border bg-white dark:border-neutral-700 dark:bg-neutral-800">
+          <div className="divide-y overflow-hidden rounded-sm border bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
             {invites.map((invite) => (
               <div
-                className="flex w-full items-center justify-between gap-2 p-2 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700/40"
+                className="flex w-full items-center justify-between gap-2 px-3 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700/40"
                 key={invite.id}
               >
                 <div>{invite.email}</div>
                 <DropdownMenu>
                   <DropdownMenuTrigger>
-                    <EllipsisHorizontalIcon opacity={'50%'} width={20} />
+                    <EllipsisHorizontalIcon
+                      className="text-gray-400 hover:text-gray-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+                      width={20}
+                    />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
                     <DropdownMenuItem>

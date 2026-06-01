@@ -7,15 +7,10 @@ import { loadStripe } from '@stripe/stripe-js';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantIssue } from '@instantdb/core';
 import { errorToast } from '@/lib/toast';
-import { friendlyUsage, GB_1, GB_10, GB_250, ProgressBar } from '../Billing';
+import { BillingHeader, GB_250, UsageMeter } from '../Billing';
 import { useFetchedDash } from '../MainDashLayout';
-import {
-  Button,
-  cn,
-  Content,
-  SectionHeading,
-  SubsectionHeading,
-} from '@/components/ui';
+import { Button } from '@/components/ui';
+import { Loading, ErrorMessage } from '@/components/dash/shared';
 import { OrgWorkspace } from '@/lib/hooks/useWorkspace';
 
 async function createPortalSession(orgId: string, token: string) {
@@ -103,72 +98,90 @@ export const OrgBilling = () => {
     'stripe-subscription-id': string | null;
     'customer-balance': number | null;
   }>(`${config.apiURI}/dash/orgs/${orgId}/billing`);
-  if (fetchResult.error) {
-    return <div>Error fetching data</div>;
-  }
-  const org = fetchedDash.data.workspace as OrgWorkspace;
 
-  const isPaid = org.org.paid;
-
-  if (!fetchResult.data) {
-    return <div>Loading...</div>;
+  if (fetchResult.isLoading) {
+    return <Loading />;
   }
+
   const data = fetchResult.data;
 
+  if (fetchResult.error || !data) {
+    return (
+      <div className="flex flex-col gap-4 pt-6">
+        <ErrorMessage>
+          <div className="flex gap-2">
+            There was an error loading your billing data.{' '}
+            <Button
+              variant="subtle"
+              size="mini"
+              onClick={() =>
+                fetchResult.mutate(undefined, { revalidate: true })
+              }
+            >
+              Refresh.
+            </Button>
+          </div>
+        </ErrorMessage>
+      </div>
+    );
+  }
+
+  const org = fetchedDash.data.workspace as OrgWorkspace;
+  const isPaid = org.org.paid;
+  const isFreeTier = data['subscription-name'] === 'Free';
   const totalAppBytes = data['total-app-bytes'] || 0;
   const totalStorageBytes = data['total-storage-bytes'] || 0;
   const totalUsageBytes = totalAppBytes + totalStorageBytes;
-  const isFreeTier = data['subscription-name'] === 'Free';
   const credit = data['customer-balance'] || 0;
-  const progressDen = isFreeTier ? GB_1 : GB_250;
-  const progress = Math.round((totalUsageBytes / progressDen) * 100);
+  // Only paid orgs have a storage allowance to meter against, so free orgs show
+  // the raw usage with no bar.
+  const limitBytes = isPaid ? GB_250 : null;
 
   return (
-    <div className="pt-2">
-      <div className="gap flex flex-col rounded-sm border bg-white px-2 pt-1 dark:border-neutral-700 dark:bg-neutral-800">
-        <div className="flex items-end justify-between gap-2 p-2">
-          <span className="font-bold">Usage (all apps)</span>{' '}
-          <span className="font-mono text-sm">
-            {friendlyUsage(totalUsageBytes)}{' '}
-            {isPaid && <span>/ {friendlyUsage(progressDen)}</span>}
-          </span>
-        </div>
-        {isPaid && <ProgressBar width={progress} />}
-        <div
-          className={cn('flex justify-start space-x-2 pl-2 text-sm', 'pt-3')}
-        >
-          <span className="font-mono text-sm text-gray-500">
-            DB ({friendlyUsage(totalAppBytes)})
-          </span>
-
-          <span className="pb-3 font-mono text-sm text-gray-500">
-            Storage ({friendlyUsage(totalStorageBytes)})
-          </span>
-        </div>
+    <div className="flex flex-col gap-6 pt-6">
+      <div className="rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
+        <UsageMeter
+          label="Usage (all apps)"
+          usedBytes={totalUsageBytes}
+          limitBytes={limitBytes}
+          dbBytes={totalAppBytes}
+          storageBytes={totalStorageBytes}
+        />
       </div>
-      <SectionHeading className="pt-8 pb-2">Billing</SectionHeading>
-      {isFreeTier ? (
-        <div className="flex flex-col gap-2">
-          <Button variant="primary" onClick={onUpgrade}>
-            Upgrade to Startup
-          </Button>
-          <div className="w-full rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic">
-            Startup offer 250GB of storage across all apps, multiple team
-            members for apps, and priority support.
+
+      <div className="flex flex-col gap-3">
+        <BillingHeader
+          title="Plan"
+          description={
+            isFreeTier
+              ? 'Upgrade to Startup for more storage and team features across every app.'
+              : 'Manage your subscription and payment details.'
+          }
+        />
+        {isFreeTier ? (
+          <div className="flex flex-col gap-2">
+            <Button variant="primary" onClick={onUpgrade}>
+              Upgrade to Startup
+            </Button>
+            <p className="text-sm text-gray-500 dark:text-neutral-400">
+              Startup includes 250 GB of storage across all apps, multiple team
+              members, and priority support.
+            </p>
           </div>
-        </div>
-      ) : (
-        <Button variant="primary" onClick={onManageBilling}>
-          Manage Startup subscription
-        </Button>
-      )}
+        ) : (
+          <Button variant="primary" onClick={onManageBilling}>
+            Manage Startup subscription
+          </Button>
+        )}
+      </div>
+
       {credit < 0 ? (
-        <div className="pt-4">
-          <SubsectionHeading>Credit</SubsectionHeading>
-          <Content>
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium">Credit</span>
+          <p className="text-sm text-gray-500 dark:text-neutral-400">
             You have a {formatCredit(credit)} credit that will be applied to
             your next invoice.
-          </Content>
+          </p>
         </div>
       ) : null}
     </div>
