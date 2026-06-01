@@ -321,7 +321,10 @@ export function Email({ app }: { app: InstantApp }) {
                           </span>
                         </span>
                         {showDnsRecords ? (
-                          <ChevronUpIcon height={14} className="text-gray-400" />
+                          <ChevronUpIcon
+                            height={14}
+                            className="text-gray-400"
+                          />
                         ) : (
                           <ChevronDownIcon
                             height={14}
