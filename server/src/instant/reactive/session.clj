@@ -1427,7 +1427,6 @@
                         (next steps2)))))))))
 
 (defn combine-transact [{:keys [store]} event1 event2]
-  (tool/def-locals)
   (when (and (flags/combine-transacts?)
              (try (matching-steps? store (:session-id event1) (:tx-steps event1) (:tx-steps event2))
                   (catch Throwable t
