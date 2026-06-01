@@ -137,7 +137,7 @@ avoid — live in the docstring of `scripts/run_unasync.py`.
 Unit tests cover validation, header construction, and pure-logic helpers.
 The sandbox at `client/sandbox/admin-sdk-python/` is the integration-test
 layer — testers exercise the SDK against a real Instant server and assert
-on outcomes. That's where wire-format bugs and divergence from JS surface.
+on outcomes. This is similar to how we test the JS admin SDK.
 
 ```bash
 cd ../../sandbox/admin-sdk-python
