@@ -532,10 +532,11 @@ function SenderOtpVerification({
           ? `We emailed ${address} a six-digit code. Check your inbox and enter it below to confirm you can receive email at this address.`
           : `Send a one-time passcode to ${address}, then enter the 6 digits here to confirm you can receive email at this address.`}
       </Content>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Button
           type="button"
           variant="secondary"
+          className="shrink-0"
           loading={verification.verifyCode.isMutating}
           onClick={() =>
             verification
@@ -558,26 +559,27 @@ function SenderOtpVerification({
         >
           {verification.justSentCode ? 'Resend code' : 'Send code'}
         </Button>
-        <div className="flex flex-1 gap-2">
-          <TextInput
-            label="Verification code"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                verification.verifyCode.trigger(normalizedCode);
-              }
-            }}
-            value={code}
-            onChange={(e) => setCode(e)}
-            placeholder="123456"
-            inputMode="numeric"
-          />
+        <div className="flex flex-1 items-center gap-2">
+          <div className="flex-1">
+            <TextInput
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  verification.verifyCode.trigger(normalizedCode);
+                }
+              }}
+              value={code}
+              onChange={(e) => setCode(e)}
+              placeholder="123456"
+              inputMode="numeric"
+            />
+          </div>
           <Button
             type="button"
             variant="primary"
+            className="shrink-0"
             loading={verification.verifyCode.isMutating}
             disabled={normalizedCode.length !== 6}
             onClick={() => verification.verifyCode.trigger(normalizedCode)}
-            className="self-end"
           >
             Verify
           </Button>
