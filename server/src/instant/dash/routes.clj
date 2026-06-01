@@ -1340,7 +1340,7 @@
 ;; Email templates
 ;; ---------------
 
-(defn get-default-email-template [_req]
+(defn default-email-template-get [_req]
   (let [params (magic-code-auth/default-email-template-params)]
     (response/ok {:email-type "magic-code"
                   :sender-email (:sender-email params)
@@ -2319,7 +2319,7 @@
   (DELETE "/dash/apps/:app_id/members/remove" [] team-member-remove-delete)
   (POST "/dash/apps/:app_id/members/update" [] team-member-update-post)
 
-  (GET "/dash/default-email-template" [] get-default-email-template)
+  (GET "/dash/default-email-template" [] default-email-template-get)
   (GET "/dash/apps/:app_id/sender-verification" [] sender-verification-get)
   (POST "/dash/apps/:app_id/sender-verification/send-magic-code" [] sender-verification-send-magic-code)
   (POST "/dash/apps/:app_id/sender-verification/verify-magic-code" [] sender-verification-verify-magic-code)
