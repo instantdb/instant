@@ -5,7 +5,9 @@
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.model.app :as app-model]
+   [instant.model.app-email-sender :as app-email-sender-model]
    [instant.model.app-email-template :as app-email-template-model]
+   [instant.model.app-email-verification :as app-email-verification]
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
@@ -123,17 +125,31 @@
         (format "%s hour%s" hours (if (> hours 1) "s" "")))
       (format "%s minute%s" minutes (if (> minutes 1) "s" "")))))
 
+(defn instant-verified-sender?
+  "Whether `sender-email` is verified at the Instant (app) level for `app-id`."
+  [app-id sender-email]
+  (when-let [sender (app-email-sender-model/get-by-email {:email sender-email})]
+    (boolean (:verified (app-email-verification/get-by-app-and-sender
+                         app-id (:id sender))))))
+
 (defn send-test!
   "Sends a one-off test of the magic-code email to `to`, rendering the given
    (possibly unsaved) subject/body with sample template params. Falls back to
-   the default sender if the custom sender isn't confirmed."
+   the default sender unless the custom sender is verified with both Instant
+   (checked here) and Postmark (handled by the fallback below)."
   [{:keys [app to subject body sender-email sender-name]}]
   (let [template-params {:user_email to
                          :code "123456"
                          :app_title (:title app)
                          :expiration (friendly-expiration app)}
         {default-sender-email :email} (config/app-email-sender)
-        email-params {:sender-email (or sender-email default-sender-email)
+        from-email (if (flags/use-app-email-verification?)
+                     (if (and (seq sender-email)
+                              (instant-verified-sender? (:id app) sender-email))
+                       sender-email
+                       default-sender-email)
+                     (or sender-email default-sender-email))
+        email-params {:sender-email from-email
                       :sender-name (or sender-name (:title app))
                       :subject (template-replace subject template-params false)
                       :body (template-replace body template-params true)}
@@ -144,7 +160,7 @@
         (if (invalid-sender? e)
           (do
             (tracer/record-info! {:name "magic-code/test-unconfirmed-or-unknown-sender"
-                                  :attributes {:email (:sender-email email-params)
+                                  :attributes {:email from-email
                                                :app-id (:id app)}})
             (postmark/send-structured!
              (magic-code-email to (assoc email-params :sender-email default-sender-email))))
