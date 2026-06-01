@@ -404,16 +404,12 @@
 (defn- id-attr-conflict? []
   [:exists {:select :1
             :from [[:attrs :id-attr]]
-            :join [[:idents :id-ident]
-                   [:and
-                    [:= :id-ident.id :id-attr.forward-ident]
-                    [:= :id-ident.label "id"]]]
             :where [:and
                     [:= :id-attr.id :triples.attr-id]
                     [:or
                      [:= :id-attr.app-id :triples.app-id]
                      [:= :id-attr.app-id system-catalog-app-id]]
-                    [:= nil :id-attr.deletion-marked-at]]}])
+                    [:= :id-attr.label "id"]]}])
 
 (defn- ea-conflict-update-set [overwrite-t]
   (let [fields (merge {:value :excluded.value
