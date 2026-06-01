@@ -55,6 +55,7 @@ import {
   PlusIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  TrashIcon,
 } from '@heroicons/react/24/solid';
 
 type ProviderType =
@@ -517,7 +518,7 @@ function ClientDetail({
 
   return (
     <AuthDetailLayout title={`${label} client`}>
-      <div className="flex items-center justify-between gap-3 rounded-sm border px-4 py-3 dark:border-neutral-700">
+      <div className="flex items-center justify-between gap-3 rounded-sm border bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800">
         <div className="flex items-center gap-3">
           {cfg ? (
             <Image
@@ -542,10 +543,12 @@ function ClientDetail({
         </div>
         <button
           type="button"
+          aria-label="Delete client"
+          title="Delete client"
           onClick={deleteDialog.onOpen}
-          className="cursor-pointer text-sm text-gray-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400"
+          className="cursor-pointer text-gray-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400"
         >
-          Delete
+          <TrashIcon height="1rem" />
         </button>
       </div>
 

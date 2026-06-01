@@ -137,7 +137,7 @@ export function TestUsers({ app }: { app: InstantApp }) {
       {fetchResult.isLoading ? (
         <div className="text-sm text-gray-400">Loading...</div>
       ) : testUsers.length > 0 ? (
-        <div className="divide-y overflow-hidden rounded-sm border dark:divide-neutral-700 dark:border-neutral-700">
+        <div className="divide-y overflow-hidden rounded-sm border bg-gray-50 dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800/50">
           {testUsers.map((user) => (
             <div
               key={user.id}
