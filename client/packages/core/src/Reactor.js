@@ -12,7 +12,7 @@ import * as StorageApi from './StorageAPI.ts';
 import * as flags from './utils/flags.ts';
 import { buildPresenceSlice, hasPresenceResponseChanged } from './presence.ts';
 import { Deferred } from './utils/Deferred.ts';
-import { PersistedObject } from './utils/PersistedObject.ts';
+import { PersistedObject, StoreInterface } from './utils/PersistedObject.ts';
 
 import { extractTriples } from './model/instaqlResult.js';
 import {
@@ -56,6 +56,8 @@ const QUERY_ONCE_TIMEOUT = 30_000;
 const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
 const PENDING_MUTATION_CLEANUP_THRESHOLD = 200;
 const ONE_MIN_MS = 1_000 * 60;
+
+const COOKIE_SYNC_LAST_UPDATED_KEY = 'lastSyncedUserCookie';
 
 const defaultConfig = {
   apiURI: 'https://api.instantdb.com',
@@ -279,6 +281,9 @@ export default class Reactor {
   _inFlightMutationEventIds = new Set();
   /** @type FrameworkClient | null */
   _frameworkClient = null;
+
+  /** @type StoreInterface | null */
+  _userSyncStorage = null;
 
   constructor(
     config,
@@ -2187,6 +2192,14 @@ export default class Reactor {
     }
   }
 
+  async setupUserSyncTimer() {
+    if (!this._userSyncStorage) return;
+    const lastTime = await this._userSyncStorage
+      .getItem(COOKIE_SYNC_LAST_UPDATED_KEY)
+      .then((t) => t?.toISOString());
+    const now = new Date().toISOString();
+  }
+
   async syncUserToEndpoint(user) {
     if (!this.config.firstPartyPath) return;
     try {
@@ -2207,6 +2220,11 @@ export default class Reactor {
     } catch (error) {
       this._log.error('Error syncing user with external endpoint', error);
     }
+
+    if (!this._userSyncStorage) return;
+    this._userSyncStorage?.multiSet([
+      [COOKIE_SYNC_LAST_UPDATED_KEY, new Date().toISOString()],
+    ]);
   }
 
   async updateUser(newUser) {
