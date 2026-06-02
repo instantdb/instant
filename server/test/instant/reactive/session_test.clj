@@ -770,6 +770,60 @@
                         (resolvers/walk-friendly r)
                         pretty-subs)))))))))
 
+(deftest refresh-throttles-when-flag-enabled
+  (with-session
+    (fn [_store {:keys [socket movies-app-id]}]
+      ;; Init with a version that supports skip-attrs so the session caches an
+      ;; attrs-hash. A refresh with no stale queries then has no computations
+      ;; and an unchanged attrs hash — the conditions handle-refresh! uses to
+      ;; emit a throttle return.
+      (send-msg socket {:op :init
+                        :app-id movies-app-id
+                        :versions {session/core-version-key "0.20.5"}})
+      (is (= :init-ok (:op (read-msg socket))))
+
+      (let [refresh-times (atom [])
+            release (promise)
+            first-entered (promise)
+            orig-handle-refresh @#'session/handle-refresh!]
+        (with-redefs [flags/throttle-refresh? (constantly true)
+                      flags/refresh-throttle-ms (constantly 500)
+                      session/handle-refresh!
+                      (fn [store sess-id event debug-info]
+                        (let [n (count (swap! refresh-times conj
+                                              (System/currentTimeMillis)))]
+                          (when (= 1 n)
+                            (deliver first-entered :go)
+                            (deref release 2000 :timeout))
+                          (orig-handle-refresh store sess-id event debug-info)))]
+          ;; Put the first refresh; the worker polls it and blocks inside
+          ;; handle-refresh! until we deliver `release`. That keeps the worker
+          ;; busy so the second put lands alone in the queue rather than
+          ;; combining with the first via the [:refresh :refresh] combiner.
+          (receive-queue/put! {:op :refresh :session-id (:id socket)})
+          (is (not= :timeout (deref first-entered 2000 :timeout))
+              "worker should enter handle-refresh!")
+
+          (receive-queue/put! {:op :refresh :session-id (:id socket)})
+
+          ;; Release the blocked refresh. It returns a throttle map, which the
+          ;; grouped queue treats as a signal to delay the next process-task
+          ;; by refresh-throttle-ms.
+          (let [released-at (System/currentTimeMillis)]
+            (deliver release :go)
+
+            (test-util/wait-for #(= 2 (count @refresh-times)) 2000)
+
+            (let [[_ t2] @refresh-times
+                  gap-after-release (- t2 released-at)]
+              (testing "throttle delays the next refresh by ~refresh-throttle-ms"
+                (is (<= 500 gap-after-release)
+                    (str "expected gap-after-release >= 500ms, got "
+                         gap-after-release "ms")))))
+
+          (testing "no refresh-ok is sent when there's nothing new to report"
+            (is (= :timeout (ua/<!!-timeout (:ws-conn socket) 100)))))))))
+
 (deftest transact-requires-auth
   (with-session
     (fn [_store {:keys [socket]}]
