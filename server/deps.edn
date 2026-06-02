@@ -178,6 +178,11 @@
                              "--add-opens" "java.management/sun.management=ALL-UNNAMED"
                              "--add-opens" "jdk.management/com.sun.management.internal=ALL-UNNAMED"
 
+                             ;; clj-async-profiler
+                             "-XX:+UnlockDiagnosticVMOptions"
+                             "-XX:+DebugNonSafepoints"
+                             "-Djdk.attach.allowAttachSelf"
+
                              ;; throw on invalid go block usage in tests
                              "-Dclojure.core.async.go-checking=true"
                              ;; headless charts
