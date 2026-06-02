@@ -48,6 +48,23 @@
                    (log/error e "Error parsing UUID" v))))
              vs)))
 
+(defn parse-uuids-map-flag
+  "Useful when you want to do merge to update a flag."
+  [vs]
+  (try
+    (reduce-kv (fn [acc k v]
+                 (if-not v
+                   acc
+                   (try
+                     (conj acc (parse-uuid k))
+                     (catch Exception e
+                       (log/error e "Error parsing UUID" v)
+                       acc))))
+               #{}
+               vs)
+    (catch Throwable t
+      (log/error t "Error parsing uuids-map flag"))))
+
 (defn parse-ips-flag [vs]
   (set (keep (fn [v]
                (try
@@ -143,6 +160,7 @@
                   (update :more-vfutures-instances (fn [vs]
                                                      (set vs)))
                   (update :enable-wal-entity-log-apps parse-uuids-flag)
+                  (update :enable-wal-entity-log-apps-map parse-uuids-map-flag)
                   (update :cloudfront-signed-url-apps parse-uuids-flag)
                   (update :smokescreen-whitelist-ips parse-ips-flag)
                   (update :refresh-throttled-apps parse-uuids-flag))
@@ -361,7 +379,8 @@
 
 (defn enable-wal-entity-log? [app-id]
   (or (toggled? :enable-wal-entity-log-globally)
-      (contains? (flag :enable-wal-entity-log-apps) app-id)))
+      (contains? (flag :enable-wal-entity-log-apps) app-id)
+      (contains? (flag :enable-wal-entity-log-apps-map) app-id)))
 
 (defn log-to-wal-log-table? []
   (toggled? :log-to-wal-log-table false))
