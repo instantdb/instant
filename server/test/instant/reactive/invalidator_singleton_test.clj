@@ -39,8 +39,9 @@
   []
   (let [records (atom [])
         queue (grouped-queue/start
-               {:group-key-fn :app-id
-                :process-fn (fn [_k r]
+               {:group-key-fn (fn [_ctx item]
+                                (:app-id item))
+                :process-fn (fn [_ctx _k r]
                               (swap! records conj
                                      (dissoc r :instant.grouped-queue/put-at)))
                 :max-workers 1})]

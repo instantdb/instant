@@ -29,14 +29,14 @@
                                          tx-steps)]
     (nth add-triple-step 2)))
 
-(defn group-key [{:keys [app-id tx-steps]}]
+(defn group-key [_ {:keys [app-id tx-steps]}]
   [app-id (or (attr-key tx-steps)
               (random-uuid))])
 
-(defn combine [_a _b]
+(defn combine [_ctx _a _b]
   nil)
 
-(defn process [_group-key {:keys [ctx tx-steps response-promise
+(defn process [_ctx _group-key {:keys [ctx tx-steps response-promise
                                   open? canceled? span exceptions-silencer
                                   child-vfutures statement-tracker]}]
   (binding [tracer/*span* span
@@ -54,7 +54,8 @@
 (defn start []
   (.bindRoot #'tx-q
              (grouped-queue/start
-               {:group-key-fn #'group-key
+               {:ctx nil
+                :group-key-fn #'group-key
                 :combine-fn   #'combine
                 :process-fn   #'process
                 :max-workers  num-receive-workers

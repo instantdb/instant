@@ -21,16 +21,16 @@
     :do-update-set {:join-count [:+ :join-room-logs.join-count :excluded.join-count]}}))
 
 (defn- group-key
-  [{:keys [app-id]}]
+  [_ctx {:keys [app-id]}]
   app-id)
 
 (defn- combine
-  [item1 item2]
+  [_ctx item1 item2]
   (-> item1
       (update :join-count + (:join-count item2))))
 
 (defn- process
-  [_group-key {:keys [app-id join-count]}]
+  [_ctx _group-key {:keys [app-id join-count]}]
   (tracer/with-span! {:name "join-room-logger/process"
                       :attributes {:app-id app-id
                                    :join-count join-count}}
@@ -55,7 +55,8 @@
   (tracer/record-info! {:name "join-room-logger/start"})
   (.bindRoot #'log-q
              (grouped-queue/start
-              {:group-key-fn #'group-key
+              {:ctx nil
+               :group-key-fn #'group-key
                :combine-fn #'combine
                :process-fn #'process
                :max-workers 1

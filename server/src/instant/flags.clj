@@ -407,3 +407,6 @@
 
 (defn smokescreen-whitelist-ips []
   (flag :smokescreen-whitelist-ips #{}))
+
+(defn combine-transacts? []
+  (flag :combine-transacts true))

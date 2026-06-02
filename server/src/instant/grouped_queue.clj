@@ -10,24 +10,24 @@
    (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executor Executors ExecutorService TimeUnit)
    (java.util.concurrent.atomic AtomicInteger)))
 
-(defn- execute [{:keys [get-executor error-fn]} ^Runnable task]
+(defn- execute [{:keys [get-executor error-fn ctx]} ^Runnable task]
   (try
     (Executor/.execute (get-executor) task)
     (catch Exception e
       (if error-fn
-        (error-fn e)
+        (error-fn ctx e)
         (throw e)))))
 
 (defn- poll
   "Gets 0..∞ items from group, fetching as many combinable items as possible in a row.
    Returns 1 (possibly combined) item or nil"
-  [group combine-fn]
+  [ctx group combine-fn]
   (loop [item1 (Queue/.poll group)]
     (clojure+/cond+
      (nil? item1) nil
      :let [item2 (Queue/.peek group)]
      (nil? item2) item1
-     :let [item12 (combine-fn item1 item2)]
+     :let [item12 (combine-fn ctx item1 item2)]
      (nil? item12) item1
      :else (do
              (Queue/.remove group) ;; remove item2
@@ -50,7 +50,8 @@
 (defn- process
   "Main worker process function"
   [process-task
-   {:keys [process-fn
+   {:keys [ctx
+           process-fn
            combine-fn
            num-workers
            num-items
@@ -59,10 +60,10 @@
    group]
   (AtomicInteger/.incrementAndGet num-workers)
   (when @processing?
-    (if-some [item (poll group combine-fn)]
+    (if-some [item (poll ctx group combine-fn)]
       (do
         (try
-          (process-fn key item)
+          (process-fn ctx key item)
           (catch Throwable t
             (tracer/record-exception-span! t {:name "grouped-queue/process-error"})))
         (AtomicInteger/.addAndGet num-items (- (::combined item 1)))
@@ -74,10 +75,10 @@
 
 (defn put!
   "Schedule item for execution on q"
-  [{:keys [groups group-key-fn num-items num-puts accepting?] :as q} item]
+  [{:keys [ctx groups group-key-fn num-items num-puts accepting?] :as q} item]
   (when @accepting?
     (let [item   (assoc item ::put-at (System/currentTimeMillis))
-          key    (or (group-key-fn item) ::default)
+          key    (or (group-key-fn ctx item) ::default)
           process-task (locking q
                          (if-some [group (Map/.get groups key)]
                            (do
@@ -101,18 +102,22 @@
 
 (defn start
   "Options:
+     :ctx :: Ctx
 
-     :group-key-fn :: (fn [item]) -> Any
+   A context variable that will be passed as the first arg to group-key-fn, combine-fn, process-fn,
+   and error-fn
+
+     :group-key-fn :: (fn [ctx item]) -> Any
 
    A function to determine to which “track” to send item for processing.
    All tracks are processed in parallel, items inside one track are processed sequentially.
 
-     :combine-fn   :: (fn [item1 item2]) -> item | nil
+     :combine-fn   :: (fn [ctx item1 item2]) -> item | nil
 
    A function that can optionally combine two items into one before processing.
    Return nil if items shouldn’t be combined.
 
-     :process-fn   :: (fn [group-key item])
+     :process-fn   :: (fn [ctx group-key item])
 
    Main processing function. Item passed to it might have additional ::combined and ::put-at keys.
 
@@ -131,7 +136,7 @@
      :metrics-path :: String | nil
 
    A string to report gauge metrics to. If skipped, no reporting"
-  [{:keys [group-key-fn combine-fn process-fn error-fn executor get-executor max-workers metrics-path]
+  [{:keys [ctx group-key-fn combine-fn process-fn error-fn executor get-executor max-workers metrics-path]
     :or {max-workers 2}}]
   (let [groups       (ConcurrentHashMap.)
         accepting?   (atom true)
@@ -181,7 +186,8 @@
                                (ExecutorService/.shutdownNow (get-executor))
                                :terminated)))))]
     {:group-key-fn (or group-key-fn identity)
-     :combine-fn   (or combine-fn (fn [_ _] nil))
+     :ctx          ctx
+     :combine-fn   (or combine-fn (fn [_ _ _] nil))
      :process-fn   process-fn
      :error-fn     error-fn
      :groups       groups
