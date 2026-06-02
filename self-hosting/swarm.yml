@@ -26,15 +26,15 @@ services:
       - "shared_preload_libraries=pg_hint_plan"
       - "-c"
       - "random_page_cost=1.1"
-
   www:
+    ports:
+      - "3000:3000"
     depends_on:
       - server
     image: "ghcr.io/instantdb/dashboard:latest"
     environment:
       # Where the backend url will be available externally
       - INSTANT_BACKEND_URL=${INSTANT_BACKEND_URL:-http://localhost:8888}
-
   minio:
     image: minio/minio:latest
     restart: always
@@ -43,6 +43,9 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_BROWSER: "on"
       MINIO_SKIP_CLIENT_CERT_VALIDATION: "on"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
     command: server /data --console-address ":9001" --address ":9000"
     volumes:
       - minio_data:/data
@@ -59,8 +62,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       S3_BUCKET: ${S3_BUCKET:-instant-bucket}
     depends_on:
-      minio:
-        condition: service_healthy
+      - minio
     entrypoint: >
       /bin/sh -c "
       /usr/bin/mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD;
@@ -68,14 +70,7 @@ services:
       exit"
 
   server:
-    depends_on:
-      postgres:
-        condition: service_healthy
-      createbuckets:
-        condition: service_completed_successfully
     image: "ghcr.io/instantdb/server:latest"
-    deploy:
-      replicas: 2
     environment:
       WAL_HISTORY_STORAGE: pg
       DATABASE_URL: "postgresql://${POSTGRES_USER:-instant}:${POSTGRES_PASSWORD:-pass}@postgres:5432/${POSTGRES_DB:-instant}?sslmode=disable"
@@ -96,6 +91,8 @@ services:
       S3_ENDPOINT: ${S3_ENDPOINT:-}
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-}
       S3_BUCKET: ${S3_BUCKET:-instant-bucket}
+    ports:
+      - "8888:8888"
     volumes:
       - server_config:/app/resources/config
 
