@@ -53,7 +53,8 @@
   [vs]
   (try
     (reduce-kv (fn [acc k v]
-                 (when v
+                 (if-not v
+                   acc
                    (try
                      (conj acc (parse-uuid k))
                      (catch Exception e
