@@ -2,12 +2,15 @@
 
 Reads INSTANT_APP_ID and INSTANT_APP_ADMIN_TOKEN from the environment. Run:
 
-    uv run --env-file .env python main.py
+    uv run python main.py
 """
 
 import time
 
+from dotenv import load_dotenv
 from instantdb import Instant, id
+
+load_dotenv()
 
 db = Instant()
 

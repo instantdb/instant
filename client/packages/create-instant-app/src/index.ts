@@ -126,7 +126,7 @@ const main = async () => {
   To get started:
     1. ${getCodeColors(theme, 'cd ' + appDir)}
     2. ${getCodeColors(theme, 'uv sync')}
-    3. ${getCodeColors(theme, 'uv run --env-file .env python main.py')}
+    3. ${getCodeColors(theme, 'uv run python main.py')}
 
   To push schema and permissions:
     ${getCodeColors(theme, 'npx instant-cli push')}
@@ -144,9 +144,9 @@ const main = async () => {
   To get started:
     1. ${getCodeColors(theme, 'cd ' + appDir)}
     2. Create a new app on ${chalk.underline('www.instantdb.com')}
-    3. Add your APP_ID to the .env file
+    3. Add your APP_ID and admin token to the .env file
     4. ${getCodeColors(theme, 'uv sync')}
-    5. ${getCodeColors(theme, 'uv run --env-file .env python main.py')}
+    5. ${getCodeColors(theme, 'uv run python main.py')}
 
   To push schema and permissions:
     ${getCodeColors(theme, 'npx instant-cli push')}

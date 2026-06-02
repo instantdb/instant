@@ -3,4 +3,4 @@ name = "python-script"
 version = "0.0.0"
 description = "InstantDB Python script starter"
 requires-python = ">=3.10"
-dependencies = ["instantdb"]
+dependencies = ["instantdb", "python-dotenv>=1"]

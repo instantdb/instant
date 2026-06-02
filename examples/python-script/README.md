@@ -8,7 +8,7 @@ To install dependencies:
 `uv sync`
 
 To run the script:
-`uv run --env-file .env python main.py`
+`uv run python main.py`
 
 To push schema and permission changes (requires Node):
 `npx instant-cli push`
