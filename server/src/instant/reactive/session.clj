@@ -513,20 +513,24 @@
                                             :name "finish-refresh-queries"
                                             :attributes (assoc tracer-attrs
                                                                :session-id sess-id)})
-    (tracer/with-span! {:name "handle-refresh/send-event!"
-                        :attributes tracer-attrs}
-      (when (or (seq computations) attrs-changed?)
+    (if (or (seq computations) attrs-changed?)
+      (tracer/with-span! {:name "handle-refresh/send-event!"
+                          :attributes tracer-attrs}
         (rs/send-event! store app-id sess-id (with-meta
                                                (cond->
-                                                {:op :refresh-ok
-                                                 :processed-tx-id processed-tx-id
-                                                 :processed-isn processed-isn
-                                                 :computations (vec computations)}
+                                                   {:op :refresh-ok
+                                                    :processed-tx-id processed-tx-id
+                                                    :processed-isn processed-isn
+                                                    :computations (vec computations)}
                                                  (or (not can-skip-attrs?) attrs-changed?)
                                                  (assoc :attrs attrs))
                                                {:tx-id (:tx-id event)
                                                 :tx-created-at (:tx-created-at event)
-                                                :session-id sess-id}))))))
+                                                :session-id sess-id})))
+      (when (flags/throttle-refresh? app-id)
+        (let [throttle-ms (flags/refresh-throttle-ms)]
+          (tracer/add-data! {:attributes {:throttle-ms throttle-ms}})
+          (grouped-queue/return-throttle throttle-ms))))))
 
 ;; -----
 ;; transact
@@ -1142,8 +1146,9 @@
           (tracer/add-data! {:attributes {:timeout-ms timeout-ms
                                           :concurrent-handler-count (pending-handler-count session)}})
           (try
-            (let [ret (deref event-fut timeout-ms :timeout)]
-              (when (= :timeout ret)
+            (let [ret (deref event-fut timeout-ms ::timeout)]
+              (if-not (= ::timeout ret)
+                ret
                 (let [in-progress-count (count @(:stmts in-progress-stmts))
                       _ (sql/cancel-in-progress in-progress-stmts (flags/statement-cancel-wait-ms))
                       cancel-res (future-cancel event-fut)]
@@ -1152,8 +1157,8 @@
                                       :in-progress-query-count in-progress-count
                                       ;; If false, then canceling the queries let
                                       ;; the future complete before we could cancel it
-                                      :future-cancel-result cancel-res}}))
-                (ex/throw-operation-timeout! :handle-receive timeout-ms)))
+                                      :future-cancel-result cancel-res}})
+                  (ex/throw-operation-timeout! :handle-receive timeout-ms))))
 
             (catch CancellationException _e
               ;; We must have cancelled this in the on-close, so don't try to do any

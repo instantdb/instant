@@ -144,7 +144,8 @@
                                                      (set vs)))
                   (update :enable-wal-entity-log-apps parse-uuids-flag)
                   (update :cloudfront-signed-url-apps parse-uuids-flag)
-                  (update :smokescreen-whitelist-ips parse-ips-flag))
+                  (update :smokescreen-whitelist-ips parse-ips-flag)
+                  (update :refresh-throttled-apps parse-uuids-flag))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
@@ -410,3 +411,9 @@
 
 (defn combine-transacts? []
   (flag :combine-transacts true))
+
+(defn throttle-refresh? [app-id]
+  (contains? (flag :refresh-throttled-apps) app-id))
+
+(defn refresh-throttle-ms []
+  (flag :refresh-throttle-ms 1000))
