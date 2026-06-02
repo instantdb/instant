@@ -596,15 +596,17 @@ function Login() {
                 >
                   Google OAuth client
                 </a>{' '}
-                and add the redirect URL under "Authorized redirect URIs"
+                and add the redirect URI under "Authorized redirect URIs"
               </Content>
-              <Copyable
-                label="Redirect URI"
-                value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
-              />
-              {client.redirect_to && (
-                <RedirectForwardingNote redirectTo={client.redirect_to} />
-              )}
+              <div className="flex flex-col gap-2">
+                <Copyable
+                  label="Redirect URI"
+                  value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
+                />
+                {client.redirect_to && (
+                  <RedirectForwardingNote redirectTo={client.redirect_to} />
+                )}
+              </div>
             </>
           )}
           <Content>

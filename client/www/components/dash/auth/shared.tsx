@@ -10,7 +10,7 @@ import {
 import {
   Button,
   Content,
-  Copytext,
+  Copyable,
   Dialog,
   InfoTip,
   SubsectionHeading,
@@ -205,20 +205,20 @@ export function updateClient({
 function RedirectUrlLabel() {
   return (
     <span className="flex items-center gap-1">
-      Custom Redirect URL (optional)
+      Custom Redirect URI (optional)
       <InfoTip>
         <div className="max-w-sm space-y-3 p-2 text-sm leading-relaxed text-gray-700 dark:text-neutral-300">
           <p>
-            By default, OAuth providers redirect users to Instant's callback
-            URL. During this redirect, users see "Redirecting to
+            By default, OAuth providers redirect users to Instant's callback.
+            During this redirect, users see "Redirecting to
             api.instantdb.com..."
           </p>
           <p>
-            With a custom redirect URL, users will instead see "Redirecting to
+            With a custom redirect URI, users will instead see "Redirecting to
             yoursite.com..." for a more branded experience.
           </p>
           <p>
-            Your URL must forward to{' '}
+            Your URI must forward to{' '}
             <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-800 dark:bg-neutral-700 dark:text-neutral-200">
               https://api.instantdb.com/runtime/oauth/callback
             </code>{' '}
@@ -286,16 +286,16 @@ export function TestRedirectButton({ redirectTo }: { redirectTo: string }) {
   );
 }
 
-// Shown once a custom redirect URL is set: the provider sends users to your URL,
-// which must forward to Instant's callback. Pairs the reminder with a test link.
+// Shown under the redirect URI when a custom redirect is set: a reminder that
+// the user's URL must forward to Instant's callback, plus the callback to copy.
 export function RedirectForwardingNote({ redirectTo }: { redirectTo: string }) {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm text-gray-500 dark:text-neutral-400">
-        Your redirect URL should forward to{' '}
-        <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
-        parameters.
+        Your redirect URI must forward all query parameters to Instant's
+        callback.
       </p>
+      <Copyable label="Callback" value={DEFAULT_OAUTH_CALLBACK_URL} />
       <div className="flex">
         <TestRedirectButton redirectTo={redirectTo} />
       </div>
@@ -335,13 +335,13 @@ export function EditableRedirectUrl({
       setIsEditing(false);
       confirmDialog.onClose();
       successToast(
-        redirectTo ? 'Redirect URL updated' : 'Redirect URL cleared',
+        redirectTo ? 'Redirect URI updated' : 'Redirect URI cleared',
       );
     } catch (e) {
       console.error(e);
       const msg =
         messageFromInstantError(e as InstantIssue) ||
-        'Error updating redirect URL.';
+        'Error updating redirect URI.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsSaving(false);
@@ -374,7 +374,7 @@ export function EditableRedirectUrl({
           size="mini"
           onClick={() => setIsEditing(true)}
         >
-          Set custom redirect URL
+          Set custom redirect URI
         </Button>
       </div>
     );
@@ -432,22 +432,17 @@ export function EditableRedirectUrl({
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded border bg-gray-50 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-800">
-      <div className="min-w-0 flex-1">
-        <div className="text-xs text-gray-500 dark:text-neutral-400">
-          Custom Redirect URL
-        </div>
-        <div className="truncate font-mono text-sm text-gray-700 dark:text-neutral-300">
-          {client.redirect_to}
-        </div>
+    <div className="flex flex-col gap-2">
+      <Copyable label="Custom Redirect URI" value={client.redirect_to || ''} />
+      <div className="flex justify-end">
+        <Button
+          variant="secondary"
+          size="mini"
+          onClick={() => setIsEditing(true)}
+        >
+          Edit redirect URI
+        </Button>
       </div>
-      <Button
-        variant="secondary"
-        size="mini"
-        onClick={() => setIsEditing(true)}
-      >
-        Edit
-      </Button>
     </div>
   );
 }

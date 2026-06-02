@@ -227,13 +227,15 @@ export function GitHubClient({
         <strong className="dark:text-white">1.</strong> Add the callback URL
         below to your GitHub OAuth App settings.
       </Content>
-      <Copyable
-        label="Authorization callback URL"
-        value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
-      />
-      {client.redirect_to && (
-        <RedirectForwardingNote redirectTo={client.redirect_to} />
-      )}
+      <div className="flex flex-col gap-2">
+        <Copyable
+          label="Authorization callback URL"
+          value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
+        />
+        {client.redirect_to && (
+          <RedirectForwardingNote redirectTo={client.redirect_to} />
+        )}
+      </div>
       <Content>
         <strong className="dark:text-white">2.</strong> Use the code below to
         generate a login link in your app.

@@ -235,13 +235,15 @@ export function LinkedInClient({
         <strong className="dark:text-white">1.</strong> Add the redirect URI
         below to your LinkedIn application.
       </Content>
-      <Copyable
-        label="Redirect URI"
-        value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
-      />
-      {client.redirect_to && (
-        <RedirectForwardingNote redirectTo={client.redirect_to} />
-      )}
+      <div className="flex flex-col gap-2">
+        <Copyable
+          label="Redirect URI"
+          value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
+        />
+        {client.redirect_to && (
+          <RedirectForwardingNote redirectTo={client.redirect_to} />
+        )}
+      </div>
       <Content>
         <strong className="dark:text-white">2.</strong> Use the code below to
         generate a login link in your app.
