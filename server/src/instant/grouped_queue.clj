@@ -102,7 +102,7 @@
     (let [item   (assoc item ::put-at (System/currentTimeMillis))
           key    (or (group-key-fn ctx item) ::default)
           process-task (locking q
-                         (if-some [group (tool/inspect (Map/.get groups (tool/inspect key)))]
+                         (if-some [group (Map/.get groups key)]
                            (do
                              (Queue/.offer group item)
                              nil)
