@@ -188,7 +188,11 @@
                              ;; headless charts
                              "-Djava.awt.headless=true"]}
            :retest {:extra-paths ["test" "dev-resources"]
-                    :main-opts ["-m" "circleci.test.retest"]}
+                    :main-opts ["-m" "circleci.test.retest"]
+                    :jvm-opts [;; clj-async-profiler
+                               "-XX:+UnlockDiagnosticVMOptions"
+                               "-XX:+DebugNonSafepoints"
+                               "-Djdk.attach.allowAttachSelf"]}
            :repl-connect {:main-opts ["-m" "nrepl.cmdline" "--connect" "--host" "localhost" "--port" "6005"]}
            :encrypt-secret {:extra-deps {org.clojure/tools.cli {:mvn/version "1.1.230"}}
                             :exec-fn tasks/encrypt-config-secret}
