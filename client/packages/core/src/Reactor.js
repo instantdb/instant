@@ -302,6 +302,8 @@ export default class Reactor {
       this.config.pendingMutationCleanupThreshold ??
       PENDING_MUTATION_CLEANUP_THRESHOLD;
 
+    this._userSyncStorage = new Storage(config.appId, 'kv');
+
     this._log = createLogger(
       config.verbose || flags.devBackend || flags.instantLogs,
       () => this._reactorStats(),
