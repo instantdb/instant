@@ -33,7 +33,7 @@ pip install instantdb
 Requires Python 3.10+.
 
 `app_id` and `admin_token` can be passed explicitly or read from
-`INSTANT_APP_ID` / `INSTANT_ADMIN_TOKEN` environment variables.
+`INSTANT_APP_ID` / `INSTANT_APP_ADMIN_TOKEN` environment variables.
 
 ```python
 from instantdb import Instant, id
@@ -141,7 +141,7 @@ on outcomes. This is similar to how we test the JS admin SDK.
 
 ```bash
 cd ../../sandbox/admin-sdk-python
-cp .env.example .env   # fill in INSTANT_APP_ID + INSTANT_ADMIN_TOKEN
+cp .env.example .env   # fill in INSTANT_APP_ID + INSTANT_APP_ADMIN_TOKEN
 uv sync
 # uncomment a tester call inside main() in src/main.py
 uv run --env-file .env python -m src.main

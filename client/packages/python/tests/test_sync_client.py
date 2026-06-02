@@ -41,7 +41,7 @@ def test_env_var_fallback_populates_app_id_and_admin_token(monkeypatch):
     # / raise chain). Other env-var permutations are pure-logic mirrors of
     # the async tests — not re-tested here.
     monkeypatch.setenv("INSTANT_APP_ID", "env-app")
-    monkeypatch.setenv("INSTANT_ADMIN_TOKEN", "env-token")
+    monkeypatch.setenv("INSTANT_APP_ADMIN_TOKEN", "env-token")
     with Instant() as db:
         assert db._app_id == "env-app"
         assert db._admin_token == "env-token"

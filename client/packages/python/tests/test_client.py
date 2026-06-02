@@ -58,7 +58,7 @@ async def test_as_user_shares_underlying_httpx_client():
 
 async def test_env_var_fallback_populates_app_id_and_admin_token(monkeypatch):
     monkeypatch.setenv("INSTANT_APP_ID", "env-app")
-    monkeypatch.setenv("INSTANT_ADMIN_TOKEN", "env-token")
+    monkeypatch.setenv("INSTANT_APP_ADMIN_TOKEN", "env-token")
     async with AsyncInstant() as db:
         assert db._app_id == "env-app"
         assert db._admin_token == "env-token"
@@ -66,7 +66,7 @@ async def test_env_var_fallback_populates_app_id_and_admin_token(monkeypatch):
 
 async def test_explicit_kwargs_win_over_env_vars(monkeypatch):
     monkeypatch.setenv("INSTANT_APP_ID", "env-app")
-    monkeypatch.setenv("INSTANT_ADMIN_TOKEN", "env-token")
+    monkeypatch.setenv("INSTANT_APP_ADMIN_TOKEN", "env-token")
     async with AsyncInstant(app_id="kwarg-app", admin_token="kwarg-token") as db:
         assert db._app_id == "kwarg-app"
         assert db._admin_token == "kwarg-token"
@@ -106,7 +106,7 @@ async def test_as_user_guest_works_without_admin_token(mock_transport):
 
 async def test_as_user_preserves_missing_admin_token_when_env_changes(monkeypatch):
     async with AsyncInstant(app_id="app") as db:
-        monkeypatch.setenv("INSTANT_ADMIN_TOKEN", "later-env-token")
+        monkeypatch.setenv("INSTANT_APP_ADMIN_TOKEN", "later-env-token")
         async with db.as_user(token="rt-abc") as scoped:
             assert scoped._admin_token is None
 

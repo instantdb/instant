@@ -725,7 +725,7 @@ async def test_webhooks_validate_rejects_tampered(db: AsyncInstant) -> None:
 
 
 async def main() -> None:
-    # app_id and admin_token fall back to INSTANT_APP_ID / INSTANT_ADMIN_TOKEN.
+    # app_id and admin_token fall back to INSTANT_APP_ID / INSTANT_APP_ADMIN_TOKEN.
     # Default to a local Instant server; set INSTANT_API_URI in .env to point
     # elsewhere (e.g. https://api.instantdb.com).
     api_uri = os.environ.get("INSTANT_API_URI", "http://localhost:8888")

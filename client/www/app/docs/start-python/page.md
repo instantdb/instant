@@ -41,7 +41,7 @@ from instantdb import Instant, id
 
 db = Instant(
     # You can pass these explicitly, by default they fall back to
-    # INSTANT_APP_ID and INSTANT_ADMIN_TOKEN environment variables
+    # INSTANT_APP_ID and INSTANT_APP_ADMIN_TOKEN environment variables
     app_id="__APP_ID__",
     admin_token="__ADMIN_TOKEN__",
 )

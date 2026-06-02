@@ -1,6 +1,6 @@
 """Hello world InstantDB script.
 
-Reads INSTANT_APP_ID and INSTANT_ADMIN_TOKEN from the environment. Run:
+Reads INSTANT_APP_ID and INSTANT_APP_ADMIN_TOKEN from the environment. Run:
 
     uv run --env-file .env python main.py
 """

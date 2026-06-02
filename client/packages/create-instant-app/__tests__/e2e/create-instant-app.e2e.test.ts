@@ -178,8 +178,7 @@ describe.concurrent('create-instant-app e2e', { timeout: 120_000 }, () => {
 
         const envContents = await readFile(join(projectDir, '.env'), 'utf-8');
         expect(envContents).toMatch(/^INSTANT_APP_ID=.+/m);
-        expect(envContents).toMatch(/^INSTANT_ADMIN_TOKEN=.+/m);
-        expect(envContents).not.toMatch(/INSTANT_APP_ADMIN_TOKEN/);
+        expect(envContents).toMatch(/^INSTANT_APP_ADMIN_TOKEN=.+/m);
 
         const pyproject = await readFile(
           join(projectDir, 'pyproject.toml'),

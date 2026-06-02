@@ -7,7 +7,7 @@ behavior against a real Instant server.
 
 ```bash
 cp .env.example .env
-# Fill in INSTANT_APP_ID and INSTANT_ADMIN_TOKEN
+# Fill in INSTANT_APP_ID and INSTANT_APP_ADMIN_TOKEN
 uv sync
 ```
 

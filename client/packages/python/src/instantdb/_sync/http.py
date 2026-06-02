@@ -73,11 +73,11 @@ class _HTTP:
         if "as-email" in self._impersonation:
             raise InstantError(
                 "admin_token is required to impersonate a user by email: "
-                "pass admin_token=... or set INSTANT_ADMIN_TOKEN"
+                "pass admin_token=... or set INSTANT_APP_ADMIN_TOKEN"
             )
         raise InstantError(
             "admin_token is required for this operation: "
-            "pass admin_token=..., set INSTANT_ADMIN_TOKEN, or use as_user(...)"
+            "pass admin_token=..., set INSTANT_APP_ADMIN_TOKEN, or use as_user(...)"
         )
 
     def post(

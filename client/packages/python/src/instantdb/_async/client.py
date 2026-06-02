@@ -39,7 +39,7 @@ class AsyncInstant:
         if not app_id:
             raise InstantError("app_id is required: pass app_id=... or set INSTANT_APP_ID env var")
         if admin_token is None:
-            admin_token = os.environ.get("INSTANT_ADMIN_TOKEN")
+            admin_token = os.environ.get("INSTANT_APP_ADMIN_TOKEN")
         if not admin_token:
             admin_token = None
         self._app_id = app_id

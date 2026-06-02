@@ -11,7 +11,7 @@ def _isolate_instant_env(monkeypatch: pytest.MonkeyPatch) -> None:
     Tests that exercise env-var fallback set values explicitly via monkeypatch.
     """
     monkeypatch.delenv("INSTANT_APP_ID", raising=False)
-    monkeypatch.delenv("INSTANT_ADMIN_TOKEN", raising=False)
+    monkeypatch.delenv("INSTANT_APP_ADMIN_TOKEN", raising=False)
 
 
 @pytest.fixture

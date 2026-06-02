@@ -26,13 +26,7 @@ export const applyEnvFile = (
 ) => {
   const envPath = path.join(projectDir, '.env');
   const envVarName = envNames[project.base];
-  // The Python SDK reads INSTANT_ADMIN_TOKEN; the JS admin SDK reads
-  // INSTANT_APP_ADMIN_TOKEN.
-  const adminVarName =
-    project.base === 'python-script'
-      ? 'INSTANT_ADMIN_TOKEN'
-      : 'INSTANT_APP_ADMIN_TOKEN';
-  const envContent = `${envVarName}=${appId}\n${adminVarName}=${adminToken}`;
+  const envContent = `${envVarName}=${appId}\nINSTANT_APP_ADMIN_TOKEN=${adminToken}`;
 
   fs.writeFileSync(envPath, envContent);
 };
