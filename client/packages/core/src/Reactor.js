@@ -56,6 +56,7 @@ const QUERY_ONCE_TIMEOUT = 30_000;
 const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
 const PENDING_MUTATION_CLEANUP_THRESHOLD = 200;
 const ONE_MIN_MS = 1_000 * 60;
+const ONE_DAY_MS = ONE_MIN_MS * 60 * 24;
 
 export const COOKIE_SYNC_LAST_UPDATED_KEY = 'lastSyncedUserCookie';
 
@@ -372,6 +373,7 @@ export default class Reactor {
     });
 
     this._oauthCallbackResponse = this._oauthLoginInit();
+    this.setupUserSyncTimer();
 
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;
@@ -2190,7 +2192,22 @@ export default class Reactor {
   }
 
   async setupUserSyncTimer() {
-    const now = new Date().toISOString();
+    if (!this.config.firstPartyPath) return;
+    try {
+      const lastSynced = await this.kv.waitForKeyToLoad(
+        COOKIE_SYNC_LAST_UPDATED_KEY,
+      );
+      const lastSyncTime = lastSynced ? new Date(lastSynced).getTime() : 0;
+      const shouldSync =
+        !Number.isFinite(lastSyncTime) ||
+        Date.now() - lastSyncTime >= ONE_DAY_MS;
+      if (!shouldSync) return;
+
+      const { user } = await this.getCurrentUser();
+      await this.syncUserToEndpoint(user ?? null);
+    } catch (error) {
+      this._log.error('Error syncing user cookie on startup', error);
+    }
   }
 
   async syncUserToEndpoint(user) {
