@@ -7,12 +7,28 @@
    [instant.util.tracer :as tracer])
   (:import
    (java.util Map Queue)
-   (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executor Executors ExecutorService TimeUnit)
+   (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executor Executors ExecutorService ScheduledThreadPoolExecutor TimeUnit)
    (java.util.concurrent.atomic AtomicInteger)))
 
 (defn- execute [{:keys [get-executor error-fn ctx]} ^Runnable task]
   (try
     (Executor/.execute (get-executor) task)
+    (catch Exception e
+      (if error-fn
+        (error-fn ctx e)
+        (throw e)))))
+
+(defn- schedule [{:keys [scheduled-thread-pool-executor error-fn ctx] :as q}
+                 ^Long delay-ms
+                 ^Runnable task]
+  (try
+    (ScheduledThreadPoolExecutor/.schedule
+     scheduled-thread-pool-executor
+     (reify Runnable
+       (run [_]
+         (execute q task)))
+     delay-ms
+     TimeUnit/MILLISECONDS)
     (catch Exception e
       (if error-fn
         (error-fn ctx e)
@@ -24,14 +40,14 @@
   [ctx group combine-fn]
   (loop [item1 (Queue/.poll group)]
     (clojure+/cond+
-     (nil? item1) nil
-     :let [item2 (Queue/.peek group)]
-     (nil? item2) item1
-     :let [item12 (combine-fn ctx item1 item2)]
-     (nil? item12) item1
-     :else (do
-             (Queue/.remove group) ;; remove item2
-             (recur (assoc item12 ::combined (inc (::combined item1 1))))))))
+      (nil? item1) nil
+      :let [item2 (Queue/.peek group)]
+      (nil? item2) item1
+      :let [item12 (combine-fn ctx item1 item2)]
+      (nil? item12) item1
+      :else (do
+              (Queue/.remove group) ;; remove item2
+              (recur (assoc item12 ::combined (inc (::combined item1 1))))))))
 
 (declare process)
 
@@ -47,6 +63,11 @@
                             (Map/.remove groups key))))
     (execute q process-task)))
 
+(def throttle-key ::throttle-ms)
+
+(defn return-throttle [^long throttle-ms]
+  {throttle-key throttle-ms})
+
 (defn- process
   "Main worker process function"
   [process-task
@@ -61,15 +82,16 @@
   (AtomicInteger/.incrementAndGet num-workers)
   (when @processing?
     (if-some [item (poll ctx group combine-fn)]
-      (do
-        (try
-          (process-fn ctx key item)
-          (catch Throwable t
-            (tracer/record-exception-span! t {:name "grouped-queue/process-error"})))
+      (let [process-result (try
+                             (process-fn ctx key item)
+                             (catch Throwable t
+                               (tracer/record-exception-span! t {:name "grouped-queue/process-error"})))]
         (AtomicInteger/.addAndGet num-items (- (::combined item 1)))
-        (if (some? (Queue/.peek group))
-          (execute q process-task)
-          (clean-or-reschedule process-task q group key)))
+        (if-let [throttle-ms (tool/inspect (throttle-key (tool/inspect process-result)))]
+          (schedule q throttle-ms process-task)
+          (if (some? (Queue/.peek group))
+            (execute q process-task)
+            (clean-or-reschedule process-task q group key))))
       (clean-or-reschedule process-task q group key)))
   (AtomicInteger/.decrementAndGet num-workers))
 
@@ -80,7 +102,7 @@
     (let [item   (assoc item ::put-at (System/currentTimeMillis))
           key    (or (group-key-fn ctx item) ::default)
           process-task (locking q
-                         (if-some [group (Map/.get groups key)]
+                         (if-some [group (tool/inspect (Map/.get groups (tool/inspect key)))]
                            (do
                              (Queue/.offer group item)
                              nil)
@@ -127,6 +149,10 @@
 
      :get-executor :: (fn []) -> ExecutorService
 
+   A ScheduledThreadPoolExecutor to handle continuing throttled queues
+
+     :scheduled-thread-pool-executor :: ScheduledThreadPoolExecutor | nil
+
    Function that returns an executor, used for testing different executors
 
      :max-workers  :: long | nil
@@ -136,8 +162,11 @@
      :metrics-path :: String | nil
 
    A string to report gauge metrics to. If skipped, no reporting"
-  [{:keys [ctx group-key-fn combine-fn process-fn error-fn executor get-executor max-workers metrics-path]
-    :or {max-workers 2}}]
+  [{:keys [ctx group-key-fn combine-fn process-fn error-fn
+           executor get-executor scheduled-thread-pool-executor
+           max-workers metrics-path]
+    :or {max-workers 2
+         scheduled-thread-pool-executor (ScheduledThreadPoolExecutor. 1)}}]
   (let [groups       (ConcurrentHashMap.)
         accepting?   (atom true)
         processing?  (atom true)
@@ -197,6 +226,7 @@
      :num-puts     num-puts
      :num-workers  num-workers
      :get-executor get-executor
+     :scheduled-thread-pool-executor scheduled-thread-pool-executor
      :shutdown-fn  shutdown-fn}))
 
 (defn stop
