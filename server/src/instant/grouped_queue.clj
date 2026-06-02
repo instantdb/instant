@@ -165,8 +165,7 @@
   [{:keys [ctx group-key-fn combine-fn process-fn error-fn
            executor get-executor scheduled-thread-pool-executor
            max-workers metrics-path]
-    :or {max-workers 2
-         scheduled-thread-pool-executor (ScheduledThreadPoolExecutor. 1)}}]
+    :or {max-workers 2}}]
   (let [groups       (ConcurrentHashMap.)
         accepting?   (atom true)
         processing?  (atom true)
@@ -185,6 +184,10 @@
                        :else
                        (ua/make-limited-concurrency-executor max-workers))
         get-executor (or get-executor (fn [] executor))
+        [scheduled-thread-pool-executor shutdown-scheduled-executor?]
+        (if scheduled-thread-pool-executor
+          [scheduled-thread-pool-executor false]
+          [(ScheduledThreadPoolExecutor. 1) true])
         cleanup-fn   (when metrics-path
                        (gauges/add-gauge-metrics-fn
                         (fn [_]
@@ -205,6 +208,9 @@
                          (cleanup-fn))
                        (reset! accepting? false)
                        (ExecutorService/.shutdown (get-executor))
+                       (when shutdown-scheduled-executor?
+                         (ScheduledThreadPoolExecutor/.shutdownNow scheduled-thread-pool-executor))
+
                        (if (ExecutorService/.awaitTermination (get-executor) timeout-ms TimeUnit/MILLISECONDS)
                          :shutdown
                          (do

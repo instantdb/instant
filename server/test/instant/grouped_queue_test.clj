@@ -83,8 +83,6 @@
             (doseq [group groups
                     :let [filtered  (filterv #(= group (:group %)) @output)
                           processed (transduce (map #(::grouped-queue/combined % 1)) + 0 filtered)]]
-              (when-not (= (count ids) processed)
-                (println group (count ids) processed filtered))
               (testing group
                 (is (= (count ids) processed))))))))))
 
