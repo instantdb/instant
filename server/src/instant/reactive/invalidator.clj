@@ -423,9 +423,9 @@
                             ;; We create the history entries and the webhook events before flushing the
                             ;; lsn so that we never miss a wal entry. We may handle the same entry twice,
                             ;; but `push-batch` and `create-events!` are idempotent functions
-                            (let [logging-batches (filter (fn [wal-record]
-                                                            (or (not (empty? (:messages wal-record)))
-                                                                (not (empty? (:wal-logs wal-record)))))
+                            (let [logging-batches (remove (fn [wal-record]
+                                                            (and (empty? (:messages wal-record))
+                                                                 (empty? (:wal-logs wal-record))))
                                                           batch)
                                   webhook-matches (history-model/push-batch! logging-batches)
                                   events (webhook-model/create-events! logging-batches webhook-matches)]
