@@ -87,7 +87,7 @@
                              (catch Throwable t
                                (tracer/record-exception-span! t {:name "grouped-queue/process-error"})))]
         (AtomicInteger/.addAndGet num-items (- (::combined item 1)))
-        (if-let [throttle-ms (tool/inspect (throttle-key (tool/inspect process-result)))]
+        (if-let [throttle-ms (throttle-key process-result)]
           (schedule q throttle-ms process-task)
           (if (some? (Queue/.peek group))
             (execute q process-task)
