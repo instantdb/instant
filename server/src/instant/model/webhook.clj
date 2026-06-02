@@ -3,6 +3,7 @@
    [honey.sql.pg-ops :as pg-ops]
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
+   [instant.db.transaction :as tx]
    [instant.flags :as flags]
    [instant.isn :as isn]
    [instant.jdbc.aurora :as aurora]
@@ -326,6 +327,20 @@
     {:id-attr-ids id-attr-ids
      :topics topics}))
 
+(defn enable-webhooks-config-flag
+  "Enables the flag that tells us to include wal-logs for this instance."
+  [app-id]
+  (when-let [config-app-id (config/instant-config-app-id)]
+    (let [attrs (attr-model/get-by-app-id config-app-id)
+          id-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "id"] attrs))
+          setting-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "setting"] attrs))
+          value-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "value"] attrs))]
+      (tx/transact! (aurora/conn-pool :write)
+                    attrs
+                    config-app-id
+                    [[:add-triple [setting-aid "enable-wal-entity-log-apps-map"] id-aid [setting-aid "enable-wal-entity-log-apps-map"]]
+                     [:deep-merge-triple [setting-aid "enable-wal-entity-log-apps-map"] value-aid {(str app-id) true}]]))))
+
 (defn create!
   "Creates a new webhook, validating that the namespaces are valid, the webhook url is valid,
    and that the app has not exceeded the maximum number of webhooks."
@@ -335,6 +350,8 @@
    (let [{:keys [id-attr-ids topics]} (namespaces->id-attr-ids+topics! app-id namespaces)]
      (when-not (seq actions)
        (ex/throw-validation-err! :webhook {:actions actions} [{:message "Webhook must have at least one action."}]))
+
+     (enable-webhooks-config-flag app-id)
      (next.jdbc/with-transaction [conn conn]
        (take-webhook-count-lock! conn app-id)
        (check-webhook-limit! conn app-id)
