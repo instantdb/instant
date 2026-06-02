@@ -1,6 +1,8 @@
-import { vi } from 'vitest';
+import { vi, expect } from 'vitest';
+import { http, HttpResponse } from 'msw';
 import { i } from '../../src';
 import { makeE2ETest } from './utils/e2e';
+import { COOKIE_SYNC_LAST_UPDATED_KEY } from '../../src/Reactor';
 
 const test = makeE2ETest({
   rules: {
@@ -11,26 +13,20 @@ const test = makeE2ETest({
       animal: i.entity({}),
     },
   }),
+  config: {
+    firstPartyPath: 'https://example.com',
+  },
 });
 
-export type User = {
-  id: string;
-  refresh_token: string;
-  email?: string | null | undefined;
-  imageURL?: string | null | undefined;
-  type?: 'user' | 'guest' | undefined;
-  isGuest: boolean;
-};
-
-test('does things', async ({ db }) => {
-  const mocked = vi.mockObject(db);
-
-  mocked._reactor._userSyncStorage?.getAllKeys.mockReturnValue(
-    new Promise((resolve) => resolve(['value'])),
+test('does things', async ({ db, worker }) => {
+  worker.use(
+    http.post('https://example.com/', async () => {
+      console.log('Mock server: cookie synced');
+      return new HttpResponse(null, { status: 200 });
+    }),
   );
-  console.log(mocked._reactor._userSyncStorage?.getAllKeys);
 
-  const keys = await mocked._reactor._userSyncStorage?.getAllKeys();
-  console.log(keys);
-  await mocked._reactor.syncUserToEndpoint({ testing: 123 });
+  await db._reactor.syncUserToEndpoint({ testing: 123 });
+  const last = db._reactor.kv.currentValue;
+  expect(last[COOKIE_SYNC_LAST_UPDATED_KEY]).not.toBeNull();
 });

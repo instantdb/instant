@@ -57,7 +57,7 @@ const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
 const PENDING_MUTATION_CLEANUP_THRESHOLD = 200;
 const ONE_MIN_MS = 1_000 * 60;
 
-const COOKIE_SYNC_LAST_UPDATED_KEY = 'lastSyncedUserCookie';
+export const COOKIE_SYNC_LAST_UPDATED_KEY = 'lastSyncedUserCookie';
 
 const defaultConfig = {
   apiURI: 'https://api.instantdb.com',
@@ -282,9 +282,6 @@ export default class Reactor {
   /** @type FrameworkClient | null */
   _frameworkClient = null;
 
-  /** @type StoreInterface | null */
-  _userSyncStorage = null;
-
   constructor(
     config,
     Storage = IndexedDBStorage,
@@ -301,8 +298,6 @@ export default class Reactor {
     this._pendingMutationCleanupThreshold =
       this.config.pendingMutationCleanupThreshold ??
       PENDING_MUTATION_CLEANUP_THRESHOLD;
-
-    this._userSyncStorage = new Storage(config.appId, 'kv');
 
     this._log = createLogger(
       config.verbose || flags.devBackend || flags.instantLogs,
@@ -2195,10 +2190,6 @@ export default class Reactor {
   }
 
   async setupUserSyncTimer() {
-    if (!this._userSyncStorage) return;
-    const lastTime = await this._userSyncStorage
-      .getItem(COOKIE_SYNC_LAST_UPDATED_KEY)
-      .then((t) => t?.toISOString());
     const now = new Date().toISOString();
   }
 
@@ -2223,10 +2214,9 @@ export default class Reactor {
       this._log.error('Error syncing user with external endpoint', error);
     }
 
-    if (!this._userSyncStorage) return;
-    this._userSyncStorage?.multiSet([
-      [COOKIE_SYNC_LAST_UPDATED_KEY, new Date().toISOString()],
-    ]);
+    this.kv.updateInPlace((prev) => {
+      prev[COOKIE_SYNC_LAST_UPDATED_KEY] = new Date().toISOString();
+    });
   }
 
   async updateUser(newUser) {
