@@ -149,11 +149,11 @@
 
      :get-executor :: (fn []) -> ExecutorService
 
-   A ScheduledThreadPoolExecutor to handle continuing throttled queues
+   Function that returns an executor, used for testing different executors
 
      :scheduled-thread-pool-executor :: ScheduledThreadPoolExecutor | nil
 
-   Function that returns an executor, used for testing different executors
+   A ScheduledThreadPoolExecutor to handle continuing throttled queues
 
      :max-workers  :: long | nil
 
