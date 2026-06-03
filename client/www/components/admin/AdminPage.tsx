@@ -265,6 +265,7 @@ export function Admin({
         n.trim().length ? undefined : { error: 'Name is required' },
     },
     onSubmit: async (values) => {
+      const name = values.name.trim();
       if (dashResponse.data.workspace.type === 'personal') {
         // personal app
         await dashResponse.optimisticUpdate(
@@ -272,14 +273,14 @@ export function Admin({
             method: 'POST',
             token,
             body: {
-              title: values.name,
+              title: name,
             },
           }),
           (d) => {
             const _app = d?.apps?.find((a) => a.id === app.id);
             if (!_app) return;
 
-            _app.title = values.name;
+            _app.title = name;
           },
         );
       } else {
@@ -289,14 +290,14 @@ export function Admin({
             method: 'POST',
             token,
             body: {
-              title: values.name,
+              title: name,
             },
           }),
           (d) => {
             const _app = d?.apps?.find((a) => a.id === app.id);
             if (!_app) return;
 
-            _app.title = values.name;
+            _app.title = name;
           },
         );
       }
