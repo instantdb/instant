@@ -507,11 +507,3 @@ export default async function RootLayout({
   );
 }
 ```
-
-The first party path will be called whenever a user's `user` information is changed. To sync the user on demand, you can use:
-
-```typescript
-db.core._reactor
-  .getCurrentUser()
-  .then((res) => db.core._reactor.syncUserToEndpoint(res.user));
-```
