@@ -1,7 +1,8 @@
-import { InformationCircleIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon } from '@heroicons/react/24/solid';
 import produce from 'immer';
 import { capitalize } from 'lodash';
-import { useContext, useState } from 'react';
+import { ReactNode, useContext, useState } from 'react';
 import { v4 } from 'uuid';
 
 import config from '@/lib/config';
@@ -24,7 +25,6 @@ import {
   Content,
   Copyable,
   Dialog,
-  Divider,
   Label,
   SectionHeading,
   Select,
@@ -38,6 +38,146 @@ import { Workspace } from '@/lib/hooks/useWorkspace';
 import Link from 'next/link';
 import { formatCredit } from '../dash/org-management/OrgBilling';
 import { messageFromInstantError } from '@/lib/errors';
+
+// A top-level section header: bold title plus an optional one-line muted
+// description. This is where the page's hierarchy lives.
+function SectionHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <SectionHeading>{title}</SectionHeading>
+      {description ? (
+        <p className="text-sm text-gray-500 dark:text-neutral-400">
+          {description}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+// Muted helper text under a field label.
+function FieldHint({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-sm text-gray-500 dark:text-neutral-400">{children}</p>
+  );
+}
+
+// Small muted badge for secondary metadata (e.g. an invite's status).
+function Pill({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded-full border px-2 py-0.5 text-xs text-gray-500 dark:border-neutral-700 dark:text-neutral-400">
+      {children}
+    </span>
+  );
+}
+
+// Bordered, divided list container shared by the member lists.
+function RowList({ children }: { children: ReactNode }) {
+  return (
+    <div className="divide-y overflow-hidden rounded-sm border dark:divide-neutral-700 dark:border-neutral-700">
+      {children}
+    </div>
+  );
+}
+
+// Centered callout used for the empty / upgrade states.
+function Callout({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-sm border border-dashed px-6 py-8 text-center dark:border-neutral-700">
+      {children}
+    </div>
+  );
+}
+
+// Subtle, text-only row action. Destructive variant goes red on hover.
+function RowAction({
+  children,
+  onClick,
+  destructive = false,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        destructive
+          ? 'cursor-pointer text-sm text-gray-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400'
+          : 'cursor-pointer text-sm text-gray-400 hover:text-gray-700 dark:text-neutral-500 dark:hover:text-neutral-200'
+      }
+    >
+      {children}
+    </button>
+  );
+}
+
+function PersonRow({
+  email,
+  role,
+  status,
+  action,
+}: {
+  email: string;
+  role?: string;
+  status?: { label: string };
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="truncate font-medium">{email}</span>
+        {status ? <Pill>{status.label}</Pill> : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        {role ? (
+          <span className="text-sm text-gray-400 dark:text-neutral-500">
+            {capitalize(role)}
+          </span>
+        ) : null}
+        {action}
+      </div>
+    </div>
+  );
+}
+
+function DangerRow({
+  title,
+  description,
+  actionLabel,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  actionLabel: string;
+  onClick: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 p-4">
+      <div className="flex min-w-0 flex-col">
+        <span className="font-medium">{title}</span>
+        <span className="text-sm text-gray-500 dark:text-neutral-400">
+          {description}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={onClick}
+        className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-red-300 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
+      >
+        <TrashIcon height={'1rem'} />
+        {actionLabel}
+      </button>
+    </div>
+  );
+}
 
 export function Admin({
   app,
@@ -60,9 +200,11 @@ export function Admin({
   const [isClearingApp, setIsClearingApp] = useState(false);
   const [editMember, setEditMember] = useState<InstantMember | null>();
   const [hideAdminToken, setHideAdminToken] = useState(true);
+  const [isRegeneratingToken, setIsRegeneratingToken] = useState(false);
   const clearDialog = useDialog();
   const deleteDialog = useDialog();
   const inviteDialog = useDialog();
+  const regenerateDialog = useDialog();
 
   const isPaidOrg = workspace.type === 'org' && workspace.org.paid;
 
@@ -71,38 +213,59 @@ export function Admin({
   );
 
   const canAddMembers = app.pro || isPaidOrg;
+  const hasAppPeople =
+    Boolean(app.members?.length) || Boolean(displayedInvites?.length);
 
-  async function onClickReset() {
+  async function regenerateToken() {
     const appIndex = dashResponse.data.apps.findIndex((a) => a.id === app.id);
     const newAdminToken = v4();
-    const confirmation =
-      'Are you sure? This will invalidate your previous token.';
 
-    if (!confirm(confirmation)) return;
-
+    setIsRegeneratingToken(true);
     try {
       await regenerateAdminToken(token, app.id, newAdminToken);
     } catch (error) {
       errorToast(
         "Uh oh! We couldn't generate a new admin token. Please ping Joe & Stopa, or try again.",
       );
-
       return;
+    } finally {
+      setIsRegeneratingToken(false);
     }
 
     dashResponse.mutate(
       produce(dashResponse.data, (d) => {
-        if (d.apps && appIndex) d.apps[appIndex].admin_token = newAdminToken;
+        if (d.apps && appIndex >= 0) {
+          d.apps[appIndex].admin_token = newAdminToken;
+        }
       }),
     );
+    regenerateDialog.onClose();
+  }
+
+  async function revokeInvite(inviteId: string) {
+    try {
+      await dashResponse.optimisticUpdate(
+        jsonMutate(`${config.apiURI}/dash/apps/${app.id}/invite/revoke`, {
+          method: 'DELETE',
+          token,
+          body: { 'invite-id': inviteId },
+        }),
+      );
+      dashResponse.refetch();
+      successToast('Revoked team member invite.');
+    } catch (e) {
+      errorToast('An error occurred while revoking the invite.');
+    }
   }
 
   const appNameForm = useForm<{ name: string }>({
     initial: { name: app.title },
     validators: {
-      name: (n) => (n.length ? undefined : { error: 'Name is required' }),
+      name: (n) =>
+        n.trim().length ? undefined : { error: 'Name is required' },
     },
     onSubmit: async (values) => {
+      const name = values.name.trim();
       if (dashResponse.data.workspace.type === 'personal') {
         // personal app
         await dashResponse.optimisticUpdate(
@@ -110,14 +273,14 @@ export function Admin({
             method: 'POST',
             token,
             body: {
-              title: values.name,
+              title: name,
             },
           }),
           (d) => {
             const _app = d?.apps?.find((a) => a.id === app.id);
             if (!_app) return;
 
-            _app.title = values.name;
+            _app.title = name;
           },
         );
       } else {
@@ -127,14 +290,14 @@ export function Admin({
             method: 'POST',
             token,
             body: {
-              title: values.name,
+              title: name,
             },
           }),
           (d) => {
             const _app = d?.apps?.find((a) => a.id === app.id);
             if (!_app) return;
 
-            _app.title = values.name;
+            _app.title = name;
           },
         );
       }
@@ -144,34 +307,221 @@ export function Admin({
   });
 
   return (
-    <TabContent className="h-full">
-      <SectionHeading className="pt-4">Admin SDK</SectionHeading>
-      <HomeButton href="/docs/backend" title="Instant and your backend">
-        Learn how to use the Admin SDK to integrate Instant with your backend.
-      </HomeButton>
-      <Content>
-        Use the admin token below to authenticate with your backend. Keep this
-        token a secret.{' '}
-        {isMinRole('admin', role) ? (
-          <>
-            If need be, you can regenerate it by{' '}
-            <a
-              className="hover:cursor-pointer dark:text-white"
-              onClick={onClickReset}
-            >
-              clicking here
-            </a>
-            .
-          </>
+    <TabContent className="mx-auto h-full w-full gap-6">
+      {/* Reserved top slot so content lines up with the auth/webhooks pages. */}
+      <div className="flex h-5 items-center" />
+      <div className="flex flex-col gap-8">
+        {/* App settings: name + admin token */}
+        <div className="flex flex-col gap-4">
+          <SectionHeader title="App settings" />
+
+          {isMinRole('owner', role) ? (
+            <div className="flex flex-col gap-2">
+              <Label>App name</Label>
+              <form
+                className="flex items-start gap-2"
+                {...appNameForm.formProps()}
+              >
+                <div className="flex-1">
+                  <TextInput
+                    {...appNameForm.inputProps('name')}
+                    placeholder="My awesome app"
+                  />
+                </div>
+                <Button
+                  variant="secondary"
+                  {...appNameForm.submitButtonProps()}
+                >
+                  Update
+                </Button>
+              </form>
+            </div>
+          ) : null}
+
+          <Content>
+            Use the admin token below to authenticate with your backend. Keep
+            this token a secret.{' '}
+            {isMinRole('admin', role) ? (
+              <>
+                If need be, you can regenerate it by{' '}
+                <a
+                  className="hover:cursor-pointer dark:text-white"
+                  onClick={regenerateDialog.onOpen}
+                >
+                  clicking here
+                </a>
+                .
+              </>
+            ) : null}
+          </Content>
+          <Copyable
+            onChangeHideValue={() => setHideAdminToken(!hideAdminToken)}
+            hideValue={hideAdminToken}
+            label="Admin token"
+            value={app.admin_token}
+          />
+          <HomeButton
+            href="/docs/backend"
+            title="Instant and your backend"
+            target="_blank"
+          >
+            Learn how to use the Admin SDK to integrate Instant with your
+            backend.
+          </HomeButton>
+        </div>
+
+        {/* Team */}
+        <div className="flex flex-col gap-3">
+          <SectionHeader
+            title="Team"
+            description="Manage who can access this app."
+          />
+
+          {workspace.type === 'org' && (
+            <div className="flex flex-col gap-2">
+              <Label>Organization members</Label>
+              <RowList>
+                {workspace.members.map((member) => (
+                  <PersonRow
+                    key={member.id}
+                    email={member.email}
+                    role={member.role}
+                  />
+                ))}
+              </RowList>
+              <FieldHint>
+                Modify organization members from your{' '}
+                <Link
+                  className="underline"
+                  href={`/dash/org?org=${workspace.org.id}`}
+                >
+                  organization settings
+                </Link>
+                .
+              </FieldHint>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            {workspace.type === 'org' ? <Label>App-only members</Label> : null}
+
+            {hasAppPeople ? (
+              <RowList>
+                {app.members?.map((member) => (
+                  <PersonRow
+                    key={member.id}
+                    email={member.email}
+                    role={member.role}
+                    action={
+                      <RowAction onClick={() => setEditMember(member)}>
+                        Edit
+                      </RowAction>
+                    }
+                  />
+                ))}
+                {displayedInvites?.map((invite) => (
+                  <PersonRow
+                    key={invite.id}
+                    email={invite.email}
+                    role={invite.role}
+                    status={{
+                      label: invite.expired
+                        ? 'Expired'
+                        : capitalize(invite.status),
+                    }}
+                    action={
+                      !invite.expired && invite.status === 'pending' ? (
+                        <RowAction
+                          destructive
+                          onClick={() => revokeInvite(invite.id)}
+                        >
+                          Revoke
+                        </RowAction>
+                      ) : null
+                    }
+                  />
+                ))}
+                {canAddMembers ? (
+                  <button
+                    type="button"
+                    onClick={inviteDialog.onOpen}
+                    className="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                  >
+                    <PlusIcon height={14} /> Invite a team member
+                    {isPaidOrg ? ' to this app only' : ''}
+                  </button>
+                ) : null}
+              </RowList>
+            ) : canAddMembers ? (
+              <Callout>
+                <FieldHint>
+                  Invite teammates to collaborate on this app.
+                </FieldHint>
+                <Button variant="primary" onClick={inviteDialog.onOpen}>
+                  <PlusIcon height={14} /> Invite a team member
+                </Button>
+              </Callout>
+            ) : null}
+
+            {!canAddMembers ? (
+              <Callout>
+                <FieldHint>
+                  Upgrade to a paid plan to invite teammates to this app.
+                </FieldHint>
+                <div className="flex flex-col items-center gap-2">
+                  <Button
+                    variant="primary"
+                    onClick={() =>
+                      nav({ s: 'main', app: app.id, t: 'billing' })
+                    }
+                  >
+                    Upgrade to Pro
+                  </Button>
+                  {workspace.type === 'org' ? (
+                    <Button
+                      type="link"
+                      variant="subtle"
+                      href={`/dash/org?org=${workspace.org.id}&tab=billing`}
+                    >
+                      Or upgrade the org to the startup plan
+                    </Button>
+                  ) : null}
+                </div>
+              </Callout>
+            ) : null}
+          </div>
+        </div>
+
+        {isMinRole(app.org ? 'admin' : 'owner', role) && (
+          <TransferApp app={app} />
+        )}
+
+        {isMinRole(app.org ? 'admin' : 'owner', role) ? (
+          <div className="flex flex-col gap-3 pb-4">
+            <SectionHeader
+              title="Danger zone"
+              description="These actions are irreversible and permanently delete data."
+            />
+            <div className="overflow-hidden rounded-sm border border-dashed border-red-200 dark:border-red-900/50">
+              {isMinRole('owner', role) && (
+                <DangerRow
+                  title="Clear app"
+                  description="Delete all namespaces, triples, and permissions. Keeps the app, token, and members."
+                  actionLabel="Clear app"
+                  onClick={clearDialog.onOpen}
+                />
+              )}
+              <DangerRow
+                title="Delete app"
+                description="Permanently delete this app and all of its data."
+                actionLabel="Delete app"
+                onClick={deleteDialog.onOpen}
+              />
+            </div>
+          </div>
         ) : null}
-      </Content>
-      <Copyable
-        onChangeHideValue={() => setHideAdminToken(!hideAdminToken)}
-        hideValue={hideAdminToken}
-        label="Secret"
-        value={app.admin_token}
-      />
-      <Divider />
+      </div>
+
       <Dialog
         title="Invite Members"
         open={inviteDialog.open}
@@ -243,287 +593,110 @@ export function Admin({
           </div>
         ) : null}
       </Dialog>
-      {isMinRole('owner', role) ? (
-        <form className="flex flex-col gap-2" {...appNameForm.formProps()}>
-          <TextInput
-            {...appNameForm.inputProps('name')}
-            label="App name"
-            placeholder="My awesome app"
-          />
-          <Button variant="secondary" {...appNameForm.submitButtonProps()}>
-            Update app name
-          </Button>
-        </form>
-      ) : null}
-
-      <div className="flex flex-col gap-1">
-        <SectionHeading>Team Members</SectionHeading>
-        {workspace.type === 'org' && (
-          <div className="my-2">
-            <SubsectionHeading>Organization members</SubsectionHeading>
-            <div className="flex flex-col gap-1">
-              {workspace.members.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between gap-3"
-                >
-                  <div className="flex flex-1 justify-between">
-                    <div>{member.email}</div>
-                    <div className="text-gray-400 dark:text-neutral-400">
-                      {capitalize(member.role)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <Content className="text-sm dark:text-neutral-300">
-                Modify organization members from the{' '}
-                <Link
-                  className="dark:text-white"
-                  href={`/dash/org?org=${workspace.org.id}`}
-                >
-                  Organization settings
-                </Link>
-              </Content>
-            </div>
-          </div>
-        )}
-        {workspace.type === 'org' ? (
-          <SubsectionHeading>App-only members</SubsectionHeading>
-        ) : (
-          <SubsectionHeading>Members</SubsectionHeading>
-        )}
-        {app.members?.length ? (
-          <div className="flex flex-col gap-1">
-            {app.members.map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center justify-between gap-3"
-              >
-                <div className="flex flex-1 justify-between">
-                  <div>{member.email}</div>
-                  <div className="text-gray-400 dark:text-neutral-400">
-                    {capitalize(member.role)}
-                  </div>
-                </div>
-                <div className="flex w-28">
-                  <Button
-                    className="w-full"
-                    variant="secondary"
-                    onClick={() => setEditMember(member)}
-                  >
-                    Edit
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-gray-400 dark:text-neutral-400">
-            No team members
-          </div>
-        )}
-      </div>
-      {displayedInvites?.length ? (
-        <div className="flex flex-col">
-          <SubsectionHeading>Invites</SubsectionHeading>
-          <div className="flex flex-col gap-0.5">
-            {displayedInvites.map((invite) => (
-              <div
-                key={invite.id}
-                className="flex items-center justify-between gap-3"
-              >
-                <div className="flex flex-1 justify-between gap-2 overflow-hidden">
-                  <div className="truncate">{invite.email}</div>
-                  <div className="text-gray-400 dark:text-neutral-400">
-                    {capitalize(invite.role)}
-                  </div>
-                </div>
-                <div className="flex w-28">
-                  {!invite.expired && invite.status === 'pending' ? (
-                    <ActionButton
-                      className="w-full"
-                      label="Revoke"
-                      submitLabel="Revoking..."
-                      successMessage="Revoked team member invite."
-                      errorMessage="An error occurred while attempting to revoke team member invite."
-                      onClick={async () => {
-                        dashResponse.optimisticUpdate(
-                          jsonMutate(
-                            `${config.apiURI}/dash/apps/${app.id}/invite/revoke`,
-                            {
-                              method: 'DELETE',
-                              token,
-                              body: {
-                                'invite-id': invite.id,
-                              },
-                            },
-                          ),
-                        );
-                        dashResponse.refetch();
-                      }}
-                    />
-                  ) : (
-                    <Button className="w-full" variant="secondary" disabled>
-                      {invite.expired ? 'Expired' : capitalize(invite.status)}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      <div className="flex flex-col gap-1">
-        {canAddMembers ? (
+      <Dialog title="Regenerate token" {...regenerateDialog}>
+        <div className="flex flex-col gap-2">
+          <SubsectionHeading>Regenerate admin token</SubsectionHeading>
+          <Content>
+            This will invalidate your current token. Any backend using it will
+            stop working until you update it with the new token.
+          </Content>
           <Button
-            variant="secondary"
-            onClick={() => {
-              inviteDialog.onOpen();
+            loading={isRegeneratingToken}
+            variant="destructive"
+            onClick={regenerateToken}
+          >
+            Regenerate token
+          </Button>
+        </div>
+      </Dialog>
+      <Dialog title="Clear App" {...clearDialog}>
+        <div className="flex flex-col gap-2">
+          <SubsectionHeading className="text-red-600">
+            Clear app
+          </SubsectionHeading>
+          <Content className="space-y-2">
+            <p>
+              Clearing an app will irreversibly delete all namespaces, triples,
+              and permissions.
+            </p>
+            <p>
+              All other data like app id, admin token, users, billing, team
+              members, etc. will remain.
+            </p>
+            <p>
+              This is equivalent to deleting all your namespaces in the explorer
+              and clearing your permissions.
+            </p>
+          </Content>
+          <Checkbox
+            checked={clearAppOk}
+            onChange={(c) => updateClearAppOk(c)}
+            label="I understand and want to clear this app."
+          />
+          <Button
+            disabled={!clearAppOk || isClearingApp}
+            variant="destructive"
+            onClick={async () => {
+              setIsClearingApp(true);
+              try {
+                await jsonFetch(`${config.apiURI}/dash/apps/${app.id}/clear`, {
+                  method: 'POST',
+                  headers: {
+                    authorization: `Bearer ${token}`,
+                    'content-type': 'application/json',
+                  },
+                });
+                clearDialog.onClose();
+                dashResponse.mutate();
+                successToast('App cleared!');
+              } catch {
+                errorToast('Failed to clear the app.');
+              } finally {
+                setIsClearingApp(false);
+              }
             }}
           >
-            Invite a team member {isPaidOrg ? 'to this app only' : null}
+            {isClearingApp ? 'Clearing data...' : 'Clear data'}
           </Button>
-        ) : (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 rounded-sm border bg-gray-100 p-2 dark:border-neutral-700 dark:bg-neutral-800">
-              <InformationCircleIcon width={18}></InformationCircleIcon>
-              Upgrade to a paid app to manage members.{' '}
-              <Link className="underline" href="/pricing">
-                View pricing.
-              </Link>
-            </div>
-            <div className="flex justify-between">
-              {workspace.type === 'org' ? (
-                <Button
-                  type="link"
-                  variant="secondary"
-                  href={`/dash/org?org=${workspace.org.id}&tab=billing`}
-                >
-                  Upgrade the org to the startup plan
-                </Button>
-              ) : null}
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  nav({ s: 'main', app: app.id, t: 'billing' });
-                }}
-              >
-                Upgrade the app to Pro
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {isMinRole(app.org ? 'admin' : 'owner', role) && (
-        <TransferApp app={app} />
-      )}
-
-      {isMinRole(app.org ? 'admin' : 'owner', role) ? (
-        // mt-auto pushes the danger zone to the bottom of the page
-        <div className="space-y-2 pb-4">
-          <SectionHeading className="pt-4">Danger zone</SectionHeading>
-          <Content>
-            These are destructive actions and will irreversibly delete
-            associated data.
-          </Content>
-          <div>
-            <div className="flex flex-col space-y-6">
-              {isMinRole('owner', role) && (
-                <Button variant="destructive" onClick={clearDialog.onOpen}>
-                  <TrashIcon height={'1rem'} /> Clear app
-                </Button>
-              )}
-              <Button variant="destructive" onClick={deleteDialog.onOpen}>
-                <TrashIcon height={'1rem'} /> Delete app
-              </Button>
-            </div>
-          </div>
-          <Dialog title="Clear App" {...clearDialog}>
-            <div className="flex flex-col gap-2">
-              <SubsectionHeading className="text-red-600">
-                Clear app
-              </SubsectionHeading>
-              <Content className="space-y-2">
-                <p>
-                  Clearing an app will irreversibly delete all namespaces,
-                  triples, and permissions.
-                </p>
-                <p>
-                  All other data like app id, admin token, users, billing, team
-                  members, etc. will remain.
-                </p>
-                <p>
-                  This is equivalent to deleting all your namespaces in the
-                  explorer and clearing your permissions.
-                </p>
-              </Content>
-              <Checkbox
-                checked={clearAppOk}
-                onChange={(c) => updateClearAppOk(c)}
-                label="I understand and want to clear this app."
-              />
-              <Button
-                disabled={!clearAppOk || isClearingApp}
-                variant="destructive"
-                onClick={async () => {
-                  setIsClearingApp(true);
-                  await jsonFetch(
-                    `${config.apiURI}/dash/apps/${app.id}/clear`,
-                    {
-                      method: 'POST',
-                      headers: {
-                        authorization: `Bearer ${token}`,
-                        'content-type': 'application/json',
-                      },
-                    },
-                  );
-
-                  setIsClearingApp(false);
-                  clearDialog.onClose();
-                  dashResponse.mutate();
-                  successToast('App cleared!');
-                }}
-              >
-                {isClearingApp ? 'Clearing data...' : 'Clear data'}
-              </Button>
-            </div>
-          </Dialog>
-          <Dialog title="Delete App" {...deleteDialog}>
-            <div className="flex flex-col gap-2">
-              <SubsectionHeading className="text-red-600">
-                Delete app
-              </SubsectionHeading>
-              <Content>
-                Deleting an app will irreversibly delete all associated data.
-              </Content>
-              <Checkbox
-                checked={deleteAppOk}
-                onChange={(c) => updateDeleteAppOk(c)}
-                label="I understand and want to delete this app."
-              />
-              <Button
-                disabled={!deleteAppOk || isDeletingApp}
-                variant="destructive"
-                onClick={async () => {
-                  setIsDeletingApp(true);
-                  await jsonFetch(`${config.apiURI}/dash/apps/${app.id}`, {
-                    method: 'DELETE',
-                    headers: {
-                      authorization: `Bearer ${token}`,
-                      'content-type': 'application/json',
-                    },
-                  });
-                  setIsDeletingApp(false);
-                  onDelete();
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          </Dialog>
         </div>
-      ) : null}
+      </Dialog>
+      <Dialog title="Delete App" {...deleteDialog}>
+        <div className="flex flex-col gap-2">
+          <SubsectionHeading className="text-red-600">
+            Delete app
+          </SubsectionHeading>
+          <Content>
+            Deleting an app will irreversibly delete all associated data.
+          </Content>
+          <Checkbox
+            checked={deleteAppOk}
+            onChange={(c) => updateDeleteAppOk(c)}
+            label="I understand and want to delete this app."
+          />
+          <Button
+            disabled={!deleteAppOk || isDeletingApp}
+            variant="destructive"
+            onClick={async () => {
+              setIsDeletingApp(true);
+              try {
+                await jsonFetch(`${config.apiURI}/dash/apps/${app.id}`, {
+                  method: 'DELETE',
+                  headers: {
+                    authorization: `Bearer ${token}`,
+                    'content-type': 'application/json',
+                  },
+                });
+                onDelete();
+              } catch {
+                errorToast('Failed to delete the app.');
+                setIsDeletingApp(false);
+              }
+            }}
+          >
+            Delete
+          </Button>
+        </div>
+      </Dialog>
     </TabContent>
   );
 }
@@ -541,14 +714,6 @@ function regenerateAdminToken(
     },
     body: JSON.stringify({ 'admin-token': adminToken }),
   });
-}
-
-/**
- * (XXX)
- * We could type the result of our fetches, and write a better error
- */
-function errMessage(e: Error) {
-  return e.message || 'An error occurred.';
 }
 
 function InviteTeamMemberDialog({
@@ -684,7 +849,7 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
   }
 
   return (
-    <div>
+    <div className="flex flex-col gap-3">
       {org ? (
         <Dialog
           title="Transfer App"
@@ -715,13 +880,7 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
             <Button
               loading={isLoading}
               onClick={() => {
-                transfer(
-                  {
-                    app: app,
-                    org: org,
-                  },
-                  token,
-                );
+                transfer({ app, org }, token);
               }}
             >
               Transfer{isLoading ? 'ing...' : ''}
@@ -729,18 +888,17 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
           </div>
         </Dialog>
       ) : null}
-      <SectionHeading className="pt-4">Transfer App</SectionHeading>
-      {orgs.length === 0 && (
-        <p className="py-2 text-center">No organizations to transfer to.</p>
-      )}
-      {orgs.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-col gap-1 pt-2">
-            <Label className="font-normal opacity-70">
-              Destination Organization
-            </Label>
+      <SectionHeader
+        title="Transfer app"
+        description="Move this app to one of your organizations."
+      />
+      {orgs.length === 0 ? (
+        <FieldHint>No organizations to transfer to.</FieldHint>
+      ) : (
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
             <Select<string>
-              disabled={orgs.length === 0}
+              className="w-full focus-visible:border-gray-300 focus-visible:ring-0 dark:focus-visible:border-neutral-700"
               value={org?.id}
               onChange={(option) => {
                 if (!option) return;
