@@ -95,8 +95,34 @@ services:
       - "8888:8888"
     volumes:
       - server_config:/app/resources/config
+  caddy:
+    image: lucaslorentz/caddy-docker-proxy:ci-alpine
+    ports:
+      - 80:80
+      - 443:443/tcp
+      - 443:443/udp
+    environment:
+      - CADDY_INGRESS_NETWORKS=caddy
+    networks:
+      - caddy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - caddy_data:/data
+
+  whoami:
+    image: traefik/whoami
+    networks:
+      - caddy
+    labels:
+      caddy: whoami.localhost
+      caddy.reverse_proxy: "{{upstreams 80}}"
 
 volumes:
   backend-db:
   minio_data:
   server_config:
+  caddy_data:
+
+networks:
+  caddy:
+    external: true
