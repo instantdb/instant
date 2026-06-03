@@ -264,7 +264,11 @@ export function Perms({
             them.
           </p>
         </Content>
-        <HomeButton href="/docs/permissions" title="Using Permissions" target="_blank">
+        <HomeButton
+          href="/docs/permissions"
+          title="Using Permissions"
+          target="_blank"
+        >
           Learn how to use CEL expressions to secure your app
         </HomeButton>
       </div>
