@@ -743,17 +743,19 @@ export function HomeButton({
   title,
   children,
   onClick,
+  target,
 }: {
   href: string;
   title: string;
   children: React.ReactNode;
   onClick?: () => void;
+  target?: string;
 }) {
   return (
     <NextLink
       href={formatRouteParams(href)}
-      target="_blank"
-      rel="noopener noreferrer"
+      target={target}
+      rel={target === '_blank' ? 'noopener noreferrer' : undefined}
       className="block cursor-pointer justify-start space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
       onClick={onClick}
     >
@@ -795,6 +797,7 @@ function Home({ app, token }: { app: InstantApp; token: string }) {
           <HomeButton
             href="/docs"
             title="Read the Docs"
+            target="_blank"
             onClick={() =>
               posthog.capture('getting_started_click', {
                 action: 'read_docs',
@@ -809,6 +812,7 @@ function Home({ app, token }: { app: InstantApp; token: string }) {
           <HomeButton
             href="https://discord.com/invite/VU53p7uQcE"
             title="Join the community"
+            target="_blank"
             onClick={() =>
               posthog.capture('getting_started_click', {
                 action: 'join_discord',

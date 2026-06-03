@@ -360,7 +360,7 @@ export function Admin({
             label="Admin token"
             value={app.admin_token}
           />
-          <HomeButton href="/docs/backend" title="Instant and your backend">
+          <HomeButton href="/docs/backend" title="Instant and your backend" target="_blank">
             Learn how to use the Admin SDK to integrate Instant with your
             backend.
           </HomeButton>
