@@ -3,6 +3,7 @@
    [clojure.core.async :as a]
    [clojure.set :as set]
    [datascript.core :as ds]
+   [instant.cloudwatch :as cloudwatch]
    [instant.config :as config]
    [instant.db.pg-introspect :as pg-introspect]
    [instant.flags :as flags]
@@ -29,10 +30,11 @@
    (instant.grpc InvalidatorSubscribe PackedWalRecord SlotDisconnect WalRecord WebhookEvents)
    (io.grpc Status Status$Code)
    (io.grpc.stub ServerCallStreamObserver StreamObserver)
+   (java.lang Thread$UncaughtExceptionHandler)
    (java.sql Timestamp)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
-   (java.util ArrayList Map Queue)
+   (java.util ArrayList Map Queue DoubleSummaryStatistics)
    (java.util.concurrent ConcurrentHashMap Executors LinkedBlockingQueue TimeUnit)
    (org.postgresql.replication LogSequenceNumber)))
 
@@ -396,6 +398,16 @@
            on-error
            notify-webhook-events]}]
   (let [executor (Executors/newSingleThreadExecutor)
+        stats-executor (Executors/newThreadPerTaskExecutor
+                        (.. (Thread/ofVirtual)
+                            (uncaughtExceptionHandler
+                             (reify Thread$UncaughtExceptionHandler
+                               (uncaughtException [_ _ e]
+                                 (tracer/record-exception-span!
+                                  e
+                                  {:name "invalidator/publish-stats-error"
+                                   :escaping? false}))))
+                            (factory)))
         q (LinkedBlockingQueue.)
         stop-gauge (gauges/add-gauge-metrics-fn (fn [_]
                                                   [{:path "instant.reactive.invalidator.save-history-queue.size"
@@ -411,6 +423,8 @@
                   (run [_]
                     (try
                       (loop [batch (ArrayList.)
+                             stats (DoubleSummaryStatistics.)
+                             last-stat-send 0
                              ;; First item will block
                              item (.take q)]
                         (.add batch item)
@@ -431,11 +445,29 @@
                                   events (webhook-model/create-events! logging-batches webhook-matches)]
                               (when (seq events)
                                 (notify-webhook-events events)))
+
+                            (let [latency (- (System/currentTimeMillis)
+                                             (Instant/.toEpochMilli (:tx-created-at (first batch))))]
+                              (.accept stats latency))
+
                             (a/put! flush-lsn-chan (:nextlsn (.get batch (dec (.size batch))))))
 
                           (when-not quit?
-                            (recur (ArrayList.)
-                                   (.take q)))))
+                            (let [now (System/currentTimeMillis)
+                                  send-stats? (and (pos? (.getCount stats))
+                                                   ;; Send stats once a minute
+                                                   (<= 60000 (- now last-stat-send)))]
+                              (when send-stats?
+                                (.execute stats-executor (reify Runnable
+                                                           (run [_]
+                                                             (cloudwatch/record-webhook-latency-ms!
+                                                              (Instant/ofEpochMilli now)
+                                                              (.getAverage stats))))))
+                              (tool/def-locals)
+                              (recur (ArrayList.)
+                                     (if send-stats? (DoubleSummaryStatistics.) stats)
+                                     (if send-stats? now last-stat-send)
+                                     (.take q))))))
                       (catch Throwable t
                         (on-error t))
                       (finally
@@ -450,7 +482,9 @@
                  (reset! shutdown? true)
                  (.put q shutdown-sentinel)
                  (.shutdown executor)
+                 (.shutdown stats-executor)
                  (.awaitTermination executor 20 TimeUnit/SECONDS)
+                 (.awaitTermination stats-executor 5 TimeUnit/SECONDS)
                  (stop-gauge))}))
 
 (defn broadcast-wal-record [get-remote-observers packed-wal-record]

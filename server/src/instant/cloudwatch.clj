@@ -1,14 +1,23 @@
 (ns instant.cloudwatch
   (:require
    [clojure.string]
+   [instant.config :as config]
    [instant.util.coll :as ucoll]
    [instant.util.crypt :as crypt-util]
    [instant.util.tracer :as tracer])
   (:import
+   (com.google.common.collect EvictingQueue Queues)
+   (java.io ByteArrayInputStream)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
-   (software.amazon.awssdk.services.cloudwatch CloudWatchClient)
-   (software.amazon.awssdk.services.cloudwatch.model GetMetricDataRequest GetMetricDataResponse MetricDataQuery MetricDataResult ScanBy)
+   (java.util Queue)
+   (software.amazon.awssdk.auth.credentials AwsBasicCredentials StaticCredentialsProvider)
+   (software.amazon.awssdk.core.client.config ClientOverrideConfiguration)
+   (software.amazon.awssdk.core.interceptor ExecutionInterceptor)
+   (software.amazon.awssdk.http AbortableInputStream ExecutableHttpRequest HttpExecuteResponse SdkHttpClient SdkHttpResponse)
+   (software.amazon.awssdk.regions Region)
+   (software.amazon.awssdk.services.cloudwatch CloudWatchClient CloudWatchClientBuilder)
+   (software.amazon.awssdk.services.cloudwatch.model GetMetricDataRequest GetMetricDataResponse MetricDataQuery MetricDataResult MetricDatum PutMetricDataRequest ScanBy StandardUnit)
    (software.amazon.awssdk.services.rds RdsClient)
    (software.amazon.awssdk.services.rds.model DBInstance DescribeDbInstancesResponse)))
 
@@ -16,6 +25,76 @@
 
 (defonce rds-client (delay (-> (RdsClient/builder)
                                (.build))))
+
+(defonce ^{:tag Queue} captured-metric-data
+  (Queues/synchronizedQueue (EvictingQueue/create 1000)))
+
+(def ^:private capturing-interceptor
+  (reify ExecutionInterceptor
+    (beforeTransmission [_ context _attrs]
+      (let [req (.request context)]
+        (when (instance? PutMetricDataRequest req)
+          (doseq [data (PutMetricDataRequest/.metricData req)]
+            (.add captured-metric-data data)))))))
+
+(def ^{:tag String} fake-put-metric-response-xml
+  "<PutMetricDataResponse xmlns=\"http://monitoring.amazonaws.com/doc/2010-08-01/\"><ResponseMetadata><RequestId>dev-mock</RequestId></ResponseMetadata></PutMetricDataResponse>")
+
+(def ^{:tag SdkHttpClient} noop-http-client
+  (reify SdkHttpClient
+    (prepareRequest [_ _req]
+      (reify ExecutableHttpRequest
+        (call [_]
+          (-> (HttpExecuteResponse/builder)
+              (.response (-> (SdkHttpResponse/builder)
+                             (.statusCode 200)
+                             (.putHeader "Content-Type" "text/xml")
+                             (.build)))
+              (.responseBody (AbortableInputStream/create
+                              (ByteArrayInputStream.
+                               (.getBytes fake-put-metric-response-xml))))
+              (.build)))
+        (abort [_])))
+    (close [_])))
+
+(defn- make-capturing-cloudwatch-client
+  "Creates a dev/test client that stores the last 1000 metrics in
+  `captured-metric-data` instead of posting to cloudwatch."
+  ^CloudWatchClient []
+  (let [^ClientOverrideConfiguration override-config
+        (-> (ClientOverrideConfiguration/builder)
+            (.addExecutionInterceptor capturing-interceptor)
+
+            (.build))]
+    (-> (CloudWatchClient/builder)
+        (.region Region/US_EAST_1)
+        (.credentialsProvider (StaticCredentialsProvider/create
+                               (AwsBasicCredentials/create "fake" "fake")))
+
+        (CloudWatchClientBuilder/.httpClient noop-http-client)
+        (CloudWatchClientBuilder/.overrideConfiguration override-config)
+        (.build))))
+
+(defonce write-cloudwatch-client
+  (delay (if (config/aws-env?)
+           (CloudWatchClient/create)
+           (make-capturing-cloudwatch-client))))
+
+(defn record-webhook-latency-ms!
+  ([^Instant recorded-at latency-ms]
+   (record-webhook-latency-ms! @write-cloudwatch-client recorded-at latency-ms))
+  ([^CloudWatchClient client recorded-at latency-ms]
+   (let [datum (-> (MetricDatum/builder)
+                   (.metricName "webhook-latency")
+                   (.value (double latency-ms))
+                   (.unit StandardUnit/MILLISECONDS)
+                   (.timestamp recorded-at)
+                   (.build))
+         request (-> (PutMetricDataRequest/builder)
+                     (.namespace "Instant")
+                     (.metricData (ucoll/array-of MetricDatum [datum]))
+                     (.build))]
+     (.putMetricData client ^PutMetricDataRequest request))))
 
 (defn all-rds-instance-ids
   "Returns all resource ids for all database instances in RDS."
