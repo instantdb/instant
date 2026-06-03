@@ -119,7 +119,7 @@ export const useCustomSenderVerification = (app: InstantApp) => {
 
   return {
     raw: resp,
-    instantVerified: resp.data?.instant?.['verified?'] ?? false,
+    instantVerified: resp.data?.instant?.['verified?'] ?? true,
     postmarkVerified: resp.data?.verification?.Confirmed ?? false,
     loading: resp.isValidating,
     refetch: resp.mutate,

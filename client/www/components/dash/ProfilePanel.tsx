@@ -130,7 +130,7 @@ export const ProfilePanel = () => {
 
                   {org.role !== 'app-member' && (
                     <Tooltip>
-                      <TooltipTrigger onClick={() => {}}>
+                      <TooltipTrigger>
                         <Link
                           href="/dash/org"
                           onClick={() => {

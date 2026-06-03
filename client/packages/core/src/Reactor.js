@@ -12,7 +12,7 @@ import * as StorageApi from './StorageAPI.ts';
 import * as flags from './utils/flags.ts';
 import { buildPresenceSlice, hasPresenceResponseChanged } from './presence.ts';
 import { Deferred } from './utils/Deferred.ts';
-import { PersistedObject } from './utils/PersistedObject.ts';
+import { PersistedObject, StoreInterface } from './utils/PersistedObject.ts';
 
 import { extractTriples } from './model/instaqlResult.js';
 import {
@@ -56,6 +56,9 @@ const QUERY_ONCE_TIMEOUT = 30_000;
 const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
 const PENDING_MUTATION_CLEANUP_THRESHOLD = 200;
 const ONE_MIN_MS = 1_000 * 60;
+const ONE_DAY_MS = ONE_MIN_MS * 60 * 24;
+
+export const COOKIE_SYNC_LAST_UPDATED_KEY = 'lastSyncedUserCookie';
 
 const defaultConfig = {
   apiURI: 'https://api.instantdb.com',
@@ -370,16 +373,7 @@ export default class Reactor {
     });
 
     this._oauthCallbackResponse = this._oauthLoginInit();
-
-    // kick off a request to cache it
-    this.getCurrentUser().then((userInfo) => {
-      this.syncUserToEndpoint(userInfo.user);
-    });
-
-    setInterval(async () => {
-      const currentUser = await this.getCurrentUser();
-      this.syncUserToEndpoint(currentUser.user);
-    }, ONE_MIN_MS);
+    this.setupUserSyncTimer();
 
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;
@@ -2197,10 +2191,29 @@ export default class Reactor {
     }
   }
 
+  async setupUserSyncTimer() {
+    if (!this.config.firstPartyPath) return;
+    try {
+      const lastSynced = await this.kv.waitForKeyToLoad(
+        COOKIE_SYNC_LAST_UPDATED_KEY,
+      );
+      const lastSyncTime = lastSynced ? new Date(lastSynced).getTime() : 0;
+      const shouldSync =
+        !Number.isFinite(lastSyncTime) ||
+        Date.now() - lastSyncTime >= ONE_DAY_MS;
+      if (!shouldSync) return;
+
+      const { user } = await this.getCurrentUser();
+      await this.syncUserToEndpoint(user ?? null);
+    } catch (error) {
+      this._log.error('Error syncing user cookie on startup', error);
+    }
+  }
+
   async syncUserToEndpoint(user) {
     if (!this.config.firstPartyPath) return;
     try {
-      await fetch(this.config.firstPartyPath + '/', {
+      const response = await fetch(this.config.firstPartyPath + '/', {
         method: 'POST',
         body: JSON.stringify({
           type: 'sync-user',
@@ -2211,18 +2224,19 @@ export default class Reactor {
           'Content-Type': 'application/json',
         },
       });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
     } catch (error) {
       this._log.error('Error syncing user with external endpoint', error);
     }
+
+    this.kv.updateInPlace((prev) => {
+      prev[COOKIE_SYNC_LAST_UPDATED_KEY] = new Date().toISOString();
+    });
   }
 
   async updateUser(newUser) {
-    try {
-      await this.syncUserToEndpoint(newUser);
-    } catch (error) {
-      this._log.error('Error syncing user with external endpoint', error);
-    }
-
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
     this._dataForQueryCache = {};
@@ -2251,6 +2265,11 @@ export default class Reactor {
     this._transport.close();
     this._oauthCallbackResponse = null;
     this.notifyAuthSubs(newV);
+    try {
+      await this.syncUserToEndpoint(newUser);
+    } catch (error) {
+      this._log.error('Error syncing user with external endpoint', error);
+    }
   }
 
   sendMagicCode({ email }) {

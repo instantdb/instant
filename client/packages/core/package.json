@@ -77,5 +77,10 @@
     "@instantdb/version": "workspace:*",
     "mutative": "^1.0.10",
     "uuid": "^11.1.0"
+  },
+  "msw": {
+    "workerDirectory": [
+      "__tests__/msw"
+    ]
   }
 }

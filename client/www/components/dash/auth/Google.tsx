@@ -8,13 +8,11 @@ import {
   OAuthServiceProvider,
 } from '@/lib/types';
 import {
-  addProvider,
   addClient,
-  deleteClient,
   findName,
   RedirectUrlInput,
   EditableRedirectUrl,
-  TestRedirectButton,
+  RedirectForwardingNote,
   updateClient,
 } from './shared';
 import { messageFromInstantError } from '@/lib/errors';
@@ -24,28 +22,67 @@ import {
   Content,
   Copyable,
   Copytext,
-  Dialog,
-  Divider,
   Fence,
+  Label,
   SubsectionHeading,
   TextInput,
-  useDialog,
   ToggleGroup,
 } from '@/components/ui';
-import Image from 'next/image';
 import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
-import googleIconSvg from '../../../public/img/google_g.svg';
-import * as Collapsible from '@radix-ui/react-collapsible';
-import {
-  PlusIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-} from '@heroicons/react/24/solid';
 import { useDarkMode } from '../DarkModeToggle';
 
 type AppType = 'web' | 'ios' | 'android' | 'button-for-web';
 function isNative(appType: AppType) {
   return appType === 'ios' || appType === 'android';
+}
+
+const TYPE_OPTIONS: { id: AppType; label: string; desc: string }[] = [
+  {
+    id: 'web',
+    label: 'Web',
+    desc: 'Redirect sign-in. Works with Instant dev keys.',
+  },
+  {
+    id: 'ios',
+    label: 'iOS',
+    desc: 'Native sign-in with your own Google client ID.',
+  },
+  {
+    id: 'android',
+    label: 'Android',
+    desc: 'Native sign-in with your own Google client ID.',
+  },
+  {
+    id: 'button-for-web',
+    label: 'Google Button for Web',
+    desc: 'The @react-oauth/google button (idToken flow).',
+  },
+];
+
+function TypeControl({
+  appType,
+  onChange,
+}: {
+  appType: AppType;
+  onChange: (item: { id: string; label: string }) => void;
+}) {
+  const selected =
+    TYPE_OPTIONS.find((o) => o.id === appType) ?? TYPE_OPTIONS[0];
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label>Type</Label>
+      <ToggleGroup
+        items={TYPE_OPTIONS.map((o) => ({ id: o.id, label: o.label }))}
+        selectedId={appType}
+        onChange={onChange}
+        ariaLabel="Client type"
+      />
+      <p className="text-sm text-gray-500 dark:text-neutral-400">
+        {selected.desc}
+      </p>
+    </div>
+  );
 }
 
 export function AddGoogleClientForm({
@@ -143,7 +180,7 @@ export function AddGoogleClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 rounded-sm border p-4 dark:border dark:border-neutral-700"
+      className="flex flex-col gap-4"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -151,35 +188,17 @@ export function AddGoogleClientForm({
       data-bwignore="true"
       data-form-type="other"
     >
-      <SubsectionHeading>Add a new Google client</SubsectionHeading>
-      <div className="mb-4">
-        <label className="mb-2 block text-sm font-bold text-gray-700 dark:text-neutral-400">
-          Type
-        </label>
+      <TypeControl appType={appType} onChange={onChangeAppType} />
+      {appType === 'web' && (
         <ToggleGroup
           items={[
-            { id: 'web', label: 'Web' },
-            { id: 'ios', label: 'iOS' },
-            { id: 'android', label: 'Android' },
-            { id: 'button-for-web', label: 'Google Button for Web' },
+            { id: 'dev', label: 'Use dev credentials' },
+            { id: 'custom', label: 'Use my own' },
           ]}
-          selectedId={appType}
-          onChange={onChangeAppType}
-          ariaLabel="Application type"
+          selectedId={credentialMode}
+          onChange={({ id }) => setCredentialMode(id as 'dev' | 'custom')}
+          ariaLabel="Credential mode"
         />
-      </div>
-      {appType === 'web' && (
-        <div className="mb-2">
-          <ToggleGroup
-            items={[
-              { id: 'dev', label: 'Use dev credentials' },
-              { id: 'custom', label: 'Use my own' },
-            ]}
-            selectedId={credentialMode}
-            onChange={({ id }) => setCredentialMode(id as 'dev' | 'custom')}
-            ariaLabel="Credential mode"
-          />
-        </div>
       )}
       <TextInput
         tabIndex={1}
@@ -269,16 +288,7 @@ export function AddGoogleClientForm({
                 </a>
                 .
               </p>
-              {redirectTo && (
-                <>
-                  <p className="text-sm text-gray-500 dark:text-neutral-400">
-                    Your redirect URL should forward to{' '}
-                    <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all
-                    query parameters.
-                  </p>
-                  <TestRedirectButton redirectTo={redirectTo} />
-                </>
-              )}
+              {redirectTo && <RedirectForwardingNote redirectTo={redirectTo} />}
               <Checkbox
                 checked={updatedRedirectURL}
                 onChange={setUpdatedRedirectURL}
@@ -288,68 +298,16 @@ export function AddGoogleClientForm({
           )}
         </>
       )}
-      <Button loading={isLoading} type="submit">
-        Add client
-      </Button>
-      <Button variant="secondary" onClick={onCancel}>
-        Cancel
-      </Button>
+      <div className="flex gap-2 pt-1">
+        <Button loading={isLoading} type="submit">
+          Add client
+        </Button>
+        <Button variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
-}
-
-export function AddGoogleProviderForm({
-  app,
-  onAddProvider,
-}: {
-  app: InstantApp;
-  onAddProvider: (provider: OAuthServiceProvider) => void;
-}) {
-  const token = useContext(TokenContext);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const addGoogleProvider = async () => {
-    setIsLoading(true);
-    try {
-      const resp = await addProvider({
-        token,
-        appId: app.id,
-        providerName: 'google',
-      });
-      onAddProvider(resp.provider);
-    } catch (e) {
-      console.error(e);
-      const msg =
-        messageFromInstantError(e as InstantIssue) ||
-        'There was an error setting up Google.';
-      errorToast(msg, { autoClose: 5000 });
-      // report error
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  return (
-    <div>
-      <Button
-        loading={isLoading}
-        variant="secondary"
-        onClick={addGoogleProvider}
-      >
-        <span className="flex items-center space-x-2">
-          <Image alt="google icon" src={googleIconSvg} />
-          <span>Setup Google</span>
-        </span>
-      </Button>
-    </div>
-  );
-}
-
-function appTypeLabel(appType: AppType): string {
-  switch (appType) {
-    case 'ios':
-      return 'iOS';
-    default:
-      return appType.charAt(0).toUpperCase() + appType.slice(1);
-  }
 }
 
 function CredentialsEditor({
@@ -513,19 +471,13 @@ function CredentialsEditor({
 export function GoogleClient({
   app,
   client,
-  onDeleteClient,
   onUpdateClient,
-  defaultOpen = false,
 }: {
   app: InstantApp;
   client: OAuthClient;
-  onDeleteClient: (client: OAuthClient) => void;
   onUpdateClient: (client: OAuthClient) => void;
-  defaultOpen?: boolean;
 }) {
   const token = useContext(TokenContext);
-  const [open, setOpen] = useState(defaultOpen);
-  const [isLoading, setIsLoading] = useState(false);
 
   const appType: AppType = client.meta?.appType || 'web';
   const [nativeExampleType, setNativeExampleType] = useState<'rn' | 'web'>(
@@ -533,29 +485,8 @@ export function GoogleClient({
   );
 
   const showNative = isNative(appType) || appType === 'button-for-web';
-  const deleteDialog = useDialog();
 
   const { darkMode } = useDarkMode();
-
-  const handleDelete = async () => {
-    try {
-      setIsLoading(true);
-      const resp = await deleteClient({
-        token,
-        appId: app.id,
-        clientDatabaseId: client.id,
-      });
-      onDeleteClient(resp.client);
-      deleteDialog.onClose();
-    } catch (e) {
-      console.error(e);
-      const msg =
-        messageFromInstantError(e as InstantIssue) || 'Error deleting client.';
-      errorToast(msg, { autoClose: 5000 });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const exampleCode = `// Create the authorization URL:
 const url = db.auth.createAuthorizationURL({
@@ -625,194 +556,127 @@ function Login() {
   );
 }`.trim();
   return (
-    <div className="">
-      <Collapsible.Root
-        open={open}
-        onOpenChange={setOpen}
-        className="flex flex-col rounded-sm border dark:border-neutral-700"
-      >
-        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800 dark:hover:bg-neutral-700">
-          <div className="flex flex-1 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Image alt="google logo" src={googleIconSvg} />
-              <div className="font-medium">
-                {client.client_name}{' '}
-                <span className="text-gray-400 dark:text-neutral-500">
-                  (Google)
-                </span>
-              </div>
-            </div>
-            {open ? (
-              <ChevronUpIcon height={24} />
-            ) : (
-              <ChevronDownIcon height={24} />
-            )}
-          </div>
-        </Collapsible.Trigger>
-        <Collapsible.Content className="">
-          <div className="flex flex-col gap-4 border-t p-4 dark:border-t-neutral-700">
-            <div className="">App Type: {appTypeLabel(appType)}</div>
+    <div className="flex flex-col gap-4">
+      <Copyable label="Client name" value={client.client_name} />
+      <CredentialsEditor
+        app={app}
+        client={client}
+        appType={appType}
+        onUpdateClient={onUpdateClient}
+      />
+      {appType === 'web' && !client.use_shared_credentials && (
+        <EditableRedirectUrl
+          app={app}
+          client={client}
+          token={token}
+          onUpdateClient={onUpdateClient}
+        />
+      )}
 
-            <Copyable label="Client name" value={client.client_name} />
-            <CredentialsEditor
-              app={app}
-              client={client}
-              appType={appType}
-              onUpdateClient={onUpdateClient}
-            />
-            {appType === 'web' && !client.use_shared_credentials && (
-              <EditableRedirectUrl
-                app={app}
-                client={client}
-                token={token}
-                onUpdateClient={onUpdateClient}
-              />
-            )}
-
-            {appType === 'web' && (
-              <>
-                <SubsectionHeading>
-                  <a
-                    className="font-bold underline"
-                    target="_blank"
-                    href="/docs/auth/google-oauth"
-                  >
-                    Setup and usage
-                  </a>
-                </SubsectionHeading>
-                {!client.use_shared_credentials && (
-                  <>
-                    <Content>
-                      <strong className="dark:text-white">1.</strong> Navigate
-                      to{' '}
-                      <a
-                        className="underline dark:text-white"
-                        href={`https://console.cloud.google.com/apis/credentials/oauthclient/${client.client_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Google OAuth client
-                      </a>{' '}
-                      and add the redirect URL under "Authorized redirect URIs"
-                    </Content>
-                    <Copyable
-                      label="Redirect URI"
-                      value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
-                    />
-                    {client.redirect_to && (
-                      <>
-                        <Content className="text-sm text-gray-500 dark:text-neutral-400">
-                          Your redirect URL should forward to{' '}
-                          <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with
-                          all query parameters.
-                        </Content>
-                        <TestRedirectButton redirectTo={client.redirect_to} />
-                      </>
-                    )}
-                  </>
-                )}
-                <Content>
-                  {!client.use_shared_credentials && (
-                    <strong className="dark:text-white">2. </strong>
-                  )}
-                  Use the code below to generate a login link in your app.
-                </Content>
-                <div className="overflow-auto rounded-sm border text-sm dark:border-none">
-                  <Fence
-                    darkMode={darkMode}
-                    code={exampleCode}
-                    language="typescript"
-                  />
-                </div>
-              </>
-            )}
-            {showNative && (
-              <>
-                <SubsectionHeading>
-                  <a
-                    className="font-bold underline"
-                    target="_blank"
-                    href="/docs/auth/google-oauth?method=react-native"
-                  >
-                    Setup and usage
-                  </a>
-                </SubsectionHeading>
-                <ToggleGroup
-                  items={[
-                    { id: 'rn', label: 'React Native' },
-                    { id: 'web', label: 'Google Button for Web' },
-                  ]}
-                  selectedId={nativeExampleType}
-                  onChange={({ id }) =>
-                    setNativeExampleType(id as 'rn' | 'web')
-                  }
-                  ariaLabel="Application type"
+      {appType === 'web' && (
+        <>
+          <SubsectionHeading>
+            <a
+              className="font-bold underline"
+              target="_blank"
+              href="/docs/auth/google-oauth"
+            >
+              Setup and usage
+            </a>
+          </SubsectionHeading>
+          {!client.use_shared_credentials && (
+            <>
+              <Content>
+                <strong className="dark:text-white">1.</strong> Navigate to{' '}
+                <a
+                  className="underline dark:text-white"
+                  href={`https://console.cloud.google.com/apis/credentials/oauthclient/${client.client_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Google OAuth client
+                </a>{' '}
+                and add the redirect URI under "Authorized redirect URIs"
+              </Content>
+              <div className="flex flex-col gap-2">
+                <Copyable
+                  label="Redirect URI"
+                  value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
                 />
-                {nativeExampleType === 'rn' && (
-                  <>
-                    <Content>
-                      <strong className="dark:text-white">1.</strong> Use the
-                      code below to sign in with{' '}
-                      <code>@react-native-google-signin/google-signin</code>:
-                    </Content>
-                    <div className="overflow-auto rounded-sm border text-sm dark:border-none">
-                      <Fence
-                        darkMode={darkMode}
-                        code={exampleRNCode}
-                        language="typescript"
-                      />
-                    </div>
-                  </>
+                {client.redirect_to && (
+                  <RedirectForwardingNote redirectTo={client.redirect_to} />
                 )}
-                {nativeExampleType === 'web' && (
-                  <>
-                    <Content>
-                      <strong className="dark:text-white">1.</strong> Use the
-                      code below to sign in with{' '}
-                      <code>@react-oauth/google</code>:
-                    </Content>
-                    <div className="overflow-auto rounded-sm border text-sm dark:border-none">
-                      <Fence
-                        darkMode={darkMode}
-                        code={exampleGoogleButtonCode}
-                        language="typescript"
-                      />
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-
-            <Divider />
-            <div>
-              <Button
-                onClick={deleteDialog.onOpen}
-                loading={isLoading}
-                variant="destructive"
-              >
-                Delete client
-              </Button>
-            </div>
-          </div>
-        </Collapsible.Content>
-      </Collapsible.Root>
-      <Dialog title="Delete Client" {...deleteDialog}>
-        <div className="flex flex-col gap-2">
-          <SubsectionHeading>Delete client</SubsectionHeading>
+              </div>
+            </>
+          )}
           <Content>
-            Deleting the client will prevent users from using this client to log
-            in to your app. Be sure that you've removed any reference to it in
-            your code before deleting.
+            {!client.use_shared_credentials && (
+              <strong className="dark:text-white">2. </strong>
+            )}
+            Use the code below to generate a login link in your app.
           </Content>
-          <Button
-            loading={isLoading}
-            variant="destructive"
-            onClick={handleDelete}
-          >
-            Delete
-          </Button>
-        </div>
-      </Dialog>
+          <div className="overflow-auto rounded-sm border text-sm dark:border-none">
+            <Fence
+              darkMode={darkMode}
+              code={exampleCode}
+              language="typescript"
+            />
+          </div>
+        </>
+      )}
+      {showNative && (
+        <>
+          <SubsectionHeading>
+            <a
+              className="font-bold underline"
+              target="_blank"
+              href="/docs/auth/google-oauth?method=react-native"
+            >
+              Setup and usage
+            </a>
+          </SubsectionHeading>
+          <ToggleGroup
+            items={[
+              { id: 'rn', label: 'React Native' },
+              { id: 'web', label: 'Google Button for Web' },
+            ]}
+            selectedId={nativeExampleType}
+            onChange={({ id }) => setNativeExampleType(id as 'rn' | 'web')}
+            ariaLabel="Application type"
+          />
+          {nativeExampleType === 'rn' && (
+            <>
+              <Content>
+                <strong className="dark:text-white">1.</strong> Use the code
+                below to sign in with{' '}
+                <code>@react-native-google-signin/google-signin</code>:
+              </Content>
+              <div className="overflow-auto rounded-sm border text-sm dark:border-none">
+                <Fence
+                  darkMode={darkMode}
+                  code={exampleRNCode}
+                  language="typescript"
+                />
+              </div>
+            </>
+          )}
+          {nativeExampleType === 'web' && (
+            <>
+              <Content>
+                <strong className="dark:text-white">1.</strong> Use the code
+                below to sign in with <code>@react-oauth/google</code>:
+              </Content>
+              <div className="overflow-auto rounded-sm border text-sm dark:border-none">
+                <Fence
+                  darkMode={darkMode}
+                  code={exampleGoogleButtonCode}
+                  language="typescript"
+                />
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }

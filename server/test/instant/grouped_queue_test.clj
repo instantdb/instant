@@ -1,8 +1,10 @@
 (ns instant.grouped-queue-test
   (:require
-   [clojure.test :refer [deftest testing is]]
-   [instant.grouped-queue :as grouped-queue])
+   [clojure.test :refer [deftest is testing]]
+   [instant.grouped-queue :as grouped-queue]
+   [instant.util.test :refer [wait-for]])
   (:import
+   (java.time Duration Instant)
    (java.util.concurrent CountDownLatch Executors)
    (java.util.concurrent.atomic AtomicInteger)))
 
@@ -38,8 +40,9 @@
             output (atom [])
             q (grouped-queue/start
                (merge
-                {:group-key-fn :group
-                 :process-fn (fn [_group item]
+                {:group-key-fn (fn [_ item]
+                                 (:group item))
+                 :process-fn (fn [_ctx _group item]
                                (swap! output conj item))}
                 opts))]
         (try
@@ -63,11 +66,12 @@
             output (atom [])
             q (grouped-queue/start
                (merge
-                {:group-key-fn :group
-                 :combine-fn   (fn [item1 item2]
+                {:group-key-fn (fn [_ctx item]
+                                 (:group item))
+                 :combine-fn   (fn [_ item1 item2]
                                  (when (= (:id item2) (inc (:id item1)))
                                    item2))
-                 :process-fn   (fn [_group item]
+                 :process-fn   (fn [_ _group item]
                                  (swap! output conj item))}
                 opts))]
         (try
@@ -79,8 +83,6 @@
             (doseq [group groups
                     :let [filtered  (filterv #(= group (:group %)) @output)
                           processed (transduce (map #(::grouped-queue/combined % 1)) + 0 filtered)]]
-              (when-not (= (count ids) processed)
-                (println group (count ids) processed filtered))
               (testing group
                 (is (= (count ids) processed))))))))))
 
@@ -90,9 +92,10 @@
                 {:group group :id id})
         latch (CountDownLatch. 500)
         q     (grouped-queue/start
-               {:group-key-fn :group
+               {:group-key-fn (fn [_ctx item]
+                                (:group item))
                 :max-workers  10
-                :process-fn   (fn [_group _item]
+                :process-fn   (fn [_ctx _group _item]
                                 (Thread/sleep 10)
                                 (.countDown latch))})
         t0    (System/currentTimeMillis)]
@@ -101,7 +104,7 @@
         (grouped-queue/put! q item))
       (testing "put! is not blocked by execution"
         (is (< (- (System/currentTimeMillis) t0) 250)))
-    ;; give threads a chance to start
+      ;; give threads a chance to start
       (Thread/sleep (- 500 (- (System/currentTimeMillis) t0)))
       (testing "More than 1 thread spawned, but no more than 1 per group"
         (is (<= 2 (grouped-queue/num-workers q) 5)))
@@ -116,17 +119,18 @@
         processed (atom [])
         stopped (promise)
         q (grouped-queue/start
-           {:group-key-fn :group
+           {:group-key-fn (fn [_ctx item]
+                            (:group item))
             :max-workers  1
-            :process-fn   (fn [_group items]
-                          (if (< 3 (count (swap! processed conj items)))
-                            (do
-                              (deliver stopped true)
-                              (grouped-queue/stop @q-promise))
-                            (do
-                              (grouped-queue/put! @q-promise {:group 2})
-                              (grouped-queue/put! @q-promise {:group 1}))))
-            :error-fn     (fn [_])})]
+            :process-fn   (fn [_ctx _group items]
+                            (if (< 3 (count (swap! processed conj items)))
+                              (do
+                                (deliver stopped true)
+                                (grouped-queue/stop @q-promise))
+                              (do
+                                (grouped-queue/put! @q-promise {:group 2})
+                                (grouped-queue/put! @q-promise {:group 1}))))
+            :error-fn     (fn [_ctx _])})]
     (deliver q-promise q)
 
     (grouped-queue/put! q {:group 1})
@@ -136,3 +140,38 @@
 
     (is (= (map :group @processed)
            [1 2 1 2]))))
+
+(deftest throttle
+  (let [throttled? (atom false)
+        processed (atom [])
+        q (grouped-queue/start
+           {:group-key-fn (fn [_ctx item]
+                            (:group item))
+
+            :max-workers  1
+            :process-fn   (fn [_ctx _group items]
+                            (println "ITEMS" items)
+                            (swap! processed conj {:items items
+                                                   :time (Instant/now)})
+                            (when-not @throttled?
+                              (reset! throttled? true)
+                              (grouped-queue/return-throttle 500)))
+            :error-fn     (fn [_ctx _])})]
+
+    (grouped-queue/put! q {:group 1})
+    (grouped-queue/put! q {:group 1})
+    (grouped-queue/put! q {:group 1})
+
+    (wait-for (fn []
+                (<= 3 (count @processed)))
+              1000)
+
+    (is (= 3 (count @processed)))
+
+    (let [[a b c] @processed]
+      (testing "throttles the next execution"
+        (is (<= 500 (.toMillis (Duration/between (:time a)
+                                                 (:time b))))))
+      (testing "normal execution is still fast"
+        (is (> 250 (.toMillis (Duration/between (:time b)
+                                                (:time c)))))))))

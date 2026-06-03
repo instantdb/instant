@@ -11,21 +11,16 @@ import { jsonFetch } from '@/lib/fetch';
 import { TokenContext } from '@/lib/contexts';
 import { messageFromInstantError } from '@/lib/errors';
 import {
+  BlockHeading,
   Button,
   Content,
   Dialog,
-  Label,
-  SectionHeading,
   SubsectionHeading,
   Select,
   TextInput,
   useDialog,
 } from '@/components/ui';
-import {
-  InformationCircleIcon,
-  PlusIcon,
-  TrashIcon,
-} from '@heroicons/react/24/solid';
+import { InformationCircleIcon, TrashIcon } from '@heroicons/react/24/solid';
 import {
   DevicePhoneMobileIcon,
   GlobeAltIcon,
@@ -90,11 +85,9 @@ const serviceOptions: { label: string; value: AuthorizedOriginService }[] = [
 export function AuthorizedOriginsForm({
   app,
   onAddOrigin,
-  onCancel,
 }: {
   app: InstantApp;
   onAddOrigin: (origin: AuthorizedOrigin) => void;
-  onCancel: () => void;
 }) {
   const token = useContext(TokenContext);
   const [url, setUrl] = useState<string>('');
@@ -164,6 +157,7 @@ export function AuthorizedOriginsForm({
         params: validated.params,
       });
       onAddOrigin(resp.origin);
+      setUrl('');
     } catch (e) {
       console.error(e);
       const msg =
@@ -184,31 +178,28 @@ export function AuthorizedOriginsForm({
     );
   };
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-4 rounded-sm border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800/50"
-    >
-      <div className="flex flex-row gap-2">
-        <div className="flex flex-col gap-0.75">
-          <Label>Type</Label>
-          <Select
-            options={serviceOptions}
-            onChange={(v) => {
-              if (v) {
-                setService(v.value as AuthorizedOriginService);
-              }
-            }}
-            value={service}
-          />
-        </div>
+    <form onSubmit={onSubmit} className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <Select
+          className="w-44"
+          options={serviceOptions}
+          onChange={(v) => {
+            if (v) {
+              setService(v.value as AuthorizedOriginService);
+            }
+          }}
+          value={service}
+        />
         <div className="grow">
           <TextInput
             value={url}
             onChange={setUrl}
-            label={originInputLabel(service)}
             placeholder={originInputPlaceholder(service)}
           />
         </div>
+        <Button loading={isLoading} variant="secondary" type="submit">
+          Add
+        </Button>
       </div>
       {service === 'vercel' ? (
         <TypeHelp text="Vercel preview origins will allow all preview urls for the project." />
@@ -219,14 +210,6 @@ export function AuthorizedOriginsForm({
       {service === 'custom-scheme' ? (
         <TypeHelp text="Use app scheme if you're implementing the OAuth flow in a native app." />
       ) : null}
-      <div className="flex flex-row gap-2">
-        <Button loading={isLoading} variant="primary" type="submit">
-          Add
-        </Button>
-        <Button variant="secondary" onClick={() => onCancel()}>
-          Cancel
-        </Button>
-      </div>
     </form>
   );
 }
@@ -344,20 +327,22 @@ export function AuthorizedOriginRow({
   const Icon = originIcon(origin);
 
   return (
-    <div className="flex items-center justify-between rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800/50">
-      <div className="flex items-center gap-4">
-        <Icon height="1.5em" />
-        <div className="flex flex-col leading-4">
-          <span className="text-xs font-light text-gray-500 dark:text-neutral-400">
+    <div className="flex items-center justify-between gap-3 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <Icon height="1.25em" className="text-gray-400 dark:text-neutral-500" />
+        <div className="flex flex-col leading-tight">
+          <span className="text-xs text-gray-400 dark:text-neutral-500">
             {originSource(origin)}
           </span>
-          <span className="font-medium text-gray-700 dark:text-neutral-200">
-            {originDisplay(origin)}
-          </span>
+          <span className="font-medium">{originDisplay(origin)}</span>
         </div>
       </div>
-      <button className="cursor-pointer" onClick={deleteDialog.onOpen}>
-        <TrashIcon height={'1rem'} />
+      <button
+        aria-label="Delete origin"
+        className="cursor-pointer text-gray-400 hover:text-red-500 dark:text-neutral-500 dark:hover:text-red-400"
+        onClick={deleteDialog.onOpen}
+      >
+        <TrashIcon height="1rem" />
       </button>
       <Dialog title="Delete Origin" {...deleteDialog}>
         <div className="flex flex-col gap-2">
@@ -390,50 +375,35 @@ export function AuthorizedOrigins({
   onAddOrigin: (origin: AuthorizedOrigin) => void;
   onRemoveOrigin: (origin: AuthorizedOrigin) => void;
 }) {
-  const [showAddOriginForm, setShowAddOriginForm] = useState(
-    origins.length === 0,
-  );
   return (
     <div className="flex flex-col gap-2">
       <div>
-        <SectionHeading>Redirect Origins </SectionHeading>
-        <Content className="text-sm text-gray-500 dark:text-neutral-500">
+        <BlockHeading className="text-sm font-semibold text-gray-700 dark:text-neutral-300">
+          Redirect origins
+        </BlockHeading>
+        <p className="text-sm text-gray-500 dark:text-neutral-400">
           Add your site's url so that you can initiate the OAuth flow from your
           site.
-        </Content>
+        </p>
       </div>
 
-      {showAddOriginForm ? null : (
-        <Button onClick={() => setShowAddOriginForm(true)} variant="secondary">
-          <PlusIcon height={14} /> Add an origin
-        </Button>
-      )}
-
-      {showAddOriginForm ? (
-        <>
-          <AuthorizedOriginsForm
-            app={app}
-            onAddOrigin={(origin) => {
-              setShowAddOriginForm(false);
-              onAddOrigin(origin);
-            }}
-            onCancel={() => setShowAddOriginForm(false)}
-          />
-        </>
-      ) : null}
-
-      <>
-        {origins.map((o) => {
-          return (
+      {origins.length > 0 ? (
+        <div className="divide-y overflow-hidden rounded-sm border bg-gray-50 dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800/50">
+          {origins.map((o) => (
             <AuthorizedOriginRow
               key={o.id}
               app={app}
               origin={o}
               onRemoveOrigin={onRemoveOrigin}
             />
-          );
-        })}
-      </>
+          ))}
+          <div className="px-4 py-3">
+            <AuthorizedOriginsForm app={app} onAddOrigin={onAddOrigin} />
+          </div>
+        </div>
+      ) : (
+        <AuthorizedOriginsForm app={app} onAddOrigin={onAddOrigin} />
+      )}
     </div>
   );
 }

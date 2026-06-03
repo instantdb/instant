@@ -1,24 +1,14 @@
 import { FormEventHandler, useContext, useState } from 'react';
-import Image from 'next/image';
-import * as Collapsible from '@radix-ui/react-collapsible';
-import {
-  PlusIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-} from '@heroicons/react/24/solid';
 
 import {
   Button,
   Content,
   Copyable,
   Copytext,
-  Dialog,
-  Divider,
   Fence,
   SectionHeading,
   SubsectionHeading,
   TextInput,
-  useDialog,
 } from '@/components/ui';
 import { TokenContext } from '@/lib/contexts';
 import {
@@ -28,19 +18,16 @@ import {
   OAuthServiceProvider,
 } from '@/lib/types';
 import {
-  addProvider,
   addClient,
-  deleteClient,
   findName,
   RedirectUrlInput,
   EditableRedirectUrl,
-  TestRedirectButton,
+  RedirectForwardingNote,
 } from './shared';
 import { errorToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
 
 import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
-import githubIconSvg from '../../../public/img/github.svg';
 import { useDarkMode } from '../DarkModeToggle';
 
 function exampleCode({ clientName }: { clientName: string }) {
@@ -53,52 +40,6 @@ const url = db.auth.createAuthorizationURL({
 // Create a link with the url
 <a href={url}>Log in with GitHub</a>
 `;
-}
-
-export function AddGitHubProviderForm({
-  app,
-  onAddProvider,
-}: {
-  app: InstantApp;
-  onAddProvider: (provider: OAuthServiceProvider) => void;
-}) {
-  const token = useContext(TokenContext);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  const addGitHubProvider = async () => {
-    setIsLoading(true);
-    try {
-      const resp = await addProvider({
-        token,
-        appId: app.id,
-        providerName: 'github',
-      });
-      onAddProvider(resp.provider);
-    } catch (e) {
-      console.error(e);
-      const msg =
-        messageFromInstantError(e as InstantIssue) ||
-        'There was an error setting up GitHub.';
-      errorToast(msg, { autoClose: 5000 });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div>
-      <Button
-        loading={isLoading}
-        variant="secondary"
-        onClick={addGitHubProvider}
-      >
-        <span className="flex items-center space-x-2">
-          <Image alt="github icon" src={githubIconSvg} width={16} />
-          <span>Setup GitHub</span>
-        </span>
-      </Button>
-    </div>
-  );
 }
 
 export function AddGitHubClientForm({
@@ -170,12 +111,11 @@ export function AddGitHubClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 rounded-sm border p-4 dark:border dark:border-neutral-700"
+      className="flex flex-col gap-4"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
     >
-      <SubsectionHeading>Add a new GitHub OAuth App</SubsectionHeading>
       <TextInput
         tabIndex={1}
         value={clientName}
@@ -231,28 +171,21 @@ export function AddGitHubClientForm({
           Add <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> as
           the Authorization callback URL in your GitHub OAuth App settings.
         </p>
-        {redirectTo && (
-          <>
-            <p className="text-sm text-gray-500 dark:text-neutral-400">
-              Your redirect URL should forward to{' '}
-              <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
-              parameters.
-            </p>
-            <TestRedirectButton redirectTo={redirectTo} />
-          </>
-        )}
+        {redirectTo && <RedirectForwardingNote redirectTo={redirectTo} />}
         <p className="text-sm text-gray-500 dark:text-neutral-400">
           GitHub requires an exact match for the callback URL. Make sure to add
           this URL in your OAuth App's settings on GitHub.
         </p>
       </div>
 
-      <Button loading={isLoading} type="submit">
-        Add client
-      </Button>
-      <Button variant="secondary" onClick={onCancel}>
-        Cancel
-      </Button>
+      <div className="flex gap-2 pt-1">
+        <Button loading={isLoading} type="submit">
+          Add client
+        </Button>
+        <Button variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }
@@ -260,153 +193,62 @@ export function AddGitHubClientForm({
 export function GitHubClient({
   app,
   client,
-  onDeleteClient,
   onUpdateClient,
-  defaultOpen = false,
 }: {
   app: InstantApp;
   client: OAuthClient;
-  onDeleteClient: (client: OAuthClient) => void;
   onUpdateClient: (client: OAuthClient) => void;
-  defaultOpen?: boolean;
 }) {
   const token = useContext(TokenContext);
-  const [open, setOpen] = useState(defaultOpen);
-  const [isLoading, setIsLoading] = useState(false);
-  const deleteDialog = useDialog();
 
   const { darkMode } = useDarkMode();
 
-  const handleDelete = async () => {
-    try {
-      setIsLoading(true);
-      const resp = await deleteClient({
-        token,
-        appId: app.id,
-        clientDatabaseId: client.id,
-      });
-      onDeleteClient(resp.client);
-      deleteDialog.onClose();
-    } catch (e) {
-      console.error(e);
-      const msg =
-        messageFromInstantError(e as InstantIssue) || 'Error deleting client.';
-      errorToast(msg, { autoClose: 5000 });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
-    <div className="flex flex-col">
-      <Collapsible.Root
-        open={open}
-        onOpenChange={setOpen}
-        className="flex flex-col rounded-sm border dark:border-neutral-700"
-      >
-        <Collapsible.Trigger className="flex cursor-pointer bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800 dark:hover:bg-neutral-700">
-          <div className="flex flex-1 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Image
-                alt="github logo"
-                src={githubIconSvg}
-                className="dark:invert"
-              />
-              <div className="font-medium">
-                {client.client_name}{' '}
-                <span className="text-gray-400 dark:text-neutral-500">
-                  (GitHub)
-                </span>
-              </div>
-            </div>
-            {open ? (
-              <ChevronUpIcon height={24} />
-            ) : (
-              <ChevronDownIcon height={24} />
-            )}
-          </div>
-        </Collapsible.Trigger>
+    <div className="flex flex-col gap-4">
+      <Copyable label="Client name" value={client.client_name} />
+      <Copyable label="GitHub Client ID" value={client.client_id || ''} />
+      <EditableRedirectUrl
+        app={app}
+        client={client}
+        token={token}
+        onUpdateClient={onUpdateClient}
+      />
 
-        <Collapsible.Content>
-          <div className="flex flex-col gap-4 border-t p-4 dark:border-t-neutral-700">
-            <Copyable label="Client name" value={client.client_name} />
-            <Copyable label="GitHub Client ID" value={client.client_id || ''} />
-            <EditableRedirectUrl
-              app={app}
-              client={client}
-              token={token}
-              onUpdateClient={onUpdateClient}
-            />
-
-            <SubsectionHeading>
-              <a
-                className="font-bold underline"
-                target="_blank"
-                href="/docs/auth/github-oauth"
-              >
-                Setup and usage
-              </a>
-            </SubsectionHeading>
-            <Content>
-              <strong className="dark:text-white">1.</strong> Add the callback
-              URL below to your GitHub OAuth App settings.
-            </Content>
-            <Copyable
-              label="Authorization callback URL"
-              value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
-            />
-            {client.redirect_to && (
-              <>
-                <Content className="text-sm text-gray-500 dark:text-neutral-400">
-                  Your redirect URL should forward to{' '}
-                  <Copytext value={DEFAULT_OAUTH_CALLBACK_URL} /> with all query
-                  parameters.
-                </Content>
-                <TestRedirectButton redirectTo={client.redirect_to} />
-              </>
-            )}
-            <Content>
-              <strong className="dark:text-white">2.</strong> Use the code below
-              to generate a login link in your app.
-            </Content>
-            <div className="overflow-auto rounded-sm border text-sm dark:border-none">
-              <Fence
-                darkMode={darkMode}
-                code={exampleCode({
-                  clientName: client.client_name,
-                })}
-                language="typescript"
-              />
-            </div>
-
-            <Divider />
-            <Button
-              onClick={deleteDialog.onOpen}
-              loading={isLoading}
-              variant="destructive"
-            >
-              Delete client
-            </Button>
-          </div>
-        </Collapsible.Content>
-      </Collapsible.Root>
-      <Dialog title="Delete Client" {...deleteDialog}>
-        <div className="flex flex-col gap-2">
-          <SubsectionHeading>Delete client</SubsectionHeading>
-          <Content>
-            Deleting the client will prevent users from signing in with this
-            GitHub configuration. Make sure you have removed any references to
-            it in your code before deleting.
-          </Content>
-          <Button
-            loading={isLoading}
-            variant="destructive"
-            onClick={handleDelete}
-          >
-            Delete
-          </Button>
-        </div>
-      </Dialog>
+      <SubsectionHeading>
+        <a
+          className="font-bold underline"
+          target="_blank"
+          href="/docs/auth/github-oauth"
+        >
+          Setup and usage
+        </a>
+      </SubsectionHeading>
+      <Content>
+        <strong className="dark:text-white">1.</strong> Add the callback URL
+        below to your GitHub OAuth App settings.
+      </Content>
+      <div className="flex flex-col gap-2">
+        <Copyable
+          label="Authorization callback URL"
+          value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
+        />
+        {client.redirect_to && (
+          <RedirectForwardingNote redirectTo={client.redirect_to} />
+        )}
+      </div>
+      <Content>
+        <strong className="dark:text-white">2.</strong> Use the code below to
+        generate a login link in your app.
+      </Content>
+      <div className="overflow-auto rounded-sm border text-sm dark:border-none">
+        <Fence
+          darkMode={darkMode}
+          code={exampleCode({
+            clientName: client.client_name,
+          })}
+          language="typescript"
+        />
+      </div>
     </div>
   );
 }

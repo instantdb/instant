@@ -9,6 +9,7 @@
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
+   [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-empty-app with-movies-app with-zeneca-app]]
    [instant.flags :as flags]
@@ -27,6 +28,7 @@
    [instant.util.async :as ua]
    [instant.util.cache :as cache]
    [instant.util.coll :as ucoll]
+   [instant.util.exception :as ex]
    [instant.util.test :as test-util])
   (:import
    (com.hazelcast.core HazelcastInstance)
@@ -56,9 +58,10 @@
           (let [store (rs/init)
                 _ (eph/init-store store)
                 receive-q
-                (grouped-queue/start {:group-key-fn session/group-key
+                (grouped-queue/start {:ctx {:store store}
+                                      :group-key-fn session/group-key
                                       :combine-fn   session/combine
-                                      :process-fn   #(session/straight-jacket-process-receive-q-event store %1 %2)
+                                      :process-fn   #(session/straight-jacket-process-receive-q-event store %2 %3)
                                       :max-workers  1})
 
                 realized-eph?   (atom false)
@@ -767,6 +770,60 @@
                         (resolvers/walk-friendly r)
                         pretty-subs)))))))))
 
+(deftest refresh-throttles-when-flag-enabled
+  (with-session
+    (fn [_store {:keys [socket movies-app-id]}]
+      ;; Init with a version that supports skip-attrs so the session caches an
+      ;; attrs-hash. A refresh with no stale queries then has no computations
+      ;; and an unchanged attrs hash — the conditions handle-refresh! uses to
+      ;; emit a throttle return.
+      (send-msg socket {:op :init
+                        :app-id movies-app-id
+                        :versions {session/core-version-key "0.20.5"}})
+      (is (= :init-ok (:op (read-msg socket))))
+
+      (let [refresh-times (atom [])
+            release (promise)
+            first-entered (promise)
+            orig-handle-refresh @#'session/handle-refresh!]
+        (with-redefs [flags/throttle-refresh? (constantly true)
+                      flags/refresh-throttle-ms (constantly 500)
+                      session/handle-refresh!
+                      (fn [store sess-id event debug-info]
+                        (let [n (count (swap! refresh-times conj
+                                              (System/currentTimeMillis)))]
+                          (when (= 1 n)
+                            (deliver first-entered :go)
+                            (deref release 2000 :timeout))
+                          (orig-handle-refresh store sess-id event debug-info)))]
+          ;; Put the first refresh; the worker polls it and blocks inside
+          ;; handle-refresh! until we deliver `release`. That keeps the worker
+          ;; busy so the second put lands alone in the queue rather than
+          ;; combining with the first via the [:refresh :refresh] combiner.
+          (receive-queue/put! {:op :refresh :session-id (:id socket)})
+          (is (not= :timeout (deref first-entered 2000 :timeout))
+              "worker should enter handle-refresh!")
+
+          (receive-queue/put! {:op :refresh :session-id (:id socket)})
+
+          ;; Release the blocked refresh. It returns a throttle map, which the
+          ;; grouped queue treats as a signal to delay the next process-task
+          ;; by refresh-throttle-ms.
+          (let [released-at (System/currentTimeMillis)]
+            (deliver release :go)
+
+            (test-util/wait-for #(= 2 (count @refresh-times)) 2000)
+
+            (let [[_ t2] @refresh-times
+                  gap-after-release (- t2 released-at)]
+              (testing "throttle delays the next refresh by ~refresh-throttle-ms"
+                (is (<= 500 gap-after-release)
+                    (str "expected gap-after-release >= 500ms, got "
+                         gap-after-release "ms")))))
+
+          (testing "no refresh-ok is sent when there's nothing new to report"
+            (is (= :timeout (ua/<!!-timeout (:ws-conn socket) 100)))))))))
+
 (deftest transact-requires-auth
   (with-session
     (fn [_store {:keys [socket]}]
@@ -1405,3 +1462,205 @@
 
                 :else
                 (is (some? s))))))))))
+
+(deftest transact-combiner-collapses-redundant-events
+  (with-movies-app
+    (fn [{app-id :id} r]
+      (with-session
+        (fn [_store {:keys [socket]}]
+          (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
+          (let [eid (resolvers/->uuid r "eid-robocop")
+                attr-id (resolvers/->uuid r :movie/title)
+                a-entered (promise)
+                release (promise)
+                call-count (atom 0)
+                orig-handle session/handle-transact!
+                event (fn [client-id v]
+                        {:op :transact
+                         :session-id (:id socket)
+                         :client-event-id client-id
+                         :tx-steps [["add-triple" eid attr-id v {:mode :upsert}]]})]
+            (with-redefs [session/handle-transact!
+                          (fn [store sess-id evt]
+                            (swap! call-count inc)
+                            (when (= "client-a" (:client-event-id evt))
+                              (deliver a-entered :go)
+                              (deref release 2000 :timeout))
+                            (orig-handle store sess-id evt))]
+              ;; Put client-a alone, then wait until the worker has polled it
+              ;; out and is blocked inside handle-transact!. That guarantees
+              ;; b and c will land in the queue together and combine.
+              (receive-queue/put! (event "client-a" "value-a"))
+              (is (not= :timeout (deref a-entered 2000 :timeout))
+                  "worker should enter handle-transact! for client-a")
+
+              (receive-queue/put! (event "client-b" "value-b"))
+              (receive-queue/put! (event "client-c" "value-c"))
+              (deliver release :go)
+
+              (let [msgs (vec (repeatedly 3
+                                          #(let [m (ua/<!!-timeout (:ws-conn socket))]
+                                             (when (= :timeout m)
+                                               (throw (ex-info "timeout waiting for ack" {})))
+                                             m)))]
+                (testing "every client-event-id received a transact-ok"
+                  (is (every? #(= :transact-ok (:op %)) msgs))
+                  (is (= #{"client-a" "client-b" "client-c"}
+                         (set (map :client-event-id msgs)))))
+                (testing "client-b and client-c share a tx-id (combined run)"
+                  (let [by-id (into {} (map (juxt :client-event-id :tx-id) msgs))]
+                    (is (= (get by-id "client-b") (get by-id "client-c")))
+                    (is (not= (get by-id "client-a") (get by-id "client-b"))
+                        "client-a ran alone, so its tx-id differs"))))
+
+              (testing "handle-transact! ran twice (a alone, b+c combined)"
+                (is (= 2 @call-count)))
+
+              (testing "value-c (event2 of the combined batch) is what's persisted"
+                (let [resp   (blocking-send-msg :add-query-ok
+                                                socket {:op :add-query
+                                                        :return-type :tree
+                                                        :q {:movie {:$ {:where {:id (str eid)}}}}})
+                      title (-> resp
+                                :result
+                                (get "movie")
+                                first
+                                (get "title"))]
+                  (is (= title "value-c")))))))))))
+
+(deftest transact-combiner-fans-out-errors
+  (with-movies-app
+    (fn [{app-id :id} r]
+      (with-session
+        (fn [_store {:keys [socket]}]
+          (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
+          (let [eid (resolvers/->uuid r "eid-robocop")
+                attr-id (resolvers/->uuid r :movie/title)
+                a-entered (promise)
+                release (promise)
+                call-count (atom 0)
+                orig-handle session/handle-transact!
+                event (fn [client-id v]
+                        {:op :transact
+                         :session-id (:id socket)
+                         :client-event-id client-id
+                         :tx-steps [["add-triple" eid attr-id v {:mode :upsert}]]})]
+            (with-redefs [permissioned-tx/transact!
+                          (fn [_ctx _coerced]
+                            (ex/throw-validation-err! :tx-steps [] [{:message "test boom"}]))
+
+                          session/handle-transact!
+                          (fn [store sess-id evt]
+                            (swap! call-count inc)
+                            (when (= "client-a" (:client-event-id evt))
+                              (deliver a-entered :go)
+                              (deref release 2000 :timeout))
+                            (orig-handle store sess-id evt))]
+              (receive-queue/put! (event "client-a" "value-a"))
+              (is (not= :timeout (deref a-entered 2000 :timeout))
+                  "worker should enter handle-transact! for client-a")
+              (receive-queue/put! (event "client-b" "value-b"))
+              (receive-queue/put! (event "client-c" "value-c"))
+              (deliver release :go)
+
+              ;; Three errors: one for client-a (ran alone), then two from
+              ;; the combined b+c run fanned out to each client-event-id.
+              (let [errs (vec (repeatedly 3
+                                          #(let [m (ua/<!!-timeout (:ws-conn socket))]
+                                             (when (= :timeout m)
+                                               (throw (ex-info "timeout waiting for error" {})))
+                                             m)))
+                    by-id (into {} (map (juxt :client-event-id identity) errs))]
+                (testing "each client-event-id received its own :error"
+                  (is (every? #(= :error (:op %)) errs))
+                  (is (= #{"client-a" "client-b" "client-c"}
+                         (set (keys by-id))))
+                  (is (every? #(= :validation-failed (:type %)) errs)))
+
+                (testing "every error's :original-event matches the client that sent it"
+                  (doseq [[client-id expected-value] [["client-a" "value-a"]
+                                                      ["client-b" "value-b"]
+                                                      ["client-c" "value-c"]]]
+                    (let [oe (:original-event (get by-id client-id))]
+                      (is (= client-id (:client-event-id oe))
+                          (str "original-event.client-event-id mismatch for " client-id))
+                      (is (= expected-value
+                             (-> oe :tx-steps first (nth 3)))
+                          (str "tx-steps should hold this client's own value for " client-id))
+                      (is (not (contains? oe :redundant-events))
+                          (str ":redundant-events must be stripped for " client-id))))))
+
+              (testing "handle-transact! ran twice (a alone, b+c combined)"
+                (is (= 2 @call-count))))))))))
+
+(deftest transact-combiner-skips-has-many-refs
+  (with-zeneca-app
+    (fn [{app-id :id} r]
+      (with-session
+        (fn [_store {:keys [socket]}]
+          (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
+          (let [shelf (resolvers/->uuid r "eid-the-way-of-the-gentleman")
+                books-attr (resolvers/->uuid r :bookshelves/books)
+                ;; Three books that are NOT already on the Worldview shelf
+                book-a (resolvers/->uuid r "eid-hackers-&-painters")
+                book-b (resolvers/->uuid r "eid-antifragile")
+                book-c (resolvers/->uuid r "eid-fooled-by-randomness")
+                a-entered (promise)
+                release (promise)
+                call-count (atom 0)
+                orig-handle session/handle-transact!
+                event (fn [client-id target]
+                        {:op :transact
+                         :session-id (:id socket)
+                         :client-event-id client-id
+                         :tx-steps [["add-triple" shelf books-attr target]]})]
+            (with-redefs [session/handle-transact!
+                          (fn [store sess-id evt]
+                            (swap! call-count inc)
+                            (when (= "client-a" (:client-event-id evt))
+                              (deliver a-entered :go)
+                              (deref release 2000 :timeout))
+                            (orig-handle store sess-id evt))]
+              (receive-queue/put! (event "client-a" book-a))
+              (is (not= :timeout (deref a-entered 2000 :timeout))
+                  "worker should enter handle-transact! for client-a")
+              ;; b and c land in the queue together; they would combine if
+              ;; matching-steps? said yes. For has-many refs, each add carries
+              ;; a different target value, so combine-transact must reject.
+              (receive-queue/put! (event "client-b" book-b))
+              (receive-queue/put! (event "client-c" book-c))
+              (deliver release :go)
+
+              (let [msgs (vec (repeatedly 3
+                                          #(let [m (ua/<!!-timeout (:ws-conn socket))]
+                                             (when (= :timeout m)
+                                               (throw (ex-info "timeout waiting for ack" {})))
+                                             m)))
+                    by-id (into {} (map (juxt :client-event-id identity) msgs))]
+                (testing "every add got its own transact-ok"
+                  (is (every? #(= :transact-ok (:op %)) msgs))
+                  (is (= #{"client-a" "client-b" "client-c"} (set (keys by-id)))))
+
+                (testing "tx-ids are all distinct — no two adds collapsed"
+                  (is (= 3 (count (set (map :tx-id (vals by-id))))))))
+
+              (testing "handle-transact! ran three times (no combining)"
+                (is (= 3 @call-count)))
+
+              (testing "all three refs were persisted"
+                (let [resp     (blocking-send-msg
+                                :add-query-ok
+                                socket {:op :add-query
+                                        :return-type :tree
+                                        :q {:bookshelves {:$ {:where {:id (str shelf)}}
+                                                          :books {}}}})
+                      book-ids (->> resp
+                                    :result
+                                    (#(get % "bookshelves"))
+                                    first
+                                    (#(get % "books"))
+                                    (map #(get % "id"))
+                                    set)]
+                  (is (contains? book-ids (str book-a)))
+                  (is (contains? book-ids (str book-b)))
+                  (is (contains? book-ids (str book-c))))))))))))
