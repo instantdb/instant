@@ -27,17 +27,25 @@ services:
       - "-c"
       - "random_page_cost=1.1"
   www:
-    ports:
-      - "3000:3000"
     depends_on:
       - server
     image: "ghcr.io/instantdb/dashboard:latest"
     environment:
       # Where the backend url will be available externally
-      - INSTANT_BACKEND_URL=${INSTANT_BACKEND_URL:-http://localhost:8888}
+      - INSTANT_BACKEND_URL=http://server.localhost
+    networks:
+      - caddy
+      - default
+    deploy:
+      labels:
+        caddy: http://dash.localhost
+        caddy.reverse_proxy: "{{upstreams 3000}}"
   minio:
     image: minio/minio:latest
     restart: always
+    networks:
+      - caddy
+      - default
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
@@ -54,6 +62,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
+    deploy:
+      labels:
+        caddy: http://storage.localhost
+        caddy.reverse_proxy: "{{upstreams 9000}}"
 
   createbuckets:
     image: minio/mc
@@ -70,7 +82,7 @@ services:
       exit"
 
   server:
-    image: "ghcr.io/instantdb/server:latest"
+    image: "ghcr.io/instantdb/server:baba"
     networks:
       - caddy
       - default
@@ -91,8 +103,8 @@ services:
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       AWS_REGION: ${AWS_REGION:-us-east-1}
-      S3_ENDPOINT: ${S3_ENDPOINT:-}
-      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://storage.localhost}
       S3_BUCKET: ${S3_BUCKET:-instant-bucket}
     ports:
       - "8888:8888"

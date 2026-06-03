@@ -117,13 +117,32 @@
                                   (Map/.remove hz-member-by-machine-id-cache machine-id m)
                                   (run-member-callbacks machine-id :removed)))))))
 
+(defn resolve-task-ips
+  "All overlay IPs the Swarm service tasks resolve to (DNSRR), including our own."
+  []
+  (map #(.getHostAddress %)
+       (java.net.InetAddress/getAllByName "tasks.server")))
+
+(defn get-swarm-ip
+  "The container's own overlay IP — the local interface address that also
+   appears in the tasks.server DNSRR resolution (distinguishes the overlay
+   interface from docker_gwbridge)."
+  [task-ips]
+  (let [task-ips (set task-ips)]
+    (->> (java.net.NetworkInterface/getNetworkInterfaces)
+         enumeration-seq
+         (mapcat #(enumeration-seq (.getInetAddresses %)))
+         (map #(.getHostAddress %))
+         (filter task-ips)
+         first)))
+
 (defn init-hz [env store {:keys [instance-name cluster-name]
                           :or {instance-name "instant-hz-v3"
                                cluster-name "instant-server-v2"}}]
   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
       (.setLevel (if (aws-env?)
                    java.util.logging.Level/INFO
-                   java.util.logging.Level/WARNING)))
+                   java.util.logging.Level/FINEST)))
   (.setLevel (java.util.logging.Logger/getLogger "com.hazelcast.system.logo")
              java.util.logging.Level/OFF)
   (let [config               (Config.)
@@ -182,9 +201,16 @@
 
       :else
       (do
-        (.setEnabled tcp-ip-config true)
-        (.setMembers tcp-ip-config (list "127.0.0.1"))
-        (.setEnabled metrics-config true)))
+        ;; Resolve the Swarm tasks ourselves and hand Hazelcast concrete
+        ;; per-IP members. Feeding it the `tasks.server` hostname is unreliable:
+        ;; the TcpIpJoiner re-resolves the hostname per-port at join time and
+        ;; dedups against itself, so DNSRR ordering can leave it with no peer.
+        (let [task-ips (resolve-task-ips)]
+          (.setEnabled tcp-ip-config true)
+          (.setMembers tcp-ip-config (map #(str % ":5701") task-ips))
+          (when-let [ip (get-swarm-ip task-ips)]
+            (.setPublicAddress network-config ip))
+          (.setEnabled metrics-config true))))
 
     (.setClusterName config cluster-name)
 
