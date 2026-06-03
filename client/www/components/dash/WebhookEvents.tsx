@@ -748,7 +748,7 @@ function FocusedEventPage({
     isn,
   );
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
       <div className="flex flex-row items-center gap-1">
         <Link href={webhooksHref(router)} className="underline">
           <SectionHeading>Webhooks</SectionHeading>
@@ -806,7 +806,7 @@ function EventsListPage({
   } = useWebhookEvents(app, webhook);
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
       <div className="flex flex-row items-center justify-between gap-2">
         <div className="flex flex-row items-center gap-1">
           <Link href={webhooksHref(router)} className="underline">
