@@ -752,6 +752,8 @@ export function HomeButton({
   return (
     <NextLink
       href={formatRouteParams(href)}
+      target="_blank"
+      rel="noopener noreferrer"
       className="block cursor-pointer justify-start space-y-2 rounded-sm border bg-white p-4 shadow-xs transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
       onClick={onClick}
     >

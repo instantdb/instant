@@ -67,7 +67,7 @@ export const BlockHeading = twel('div', 'text-md font-bold');
 export const Hint = twel('div', 'text-sm text-gray-400');
 export const Label = twel(
   'div',
-  'text-sm font-bold dark:text-neutral-400 text-gray-700',
+  'text-sm font-medium dark:text-neutral-400 text-gray-700',
 );
 
 export const LogoIcon = ({

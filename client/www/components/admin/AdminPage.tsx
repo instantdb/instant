@@ -261,7 +261,8 @@ export function Admin({
   const appNameForm = useForm<{ name: string }>({
     initial: { name: app.title },
     validators: {
-      name: (n) => (n.length ? undefined : { error: 'Name is required' }),
+      name: (n) =>
+        n.trim().length ? undefined : { error: 'Name is required' },
     },
     onSubmit: async (values) => {
       if (dashResponse.data.workspace.type === 'personal') {
@@ -305,7 +306,9 @@ export function Admin({
   });
 
   return (
-    <TabContent className="mx-auto h-full w-full">
+    <TabContent className="mx-auto h-full w-full gap-6">
+      {/* Reserved top slot so content lines up with the auth/webhooks pages. */}
+      <div className="flex h-5 items-center" />
       <div className="flex flex-col gap-8">
         {/* App settings: name + admin token */}
         <div className="flex flex-col gap-4">
@@ -494,7 +497,7 @@ export function Admin({
               title="Danger zone"
               description="These actions are irreversible and permanently delete data."
             />
-            <div className="divide-y overflow-hidden rounded-sm border border-red-200 dark:divide-red-900/50 dark:border-red-900/50">
+            <div className="overflow-hidden rounded-sm border border-dashed border-red-200 dark:border-red-900/50">
               {isMinRole('owner', role) && (
                 <DangerRow
                   title="Clear app"
