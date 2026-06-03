@@ -71,6 +71,9 @@ services:
 
   server:
     image: "ghcr.io/instantdb/server:latest"
+    networks:
+      - caddy
+      - default
     environment:
       WAL_HISTORY_STORAGE: pg
       DATABASE_URL: "postgresql://${POSTGRES_USER:-instant}:${POSTGRES_PASSWORD:-pass}@postgres:5432/${POSTGRES_DB:-instant}?sslmode=disable"
@@ -95,6 +98,12 @@ services:
       - "8888:8888"
     volumes:
       - server_config:/app/resources/config
+    deploy:
+      replicas: 2
+      labels:
+        caddy: http://server.localhost
+        caddy.reverse_proxy: "{{upstreams 8888}}"
+
   caddy:
     image: lucaslorentz/caddy-docker-proxy:ci-alpine
     ports:
@@ -108,14 +117,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - caddy_data:/data
-
-  whoami:
-    image: traefik/whoami
-    networks:
-      - caddy
-    labels:
-      caddy: whoami.localhost
-      caddy.reverse_proxy: "{{upstreams 80}}"
 
 volumes:
   backend-db:
