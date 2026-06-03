@@ -25,10 +25,11 @@
     "build-sandbox": "turbo run build --filter=\"./sandbox/*\" --cache-dir=.turbo --no-update-notifier"
   },
   "devDependencies": {
+    "msw": "^2.14.6",
     "prettier": "3.6.2",
     "prettier-plugin-tailwindcss": "^0.7.1",
-    "typescript": "^5.9.3",
     "tsx": "^4.19.3",
-    "turbo": "^2.5.4"
+    "turbo": "^2.5.4",
+    "typescript": "^5.9.3"
   }
 }
