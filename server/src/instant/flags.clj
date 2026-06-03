@@ -436,3 +436,9 @@
 
 (defn refresh-throttle-ms []
   (flag :refresh-throttle-ms 1000))
+
+(defn deregister-targets-drain-ms
+  "The number of milliseconds we should spend draining connections after we
+   get the DeregisterTargets notification from the load balancer."
+  []
+  (flag :deregister-targets-drain-ms (* 1000 60 4.5)))

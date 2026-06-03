@@ -1599,7 +1599,8 @@
                            max-gap-ms))]
       (tracer/with-span! {:name "store/close-connections"
                           :attributes {:connection-count (count channels)
-                                       :gap-ms gap-ms}}
+                                       :gap-ms gap-ms
+                                       :total-ms total-ms}}
         (dorun (map-indexed (fn [i ch]
                               (let [sleep-ms (.toMillis (Duration/between (Instant/now)
                                                                           (.plusMillis start (* gap-ms i))))]
