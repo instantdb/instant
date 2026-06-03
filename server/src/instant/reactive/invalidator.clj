@@ -463,7 +463,6 @@
                                                              (cloudwatch/record-webhook-latency-ms!
                                                               (Instant/ofEpochMilli now)
                                                               (.getAverage stats))))))
-                              (tool/def-locals)
                               (recur (ArrayList.)
                                      (if send-stats? (DoubleSummaryStatistics.) stats)
                                      (if send-stats? now last-stat-send)
@@ -482,8 +481,8 @@
                  (reset! shutdown? true)
                  (.put q shutdown-sentinel)
                  (.shutdown executor)
-                 (.shutdown stats-executor)
                  (.awaitTermination executor 20 TimeUnit/SECONDS)
+                 (.shutdown stats-executor)
                  (.awaitTermination stats-executor 5 TimeUnit/SECONDS)
                  (stop-gauge))}))
 
