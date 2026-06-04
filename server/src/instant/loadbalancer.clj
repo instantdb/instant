@@ -86,7 +86,7 @@
   (let [req (.. (ReceiveMessageRequest/builder)
                 (queueUrl queue-url)
                 (maxNumberOfMessages (int 10))
-                (waitTimeSeconds (int 1)) ; 20
+                (waitTimeSeconds (int 20))
                 (build))]
     (-> (.receiveMessage (sqs-client) ^ReceiveMessageRequest req)
         (.messages))))
@@ -249,7 +249,10 @@
   ([queue-suffix]
    (let [v (create-process queue-suffix)]
      (reset! process v)
-     (cleanup-stale)
+     (try
+       (cleanup-stale)
+       (catch Throwable t
+         (tracer/record-exception-span! t {:name "loadbalancer/cleanup-stale-error"})))
      v)))
 
 (defn stop []
