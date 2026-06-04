@@ -165,6 +165,24 @@
              (magic-code-email to (assoc email-params :sender-email default-sender-email))))
           (throw e))))))
 
+(defn default-email-params [app code]
+  (let [{default-sender-email :email} (config/app-email-sender)
+        template-params {:code code
+                         :app_title (:title app)
+                         :expiration (friendly-expiration app)}]
+    {:sender-name (:title app)
+     :sender-email default-sender-email
+     :subject (str code " is your verification code for " (:title app))
+     :body (default-body template-params)}))
+
+(defn default-email-template-params []
+  (let [{default-sender-email :email} (config/app-email-sender)]
+    {:sender-email default-sender-email
+     :subject "{code} is your verification code for {app_title}"
+     :body (default-body {:code "{code}"
+                          :app_title "{app_title}"
+                          :expiration "{expiration}"})}))
+
 (defn send! [{:keys [app-id email] :as req}]
   (check-send-rate-limit! req)
   (let [app             (app-model/get-by-id! {:id app-id})
@@ -193,10 +211,7 @@
                            :sender-name (or (:name template) (:title app))
                            :subject (template-replace (:subject template) template-params false)
                            :body (template-replace (:body template) template-params true)}
-                          {:sender-name (:title app)
-                           :sender-email default-sender-email
-                           :subject (str code " is your verification code for " (:title app))
-                           :body (default-body template-params)})
+                          (default-email-params app code))
 
         email-req       (magic-code-email email email-params)
         email-res       (try
