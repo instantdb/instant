@@ -9,6 +9,8 @@ import { FullscreenLoading, LogoIcon } from '@/components/ui';
 import Head from 'next/head';
 import { format, parse } from 'date-fns';
 import useCurrentDate from '@/lib/hooks/useCurrentDate';
+import { ArrowPathIcon } from '@heroicons/react/16/solid';
+import { useRouter } from 'next/router';
 
 async function fetchDailyOverview(token: string) {
   return jsonFetch(`${config.apiURI}/dash/overview/daily`, {
@@ -43,7 +45,8 @@ async function fetchMinuteOverview(token: string): Promise<MinuteOverview> {
   });
 }
 
-function useDailyOverview(token: string) {
+function useDailyOverview(token: string, options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
   const sentAt = useCurrentDate({ refreshSeconds: 60 * 5 });
   const [state, setState] = useState<any>({
     isLoading: true,
@@ -51,6 +54,7 @@ function useDailyOverview(token: string) {
     data: undefined,
   });
   useEffect(() => {
+    if (!enabled) return;
     let cancel = false;
     async function exec() {
       try {
@@ -66,42 +70,71 @@ function useDailyOverview(token: string) {
     return () => {
       cancel = true;
     };
-  }, [token, sentAt]);
+  }, [token, sentAt, enabled]);
 
-  return { ...state, sentAt };
+  return { ...state, sentAt, isLoading: enabled ? state.isLoading : false };
 }
 
-function useMinuteOverview(token: string): {
+function useMinuteOverview(
+  token: string,
+  options?: { enabled?: boolean },
+): {
   isLoading: boolean;
+  isRefreshing: boolean;
   error: Error | undefined;
   data: MinuteOverview | undefined;
   sentAt: Date;
+  lastUpdatedAt: Date | undefined;
+  refresh: () => void;
 } {
+  const enabled = options?.enabled ?? true;
   const sentAt = useCurrentDate({ refreshSeconds: 30 });
+  const [manualRefresh, setManualRefresh] = useState(0);
   const [state, setState] = useState<any>({
     isLoading: true,
+    isRefreshing: false,
     error: undefined,
     data: undefined,
+    lastUpdatedAt: undefined,
   });
   useEffect(() => {
+    if (!enabled) return;
     let cancel = false;
     async function exec() {
+      setState((s: any) => ({ ...s, isRefreshing: true }));
       try {
         const data = await fetchMinuteOverview(token);
         if (cancel) return;
-        setState({ data, error: undefined, isLoading: false });
+        setState({
+          data,
+          error: undefined,
+          isLoading: false,
+          isRefreshing: false,
+          lastUpdatedAt: new Date(),
+        });
       } catch (error) {
         if (cancel) return;
-        setState({ data: undefined, error, isLoading: false });
+        setState((s: any) => ({
+          ...s,
+          data: undefined,
+          error,
+          isLoading: false,
+          isRefreshing: false,
+        }));
       }
     }
     exec();
     return () => {
       cancel = true;
     };
-  }, [token, sentAt]);
+  }, [token, sentAt, manualRefresh, enabled]);
 
-  return { ...state, sentAt };
+  return {
+    ...state,
+    sentAt,
+    isLoading: enabled ? state.isLoading : false,
+    refresh: () => setManualRefresh((n) => n + 1),
+  };
 }
 
 function mergeOrigins(originsA: any, originsB: any) {
@@ -194,10 +227,14 @@ const OriginColumn = ({ origins }: { origins: any }) => {
 };
 
 // Component for Daily Stats Section
-const DailyStatsSection = ({ daily }: { daily: any }) => {
+const DailyStatsSection = ({ daily, solo }: { daily: any; solo?: boolean }) => {
+  const wrapperClass = solo
+    ? 'mx-auto w-full max-w-4xl space-y-2 p-2'
+    : 'flex-1 space-y-2 p-2';
+
   if (daily.isLoading) {
     return (
-      <div className="flex-1 space-y-2 p-2">
+      <div className={wrapperClass}>
         <div className="flex h-64 items-center justify-center">
           <div className="text-gray-500">Loading daily stats...</div>
         </div>
@@ -207,7 +244,7 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
 
   if (daily.error) {
     return (
-      <div className="flex-1 space-y-2 p-2">
+      <div className={wrapperClass}>
         <div className="rounded-sm border border-red-200 bg-red-50 p-4">
           <h3 className="mb-2 font-semibold text-red-600">Daily Stats Error</h3>
           <pre className="text-sm text-red-500">
@@ -220,7 +257,7 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
 
   if (!daily.data) {
     return (
-      <div className="flex-1 space-y-2 p-2">
+      <div className={wrapperClass}>
         <div className="rounded-sm border border-yellow-200 bg-yellow-50 p-4">
           <p className="text-yellow-600">No daily data available</p>
         </div>
@@ -234,7 +271,7 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
   const subInfo = daily.data?.['subscription-info'];
 
   return (
-    <div className="flex-1 space-y-2 p-2">
+    <div className={wrapperClass}>
       <div>
         <div className="inline-flex items-baseline space-x-4">
           <h1 className="leading-none" style={{ fontSize: 120 }}>
@@ -297,10 +334,20 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
   );
 };
 
-const MinuteStatsSection = ({ minute }: { minute: any }) => {
+const MinuteStatsSection = ({
+  minute,
+  solo,
+}: {
+  minute: any;
+  solo?: boolean;
+}) => {
+  const wrapperClass = solo
+    ? 'relative mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col space-y-2 p-4'
+    : 'relative flex min-h-0 w-1/2 flex-1 flex-col space-y-2 p-4';
+
   if (minute.isLoading) {
     return (
-      <div className="flex min-h-0 w-1/2 flex-1 flex-col space-y-2 p-4">
+      <div className={wrapperClass}>
         <div className="flex h-64 items-center justify-center">
           <div className="text-gray-500">Loading minute stats...</div>
         </div>
@@ -310,7 +357,7 @@ const MinuteStatsSection = ({ minute }: { minute: any }) => {
 
   if (minute.error) {
     return (
-      <div className="flex min-h-0 w-1/2 flex-1 flex-col space-y-2 p-4">
+      <div className={wrapperClass}>
         <div className="rounded-sm border border-red-200 bg-red-50 p-4">
           <h3 className="mb-2 font-semibold text-red-600">
             Minute Stats Error
@@ -325,7 +372,7 @@ const MinuteStatsSection = ({ minute }: { minute: any }) => {
 
   if (!minute.data) {
     return (
-      <div className="flex min-h-0 w-1/2 flex-1 flex-col space-y-2 p-4">
+      <div className={wrapperClass}>
         <div className="rounded-sm border border-yellow-200 bg-yellow-50 p-4">
           <p className="text-yellow-600">No minute data available</p>
         </div>
@@ -344,7 +391,18 @@ const MinuteStatsSection = ({ minute }: { minute: any }) => {
   const totalApps = Object.keys(sessions).length;
 
   return (
-    <div className="flex min-h-0 w-1/2 flex-1 flex-col space-y-2 p-4">
+    <div className={wrapperClass}>
+      <button
+        type="button"
+        onClick={minute.refresh}
+        disabled={minute.isRefreshing}
+        title="Refresh minute stats"
+        className="absolute top-2 right-2 cursor-pointer rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-default disabled:opacity-50"
+      >
+        <ArrowPathIcon
+          className={`h-4 w-4 ${minute.isRefreshing ? 'animate-spin' : ''}`}
+        />
+      </button>
       <div className="flex items-baseline justify-between">
         <div className="inline-flex items-baseline space-x-4">
           <h1 className="leading-none" style={{ fontSize: 120 }}>
@@ -396,10 +454,24 @@ const MinuteStatsSection = ({ minute }: { minute: any }) => {
 
 export function Main() {
   const token = useAuthToken();
-  const daily = useDailyOverview(token!);
-  const minute = useMinuteOverview(token!);
+  const router = useRouter();
+  const onlyRaw = router.query.only;
+  const only = Array.isArray(onlyRaw) ? onlyRaw[0] : onlyRaw;
+  const showDaily = only !== 'minute';
+  const showMinute = only !== 'daily';
 
-  if (daily.isLoading && minute.isLoading) {
+  const daily = useDailyOverview(token!, {
+    enabled: router.isReady && showDaily,
+  });
+  const minute = useMinuteOverview(token!, {
+    enabled: router.isReady && showMinute,
+  });
+
+  if (!router.isReady) {
+    return <FullscreenLoading />;
+  }
+
+  if (showDaily && showMinute && daily.isLoading && minute.isLoading) {
     return <FullscreenLoading />;
   }
 
@@ -411,19 +483,25 @@ export function Main() {
     <div className="flex h-full flex-col overflow-auto font-mono">
       <div className="flex items-center space-x-4 border-b p-2">
         <LogoIcon size="normal" />
-        <h3 className="space-x-4 text-lg">
+        <h3 className="flex items-center space-x-4 text-lg">
           <span>
             <span className="font-bold">instant</span> metrics
           </span>
           <span>/</span>
           <span>{format(dateAnalyzed, 'MMMM d, yyyy')}</span>
-          <span>/</span>
-          <span>{format(minute.sentAt, 'hh:mma')}</span>
+          {showMinute && (
+            <>
+              <span>/</span>
+              <span>
+                {format(minute.lastUpdatedAt ?? minute.sentAt, 'hh:mm:ssa')}
+              </span>
+            </>
+          )}
         </h3>
       </div>
       <div className="flex min-h-0">
-        <DailyStatsSection daily={daily} />
-        <MinuteStatsSection minute={minute} />
+        {showDaily && <DailyStatsSection daily={daily} solo={!showMinute} />}
+        {showMinute && <MinuteStatsSection minute={minute} solo={!showDaily} />}
       </div>
     </div>
   );
