@@ -7,8 +7,7 @@
    [clojure.tools.logging :as log]
    [clojure.walk :as w]
    [instant.config :as config]
-   [instant.util.json :as json]
-   [instant.util.uuid :as uuid-util])
+   [instant.util.json :as json])
   (:import
    (inet.ipaddr IPAddressString)
    (java.net InetAddress)))
