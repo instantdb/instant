@@ -116,8 +116,9 @@ services:
       S3_BUCKET: ${S3_BUCKET:-instant-bucket}
     ports:
       - "8888:8888"
-    volumes:
-      - server_config:/app/resources/config
+    secrets:
+      - source: server_config
+        target: /app/resources/config/override.edn
     deploy:
       replicas: 2
       labels:
@@ -145,8 +146,11 @@ services:
 volumes:
   backend-db:
   minio_data:
-  server_config:
   caddy_data:
+
+secrets:
+  server_config:
+    external: true
 
 networks:
   caddy:
