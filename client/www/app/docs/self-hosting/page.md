@@ -160,3 +160,91 @@ INSTANT_CLI_API_URI=http://localhost:8888 npx instant-cli@latest init
 # Server Deployment
 INSTANT_CLI_API_URI=https://api.myinstant.com npx instant-cli@latest init
 ```
+
+## Horizontal Scaling With Docker Swarm
+
+Docker Swarm allows one or more machines to distribute Docker containers between them.
+The InstantDB repo includes a deploy-swarm.sh script designed to easily deploy InstantDB across multiple machines.
+
+{% callout type="warning" %}
+This setup guide does not constitute a full production-ready deployment. You are still responsible for backups, observability, monitoring, etc.
+Every self-hosting situation is different so this intended to get you started in the right direction.
+{% /callout %}
+
+### Prerequisite
+One or more servers with Docker installed. See above guide or the [Offical Docker Install Guide](https://docs.docker.com/engine/install/) for instructions.
+
+### Setup Guide
+
+Set up a Docker swarm using:
+
+```bash
+docker swarm init
+```
+
+This will output a command that you can run on the other servers to join the swarm.
+
+
+Create an [overlay network](https://docs.docker.com/engine/network/drivers/overlay)
+```bash
+docker network create -d overlay --attachable caddy
+```
+
+This will create an overlay network called "caddy" that we will use for the reverse proxy.
+--attachable is provided so that if needed in the future, a standalone container can be attached for debugging / monitoring purposes.
+
+Assign labels to stabilize machine assignments
+```bash
+docker node update --label-add caddy=true --label-add storage=true
+```
+
+For each machine that you would like to accept requests, make sure you assign the "caddy=true" output and point your DNS at that IP address.
+
+Chose one machine that is responsible for file storage and assign the "storage=true" label. This ensures that the Postgres and MinIO containers will always run on that node, preserving your data.
+
+The 'www', 'createbuckets', and 'server' containers can move freely between nodes since they don't have persistent storage requirements.
+
+### Creating The Encryption Keys
+
+The InstantDB backend server requires the presence of a file at /resources/config/override.edn to provide keys for encrypting various secrets in the backend. In the single-container self-hosted setup, this is accomplished via a startup script that creates a file persisted to a volume. Since the backend service will be running on multiple machines without shared storage, we instead use [Docker Secrets](https://docs.docker.com/engine/swarm/secrets/) to mount this file.
+
+The easiest way to register this secret is to run the following on a leader machine.
+```bash
+docker run --rm \
+  -v "$PWD:/out" \
+  ghcr.io/instantdb/server:latest \
+  /app/start.sh generate-override-config /out/override.edn
+
+docker secret create server_config ./override.edn
+```
+
+### Configuring Environment Variables
+
+Rather than cloning the repo on a server and filling out a .env file, we have provided a script that you can modify and execute to easily deploy the services with the proper configuration.
+
+To get started: clone the repo on your local computer and edit the `./self-hosting/deploy-script.sh` file.
+
+```bash
+SSH_HOST=root@ip
+DASHBOARD_URL="https://instant-dash.drewh.cloud"
+SERVER_URL="https://instant-backend.drewh.cloud"
+S3_PUBLIC_ENDPOINT="https://instant-files.drewh.cloud"
+
+stack_config() {
+  env -i \
+    PATH="$PATH" \
+    DASHBOARD_URL="$DASHBOARD_URL" \
+    SERVER_URL="$SERVER_URL" \
+    S3_PUBLIC_ENDPOINT="$S3_PUBLIC_ENDPOINT" \
+    docker stack config --compose-file swarm.yml
+}
+
+stack_config | (ssh $SSH_HOST 'docker stack deploy -c - instant')
+```
+
+Docker Swarm/Stack doesn't support loading environment variables from .env files so we use the `docker stack config` command to fill out a completed yaml specification and send that to the `docker stack deploy` command on the swarm's manager node by using stdin over ssh.
+
+SSH_HOST is the username and IP address of the *manager* node to the swarm you are deploying to.
+For `DASHBOARD_URL`, `SERVER_URL`, and `S3_PUBLIC_ENDPOINT`, modify the domain/subdomains to match what you assigned in the DNS for your domain.
+
+To configure other environment variables such as a Postmark token to send emails, add another row in the env -i command. Adding the variables outside of stack_config() will not work in order to prevent accidental leakage of environment variables not meant for the deployment.

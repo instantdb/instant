@@ -1,8 +1,12 @@
-SSH_HOST="redacted"
+#!/usr/bin/env sh
+set -e
 
-DASHBOARD_URL="http://dash.localhost"
-SERVER_URL="http://server.localhost"
-S3_PUBLIC_ENDPOINT="http://storage.localhost"
+cd "$(dirname "$0")"
+
+SSH_HOST=root@ip
+DASHBOARD_URL="https://instant-dash.drewh.cloud"
+SERVER_URL="https://instant-backend.drewh.cloud"
+S3_PUBLIC_ENDPOINT="https://instant-files.drewh.cloud"
 
 stack_config() {
   env -i \
@@ -13,4 +17,4 @@ stack_config() {
     docker stack config --compose-file swarm.yml
 }
 
-stack_config | (ssh $SSH_HOST 'docker stack deploy -c - --prune')
+stack_config | (ssh $SSH_HOST 'docker stack deploy -c - instant')
