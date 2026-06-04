@@ -89,7 +89,7 @@ services:
       exit"
 
   server:
-    image: "ghcr.io/instantdb/server:baba"
+    image: "ghcr.io/instantdb/server:swarm-test"
     networks:
       - caddy
       - default
