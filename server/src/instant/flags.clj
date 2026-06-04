@@ -102,7 +102,7 @@
                                   (get result "rate-limited-apps"))
 
         log-sampled-apps (reduce (fn [acc {:strs [appId sampleRate]}]
-                                   (assoc acc (uuid-util/coerce appId) sampleRate))
+                                   (assoc acc appId sampleRate))
                                  {}
                                  (get result "log-sampled-apps"))
 
@@ -249,7 +249,7 @@
     (contains? (storage-block-list) app-id)))
 
 (defn log-sampled-apps [app-id]
-  (get-in (query-result) [:log-sampled-apps (uuid-util/coerce app-id)] nil))
+  (get-in (query-result) [:log-sampled-apps app-id] nil))
 
 (defn app-rate-limited? [app-id]
   (contains? (:rate-limited-apps (query-result))
