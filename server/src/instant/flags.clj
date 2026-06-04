@@ -7,8 +7,7 @@
    [clojure.tools.logging :as log]
    [clojure.walk :as w]
    [instant.config :as config]
-   [instant.util.json :as json]
-   [instant.util.uuid :as uuid-util])
+   [instant.util.json :as json])
   (:import
    (inet.ipaddr IPAddressString)
    (java.net InetAddress)))
@@ -119,7 +118,7 @@
                                   (get result "rate-limited-apps"))
 
         log-sampled-apps (reduce (fn [acc {:strs [appId sampleRate]}]
-                                   (assoc acc (uuid-util/coerce appId) sampleRate))
+                                   (assoc acc appId sampleRate))
                                  {}
                                  (get result "log-sampled-apps"))
 
