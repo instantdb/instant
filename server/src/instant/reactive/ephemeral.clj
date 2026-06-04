@@ -121,7 +121,7 @@
   "All overlay IPs the Swarm service tasks resolve to (DNSRR), including our own."
   []
   (map #(.getHostAddress %)
-       (java.net.InetAddress/getAllByName "tasks.server")))
+       (java.net.InetAddress/getAllByName (str "tasks." (System/getenv "SWARM_SERVICE_NAME")))))
 
 (defn get-swarm-ip
   "The container's own overlay IP — the local interface address that also
@@ -142,7 +142,7 @@
   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
       (.setLevel (if (aws-env?)
                    java.util.logging.Level/INFO
-                   java.util.logging.Level/FINEST)))
+                   java.util.logging.Level/WARNING)))
   (.setLevel (java.util.logging.Logger/getLogger "com.hazelcast.system.logo")
              java.util.logging.Level/OFF)
   (let [config               (Config.)
@@ -199,7 +199,7 @@
         (.setPortAutoIncrement network-config false)
         (.setEnabled metrics-config false))
 
-      :else
+      (config/using-swarm?)
       (do
         ;; Resolve the Swarm tasks ourselves and hand Hazelcast concrete
         ;; per-IP members. Feeding it the `tasks.server` hostname is unreliable:
@@ -210,7 +210,13 @@
           (.setMembers tcp-ip-config (map #(str % ":5701") task-ips))
           (when-let [ip (get-swarm-ip task-ips)]
             (.setPublicAddress network-config ip))
-          (.setEnabled metrics-config true))))
+          (.setEnabled metrics-config true)))
+
+      :else
+      (do
+        (.setEnabled tcp-ip-config true)
+        (.setMembers tcp-ip-config (list "127.0.0.1"))
+        (.setEnabled metrics-config true)))
 
     (.setClusterName config cluster-name)
 
