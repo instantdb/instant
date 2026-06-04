@@ -1,5 +1,6 @@
 (ns instant.loadbalancer
   (:require
+   [clojure.string]
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.reactive.store :as rs]
@@ -10,9 +11,17 @@
   (:import
    (java.time Duration Instant)
    (software.amazon.awssdk.services.sns SnsClient)
-   (software.amazon.awssdk.services.sns.model SubscribeRequest UnsubscribeRequest)
+   (software.amazon.awssdk.services.sns.model ListSubscriptionsByTopicRequest SubscribeRequest Subscription UnsubscribeRequest)
    (software.amazon.awssdk.services.sqs SqsClient)
-   (software.amazon.awssdk.services.sqs.model CreateQueueRequest DeleteMessageRequest DeleteQueueRequest Message QueueAttributeName ReceiveMessageRequest ReceiveMessageRequest)))
+   (software.amazon.awssdk.services.sqs.model CreateQueueRequest DeleteMessageRequest DeleteQueueRequest GetQueueUrlRequest ListQueueTagsRequest ListQueuesRequest Message QueueAttributeName QueueDoesNotExistException ReceiveMessageRequest ReceiveMessageRequest)))
+
+;; There's an EventBridge subscription that publishes loadbalancer events to SNS.
+;; Each machine subscribes to SNS through an SQS queue it creates.
+;; When we get a `DeregisterTargets` message for our instance-id (all machines get
+;; all events), we start closing connections so that they will all be closed before
+;; the loadbalancer forcibly closes them.
+;; SNS topic: https://us-east-1.console.aws.amazon.com/sns/v3/home?region=us-east-1#/topic/arn:aws:sns:us-east-1:597134865416:instance-events
+;; Eventbridge rule: https://us-east-1.console.aws.amazon.com/events/home?region=us-east-1#/eventbus/default/rules/notify-target-group-scaling
 
 (defonce process (atom nil))
 
@@ -35,14 +44,17 @@
                  :Resource queue-arn
                  :Condition {:ArnEquals {"aws:SourceArn" config/instance-events-sns-topic-arn}}}]}))
 
+(def ^{:tag String} queue-prefix "loadbalancer-queue-")
+
 (defn create-queue [suffix]
-  (let [queue-name (str "loadbalancer-queue-" @config/process-id suffix)
+  (let [queue-name (str queue-prefix @config/process-id suffix)
         queue-arn (str config/instance-events-sqs-topic-arn-prefix queue-name)
         req (.. (CreateQueueRequest/builder)
                 (queueName queue-name)
                 (attributes {QueueAttributeName/POLICY (sqs-policy queue-arn)})
                 (tags {"instance-id" @config/instance-id
-                       "created-at" (str (Instant/now))})
+                       "created-at" (str (Instant/now))
+                       "env" (name (config/get-env))})
                 (build))]
     {:url (-> (.createQueue (sqs-client) ^CreateQueueRequest req)
               (.queueUrl))
@@ -112,8 +124,7 @@
                            (fn [futs]
                              (let [now (Instant/now)]
                                (if (ucoll/seek (fn [[_k {:keys [started-at]}]]
-                                                 (pos? (compare (Duration/ofMinutes 2)
-                                                                (Duration/between started-at now))))
+                                                 (>= 120 (.toSeconds (Duration/between started-at now))))
                                                futs)
                                  ;; We already started a shutdown in the last 2 minutes
                                  futs
@@ -146,35 +157,100 @@
                             target-ids)
             (add-conn-drain conn-drain-futs)))))))
 
-;; XXX: Needs a cleanup process
+(defn create-process [queue-suffix]
+  (let [q (create-queue queue-suffix)
+        sns (subscribe-to-sns (:arn q))
+        conn-drain-futs (atom {})
+        queue-listener (ua/vfut-bg
+                        (poll-queue (:url q)
+                                    (partial handle-message conn-drain-futs)))
+        shutdown (fn []
+                   (future-cancel queue-listener)
+                   (doseq [drain-fut @conn-drain-futs]
+                     (future-cancel drain-fut))
+                   (try
+                     (unsubscribe-from-sns (:arn sns))
+                     (catch Throwable t
+                       (tracer/record-exception-span! t {:name "loadbalancer/unsubscribe-sns-error"})))
+                   (try
+                     (delete-queue (:url q))
+                     (catch Throwable t
+                       (tracer/record-exception-span! t {:name "loadbalancer/delete-sqs-queue-error"}))))]
+    {:q q
+     :queue-suffix queue-suffix
+     :sns sns
+     :conn-drain-futs conn-drain-futs
+     :queue-listener queue-listener
+     :shutdown shutdown}))
+
+(defn orphaned-queues []
+  (let [req (.. (ListQueuesRequest/builder)
+                (maxResults (int 1000))
+                (queueNamePrefix queue-prefix)
+                (build))
+        now (Instant/now)]
+    (keep (fn [queue-url]
+            (try
+              (let [req (.. (ListQueueTagsRequest/builder)
+                            (queueUrl queue-url)
+                            (build))
+                    tags (.tags (.listQueueTags (sqs-client) ^ListQueueTagsRequest req))
+                    created-at (some-> tags (get "created-at") (Instant/parse))]
+                (when (and (= (get tags "env") (name (config/get-env)))
+                           (<= 60 (.toDays (Duration/between created-at now))))
+                  {:url queue-url
+                   :tags tags
+                   :created-at created-at}))
+              (catch QueueDoesNotExistException _
+                nil)))
+          (.queueUrls (.listQueues (sqs-client) ^ListQueuesRequest req)))))
+
+(defn queue-exists-by-queue-name? [queue-name]
+  (let [req (.. (GetQueueUrlRequest/builder)
+                (queueName queue-name)
+                (build))]
+    (try
+      (.getQueueUrl (sqs-client) ^GetQueueUrlRequest req)
+      (catch QueueDoesNotExistException _
+        false))))
+
+(defn orphaned-subscriptions []
+  (let [req (.. (ListSubscriptionsByTopicRequest/builder)
+                (topicArn config/instance-events-sns-topic-arn)
+                (build))
+        subscriptions (-> (.listSubscriptionsByTopic (sns-client)
+                                                     ^ListSubscriptionsByTopicRequest req)
+                          (.subscriptions))]
+    (keep (fn [^Subscription sub]
+            (when (and (= (.protocol sub) "sqs")
+                       (some-> (.endpoint sub)
+                               (clojure.string/starts-with? (str config/instance-events-sqs-topic-arn-prefix
+                                                                 queue-prefix))))
+              (let [queue-name (subs (.endpoint sub) (count config/instance-events-sqs-topic-arn-prefix))]
+                (when-not (queue-exists-by-queue-name? queue-name)
+                  {:arn (.subscriptionArn sub)
+                   :endpoint (.endpoint sub)
+                   :protocol (.protocol sub)}))))
+          subscriptions)))
+
+(defn cleanup-stale []
+  (doseq [q (orphaned-queues)]
+    (tracer/with-span! {:name "loadbalancer/remove-orphaned-queue"
+                        :attributes q}
+      (delete-queue (:url q))))
+  (doseq [s (orphaned-subscriptions)]
+    (tracer/with-span! {:name "loadbalancer/remove-orphaned-subs"
+                        :attributes s}
+      (unsubscribe-from-sns (:arn s)))))
 
 (defn start
-  ([] (start nil))
+  ([]
+   (start nil))
   ([queue-suffix]
-   (let [q (create-queue queue-suffix)
-         sns (subscribe-to-sns (:arn q))
-         conn-drain-futs (atom {})
-         queue-listener (ua/vfut-bg
-                         (poll-queue (:url q)
-                                     (partial handle-message conn-drain-futs)))
-         shutdown (fn []
-                    (future-cancel queue-listener)
-                    (doseq [drain-fut @conn-drain-futs]
-                      (future-cancel drain-fut))
-                    (try
-                      (unsubscribe-from-sns (:arn sns))
-                      (catch Throwable t
-                        (tracer/record-exception-span! t {:name "loadbalancer/unsubscribe-sns-error"})))
-                    (try
-                      (delete-queue (:url q))
-                      (catch Throwable t
-                        (tracer/record-exception-span! t {:name "loadbalancer/delete-sqs-queue-error"}))))]
-     (reset! process {:q q
-                      :queue-suffix queue-suffix
-                      :sns sns
-                      :conn-drain-futs conn-drain-futs
-                      :queue-listener queue-listener
-                      :shutdown shutdown}))))
+   (let [v (create-process queue-suffix)]
+     (reset! process v)
+     (cleanup-stale)
+     v)))
 
 (defn stop []
   (let [[old _new] (swap-vals! process (fn [_] nil))]
