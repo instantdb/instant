@@ -401,27 +401,34 @@
 
 (def value-lookup-error-prefix "missing-lookup-value")
 
-(defn- id-attr-conflict? []
-  [:exists {:select :1
-            :from [[:attrs :id-attr]]
-            :where [:and
-                    [:= :id-attr.id :triples.attr-id]
-                    [:or
-                     [:= :id-attr.app-id :triples.app-id]
-                     [:= :id-attr.app-id system-catalog-app-id]]
-                    [:= :id-attr.label "id"]]}])
+(defn- ea-conflict-fields [overwrite-t]
+  (merge {:value :excluded.value
+          :value-md5 :excluded.value-md5}
+         (when overwrite-t
+           {:created_at [:current_unix_timestamp_ms]})))
 
-(defn- ea-conflict-update-set [overwrite-t]
-  (let [fields (merge {:value :excluded.value
-                       :value-md5 :excluded.value-md5}
-                      (when overwrite-t
-                        {:created_at [:current_unix_timestamp_ms]}))]
+(defn- ea-non-id-conflict-update-set [overwrite-t]
+  (let [fields (ea-conflict-fields overwrite-t)]
     (if overwrite-t
       fields
+      ;; Skip no-op updates: only write when the value actually changed.
       {:fields fields
-       :where [:or
-               [:is-distinct-from :triples.value-md5 :excluded.value-md5]
-               (id-attr-conflict?)]})))
+       :where [:is-distinct-from :triples.value-md5 :excluded.value-md5]})))
+
+(defn- ea-id-conflict-update-set [overwrite-t]
+  (let [fields (ea-conflict-fields overwrite-t)]
+    (if overwrite-t
+      fields
+      ;; An entity's `id` triple holds its own id, so its value never changes and
+      ;; the no-op guard above would always skip it. We still want to re-write it
+      ;; (a no-op data update that produces a wal "update" marker webhooks rely on)
+      ;; but only when the entity actually changed in this transaction. Otherwise a
+      ;; fully no-op transaction would churn the id triple and fire spurious update
+      ;; webhooks.
+      {:fields fields
+       :where [:exists {:select 1
+                        :from :changed-entities
+                        :where [:= :changed-entities.entity-id :triples.entity-id]}]})))
 
 (defn insert-multi!
   "Given a set of raw triples, we enhance each triple with metadata based on
@@ -594,7 +601,8 @@
            [[:case :a.is-unique true :else false] :av]
            [[:case :a.is-indexed true :else false] :ave]
            [[:case [:= :a.value-type [:inline "ref"]] true :else false] :vae]
-           [:a.checked_data_type :checked-data-type]]
+           [:a.checked_data_type :checked-data-type]
+           [[:= :a.label [:inline "id"]] :is-id-attr]]
           :from [[:input-triples :it]]
           :left-join [[:attrs :a] [:and
                                    [:or
@@ -612,13 +620,16 @@
          remaining-triples
          {:select :* :from :enhanced-triples :where [:not :ea]}
 
-         ea-index-inserts
+         ;; Upsert object (cardinality-one) triples other than the `id` triple.
+         ;; Their returning rows tell us which entities actually changed.
+         ea-non-id-inserts
          {:insert-into [[:triples triple-cols]
                         {:select triple-cols
                          :from :ea-triples-distinct
+                         :where [:not :is-id-attr]
                          :order-by [:app-id :entity-id :attr-id :value-md5]}]
           :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
-          :do-update-set (ea-conflict-update-set overwrite-t)
+          :do-update-set (ea-non-id-conflict-update-set overwrite-t)
           :returning :*}
 
          remaining-inserts
@@ -629,6 +640,31 @@
           :on-conflict [:app-id :entity-id :attr-id :value-md5]
           :do-nothing true
           :returning :*}
+
+         ;; Entities that had a real change in this tx (a non-id object value
+         ;; changed, a new ref was added, or a lookup attr was written). Used to
+         ;; decide whether to re-write the `id` triple as an update marker.
+         changed-entities
+         {:union-all (into [{:select [:entity-id] :from :ea-non-id-inserts}
+                            {:select [:entity-id] :from :remaining-inserts}]
+                           (when (seq lookup-refs)
+                             [{:select [:entity-id] :from :lookup-ref-inserts}]))}
+
+         ;; Upsert `id` triples. New entities insert (a create); existing entities
+         ;; only re-write when they changed elsewhere (see ea-id-conflict-update-set).
+         ea-id-inserts
+         {:insert-into [[:triples triple-cols]
+                        {:select triple-cols
+                         :from :ea-triples-distinct
+                         :where :is-id-attr
+                         :order-by [:app-id :entity-id :attr-id :value-md5]}]
+          :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
+          :do-update-set (ea-id-conflict-update-set overwrite-t)
+          :returning :*}
+
+         ea-inserts
+         {:union-all [{:select [:entity-id :attr-id] :from :ea-non-id-inserts}
+                      {:select [:entity-id :attr-id] :from :ea-id-inserts}]}
 
          indexed-null-triples
          {:select [[:needs-null-attr.app-id :app-id]
@@ -643,7 +679,7 @@
                    [[:= :needs-null-attr.value_type [:inline "ref"]] :vae]
                    [:needs-null-attr.checked-data-type :checked-data-type]]
           :from [[{:union (into [{:select [:entity-id :attr_id]
-                                  :from :ea-index-inserts}
+                                  :from :ea-inserts}
                                  {:select [:entity-id :attr_id]
                                   :from :remaining-inserts}]
                                 (when (seq lookup-refs)
@@ -685,10 +721,10 @@
                   [:not
                    [:exists
                     {:select :*
-                     :from :ea-index-inserts
+                     :from :ea-inserts
                      :where [:and
-                             [:= :ea-index-inserts.entity-id :new-entities.entity-id]
-                             [:= :ea-index-inserts.attr-id :needs-null-attr.id]]}]]
+                             [:= :ea-inserts.entity-id :new-entities.entity-id]
+                             [:= :ea-inserts.attr-id :needs-null-attr.id]]}]]
                   [:not
                    [:exists
                     {:select :*
@@ -716,7 +752,7 @@
 
          all-inserts
          {:union-all
-          [{:select [:entity-id :attr-id] :from :ea-index-inserts}
+          [{:select [:entity-id :attr-id] :from :ea-inserts}
            {:select [:entity-id :attr-id] :from :remaining-inserts}
            {:select [:entity-id :attr-id] :from :indexed-null-inserts}]}
 
@@ -730,8 +766,11 @@
                         ['enhanced-triples     enhanced-triples]
                         ['ea-triples-distinct  ea-triples-distinct]
                         ['remaining-triples    remaining-triples]
-                        ['ea-index-inserts     ea-index-inserts]
+                        ['ea-non-id-inserts    ea-non-id-inserts]
                         ['remaining-inserts    remaining-inserts]
+                        ['changed-entities     changed-entities]
+                        ['ea-id-inserts        ea-id-inserts]
+                        ['ea-inserts           ea-inserts]
                         ['indexed-null-triples indexed-null-triples]
                         ['indexed-null-inserts indexed-null-inserts]]
                        (when-some [attr-inferred-types (insert-attr-inferred-types-cte app-id attrs triples)]
