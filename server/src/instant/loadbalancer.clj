@@ -166,8 +166,8 @@
                                     (partial handle-message conn-drain-futs)))
         shutdown (fn []
                    (future-cancel queue-listener)
-                   (doseq [drain-fut @conn-drain-futs]
-                     (future-cancel drain-fut))
+                   (doseq [[_ {:keys [process]}] @conn-drain-futs]
+                     (future-cancel @process))
                    (try
                      (unsubscribe-from-sns (:arn sns))
                      (catch Throwable t
