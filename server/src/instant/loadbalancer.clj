@@ -263,5 +263,5 @@
 (defn restart []
   (stop)
   ;; Give it a suffix because you have to wait 60 seconds
-  ;; for the queue to restart
+  ;; for the queue name to be recycled
   (start (str "-" (rand-int 10000))))
