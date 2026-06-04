@@ -32,13 +32,13 @@ services:
     image: "ghcr.io/instantdb/dashboard:latest"
     environment:
       # Where the backend url will be available externally
-      - INSTANT_BACKEND_URL=http://server.localhost
+      INSTANT_BACKEND_URL: ${SERVER_URL:? example http://server.localhost}
     networks:
       - caddy
       - default
     deploy:
       labels:
-        caddy: http://dash.localhost
+        caddy: ${DASHBOARD_URL:? example http://dash.localhost}
         caddy.reverse_proxy: "{{upstreams 3000}}"
   minio:
     image: minio/minio:latest
@@ -64,7 +64,7 @@ services:
       retries: 12
     deploy:
       labels:
-        caddy: http://storage.localhost
+        caddy: ${S3_PUBLIC_ENDPOINT:? example http://storage.localhost}
         caddy.reverse_proxy: "{{upstreams 9000}}"
 
   createbuckets:
@@ -89,8 +89,8 @@ services:
     environment:
       WAL_HISTORY_STORAGE: pg
       DATABASE_URL: "postgresql://${POSTGRES_USER:-instant}:${POSTGRES_PASSWORD:-pass}@postgres:5432/${POSTGRES_DB:-instant}?sslmode=disable"
-      INSTANT_BACKEND_URL: ${INSTANT_BACKEND_URL:-http://localhost:8888}
-      INSTANT_DASHBOARD_URL: ${INSTANT_DASHBOARD_URL:-http://localhost:3000}
+      INSTANT_BACKEND_URL: ${SERVER_URL:? example http://server.localhost}
+      INSTANT_DASHBOARD_URL: ${DASHBOARD_URL:? example http://dash.localhost}
       STRIPE_API_KEY: ${STRIPE_API_KEY:-}
       POSTMARK_TOKEN: ${POSTMARK_TOKEN:-}
       INSTANT_EMAIL_REPLY_TO: ${INSTANT_EMAIL_REPLY_TO:-}
@@ -104,7 +104,7 @@ services:
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
-      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://storage.localhost}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:? example http://storage.localhost}
       S3_BUCKET: ${S3_BUCKET:-instant-bucket}
     ports:
       - "8888:8888"
@@ -113,7 +113,7 @@ services:
     deploy:
       replicas: 2
       labels:
-        caddy: http://server.localhost
+        caddy: ${SERVER_URL:? ex http://server.localhost}
         caddy.reverse_proxy: "{{upstreams 8888}}"
 
   caddy:
