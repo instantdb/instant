@@ -13,7 +13,7 @@
    (software.amazon.awssdk.services.sns SnsClient)
    (software.amazon.awssdk.services.sns.model ListSubscriptionsByTopicRequest SubscribeRequest Subscription UnsubscribeRequest)
    (software.amazon.awssdk.services.sqs SqsClient)
-   (software.amazon.awssdk.services.sqs.model CreateQueueRequest DeleteMessageRequest DeleteQueueRequest GetQueueUrlRequest ListQueueTagsRequest ListQueuesRequest Message QueueAttributeName QueueDoesNotExistException ReceiveMessageRequest ReceiveMessageRequest)))
+   (software.amazon.awssdk.services.sqs.model CreateQueueRequest DeleteMessageRequest DeleteQueueRequest GetQueueUrlRequest ListQueueTagsRequest ListQueuesRequest Message QueueAttributeName QueueDoesNotExistException ReceiveMessageRequest)))
 
 ;; There's an EventBridge subscription that publishes loadbalancer events to SNS.
 ;; Each machine subscribes to SNS through an SQS queue it creates.
@@ -48,7 +48,7 @@
 
 (defn create-queue [suffix]
   (let [queue-name (str queue-prefix @config/process-id suffix)
-        queue-arn (str config/instance-events-sqs-topic-arn-prefix queue-name)
+        queue-arn (str config/instance-events-sqs-queue-arn-prefix queue-name)
         req (.. (CreateQueueRequest/builder)
                 (queueName queue-name)
                 (attributes {QueueAttributeName/POLICY (sqs-policy queue-arn)})
@@ -107,7 +107,7 @@
                             (delete-message queue-url message))
                           :continue)
                         (catch Throwable t
-                          (tracer/record-exception-span! t {:name "loadbalancer/get-messages-errror"})
+                          (tracer/record-exception-span! t {:name "loadbalancer/get-messages-error"})
                           :backoff))]
       (case next-action
         :continue (recur 0)
@@ -224,9 +224,9 @@
     (keep (fn [^Subscription sub]
             (when (and (= (.protocol sub) "sqs")
                        (some-> (.endpoint sub)
-                               (clojure.string/starts-with? (str config/instance-events-sqs-topic-arn-prefix
+                               (clojure.string/starts-with? (str config/instance-events-sqs-queue-arn-prefix
                                                                  queue-prefix))))
-              (let [queue-name (subs (.endpoint sub) (count config/instance-events-sqs-topic-arn-prefix))]
+              (let [queue-name (subs (.endpoint sub) (count config/instance-events-sqs-queue-arn-prefix))]
                 (when-not (queue-exists-by-queue-name? queue-name)
                   {:arn (.subscriptionArn sub)
                    :endpoint (.endpoint sub)
