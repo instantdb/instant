@@ -592,7 +592,7 @@
            :copy-sql triples-copy-sql
            ;; Check every minute to see if we can claim the slot
            :acquire-slot-interval-ms (* 1000 60)
-           ;; Flush sketch changes to db every 10 seconds or 50k items
+           ;; Flush sketch changes to db every 10 seconds or 500 items
            :sketch-flush-ms (* 1000 10)
            :sketch-flush-max-items 500
            :skip-empty-updates (= :dev (config/get-env))}))

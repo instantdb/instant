@@ -41,4 +41,4 @@
 
  :instant-config-app-id #uuid "24a4d71b-7bb2-4630-9aee-01146af26239"
 
- :database-cluster-id "instant-aurora-staging-cluster"}
+ :database-cluster-id "instant-aurora-staging"}

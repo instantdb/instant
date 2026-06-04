@@ -71,7 +71,7 @@
   (println "Deploying " (get version "VersionLabel") " " (get version "Description"))
   (Thread/sleep 500)
   (apply exec
-         (str "eb deploy Instant-docker-prod-env-2 --version " (get version "VersionLabel"))
+         (str "eb deploy Instant-docker-prod-env-2 --version " (get version "VersionLabel") " --timeout 60")
          *command-line-args*))
 
 (defn check-db [version]

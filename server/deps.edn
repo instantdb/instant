@@ -24,14 +24,16 @@
         org.slf4j/slf4j-api {:mvn/version "2.0.13"}
         cider/cider-nrepl {:mvn/version "0.45.0"}
 
-        software.amazon.awssdk/ec2 {:mvn/version "2.41.31"}
-        software.amazon.awssdk/rds {:mvn/version "2.41.31"}
-        software.amazon.awssdk/secretsmanager {:mvn/version "2.41.31"}
-        software.amazon.awssdk/s3 {:mvn/version "2.41.31"}
-        software.amazon.awssdk/bedrockruntime {:mvn/version "2.41.31"}
-        software.amazon.awssdk/cloudwatch {:mvn/version "2.41.32"}
-        software.amazon.awssdk.crt/aws-crt {:mvn/version "0.40.3"}
-
+        software.amazon.awssdk/ec2 {:mvn/version "2.46.2"}
+        software.amazon.awssdk/rds {:mvn/version "2.46.2"}
+        software.amazon.awssdk/secretsmanager {:mvn/version "2.46.2"}
+        software.amazon.awssdk/s3 {:mvn/version "2.46.2"}
+        software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.46.2"}
+        software.amazon.awssdk/bedrockruntime {:mvn/version "2.46.2"}
+        software.amazon.awssdk/cloudwatch {:mvn/version "2.46.2"}
+        software.amazon.awssdk/sqs {:mvn/version "2.46.2"}
+        software.amazon.awssdk/sns {:mvn/version "2.46.2"}
+        software.amazon.awssdk.crt/aws-crt {:mvn/version "0.46.1"}
         juji/editscript {:mvn/version "0.6.4"}
         io.github.tonsky/clojure-plus {:mvn/version "1.6.3"}
 
@@ -122,8 +124,11 @@
                               io.github.tonsky/clj-reload   {:mvn/version "0.9.8"}
                               ;; https://github.com/kkinnear/zprint/pull/351
                               io.github.tonsky/zprint       {:mvn/version "1.2.10"}
-                              virgil/virgil {:mvn/version "0.5.0"}
-                              com.squareup.okhttp3/mockwebserver3 {:mvn/version "5.3.2"}}
+                              com.squareup.okhttp3/mockwebserver3 {:mvn/version "5.3.2"}
+                              virgil/virgil {:mvn/version "0.5.1"}
+                              ;; asm deps add support for Java 26 (can remove once virgil updates)
+                              org.ow2.asm/asm {:mvn/version "9.9.1"}
+                              org.ow2.asm/asm-tree {:mvn/version "9.9.1"}}
                  :jvm-opts ["-XX:+UseZGC"
                             "-enableassertions"
                             "-Djdk.tracePinnedThreads=full"

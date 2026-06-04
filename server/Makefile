@@ -112,6 +112,25 @@ prod-down:
 		read ans && [ $$ans = y ] && \
 		migrate -verbose -database "$${DATABASE_URL}" -source "$${SOURCE_URL}" down 1
 
+staging-version:
+	@DATABASE_URL=$$(./scripts/prod_connection_string.sh --cluster-id "instant-aurora-staging"); \
+	SOURCE_URL=$$($(migration_source)); \
+	migrate -verbose -database "$${DATABASE_URL}" -source "$${SOURCE_URL}" version
+
+staging-up:
+	@DATABASE_URL=$$(./scripts/prod_connection_string.sh --cluster-id "instant-aurora-staging"); \
+	SOURCE_URL=$$($(migration_source)); \
+	echo "[IMPORTANT] Migrating staging up to latest -- are you sure you want to do this? [y/N]" && \
+		read ans && [ $$ans = y ] && \
+		migrate -verbose -database "$${DATABASE_URL}" -source "$${SOURCE_URL}" up
+
+staging-down:
+	@DATABASE_URL=$$(./scripts/prod_connection_string.sh --cluster-id "instant-aurora-staging"); \
+	SOURCE_URL=$$($(migration_source)); \
+	echo "[IMPORTANT] Migrating staging db down by 1 -- are you sure you want to do this? [y/N]" && \
+		read ans && [ $$ans = y ] && \
+		migrate -verbose -database "$${DATABASE_URL}" -source "$${SOURCE_URL}" down 1
+
 psql:
 	@echo "Connecting to local db..."
 	psql -h localhost -d instant

@@ -240,6 +240,14 @@
          :staging "https://staging.instantdb.com"
          "http://localhost:3000"))))
 
+(def instance-events-sns-topic-arn
+  (or (System/getenv "INSTANCE_EVENTS_SNS_TOPIC_ARN")
+      "arn:aws:sns:us-east-1:597134865416:instance-events"))
+
+(def instance-events-sqs-queue-arn-prefix
+  (or (System/getenv "INSTANCE_EVENTS_SQS_TOPIC_ARN_PREFIX")
+      "arn:aws:sqs:us-east-1:597134865416:"))
+
 ;; ---
 ;; Stripe
 (defn stripe-secret []

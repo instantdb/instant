@@ -29,6 +29,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.lib.ring.undertow :as undertow-adapter]
+   [instant.loadbalancer :as loadbalancer-listener]
    [instant.mma-example :as mma-example]
    [instant.machine-summaries]
    [instant.nippy]
@@ -340,7 +341,10 @@
           (wal-log-model/stop)))
       (future
         (tracer/with-span! {:name "stop-history-truncator"}
-          (history-model/stop)))))
+          (history-model/stop)))
+      (future
+        (tracer/with-span! {:name "stop-loadbalancer-listener"}
+          (loadbalancer-listener/stop)))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []
@@ -451,6 +455,13 @@
         (admin-tx-queue/start))
       (with-log-init :web-server
         (start))
+      (try
+        (when @config/instance-id
+          (with-log-init :loadbalancer-listener
+            (loadbalancer-listener/start)))
+        (catch Throwable t
+          (tracer/record-exception-span! t {:name "load-balancer-listener-init-error"
+                                            :escaping? false})))
       (log/info "Finished initializing"))
     (catch Throwable t
       (log/error t "Error in startup")
