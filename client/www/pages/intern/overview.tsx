@@ -45,7 +45,8 @@ async function fetchMinuteOverview(token: string): Promise<MinuteOverview> {
   });
 }
 
-function useDailyOverview(token: string) {
+function useDailyOverview(token: string, options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
   const sentAt = useCurrentDate({ refreshSeconds: 60 * 5 });
   const [state, setState] = useState<any>({
     isLoading: true,
@@ -53,6 +54,7 @@ function useDailyOverview(token: string) {
     data: undefined,
   });
   useEffect(() => {
+    if (!enabled) return;
     let cancel = false;
     async function exec() {
       try {
@@ -68,12 +70,15 @@ function useDailyOverview(token: string) {
     return () => {
       cancel = true;
     };
-  }, [token, sentAt]);
+  }, [token, sentAt, enabled]);
 
-  return { ...state, sentAt };
+  return { ...state, sentAt, isLoading: enabled ? state.isLoading : false };
 }
 
-function useMinuteOverview(token: string): {
+function useMinuteOverview(
+  token: string,
+  options?: { enabled?: boolean },
+): {
   isLoading: boolean;
   isRefreshing: boolean;
   error: Error | undefined;
@@ -82,6 +87,7 @@ function useMinuteOverview(token: string): {
   lastUpdatedAt: Date | undefined;
   refresh: () => void;
 } {
+  const enabled = options?.enabled ?? true;
   const sentAt = useCurrentDate({ refreshSeconds: 30 });
   const [manualRefresh, setManualRefresh] = useState(0);
   const [state, setState] = useState<any>({
@@ -92,6 +98,7 @@ function useMinuteOverview(token: string): {
     lastUpdatedAt: undefined,
   });
   useEffect(() => {
+    if (!enabled) return;
     let cancel = false;
     async function exec() {
       setState((s: any) => ({ ...s, isRefreshing: true }));
@@ -120,9 +127,14 @@ function useMinuteOverview(token: string): {
     return () => {
       cancel = true;
     };
-  }, [token, sentAt, manualRefresh]);
+  }, [token, sentAt, manualRefresh, enabled]);
 
-  return { ...state, sentAt, refresh: () => setManualRefresh((n) => n + 1) };
+  return {
+    ...state,
+    sentAt,
+    isLoading: enabled ? state.isLoading : false,
+    refresh: () => setManualRefresh((n) => n + 1),
+  };
 }
 
 function mergeOrigins(originsA: any, originsB: any) {
@@ -443,12 +455,21 @@ const MinuteStatsSection = ({
 export function Main() {
   const token = useAuthToken();
   const router = useRouter();
-  const only = router.query.only;
+  const onlyRaw = router.query.only;
+  const only = Array.isArray(onlyRaw) ? onlyRaw[0] : onlyRaw;
   const showDaily = only !== 'minute';
   const showMinute = only !== 'daily';
 
-  const daily = useDailyOverview(token!);
-  const minute = useMinuteOverview(token!);
+  const daily = useDailyOverview(token!, {
+    enabled: router.isReady && showDaily,
+  });
+  const minute = useMinuteOverview(token!, {
+    enabled: router.isReady && showMinute,
+  });
+
+  if (!router.isReady) {
+    return <FullscreenLoading />;
+  }
 
   if (showDaily && showMinute && daily.isLoading && minute.isLoading) {
     return <FullscreenLoading />;
@@ -468,10 +489,14 @@ export function Main() {
           </span>
           <span>/</span>
           <span>{format(dateAnalyzed, 'MMMM d, yyyy')}</span>
-          <span>/</span>
-          <span>
-            {format(minute.lastUpdatedAt ?? minute.sentAt, 'hh:mm:ssa')}
-          </span>
+          {showMinute && (
+            <>
+              <span>/</span>
+              <span>
+                {format(minute.lastUpdatedAt ?? minute.sentAt, 'hh:mm:ssa')}
+              </span>
+            </>
+          )}
         </h3>
       </div>
       <div className="flex min-h-0">
