@@ -641,14 +641,19 @@
           :do-nothing true
           :returning :*}
 
-         ;; Entities that had a real change in this tx (a non-id object value
-         ;; changed, a new ref was added, or a lookup attr was written). Used to
-         ;; decide whether to re-write the `id` triple as an update marker.
+         ;; Entities that had a real change in this tx: a non-id object value
+         ;; changed or a new ref was added. Used to decide whether to re-write an
+         ;; existing entity's `id` triple as an update marker.
+         ;;
+         ;; lookup-ref-inserts is intentionally excluded. It only resolves or
+         ;; creates the lookup entity: a genuine change to a lookup attr flows
+         ;; through ea-non-id-inserts, and a newly-created lookup entity already
+         ;; gets its id triple from the insert path. Including it would mark an
+         ;; entity as changed when lookup resolution hits the dummy on-conflict
+         ;; path for an already-existing lookup (e.g. a concurrent insert).
          changed-entities
-         {:union-all (into [{:select [:entity-id] :from :ea-non-id-inserts}
-                            {:select [:entity-id] :from :remaining-inserts}]
-                           (when (seq lookup-refs)
-                             [{:select [:entity-id] :from :lookup-ref-inserts}]))}
+         {:union-all [{:select [:entity-id] :from :ea-non-id-inserts}
+                      {:select [:entity-id] :from :remaining-inserts}]}
 
          ;; Upsert `id` triples. New entities insert (a create); existing entities
          ;; only re-write when they changed elsewhere (see ea-id-conflict-update-set).
