@@ -15,6 +15,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      placement:
+        constraints:
+          - node.labels.storage=true
     command:
       - "postgres"
       - "-c"
@@ -32,7 +36,6 @@ services:
       - server
     image: "ghcr.io/instantdb/dashboard:latest"
     environment:
-      # Where the backend url will be available externally
       INSTANT_BACKEND_URL: ${SERVER_URL:? example http://server.localhost}
     networks:
       - caddy
@@ -67,6 +70,9 @@ services:
       labels:
         caddy: ${S3_PUBLIC_ENDPOINT:? example http://storage.localhost}
         caddy.reverse_proxy: "{{upstreams 9000}}"
+      placement:
+        constraints:
+          - node.labels.storage==true
 
   createbuckets:
     image: minio/mc
@@ -131,6 +137,10 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - caddy_data:/data
+    deploy:
+      placement:
+        constraints:
+          - node.labels.caddy==true
 
 volumes:
   backend-db:
