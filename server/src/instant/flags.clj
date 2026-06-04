@@ -384,6 +384,13 @@
 (defn log-to-wal-log-table? []
   (toggled? :log-to-wal-log-table false))
 
+(defn skip-noop-id-triple-updates?
+  "When true (the default), insert-multi! only re-writes an entity's id triple
+   when the entity actually changed in the tx. Flip the
+   :disable-skip-noop-id-triple-updates toggle to revert to insert-multi-old!."
+  []
+  (not (toggled? :disable-skip-noop-id-triple-updates false)))
+
 (def use-more-vfutures?
   (case (config/get-env)
     :dev

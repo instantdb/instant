@@ -88,7 +88,7 @@
 (defn- result-pairs [rows]
   (set (map (juxt :entity_id :attr_id) rows)))
 
-(deftest insert-multi-skips-same-value-updates-except-id-triples
+(deftest insert-multi-skips-same-value-updates
   (with-empty-app
     (fn [{app-id :id}]
       (let [{id-attr :items/id
@@ -101,14 +101,55 @@
         (triple/insert-multi! conn attrs app-id [[eid id-attr eid]
                                                  [eid title-attr "first"]])
 
-        (is (= #{[eid id-attr]}
-               (result-pairs
-                (triple/insert-multi! conn attrs app-id [[eid id-attr eid]
-                                                         [eid title-attr "first"]]))))
+        (testing "a fully no-op transaction writes nothing, not even the id triple"
+          (is (= #{}
+                 (result-pairs
+                  (triple/insert-multi! conn attrs app-id [[eid id-attr eid]
+                                                           [eid title-attr "first"]])))))
         (is (= #{[eid title-attr]}
                (result-pairs
                 (triple/insert-multi! conn attrs app-id [[eid title-attr "second"]]))))
-        (is (= #{[eid title-attr]}
-               (result-pairs
-                (triple/insert-multi! conn attrs app-id [[eid title-attr "second"]]
-                                      {:overwrite-t true}))))))))
+        (testing "overwrite-t rewrites everything (incl id) even when unchanged"
+          (is (= #{[eid id-attr] [eid title-attr]}
+                 (result-pairs
+                  (triple/insert-multi! conn attrs app-id [[eid id-attr eid]
+                                                           [eid title-attr "second"]]
+                                        {:overwrite-t true})))))))))
+
+(deftest insert-multi-writes-id-marker-only-when-entity-changes
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{id-attr :items/id
+             title-attr :items/title
+             pet-attr :items/pet}
+            (test-util/make-attrs app-id [[:items/id :unique? :index?]
+                                          [:items/title]
+                                          [[:items/pet :pets/owner] :many]])
+            attrs (attr-model/get-by-app-id app-id)
+            conn (aurora/conn-pool :write)
+            eid (random-uuid)
+            pet (random-uuid)]
+        (testing "creating an entity inserts the id triple"
+          (is (= #{[eid id-attr] [eid title-attr]}
+                 (result-pairs
+                  (triple/insert-multi! conn attrs app-id [[eid id-attr eid]
+                                                           [eid title-attr "first"]])))))
+        (testing "a real value change re-writes the id triple (the webhook update marker)"
+          (is (= #{[eid id-attr] [eid title-attr]}
+                 (result-pairs
+                  (triple/insert-multi! conn attrs app-id [[eid id-attr eid]
+                                                           [eid title-attr "second"]])))))
+        (testing "adding a new ref re-writes the id triple"
+          (is (= #{[eid id-attr] [eid pet-attr]}
+                 (result-pairs
+                  (triple/insert-multi! conn attrs app-id [[eid id-attr eid]
+                                                           [eid pet-attr pet]])))))
+        (testing "re-sending the same ref (and id) changes nothing"
+          (is (= #{}
+                 (result-pairs
+                  (triple/insert-multi! conn attrs app-id [[eid id-attr eid]
+                                                           [eid pet-attr pet]])))))
+        (testing "sending only the id triple for an existing entity is a no-op"
+          (is (= #{}
+                 (result-pairs
+                  (triple/insert-multi! conn attrs app-id [[eid id-attr eid]])))))))))
