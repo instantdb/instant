@@ -3,6 +3,7 @@
    [clojure.string :as string]
    [hiccup2.core :as h]
    [instant.config :as config]
+   [instant.email-router :as email-router]
    [instant.flags :as flags]
    [instant.model.app :as app-model]
    [instant.model.app-email-sender :as app-email-sender-model]
@@ -153,14 +154,14 @@
                       :body (template-replace body template-params true)}
         email-req (magic-code-email to email-params)]
     (try
-      (postmark/send-structured! email-req)
+      (email-router/send-structured! email-req)
       (catch clojure.lang.ExceptionInfo e
         (if (invalid-sender? e)
           (do
             (tracer/record-info! {:name "magic-code/test-unconfirmed-or-unknown-sender"
                                   :attributes {:email from-email
                                                :app-id (:id app)}})
-            (postmark/send-structured!
+            (email-router/send-structured!
              (magic-code-email to (assoc email-params :sender-email default-sender-email))))
           (throw e))))))
 
@@ -199,13 +200,13 @@
 
         email-req       (magic-code-email email email-params)
         email-res       (try
-                          (postmark/send-structured! email-req)
+                          (email-router/send-structured! email-req)
                           (catch clojure.lang.ExceptionInfo e
                             (cond
                               (invalid-sender? e)
                               (do
                                 (tracer/record-info! {:name "magic-code/unconfirmed-or-unknown-sender" :attributes {:email sender-email :app-id app-id}})
-                                (postmark/send-structured! (magic-code-email email (assoc email-params :sender-email default-sender-email))))
+                                (email-router/send-structured! (magic-code-email email (assoc email-params :sender-email default-sender-email))))
 
                               ;; Don't throw if it's a test user, even if we can't send email to it
                               (and (= ::ex/validation-failed (-> e ex-data ::ex/type))

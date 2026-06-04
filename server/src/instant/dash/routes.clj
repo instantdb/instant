@@ -14,6 +14,7 @@
             [instant.db.model.attr :as attr-model]
             [instant.db.transaction :as tx]
             [instant.discord :as discord]
+            [instant.email-router :as email-router]
             [instant.fixtures :as fixtures]
             [instant.flags :as flags :refer [admin-email?]]
             [instant.hard-deletion-sweeper :as sweeper]
@@ -226,7 +227,7 @@
 (comment
   (def user (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def m {:code (string-util/rand-num-str 6)})
-  (postmark/send-structured! (magic-code-email {:user user :magic-code m})))
+  (email-router/send-structured! (magic-code-email {:user user :magic-code m})))
 
 (defn send-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
@@ -242,7 +243,7 @@
                     {:id (UUID/randomUUID)
                      :code (instant-user-magic-code-model/rand-code)
                      :user-id user-id})]
-    (postmark/send-structured!
+    (email-router/send-structured!
      (magic-code-email {:user u :magic-code magic-code}))
     (response/ok {:sent true})))
 
@@ -1401,7 +1402,7 @@
            {:code code
             :app-id app-id
             :verification-id verification-id})]
-    (postmark/send-structured! (app-email-verification-code/format-email {:code code :sender-email sender-email :app-title (:title app)}))
+    (email-router/send-structured! (app-email-verification-code/format-email {:code code :sender-email sender-email :app-title (:title app)}))
     (response/ok {:sent true})))
 
 (defn sender-verification-verify-magic-code

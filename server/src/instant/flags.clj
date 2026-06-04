@@ -442,3 +442,6 @@
    get the DeregisterTargets notification from the load balancer."
   []
   (flag :deregister-targets-drain-ms (* 1000 60 4.5)))
+
+(defn send-with-sendgrid? []
+  (toggled? :send-with-sendgrid))
