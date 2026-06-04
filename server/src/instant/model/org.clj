@@ -377,7 +377,6 @@
    org and the app."
   ([params] (transfer-app-to-org! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id org-id]}]
-   ;; NEXTUP: transfer members
    (let [{:keys [paid_app
                  paid_org
                  app_stripe_customer_id
