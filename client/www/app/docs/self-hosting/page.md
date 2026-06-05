@@ -226,9 +226,9 @@ To get started: clone the repo on your local computer and edit the `./self-hosti
 
 ```bash
 SSH_HOST=root@ip
-DASHBOARD_URL="https://instant-dash.drewh.cloud"
-SERVER_URL="https://instant-backend.drewh.cloud"
-S3_PUBLIC_ENDPOINT="https://instant-files.drewh.cloud"
+DASHBOARD_URL="https://dashboard@example.com"
+SERVER_URL="https://backend.example.com"
+S3_PUBLIC_ENDPOINT="https://files.example.com"
 
 stack_config() {
   env -i \
