@@ -15,7 +15,6 @@ import {
   useDialog,
 } from '@/components/ui';
 import { displayInstantStandardError, useForm } from '@/lib/hooks/useForm';
-import { useFlag } from '@/lib/hooks/useFlag';
 import { errorToast, successToast } from '@/lib/toast';
 import clsx from 'clsx';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
@@ -93,8 +92,6 @@ export function Email({ app }: { app: InstantApp }) {
   const [customSender, setCustomSender] = useState(Boolean(template?.email));
   const [showDnsRecords, setShowDnsRecords] = useState(false);
   const [isSendingTest, setIsSendingTest] = useState(false);
-  // The test-email endpoint ships after the frontend; hide the button until then.
-  const showSendTest = useFlag('sendTestEmail');
   const [bodyTab, setBodyTab] = useState<'edit' | 'preview'>('edit');
   const verification = useCustomSenderVerification(app);
 
@@ -405,17 +402,15 @@ export function Email({ app }: { app: InstantApp }) {
                 ))}
               </div>
             </div>
-            {showSendTest ? (
-              <Button
-                type="button"
-                variant="subtle"
-                size="mini"
-                loading={isSendingTest}
-                onClick={handleSendTest}
-              >
-                Send a test email
-              </Button>
-            ) : null}
+            <Button
+              type="button"
+              variant="subtle"
+              size="mini"
+              loading={isSendingTest}
+              onClick={handleSendTest}
+            >
+              Send a test email
+            </Button>
           </div>
 
           {bodyTab === 'edit' ? (
