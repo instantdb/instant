@@ -109,9 +109,9 @@ Here's an example of how you can use Pydantic models in a FastAPI app
 ```python {% showCopy=true %}
 from fastapi import FastAPI
 from pydantic import BaseModel
-from instantdb import Instant, id
+from instantdb import AsyncInstant, id
 
-db = Instant()
+db = AsyncInstant()
 app = FastAPI()
 
 class TodoIn(BaseModel):
@@ -122,9 +122,9 @@ class Todo(TodoIn):
     id: str
 
 @app.post("/todos", response_model=Todo)
-def create_todo(todo: TodoIn):
+async def create_todo(todo: TodoIn):
     todo_id = id()
-    db.transact(db.tx.todos[todo_id].update(todo.model_dump()))
+    await db.transact(db.tx.todos[todo_id].update(todo.model_dump()))
     return Todo(id=todo_id, **todo.model_dump())
 ```
 
