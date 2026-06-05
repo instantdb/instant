@@ -45,26 +45,44 @@
                 LIMIT 50"])))
 
 (defn get-top-users
-  "Fetches the users with their transactions in the last `n` days."
+  "Fetches the users with their transactions in the last `n` days.
+   For apps owned by an org, attributes the app to the earliest-joined org owner."
   ([]
    (get-top-users (aurora/conn-pool :read) 7))
   ([n]
    (get-top-users (aurora/conn-pool :read) n))
   ([conn n]
-   (let [interval (str n " days")]  ;; Create the interval string dynamically
-     (sql/select conn
-                 [(str "SELECT
-                          u.email AS user_email,
-                          a.title AS app_title,
-                          SUM(t.count) AS total_transactions
-                        FROM daily_app_transactions t
-                        JOIN apps a ON t.app_id = a.id
-                        JOIN instant_users u ON a.creator_id = u.id
-                        WHERE u.email NOT IN (SELECT unnest(?::text[]))
-                          AND t.date::date BETWEEN NOW() - INTERVAL '" interval "' AND NOW()
-                        GROUP BY u.email, a.title
-                        ORDER BY total_transactions DESC;")
-                  (with-meta (excluded-emails) {:pgtype "text[]"})]))))
+   (sql/select conn
+               ["WITH app_attribution AS (
+                   SELECT
+                     a.id AS app_id,
+                     a.title AS app_title,
+                     COALESCE(
+                       cu.email,
+                       (SELECT ou.email
+                          FROM org_members om
+                          JOIN instant_users ou ON om.user_id = ou.id
+                         WHERE om.org_id = a.org_id
+                           AND om.role = 'owner'
+                         ORDER BY om.created_at ASC
+                         LIMIT 1)
+                     ) AS user_email
+                   FROM apps a
+                   LEFT JOIN instant_users cu ON a.creator_id = cu.id
+                 )
+                 SELECT
+                   aa.user_email,
+                   aa.app_title,
+                   SUM(t.count) AS total_transactions
+                 FROM daily_app_transactions t
+                 JOIN app_attribution aa ON t.app_id = aa.app_id
+                 WHERE aa.user_email IS NOT NULL
+                   AND aa.user_email NOT IN (SELECT unnest(?::text[]))
+                   AND t.date::date BETWEEN NOW() - (? * interval '1 day') AND NOW()
+                 GROUP BY aa.user_email, aa.app_title
+                 ORDER BY total_transactions DESC;"
+                (with-meta (excluded-emails) {:pgtype "text[]"})
+                n])))
 
 (defn get-revenue-generating-subscriptions
   []
