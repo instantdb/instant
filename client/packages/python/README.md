@@ -132,12 +132,21 @@ def new_async_only_method(self): ...
 Full mechanics — replacement rules, preprocessing details, what to
 avoid — live in the docstring of `scripts/run_unasync.py`.
 
-### Manual integration testing via the sandbox
+### Testing changes
 
-Unit tests cover validation, header construction, and pure-logic helpers.
-The sandbox at `client/sandbox/admin-sdk-python/` is the integration-test
-layer — testers exercise the SDK against a real Instant server and assert
-on outcomes. This is similar to how we test the JS admin SDK.
+We test in three layers, fastest to most realistic:
+
+1. **Unit tests** (`make check`) — validation, header construction, error
+   parsing, and pure-logic helpers (buffer-discard math, dispatch precedence,
+   etc.). No network. This is the fast inner loop.
+2. **Sandbox integration tests** — exercise the SDK against a real Instant
+   server and assert on outcomes. Similar to how we test the JS admin SDK.
+3. **End-to-end branch test** — scaffold a real consumer project that pulls the
+   SDK from your branch, then run a script the way a user would.
+
+#### Sandbox (integration)
+
+The sandbox at `client/sandbox/admin-sdk-python/` is the integration layer.
 
 ```bash
 cd ../../sandbox/admin-sdk-python
@@ -147,12 +156,52 @@ uv sync
 uv run --env-file .env python -m src.main
 ```
 
-The sandbox has two entry points: `src/main.py` for the async client
-(everything, including subscribe + streams) and `src/main_sync.py` for
-the sync client (auth, query, transact, storage, rooms, webhooks).
+Two entry points: `src/main.py` for the async client (everything, including
+subscribe + streams) and `src/main_sync.py` for the sync client (auth, query,
+transact, storage, rooms, webhooks). Tester calls are commented out at rest —
+uncomment the one you want, run it, re-comment before committing.
 
-Defaults to `http://localhost:8888`; set `INSTANT_API_URI` in `.env` to
-point elsewhere.
+Defaults to `http://localhost:8888`; set `INSTANT_API_URI` in `.env` to point
+elsewhere.
+
+#### End-to-end (a real project on your branch)
+
+To exercise a change the way a user would — scaffold a project, install the SDK,
+run a script — point a fresh `create-instant-app` project at your branch:
+
+1. Push your branch to GitHub (e.g. `my-feature`).
+2. Scaffold a project with the per-branch build of `create-instant-app` (the
+   `@branch-<your-branch>` tag is published automatically per branch):
+
+   ```bash
+   cd /tmp
+   pnpx create-instant-app@branch-my-feature --python my-app
+   cd my-app
+   ```
+
+3. The scaffold pulls `instantdb` from PyPI by default, which won't have your
+   branch's changes. Point it at your branch by adding a `[tool.uv.sources]`
+   entry to the scaffolded `pyproject.toml`:
+
+   ```toml
+   [tool.uv.sources]
+   instantdb = { git = "https://github.com/instantdb/instant.git", branch = "my-feature", subdirectory = "client/packages/python" }
+   ```
+
+4. Sync and run (the scaffolder already wrote a working `.env`):
+
+   ```bash
+   uv sync   # clones the repo, builds the SDK from your branch, installs it
+   uv run --env-file .env python main.py
+   ```
+
+If you already have the monorepo checked out and are iterating on the SDK, use a
+local editable path instead so source edits show up without re-syncing from git:
+
+```toml
+[tool.uv.sources]
+instantdb = { path = "/absolute/path/to/client/packages/python", editable = true }
+```
 
 # Questions?
 
