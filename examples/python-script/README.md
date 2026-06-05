@@ -13,8 +13,6 @@ To run the script:
 To push schema and permission changes (requires Node):
 `npx instant-cli push`
 
-The Python SDK has no codegen step. `instant.schema.ts` and
-`instant.perms.ts` are included so you can manage your app with the
-Instant CLI.
+`instant.schema.ts` and `instant.perms.ts` are included so you can manage your app with the Instant CLI.
 
 Got any feedback or questions? Join our [Discord](https://discord.gg/hgVf9R6SBm)
