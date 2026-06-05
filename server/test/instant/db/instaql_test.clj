@@ -10,6 +10,7 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triple-model]
    [instant.db.transaction :as tx]
+   [instant.flags :as flags]
    [instant.fixtures :refer [with-empty-app
                              with-zeneca-app
                              with-zeneca-byop
@@ -29,6 +30,7 @@
    [instant.util.test :refer [instant-ex-data pretty-perm-q with-sketches stuid]]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.store :as rs]
+   [instant.reactive.topics :as topics]
    [next.jdbc :as next-jdbc]
    [rewrite-clj.zip :as z]
    [zprint.core :as zprint])
@@ -93,6 +95,14 @@
        (iq/query ctx)
        (resolvers/walk-friendly r)
        (map ->pretty-node)))
+
+(defn- query-topics
+  "Returns the raw (unresolved) set of topics a query subscribes to."
+  [ctx q]
+  (->> (iq/query ctx q)
+       (mapcat (fn [node]
+                 (mapcat :topics (map :datalog-result (iq/data-seq node)))))
+       set))
 
 (defn- validation-err [ctx q]
   (try (iq/query
@@ -524,7 +534,7 @@
           (is-pretty-eq? (query-pretty {:users {:$ {:limit 2
                                                     :order {:serverCreatedAt :desc}}}})
                          '({:topics ([#{:ea} _ #{:users/id} _]
-                                     [#{:ea} #{"eid-alex" "eid-nicole"} #{:users/id} _]
+                                     [#{:mutated} #{"eid-alex" "eid-nicole"} #{:users/id} _]
                                      --
                                      [#{:ea} #{"eid-alex"}
                                       #{:users/createdAt :users/email :users/id :users/fullName
@@ -534,28 +544,28 @@
                                       #{:users/createdAt :users/email :users/id :users/fullName
                                         :users/handle} _])
                             :triples (("eid-alex" :users/id "eid-alex")
-                                      ("eid-alex" :users/id "eid-alex")
-                                      ("eid-nicole" :users/id "eid-nicole")
-                                      ("eid-nicole" :users/id "eid-nicole")
-                                      --
-                                      ("eid-alex" :users/id "eid-alex")
-                                      ("eid-alex" :users/fullName "Alex")
-                                      ("eid-alex" :users/email "alex@instantdb.com")
-                                      ("eid-alex" :users/handle "alex")
-                                      ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")
-                                      --
-                                      ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
-                                      ("eid-nicole" :users/email "nicole@instantdb.com")
-                                      ("eid-nicole" :users/handle "nicolegf")
-                                      ("eid-nicole" :users/id "eid-nicole")
-                                      ("eid-nicole" :users/fullName "Nicole"))})))
+                                       ("eid-alex" :users/id "eid-alex")
+                                       ("eid-nicole" :users/id "eid-nicole")
+                                       ("eid-nicole" :users/id "eid-nicole")
+                                       --
+                                       ("eid-alex" :users/id "eid-alex")
+                                       ("eid-alex" :users/fullName "Alex")
+                                       ("eid-alex" :users/email "alex@instantdb.com")
+                                       ("eid-alex" :users/handle "alex")
+                                       ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689")
+                                       --
+                                       ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
+                                       ("eid-nicole" :users/email "nicole@instantdb.com")
+                                       ("eid-nicole" :users/handle "nicolegf")
+                                       ("eid-nicole" :users/id "eid-nicole")
+                                       ("eid-nicole" :users/fullName "Nicole"))})))
 
         (testing "limit with where"
           (is-pretty-eq? (query-pretty {:users {:$ {:where {:handle {:in ["joe" "stopa" "nicolegf"]}}
                                                     :limit 2
                                                     :order {:serverCreatedAt :desc}}}})
                          '({:topics ([#{:av} _ #{:users/handle} #{"stopa" "joe" "nicolegf"}]
-                                     [#{:ea} #{"eid-joe-averbukh" "eid-nicole"} #{:users/id} _]
+                                     [#{:mutated} #{"eid-joe-averbukh" "eid-nicole"} #{:users/id} _]
                                      --
                                      [#{:ea} #{"eid-joe-averbukh"}
                                       #{:users/createdAt :users/email :users/id :users/fullName
@@ -565,21 +575,21 @@
                                       #{:users/createdAt :users/email :users/id :users/fullName
                                         :users/handle} _])
                             :triples (("eid-nicole" :users/handle "nicolegf")
-                                      ("eid-nicole" :users/id "eid-nicole")
-                                      ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                                      ("eid-joe-averbukh" :users/handle "joe")
-                                      --
-                                      ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                                      ("eid-joe-averbukh" :users/email "joe@instantdb.com")
-                                      ("eid-joe-averbukh" :users/handle "joe")
-                                      ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-                                      ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
-                                      --
-                                      ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
-                                      ("eid-nicole" :users/email "nicole@instantdb.com")
-                                      ("eid-nicole" :users/handle "nicolegf")
-                                      ("eid-nicole" :users/id "eid-nicole")
-                                      ("eid-nicole" :users/fullName "Nicole"))})))
+                                       ("eid-nicole" :users/id "eid-nicole")
+                                       ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                                       ("eid-joe-averbukh" :users/handle "joe")
+                                       --
+                                       ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                                       ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+                                       ("eid-joe-averbukh" :users/handle "joe")
+                                       ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+                                       ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
+                                       --
+                                       ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
+                                       ("eid-nicole" :users/email "nicole@instantdb.com")
+                                       ("eid-nicole" :users/handle "nicolegf")
+                                       ("eid-nicole" :users/id "eid-nicole")
+                                       ("eid-nicole" :users/fullName "Nicole"))})))
 
         (testing "makes sure we use distinct"
           (is (= (-> (iq/query ctx {:users {:$ {:where {:bookshelves {:in
@@ -605,8 +615,8 @@
           (is-pretty-eq? (query-pretty {:users {:$ {:offset 2
                                                     :order {:serverCreatedAt :desc}}}})
                          '({:topics ([#{:ea} _ #{:users/id} _]
-                                     [#{:ea} #{"eid-joe-averbukh" "eid-stepan-parunashvili"} #{:users/id}
-                                      _]
+                                     [#{:mutated} #{"eid-joe-averbukh" "eid-stepan-parunashvili"}
+                                      #{:users/id} _]
                                      --
                                      [#{:ea} #{"eid-joe-averbukh"}
                                       #{:users/createdAt :users/email :users/id :users/fullName
@@ -616,22 +626,22 @@
                                       #{:users/createdAt :users/email :users/id :users/fullName
                                         :users/handle} _])
                             :triples
-                            (("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                             ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                             --
-                             ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                             ("eid-joe-averbukh" :users/email "joe@instantdb.com")
-                             ("eid-joe-averbukh" :users/handle "joe")
-                             ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-                             ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
-                             --
-                             ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                             ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
-                             ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                             ("eid-stepan-parunashvili" :users/handle "stopa")
-                             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))})))
+                              (("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                                ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                                --
+                                ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                                ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+                                ("eid-joe-averbukh" :users/handle "joe")
+                                ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+                                ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
+                                --
+                                ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                                ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+                                ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                                ("eid-stepan-parunashvili" :users/handle "stopa")
+                                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))})))
 
         (testing "cursors"
           (let [{:keys [start-cursor end-cursor]}
@@ -646,108 +656,109 @@
                                                         :after end-cursor
                                                         :order {:serverCreatedAt :desc}}}})
                              '({:topics ([#{:ea} _ #{:users/id} _]
-                                         [#{:ea} #{"eid-alex"} #{:users/id} _]
+                                         [#{:mutated} #{"eid-alex"} #{:users/id} _]
                                          --
                                          [#{:ea} #{"eid-alex"}
                                           #{:users/createdAt :users/email :users/id :users/fullName
                                             :users/handle} _])
                                 :triples (("eid-alex" :users/id "eid-alex")
-                                          ("eid-alex" :users/id "eid-alex")
-                                          --
-                                          ("eid-alex" :users/id "eid-alex")
-                                          ("eid-alex" :users/fullName "Alex")
-                                          ("eid-alex" :users/email "alex@instantdb.com")
-                                          ("eid-alex" :users/handle "alex")
-                                          ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))}))
+                                           ("eid-alex" :users/id "eid-alex")
+                                           --
+                                           ("eid-alex" :users/id "eid-alex")
+                                           ("eid-alex" :users/fullName "Alex")
+                                           ("eid-alex" :users/email "alex@instantdb.com")
+                                           ("eid-alex" :users/handle "alex")
+                                           ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))}))
               (testing "afterInclusive"
                 (is-pretty-eq? (query-pretty {:users {:$ {:limit 1
                                                           :after end-cursor
                                                           :afterInclusive true
                                                           :order {:serverCreatedAt :desc}}}})
                                '({:topics ([#{:ea} _ #{:users/id} _]
-                                           [#{:ea} #{"eid-nicole"} #{:users/id} _]
+                                           [#{:mutated} #{"eid-nicole"} #{:users/id} _]
                                            --
                                            [#{:ea} #{"eid-nicole"}
                                             #{:users/createdAt :users/email :users/id :users/fullName
                                               :users/handle} _])
-                                  :triples #{("eid-nicole" :users/fullName "Nicole")
+                                  :triples (("eid-nicole" :users/id "eid-nicole")
                                              ("eid-nicole" :users/id "eid-nicole")
-                                             ("eid-nicole" :users/handle "nicolegf")
                                              --
+                                             ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
                                              ("eid-nicole" :users/email "nicole@instantdb.com")
-                                             ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")}}))))
+                                             ("eid-nicole" :users/handle "nicolegf")
+                                             ("eid-nicole" :users/id "eid-nicole")
+                                             ("eid-nicole" :users/fullName "Nicole"))}))))
 
             (testing "before"
               (is-pretty-eq? (query-pretty {:users {:$ {:limit 1
                                                         :before start-cursor
                                                         :order {:serverCreatedAt :desc}}}})
-                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:ea} #{} #{:users/id} _]) :triples ()}))
+                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:mutated} #{} #{:users/id} _])
+                                :triples ()}))
 
               (is-pretty-eq? (query-pretty {:users {:$ {:limit 1
                                                         :before start-cursor
                                                         :order {:serverCreatedAt "asc"}}}})
                              '({:topics ([#{:ea} _ #{:users/id} _]
-                                         [#{:ea} #{"eid-stepan-parunashvili"} #{:users/id} _]
+                                         [#{:mutated} #{"eid-stepan-parunashvili"} #{:users/id} _]
                                          --
                                          [#{:ea} #{"eid-stepan-parunashvili"}
                                           #{:users/createdAt :users/email :users/id :users/fullName
                                             :users/handle} _])
                                 :triples
-                                (("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                                 ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                                 --
-                                 ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                                 ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
-                                 ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                                 ("eid-stepan-parunashvili" :users/handle "stopa")
-                                 ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))
+                                  (("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                                    ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                                    --
+                                    ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                                    ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+                                    ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                                    ("eid-stepan-parunashvili" :users/handle "stopa")
+                                    ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))
 
               (testing "beforeInclusive"
                 (is-pretty-eq? (query-pretty {:users {:$ {:limit 1
                                                           :before start-cursor
                                                           :beforeInclusive true
                                                           :order {:serverCreatedAt :desc}}}})
-                               '({:topics #{[#{:ea} #{"eid-nicole"} #{:users/id} _]
-                                            [#{:ea} _ #{:users/id} _]
-                                            [#{:ea}
-                                             #{"eid-nicole"}
-                                             #{:users/createdAt
-                                               :users/email
-                                               :users/id
-                                               :users/fullName
-                                               :users/handle}
-                                             _]
-                                            --}
-                                  :triples #{("eid-nicole" :users/fullName "Nicole")
+                               '({:topics ([#{:ea} _ #{:users/id} _]
+                                           [#{:mutated} #{"eid-nicole"} #{:users/id} _]
+                                           --
+                                           [#{:ea} #{"eid-nicole"}
+                                            #{:users/createdAt :users/email :users/id :users/fullName
+                                              :users/handle} _])
+                                  :triples (("eid-nicole" :users/id "eid-nicole")
                                              ("eid-nicole" :users/id "eid-nicole")
-                                             ("eid-nicole" :users/handle "nicolegf")
                                              --
+                                             ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
                                              ("eid-nicole" :users/email "nicole@instantdb.com")
-                                             ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")}}))))
+                                             ("eid-nicole" :users/handle "nicolegf")
+                                             ("eid-nicole" :users/id "eid-nicole")
+                                             ("eid-nicole" :users/fullName "Nicole"))}))))
 
             (testing "last"
               (is-pretty-eq? (query-pretty {:users {:$ {:limit 1
                                                         :before start-cursor
                                                         :order {:serverCreatedAt :desc}}}})
-                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:ea} #{} #{:users/id} _]) :triples ()}))
+                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:mutated} #{} #{:users/id} _])
+                                :triples ()}))
 
               (is-pretty-eq? (query-pretty {:users {:$ {:last 1
                                                         :before start-cursor
                                                         :order {:serverCreatedAt "asc"}}}})
                              '({:topics ([#{:ea} _ #{:users/id} _]
-                                         [#{:ea} #{"eid-alex"} #{:users/id} _]
+                                         [#{:mutated} #{"eid-alex"} #{:users/id} _]
                                          --
                                          [#{:ea} #{"eid-alex"}
                                           #{:users/createdAt :users/email :users/id :users/fullName
                                             :users/handle} _])
                                 :triples (("eid-alex" :users/id "eid-alex")
-                                          ("eid-alex" :users/id "eid-alex")
-                                          --
-                                          ("eid-alex" :users/id "eid-alex")
-                                          ("eid-alex" :users/fullName "Alex")
-                                          ("eid-alex" :users/email "alex@instantdb.com")
-                                          ("eid-alex" :users/handle "alex")
-                                          ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))})))
+                                           ("eid-alex" :users/id "eid-alex")
+                                           --
+                                           ("eid-alex" :users/id "eid-alex")
+                                           ("eid-alex" :users/fullName "Alex")
+                                           ("eid-alex" :users/email "alex@instantdb.com")
+                                           ("eid-alex" :users/handle "alex")
+                                           ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))})))
 
             (let [alex-cursor (-> (iq/query ctx {:users {:$ {:limit 1
                                                              :where {:handle "alex"}}}})
@@ -880,8 +891,8 @@
           (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 2
                                                           :order {:handle :desc}}}})
                          '({:topics ([#{:ea} _ #{:users/id} _]
-                                     [#{:ave} #{"eid-nicole" "eid-stepan-parunashvili"} #{:users/handle}
-                                      _]
+                                     [#{:mutated} #{"eid-nicole" "eid-stepan-parunashvili"}
+                                      #{:users/handle} _]
                                      --
                                      [#{:ea} #{"eid-stepan-parunashvili"}
                                       #{:users/createdAt :users/email :users/id :users/fullName
@@ -891,29 +902,29 @@
                                       #{:users/createdAt :users/email :users/id :users/fullName
                                         :users/handle} _])
                             :triples
-                            (("eid-nicole" :users/handle "nicolegf")
-                             ("eid-nicole" :users/id "eid-nicole")
-                             ("eid-stepan-parunashvili" :users/handle "stopa")
-                             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                             --
-                             ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                             ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
-                             ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                             ("eid-stepan-parunashvili" :users/handle "stopa")
-                             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                             --
-                             ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
-                             ("eid-nicole" :users/email "nicole@instantdb.com")
-                             ("eid-nicole" :users/handle "nicolegf")
-                             ("eid-nicole" :users/id "eid-nicole")
-                             ("eid-nicole" :users/fullName "Nicole"))})))
+                              (("eid-nicole" :users/handle "nicolegf")
+                                ("eid-nicole" :users/id "eid-nicole")
+                                ("eid-stepan-parunashvili" :users/handle "stopa")
+                                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                                --
+                                ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                                ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+                                ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                                ("eid-stepan-parunashvili" :users/handle "stopa")
+                                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                                --
+                                ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
+                                ("eid-nicole" :users/email "nicole@instantdb.com")
+                                ("eid-nicole" :users/handle "nicolegf")
+                                ("eid-nicole" :users/id "eid-nicole")
+                                ("eid-nicole" :users/fullName "Nicole"))})))
 
         (testing "limit with where"
           (is-pretty-eq? (query-pretty ctx r {:users {:$ {:where {:handle {:in ["joe" "stopa" "alex"]}}
                                                           :limit 2
                                                           :order {:handle :desc}}}})
                          '({:topics ([#{:ave} _ #{:users/handle} #{"alex" "stopa" "joe"}]
-                                     [#{:ave} #{"eid-joe-averbukh" "eid-stepan-parunashvili"}
+                                     [#{:mutated} #{"eid-joe-averbukh" "eid-stepan-parunashvili"}
                                       #{:users/handle} _]
                                      --
                                      [#{:ea} #{"eid-stepan-parunashvili"}
@@ -924,28 +935,28 @@
                                       #{:users/createdAt :users/email :users/id :users/fullName
                                         :users/handle} _])
                             :triples
-                            (("eid-joe-averbukh" :users/handle "joe")
-                             ("eid-joe-averbukh" :users/handle "joe")
-                             ("eid-stepan-parunashvili" :users/handle "stopa")
-                             ("eid-stepan-parunashvili" :users/handle "stopa")
-                             --
-                             ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
-                             ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
-                             ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
-                             ("eid-stepan-parunashvili" :users/handle "stopa")
-                             ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
-                             --
-                             ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                             ("eid-joe-averbukh" :users/email "joe@instantdb.com")
-                             ("eid-joe-averbukh" :users/handle "joe")
-                             ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-                             ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))
+                              (("eid-joe-averbukh" :users/handle "joe")
+                                ("eid-joe-averbukh" :users/handle "joe")
+                                ("eid-stepan-parunashvili" :users/handle "stopa")
+                                ("eid-stepan-parunashvili" :users/handle "stopa")
+                                --
+                                ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                                ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+                                ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                                ("eid-stepan-parunashvili" :users/handle "stopa")
+                                ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                                --
+                                ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                                ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+                                ("eid-joe-averbukh" :users/handle "joe")
+                                ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+                                ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637"))})))
 
         (testing "offset"
           (is-pretty-eq? (query-pretty ctx r {:users {:$ {:offset 2
                                                           :order {:handle :desc}}}})
                          '({:topics ([#{:ea} _ #{:users/id} _]
-                                     [#{:ave} #{"eid-joe-averbukh" "eid-alex"} #{:users/handle} _]
+                                     [#{:mutated} #{"eid-joe-averbukh" "eid-alex"} #{:users/handle} _]
                                      --
                                      [#{:ea} #{"eid-joe-averbukh"}
                                       #{:users/createdAt :users/email :users/id :users/fullName
@@ -955,21 +966,21 @@
                                       #{:users/createdAt :users/email :users/id :users/fullName
                                         :users/handle} _])
                             :triples (("eid-alex" :users/id "eid-alex")
-                                      ("eid-alex" :users/handle "alex")
-                                      ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                                      ("eid-joe-averbukh" :users/handle "joe")
-                                      --
-                                      ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
-                                      ("eid-joe-averbukh" :users/email "joe@instantdb.com")
-                                      ("eid-joe-averbukh" :users/handle "joe")
-                                      ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
-                                      ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
-                                      --
-                                      ("eid-alex" :users/id "eid-alex")
-                                      ("eid-alex" :users/fullName "Alex")
-                                      ("eid-alex" :users/email "alex@instantdb.com")
-                                      ("eid-alex" :users/handle "alex")
-                                      ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))})))
+                                       ("eid-alex" :users/handle "alex")
+                                       ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                                       ("eid-joe-averbukh" :users/handle "joe")
+                                       --
+                                       ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                                       ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+                                       ("eid-joe-averbukh" :users/handle "joe")
+                                       ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+                                       ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
+                                       --
+                                       ("eid-alex" :users/id "eid-alex")
+                                       ("eid-alex" :users/fullName "Alex")
+                                       ("eid-alex" :users/email "alex@instantdb.com")
+                                       ("eid-alex" :users/handle "alex")
+                                       ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))})))
 
         (testing "cursors"
           (let [{:keys [start-cursor end-cursor]}
@@ -985,69 +996,69 @@
                                                               :after end-cursor
                                                               :order {:handle :desc}}}})
                              '({:topics ([#{:ea} _ #{:users/id} _]
-                                         [#{:ave} #{"eid-nicole"} #{:users/handle} _]
+                                         [#{:mutated} #{"eid-nicole"} #{:users/handle} _]
                                          --
                                          [#{:ea} #{"eid-nicole"}
                                           #{:users/createdAt :users/email :users/id :users/fullName
                                             :users/handle} _])
                                 :triples (("eid-nicole" :users/handle "nicolegf")
-                                          ("eid-nicole" :users/id "eid-nicole")
-                                          --
-                                          ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
-                                          ("eid-nicole" :users/email "nicole@instantdb.com")
-                                          ("eid-nicole" :users/handle "nicolegf")
-                                          ("eid-nicole" :users/id "eid-nicole")
-                                          ("eid-nicole" :users/fullName "Nicole"))})))
+                                           ("eid-nicole" :users/id "eid-nicole")
+                                           --
+                                           ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
+                                           ("eid-nicole" :users/email "nicole@instantdb.com")
+                                           ("eid-nicole" :users/handle "nicolegf")
+                                           ("eid-nicole" :users/id "eid-nicole")
+                                           ("eid-nicole" :users/fullName "Nicole"))})))
 
             (testing "before"
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
                                                               :before start-cursor
                                                               :order {:handle :desc}}}})
-                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:ave} #{} #{:users/handle} _])
+                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:mutated} #{} #{:users/handle} _])
                                 :triples ()}))
 
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
                                                               :before start-cursor
                                                               :order {:handle "asc"}}}})
                              '({:topics ([#{:ea} _ #{:users/id} _]
-                                         [#{:ave} #{"eid-alex"} #{:users/handle} _]
+                                         [#{:mutated} #{"eid-alex"} #{:users/handle} _]
                                          --
                                          [#{:ea} #{"eid-alex"}
                                           #{:users/createdAt :users/email :users/id :users/fullName
                                             :users/handle} _])
                                 :triples (("eid-alex" :users/id "eid-alex")
-                                          ("eid-alex" :users/handle "alex")
-                                          --
-                                          ("eid-alex" :users/id "eid-alex")
-                                          ("eid-alex" :users/fullName "Alex")
-                                          ("eid-alex" :users/email "alex@instantdb.com")
-                                          ("eid-alex" :users/handle "alex")
-                                          ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))})))
+                                           ("eid-alex" :users/handle "alex")
+                                           --
+                                           ("eid-alex" :users/id "eid-alex")
+                                           ("eid-alex" :users/fullName "Alex")
+                                           ("eid-alex" :users/email "alex@instantdb.com")
+                                           ("eid-alex" :users/handle "alex")
+                                           ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))})))
 
             (testing "last"
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:limit 1
                                                               :before start-cursor
                                                               :order {:handle :desc}}}})
-                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:ave} #{} #{:users/handle} _])
+                             '({:topics ([#{:ea} _ #{:users/id} _] [#{:mutated} #{} #{:users/handle} _])
                                 :triples ()}))
 
               (is-pretty-eq? (query-pretty ctx r {:users {:$ {:last 1
                                                               :before start-cursor
                                                               :order {:handle "asc"}}}})
                              '({:topics ([#{:ea} _ #{:users/id} _]
-                                         [#{:ave} #{"eid-nicole"} #{:users/handle} _]
+                                         [#{:mutated} #{"eid-nicole"} #{:users/handle} _]
                                          --
                                          [#{:ea} #{"eid-nicole"}
                                           #{:users/createdAt :users/email :users/id :users/fullName
                                             :users/handle} _])
                                 :triples (("eid-nicole" :users/handle "nicolegf")
-                                          ("eid-nicole" :users/id "eid-nicole")
-                                          --
-                                          ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
-                                          ("eid-nicole" :users/email "nicole@instantdb.com")
-                                          ("eid-nicole" :users/handle "nicolegf")
-                                          ("eid-nicole" :users/id "eid-nicole")
-                                          ("eid-nicole" :users/fullName "Nicole"))})))
+                                           ("eid-nicole" :users/id "eid-nicole")
+                                           --
+                                           ("eid-nicole" :users/createdAt "2021-02-05 22:35:23.754264")
+                                           ("eid-nicole" :users/email "nicole@instantdb.com")
+                                           ("eid-nicole" :users/handle "nicolegf")
+                                           ("eid-nicole" :users/id "eid-nicole")
+                                           ("eid-nicole" :users/fullName "Nicole"))})))
 
             (let [nicole-cursor (-> (iq/query ctx {:users {:$ {:limit 1
                                                                :where {:handle "nicolegf"}
@@ -3194,6 +3205,87 @@
           (is (= #{true false} (run-query :boolean {:etype {:$ {:where {:boolean {:$in [true false]}}}}})))
           (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean false}}}}))))))))
 
+(defn- wal-col [n v] {:name n :value v})
+(defn- wal-index-cols []
+  [(wal-col "ea" true) (wal-col "eav" false) (wal-col "av" true)
+   (wal-col "ave" true) (wal-col "vae" false)])
+(defn- wal-update-change [eid attr old new]
+  {:action :update
+   :columns (into [(wal-col "entity_id" (str eid)) (wal-col "attr_id" (str attr))
+                   (wal-col "value" (str new))] (wal-index-cols))
+   :identity (into [(wal-col "entity_id" (str eid)) (wal-col "attr_id" (str attr))
+                    (wal-col "value" (str old))] (wal-index-cols))})
+(defn- wal-insert-change [eid attr v]
+  {:action :insert
+   :columns (into [(wal-col "entity_id" (str eid)) (wal-col "attr_id" (str attr))
+                   (wal-col "value" (str v))] (wal-index-cols))})
+
+(deftest order-topic-matches-updates-not-inserts
+  ;; An ordered+limited query whose entities are matched through a parent->child
+  ;; many-link (e.g. `messages where conversation.id = X order by createdAt`)
+  ;; binds the matched rows as `ref-value`s, so the page-info (order) topic is
+  ;; app-wide (`[:ave _ createdAt _]`) and every write to the order attr anywhere
+  ;; re-runs the query. The order topic only needs to catch *re-sorts* (updates);
+  ;; new rows are caught by the where/link topic. So the page topic subscribes to
+  ;; the `:mutated` marker, which only value-changed updates emit -- it catches a
+  ;; row reordering into the window but ignores inserts elsewhere.
+  (with-empty-app
+    (fn [app]
+      (let [conn (aurora/conn-pool :write)
+            convos-id  (random-uuid)
+            msgs-id    (random-uuid)
+            priority   (random-uuid)
+            convo-msgs (random-uuid)
+            convo-eid  (random-uuid)
+            msg-eids   (vec (repeatedly 15 random-uuid))]
+        (tx/transact! conn (attr-model/get-by-app-id (:id app)) (:id app)
+                      [[:add-attr {:id convos-id :forward-identity [(random-uuid) "conversations" "id"]
+                                   :unique? true :index? false :value-type :blob :cardinality :one}]
+                       [:add-attr {:id msgs-id :forward-identity [(random-uuid) "messages" "id"]
+                                   :unique? true :index? false :value-type :blob :cardinality :one}]
+                       [:add-attr {:id priority :forward-identity [(random-uuid) "messages" "priority"]
+                                   :unique? false :index? true :value-type :blob
+                                   :checked-data-type :number :cardinality :one}]
+                       [:add-attr {:id convo-msgs
+                                   :forward-identity [(random-uuid) "conversations" "messages"]
+                                   :reverse-identity [(random-uuid) "messages" "conversation"]
+                                   :unique? false :index? false :value-type :ref :cardinality :many}]])
+        (tx/transact! conn (attr-model/get-by-app-id (:id app)) (:id app)
+                      (into [[:add-triple convo-eid convos-id (str convo-eid)]]
+                            (mapcat (fn [i eid]
+                                      [[:add-triple eid msgs-id (str eid)]
+                                       [:add-triple eid priority (inc i)]
+                                       [:add-triple convo-eid convo-msgs eid]])
+                                    (range 15) msg-eids)))
+        (let [ctx {:db {:conn-pool conn} :app-id (:id app)
+                   :attrs (attr-model/get-by-app-id (:id app))}
+              link-q {:messages {:$ {:where {:conversation.id (str convo-eid)}
+                                     :order {:priority "desc"} :limit 5}}}
+              off-window (first msg-eids) ;; priority 1, outside a desc/limit-5 window
+              ;; an off-window row reordered into the window (sort-key update)
+              reorder-ivs (topics/topics-for-changes
+                           {:triple-changes [(wal-update-change off-window priority 1 100)]})
+              ;; a brand-new message in some *other* conversation (sort-key insert)
+              insert-ivs (topics/topics-for-changes
+                          {:triple-changes [(wal-insert-change (random-uuid) priority 100)]})
+              caught? (fn [ivs toggle?]
+                        (let [run #(boolean (rs/matching-topic-intersection?
+                                             ivs (query-topics ctx link-q)))]
+                          (if toggle?
+                            (binding [flags/*toggle-overrides* {:skip-order-topic-updates-only true}]
+                              (run))
+                            (run))))]
+          (testing "default: catches off-window reorders, ignores cross-parent inserts"
+            (is (caught? reorder-ivs false)
+                "an off-window row reordered into the window still invalidates")
+            (is (not (caught? insert-ivs false))
+                "a new message in another conversation does NOT invalidate (no spam)"))
+
+          (testing "skip toggle reverts to the old app-wide behavior"
+            (is (caught? reorder-ivs true))
+            (is (caught? insert-ivs true)
+                "old behavior re-runs on every insert (the spam)")))))))
+
 (deftest $not-with-refs
   (with-zeneca-checked-data-app
     (fn [app r]
@@ -3225,20 +3317,20 @@
                                    [#{:vae} {:$not "eid-joe-averbukh"} #{:users/bookshelves} #{}]
                                    [#{:ea} #{} #{:bookshelves/id} _]
                                    [#{:ea} _ #{:users/bookshelves} _]
-                                   [#{:ave} #{} #{:bookshelves/order} _]
+                                   [#{:mutated} #{} #{:bookshelves/order} _]
                                    --
                                    [#{:ea} #{"eid-nonfiction"}
                                     #{:bookshelves/desc :bookshelves/name :bookshelves/order
                                       :bookshelves/id} _])
                           :triples (("eid-alex" :users/bookshelves "eid-nonfiction")
-                                    ("eid-alex" :users/bookshelves "eid-nonfiction")
-                                    ("eid-alex" :users/bookshelves "eid-nonfiction")
-                                    ("eid-nonfiction" :bookshelves/order 1)
-                                    --
-                                    ("eid-nonfiction" :bookshelves/id "eid-nonfiction")
-                                    ("eid-nonfiction" :bookshelves/name "Nonfiction")
-                                    ("eid-nonfiction" :bookshelves/desc "")
-                                    ("eid-nonfiction" :bookshelves/order 1))}))))))
+                                     ("eid-alex" :users/bookshelves "eid-nonfiction")
+                                     ("eid-alex" :users/bookshelves "eid-nonfiction")
+                                     ("eid-nonfiction" :bookshelves/order 1)
+                                     --
+                                     ("eid-nonfiction" :bookshelves/id "eid-nonfiction")
+                                     ("eid-nonfiction" :bookshelves/name "Nonfiction")
+                                     ("eid-nonfiction" :bookshelves/desc "")
+                                     ("eid-nonfiction" :bookshelves/order 1))}))))))
 
 (deftest lookup-unique-uses-the-av-index
   (binding [d/*enable-pg-hints* true]

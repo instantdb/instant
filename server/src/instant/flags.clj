@@ -367,6 +367,19 @@
 (defn use-coarse-topics? [app-id]
   (contains? (flag :coarse-topics-apps) app-id))
 
+(defn order-topics-match-updates-only?
+  "When true (the default), an ordered+limited query's page-info topic only
+   matches value-changed *updates* to the sort key, not inserts. New rows
+   entering the window are caught by the where/enumeration topic, so the page
+   topic doesn't need to fire on inserts -- and not firing on them keeps a write
+   to the sort key in some *other* parent (e.g. a new message in another
+   conversation for `messages where conversation.id = X order by createdAt`)
+   from re-running the query, while still catching a row reordering into the
+   window. Set the `skip-order-topic-updates-only` toggle to revert to the old
+   app-wide behavior."
+  []
+  (not (toggled? :skip-order-topic-updates-only)))
+
 (defn use-get-datalog-queries-for-topics-v3? []
   (toggled? :use-get-datalog-queries-for-topics-v3? true))
 

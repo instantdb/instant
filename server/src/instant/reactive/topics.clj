@@ -114,12 +114,16 @@
 
           (and (= e old-e)
                (= a old-a))
-          [[ks #{e} #{a} (set [v old-v])]]
+          ;; `:mutated` marks that this attr's value changed (vs was just
+          ;; inserted). Ordered+limited queries subscribe to it so they catch a
+          ;; row reordering into the window without also re-running on every
+          ;; insert (new rows are caught by the where/enumeration topic).
+          [[(conj ks :mutated) #{e} #{a} (set [v old-v])]]
 
           ;; We shouldn't hit this, but just in case
           :else
-          [[ks #{e} #{a} #{v}]
-           [ks #{e} #{a} #{old-v}]])))
+          [[(conj ks :mutated) #{e} #{a} #{v}]
+           [(conj ks :mutated) #{e} #{a} #{old-v}]])))
 
 (defn- topics-for-triple-delete [change]
   (let [m (columns->map (:identity change) true)

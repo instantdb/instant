@@ -413,7 +413,9 @@
               #{1987}]}
            (topics/topics-for-changes {:triple-changes create-triple-changes}))))
   (testing "update triples"
-    (is (= '#{[#{:ea}
+    ;; `:mutated` marks a value-changed update so ordered queries can catch
+    ;; reorders without firing on inserts (see topics/topics-for-triple-update).
+    (is (= '#{[#{:mutated :ea}
                #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
                #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
                #{"Updated Movie3" "Old Movie"}]}
