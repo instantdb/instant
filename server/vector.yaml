@@ -1,14 +1,15 @@
 sources:
   # Reads stdout/stderr from running containers via the Docker Engine API.
-  # `web` matches the EB-managed container as a substring (real name is
-  # something like `current-app_web_1` on the instance).
+  # We match the web service via its Docker Compose label rather than name —
+  # `include_containers` requires *exact* name matches, and EB's compose
+  # project prefix (`current-web-1`) defeats a literal `web`. The label
+  # `com.docker.compose.service=web` is set by Compose regardless of the
+  # project name and matches just the app container.
   # https://vector.dev/docs/reference/configuration/sources/docker_logs/
   docker:
     type: "docker_logs"
-    include_containers:
-      - "web"
-    exclude_containers:
-      - "vector"
+    include_labels:
+      - "com.docker.compose.service=web"
     docker_host: "unix:///var/run/docker.sock"
 
 api:
@@ -30,7 +31,7 @@ transforms:
       # `.message`; otherwise tag the event so it stays queryable in Athena
       # via `WHERE raw = true`.
       if err == null && !is_empty(fields) {
-        . = merge!(., fields)
+        . = merge(., fields)
         del(.message)
         # Use the server's emitted time as the Vector event timestamp so the
         # S3 sink's `%Y/%m/%d/%H` partition matches the trace_id epoch tail.

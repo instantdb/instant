@@ -49,7 +49,7 @@
       (.append sb "\nCaused by: ")
       (append-throwable! sb cause (inc depth)))))
 
-(defn ^bytes event->logfmt-bytes [^ILoggingEvent event]
+(defn event->logfmt-bytes ^bytes [^ILoggingEvent event]
   (let [sb (StringBuilder. 256)]
     (.append sb "level=")
     (.append sb (.toString ^Level (.getLevel event)))
