@@ -48,4 +48,6 @@
 
  :database-cluster-id "instant-aurora-17"
 
+ :next-database-cluster-id "aurora-instant"
+
  :instant-config-app-id #uuid "24a4d71b-7bb2-4630-9aee-01146af26239"}
