@@ -152,10 +152,10 @@ transforms:
 
         # Drop any field whose coercion above failed (left it as null) so
         # the parquet schema doesn't get a `null`-typed column that would
-        # clash with the real type in a later batch.
-        for_each(keys(.)) -> |_, k| {
-          if .[k] == null { del(.[k]) }
-        }
+        # clash with the real type in a later batch. `compact` is VRL's
+        # built-in for this; recursive: false leaves nulls inside the
+        # docker_logs `label` struct alone.
+        . = compact(., recursive: false)
       } else {
         .raw = true
       }
