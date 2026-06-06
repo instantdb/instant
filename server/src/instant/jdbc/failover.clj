@@ -143,7 +143,7 @@
     (alter-var-root #'aggregator/shutdown (fn [_] (:shutdown listener)))))
 
 (defn migrate-aggregator-to-replica
-  "Migrates aggregator to a slot on the replice.
+  "Migrates aggregator to a slot on the replica.
    Should be called from an nrepl session on a production instance.
    After running the migration, deploy a change that defaults to the replica when
    choosing the slot, then set the `disable-aggregator` flag to false once it is fully
