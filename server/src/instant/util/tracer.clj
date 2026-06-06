@@ -6,6 +6,7 @@
    [clojure.test :as test]
    [instant.flags :as flags]
    [instant.config :as config]
+   [instant.util.id-generator :as id-gen]
    [instant.util.logging-exporter :as logging-exporter]
    [steffan-westcott.clj-otel.api.attributes :as attr])
   (:import
@@ -50,6 +51,7 @@
         log-exporter (SimpleSpanProcessor/create (logging-exporter/create))]
     (.addSpanProcessor trace-provider-builder log-exporter)
     (.setSpanLimits trace-provider-builder ^SpanLimits span-limits)
+    (.setIdGenerator trace-provider-builder (id-gen/id-generator))
     (-> sdk-builder
         (.setTracerProvider (.build trace-provider-builder))
         (.build))))
@@ -69,6 +71,7 @@
                          (Resource/create (Attributes/of (AttributeKey/stringKey "service.name")
                                                          "instant-server")))]
     (.setSpanLimits trace-provider-builder ^SpanLimits span-limits)
+    (.setIdGenerator trace-provider-builder (id-gen/id-generator))
 
     (.setResource trace-provider-builder resource)
     (.setCompression otlp-builder "gzip")

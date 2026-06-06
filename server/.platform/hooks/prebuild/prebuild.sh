@@ -19,6 +19,8 @@ hz_port=$((5701 + (new_count % 8)))
 
 echo "HZ_PORT=$hz_port" > hazelcast.env
 
-# Update EB_ENV_NAME in the docker-compose.yml
+# Update EB_ENV_NAME in the docker-compose.yml and vector.yaml
 
-sed -i "s/EB_ENV_NAME/$(/opt/elasticbeanstalk/bin/get-config container -k environment_name)/g" docker-compose.yml
+eb_env_name=$(/opt/elasticbeanstalk/bin/get-config container -k environment_name)
+sed -i "s/EB_ENV_NAME/$eb_env_name/g" docker-compose.yml
+sed -i "s/EB_ENV_NAME/$eb_env_name/g" vector.yaml

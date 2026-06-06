@@ -15,11 +15,22 @@ services:
     restart: on-failure
     cap_add:
       - CAP_PERFMON
+    # `web` depends_on `vector` so that we don't lose logs on docker compose down
+    depends_on:
+      - vector
     command: sh -c 'java $${JAVA_OPTS} --add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints -Djdk.attach.allowAttachSelf -Djava.awt.headless=true -Dcom.sun.management.jmxremote.port=10001 -Dcom.sun.management.jmxremote.rmi.port=10001 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -XX:StartFlightRecording=disk=true,maxsize=1G,name=instant,filename=instant_$(date +%s%N).jfr -Dcom.sun.management.jmxremote.local.only=false -Djava.rmi.server.hostname=localhost -server -jar target/instant-standalone.jar'
-    logging:
-      driver: awslogs
-      options:
-        awslogs-region: us-east-1
-        # EB_ENV_NAME will replaced by .platform/hooks/prebuild/prebuild.sh
-        awslogs-group: /aws/elasticbeanstalk/EB_ENV_NAME/var/log/eb-docker/containers/eb-current-app/stdouterr.log
-        awslogs-create-group: 'true'
+
+  vector:
+    image: timberio/vector:0.56.0-alpine
+    restart: unless-stopped
+    network_mode: "host"
+    # 1m gives the final S3 multipart upload comfortable headroom after the
+    # JVM's drain completes and Compose sends SIGTERM here.
+    stop_grace_period: 1m
+    environment:
+      # Creds come from the EC2 instance role; AWS_REGION just hints the SDK.
+      AWS_REGION: us-east-1
+    volumes:
+      - ./vector.yaml:/etc/vector/vector.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: ["--config", "/etc/vector/vector.yaml"]

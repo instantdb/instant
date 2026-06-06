@@ -30,6 +30,7 @@
    [instant.jdbc.wal :as wal]
    [instant.lib.ring.undertow :as undertow-adapter]
    [instant.loadbalancer :as loadbalancer-listener]
+   [instant.log-config :as log-config]
    [instant.mma-example :as mma-example]
    [instant.machine-summaries]
    [instant.nippy]
@@ -365,6 +366,7 @@
 (defn -main [& _args]
   (try
     (binding [*print-namespace-maps* false]
+      (log-config/init)
       (log/info "Initializing...")
       (let [{:keys [aead-keyset]} (config/init)]
         (crypt-util/init aead-keyset))

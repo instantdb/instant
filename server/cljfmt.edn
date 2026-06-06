@@ -8,4 +8,5 @@
                  when+     [[:block 1]]
                  set-var!  [[:block 1]]
                  defrecord-once [[:block 2] [:inner 1]]
-                 deftype-once [[:block 2] [:inner 1]]}}
+                 deftype-once [[:block 2] [:inner 1]]}
+ :indent-line-comments? true}
