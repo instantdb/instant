@@ -25,12 +25,16 @@ transforms:
       - "docker"
     source: |
       fields, err = parse_logfmt(.message)
-      # `parse_logfmt` is permissive — a line with no `key=value` pairs (like
-      # a stray `println`) returns an empty map with no error. Require at
-      # least one parsed field before we treat it as "ours" and drop
-      # `.message`; otherwise tag the event so it stays queryable in Athena
-      # via `WHERE raw = true`.
-      if err == null && !is_empty(fields) {
+      # `parse_logfmt` is *very* permissive — bare tokens like `println`
+      # output ("this is not logfmt") parse to `{this: true, is: true, ...}`
+      # which would pollute the parquet schema with garbage columns. And a
+      # line like "this trace_id is on the level" has matching key names but
+      # boolean values. Require one of our envelope fields (`level` from
+      # log_config, `trace_id` from the span exporter) to be present *as a
+      # string* — that's how our encoders always emit them — before treating
+      # the line as ours; otherwise tag the event so it stays queryable in
+      # Athena via `WHERE raw = true`.
+      if err == null && (is_string(fields.level) || is_string(fields.trace_id)) {
         . = merge(., fields)
         # EC2 instance ID injected via the vector.env file by the EB prebuild
         # hook.
@@ -193,3 +197,83 @@ sinks:
     batch:
       max_bytes: 10000000
       timeout_secs: 60
+
+# Inline unit tests for the parse_logs remap. Run with `vector test
+# vector.yaml`. Catches regressions like a misspelled VRL function or a
+# coercion that silently fails on a known shape.
+tests:
+  - name: "span line lifts fields and coerces duration_ms"
+    inputs:
+      - insert_at: parse_logs
+        type: log
+        log_fields:
+          message: 'trace_id=abc123 duration_ms=42 name="instaql/query" entity_count=7'
+    outputs:
+      - extract_from: parse_logs
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.trace_id, "abc123")
+              assert_eq!(.duration_ms, 42)
+              assert_eq!(.name, "instaql/query")
+              assert_eq!(.entity_count, 7)
+              assert!(!exists(.message))
+              assert!(!exists(.raw))
+
+  - name: "log line with exception preserves stacktrace"
+    inputs:
+      - insert_at: parse_logs
+        type: log
+        log_fields:
+          message: 'level=ERROR logger=instant.foo message="boom" exception_type=java.lang.RuntimeException exception_stacktrace="java.lang.RuntimeException: boom\n\tat instant.foo.bar(foo.clj:12)"'
+    outputs:
+      - extract_from: parse_logs
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "ERROR")
+              assert_eq!(.exception_type, "java.lang.RuntimeException")
+              assert!(contains!(.exception_stacktrace, "instant.foo.bar"))
+
+  - name: "non-logfmt line keeps message and gets raw=true"
+    inputs:
+      - insert_at: parse_logs
+        type: log
+        log_fields:
+          message: 'this is not logfmt'
+    outputs:
+      - extract_from: parse_logs
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.raw, true)
+              assert_eq!(.message, "this is not logfmt")
+              assert!(!exists(.trace_id))
+
+  - name: "bare tokens that happen to spell our envelope keys still go raw"
+    inputs:
+      - insert_at: parse_logs
+        type: log
+        log_fields:
+          message: 'this trace_id is on the level'
+    outputs:
+      - extract_from: parse_logs
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.raw, true)
+              assert_eq!(.message, "this trace_id is on the level")
+
+  - name: "failed coercion drops field via compact"
+    inputs:
+      - insert_at: parse_logs
+        type: log
+        log_fields:
+          message: 'level=INFO message=hello duration_ms=not_a_number'
+    outputs:
+      - extract_from: parse_logs
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "INFO")
+              assert!(!exists(.duration_ms))
