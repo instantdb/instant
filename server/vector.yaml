@@ -177,4 +177,4 @@ sinks:
         algorithm: "snappy"
     batch:
       max_bytes: 10000000
-      timeout_secs: 300
+      timeout_secs: 60
