@@ -24,3 +24,11 @@ echo "HZ_PORT=$hz_port" > hazelcast.env
 eb_env_name=$(/opt/elasticbeanstalk/bin/get-config container -k environment_name)
 sed -i "s/EB_ENV_NAME/$eb_env_name/g" docker-compose.yml
 sed -i "s/EB_ENV_NAME/$eb_env_name/g" vector.yaml
+
+# Fetch the EC2 instance ID from IMDSv2 and write to vector.env. Vector reads
+# this via env_file and references INSTANCE_ID through get_env_var in its
+# remap, decorating every event with .instance_id.
+
+imds_token=$(curl -sX PUT -H "X-aws-ec2-metadata-token-ttl-seconds: 60" http://169.254.169.254/latest/api/token)
+instance_id=$(curl -sH "X-aws-ec2-metadata-token: $imds_token" http://169.254.169.254/latest/meta-data/instance-id)
+echo "INSTANCE_ID=$instance_id" > vector.env

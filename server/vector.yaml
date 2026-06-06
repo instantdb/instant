@@ -32,6 +32,9 @@ transforms:
       # via `WHERE raw = true`.
       if err == null && !is_empty(fields) {
         . = merge(., fields)
+        # EC2 instance ID injected via the vector.env file by the EB prebuild
+        # hook.
+        .instance_id = get_env_var("INSTANCE_ID") ?? null
         del(.message)
         # Use the server's emitted time as the Vector event timestamp so the
         # S3 sink's `%Y/%m/%d/%H` partition matches the trace_id epoch tail.
@@ -91,6 +94,12 @@ transforms:
         # Ints — Postgres socket counters (instant.jdbc.sql).
         if exists(.bytes_read) { .bytes_read = to_int(.bytes_read) ?? null }
         if exists(.bytes_written) { .bytes_written = to_int(.bytes_written) ?? null }
+        if exists(.tx_bytes) { .tx_bytes = to_int(.tx_bytes) ?? null }
+
+        # Ints — Hikari connection-pool gauges.
+        if exists(.active_connections) { .active_connections = to_int(.active_connections) ?? null }
+        if exists(.idle_connections) { .idle_connections = to_int(.idle_connections) ?? null }
+        if exists(.pending_threads) { .pending_threads = to_int(.pending_threads) ?? null }
 
         # Ints — counts.
         if exists(.apps_count) { .apps_count = to_int(.apps_count) ?? null }
@@ -137,10 +146,16 @@ transforms:
         if exists(.max_attempts) { .max_attempts = to_int(.max_attempts) ?? null }
         if exists(.max_isn) { .max_isn = to_int(.max_isn) ?? null }
         if exists(.max_loops) { .max_loops = to_int(.max_loops) ?? null }
-        if exists(.max_lsn) { .max_lsn = to_int(.max_lsn) ?? null }
         if exists(.offset) { .offset = to_int(.offset) ?? null }
         if exists(.timeout) { .timeout = to_int(.timeout) ?? null }
         if exists(.tries) { .tries = to_int(.tries) ?? null }
+
+        # Drop any field whose coercion above failed (left it as null) so
+        # the parquet schema doesn't get a `null`-typed column that would
+        # clash with the real type in a later batch.
+        for_each(keys(.)) -> |_, k| {
+          if .[k] == null { del(.[k]) }
+        }
       } else {
         .raw = true
       }

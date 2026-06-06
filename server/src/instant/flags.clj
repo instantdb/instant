@@ -447,7 +447,7 @@
   "The number of milliseconds we should spend draining connections after we
    get the DeregisterTargets notification from the load balancer."
   []
-  (flag :deregister-targets-drain-ms (* 1000 60 4.5)))
+  (flag :deregister-targets-drain-ms (long (* 1000 60 4.5))))
 
 (defn send-with-sendgrid? []
   (toggled? :send-with-sendgrid))
