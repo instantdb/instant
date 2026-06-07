@@ -93,6 +93,8 @@ transforms:
         if exists(.total_ms) { .total_ms = to_int(.total_ms) ?? null }
         if exists(.tx_latency_ms) { .tx_latency_ms = to_int(.tx_latency_ms) ?? null }
         if exists(.tx_ms) { .tx_ms = to_int(.tx_ms) ?? null }
+        if exists(.run_time_ms) { .run_time_ms = to_int(.run_time_ms) ?? null }
+        if exists(.total_delay_ms) { .total_delay_ms = to_int(.total_delay_ms) ?? null }
         if exists(.wait_ms) { .wait_ms = to_int(.wait_ms) ?? null }
 
         # Ints — Postgres socket counters (instant.jdbc.sql).
@@ -144,13 +146,21 @@ transforms:
         if exists(.buffer_byte_size) { .buffer_byte_size = to_int(.buffer_byte_size) ?? null }
         if exists(.chunks_byte_size) { .chunks_byte_size = to_int(.chunks_byte_size) ?? null }
         if exists(.size) { .size = to_int(.size) ?? null }
+        if exists(.skipped_size) { .skipped_size = to_int(.skipped_size) ?? null }
+        if exists(.message_count) { .message_count = to_int(.message_count) ?? null }
+
+        # Ints — Clojure ex-triage line number.
+        if exists(.clojure_error_line) { .clojure_error_line = to_int(.clojure_error_line) ?? null }
 
         # Ints — other numerics.
+        if exists(.attempt) { .attempt = to_int(.attempt) ?? null }
         if exists(.limit) { .limit = to_int(.limit) ?? null }
+        if exists(.loops) { .loops = to_int(.loops) ?? null }
         if exists(.max_attempts) { .max_attempts = to_int(.max_attempts) ?? null }
         if exists(.max_isn) { .max_isn = to_int(.max_isn) ?? null }
         if exists(.max_loops) { .max_loops = to_int(.max_loops) ?? null }
         if exists(.offset) { .offset = to_int(.offset) ?? null }
+        if exists(.port) { .port = to_int(.port) ?? null }
         if exists(.timeout) { .timeout = to_int(.timeout) ?? null }
         if exists(.tries) { .tries = to_int(.tries) ?? null }
 
