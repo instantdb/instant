@@ -234,6 +234,8 @@
                      :record-stats true
                      :executor executor}))
 
+(def admin-query-synthetic-session-id (random-uuid))
+
 (defn create-conn [schema app-id]
   (let [conn (-> (d/empty-db schema)
                  (d/with [{:tx-meta/app-id app-id
