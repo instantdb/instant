@@ -161,7 +161,7 @@
                   :app-id app-id
                   :attrs (attr-model/get-by-app-id app-id)
                   :admin? true
-                  :db {:conn-pool (aurora/conn-pool :read)}}
+                  :db {:conn-pool conn}}
              query {:$users {:$ {:where {:$userRefreshTokens.hashedToken (hash-token refresh-token)}}}}
              result (instaql-query-reactive! rs/store ctx query :tree true)]
          (-> result
