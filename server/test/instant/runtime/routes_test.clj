@@ -9,6 +9,7 @@
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.fixtures :refer [random-email with-empty-app]]
    [instant.flags :as flags]
+   [instant.isn :as isn]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
@@ -17,6 +18,7 @@
    [instant.model.app-email-verification :as app-email-verification]
    [instant.model.app-oauth-service-provider :as provider-model]
    [instant.model.app-user :as app-user-model]
+   [instant.model.app-user-refresh-token :as refresh-token-model]
    [instant.model.rule :as rule-model]
    [instant.model.shared-oauth-client :refer [shared-credentials-user-limit]]
    [instant.postmark :as postmark]
@@ -402,6 +404,64 @@
                                             app-id
                                             [[:= :entity_id (parse-uuid (:id user3))]
                                              [:= :attr_id (:id system-catalog/$users-linked-primary-user)]]))))])))))
+
+(defn verify-refresh-token-req [app-id refresh-token]
+  (request {:method :post
+            :url    "/runtime/auth/verify_refresh_token"
+            :body   {:app-id app-id
+                     :refresh-token refresh-token}}))
+
+(deftest verify-refresh-token-reactive-cache-test
+  (with-empty-app
+    (fn [{app-id :id :as app}]
+      (with-redefs [flags/use-reactive-cache-for-verify-token?
+                    (fn [aid] (= aid app-id))
+                    rs/store (rs/init)]
+        (let [code  (send-code-runtime app {:email "a@b.c"})
+              user  (verify-code-runtime app {:email "a@b.c" :code code})
+              token (:refresh_token user)]
+
+          (testing "happy path returns the user with the same refresh_token"
+            (let [verified (-> (verify-refresh-token-req app-id token) :body :user)]
+              (is (= (:id user) (:id verified)))
+              (is (= "a@b.c" (:email verified)))
+              (is (= token (:refresh_token verified)))))
+
+          (testing "repeated calls hit the cache and stay correct"
+            (dotimes [_ 5]
+              (let [verified (-> (verify-refresh-token-req app-id token) :body :user)]
+                (is (= (:id user) (:id verified))))))
+
+          (testing "unknown refresh-token errors"
+            (is (thrown-with-msg? ExceptionInfo #"status 400"
+                                  (verify-refresh-token-req app-id (str (random-uuid))))))
+
+          (testing "after signout the token no longer verifies"
+            (request {:method :post
+                      :url    "/runtime/signout"
+                      :body   {:app_id app-id :refresh_token token}})
+            ;; Simulate the invalidator: the WAL delete on
+            ;; $userRefreshTokens would normally fire
+            ;; `mark-stale-topics!` with the topics that
+            ;; `topics-for-triple-delete` produces. With no invalidator
+            ;; running, do it ourselves — modelling the delete of the
+            ;; `hashedToken` triple, which is the attr the cached query
+            ;; subscribes to. tx-id/isn use Long/MAX_VALUE so we win
+            ;; against whatever tx-id the cached entry was stamped with.
+            (let [hashed-token-attr (system-catalog/get-attr-id
+                                     "$userRefreshTokens" "hashedToken")
+                  topic [#{:ea :eav :av :ave}
+                         #{(random-uuid)}
+                         #{hashed-token-attr}
+                         #{(refresh-token-model/hash-token token)}]]
+              (rs/mark-stale-topics! rs/store
+                                     app-id
+                                     Long/MAX_VALUE
+                                     (isn/test-isn Long/MAX_VALUE)
+                                     #{topic}
+                                     {}))
+            (is (thrown-with-msg? ExceptionInfo #"status 400"
+                                  (verify-refresh-token-req app-id token)))))))))
 
 (deftest upsert-oauth-link!
   (with-empty-app

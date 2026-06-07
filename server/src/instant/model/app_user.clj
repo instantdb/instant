@@ -3,12 +3,15 @@
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.app-user-refresh-token :refer [hash-token]]
    [instant.model.rule :as rule-model]
+   [instant.reactive.query :refer [instaql-query-reactive!]]
+   [instant.reactive.store :as rs]
    [instant.system-catalog :as system-catalog]
    [instant.system-catalog-ops :refer [update-op query-op]]
    [instant.util.exception :as ex]
@@ -49,9 +52,9 @@
   [app-id user-data has-extra-fields?]
   (let [rules (rule-model/get-by-app-id {:app-id app-id})
         program (rule-model/get-program! rules
-                  {:etype "$users"
-                   :action "create"
-                   :paths [["$users" "allow" "create"]]})]
+                                         {:etype "$users"
+                                          :action "create"
+                                          :paths [["$users" "allow" "create"]]})]
     (cond
       program
       (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
@@ -153,12 +156,24 @@
   ([params] (get-by-refresh-token (aurora/conn-pool :read) params))
   ([conn {:keys [app-id refresh-token]}]
    (when refresh-token
-     (query-op
-      conn
-      {:app-id app-id
-       :etype etype}
-      (fn [{:keys [get-entity-where]}]
-        (get-entity-where {:$userRefreshTokens.hashedToken (hash-token refresh-token)}))))))
+     (if (flags/use-reactive-cache-for-verify-token? app-id)
+       (let [ctx {:session-id rs/admin-query-synthetic-session-id
+                  :app-id app-id
+                  :attrs (attr-model/get-by-app-id app-id)
+                  :admin? true
+                  :db {:conn-pool conn}}
+             query {:$users {:$ {:where {:$userRefreshTokens.hashedToken (hash-token refresh-token)}}}}
+             result (instaql-query-reactive! rs/store ctx query :tree true)]
+         (-> result
+             :instaql-result
+             (get "$users")
+             first))
+       (query-op
+        conn
+        {:app-id app-id
+         :etype etype}
+        (fn [{:keys [get-entity-where]}]
+          (get-entity-where {:$userRefreshTokens.hashedToken (hash-token refresh-token)})))))))
 
 (defn get-by-refresh-token! [params]
   (ex/assert-record! (get-by-refresh-token params) :app-user {:args [params]}))

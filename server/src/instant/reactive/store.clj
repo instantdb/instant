@@ -234,6 +234,10 @@
                      :record-stats true
                      :executor executor}))
 
+;; Special token that allows the system catalog apps to use the
+;; reactive query cache. Temporary while we test out the impact
+(def admin-query-synthetic-session-id (random-uuid))
+
 (defn create-conn [schema app-id]
   (let [conn (-> (d/empty-db schema)
                  (d/with [{:tx-meta/app-id app-id
