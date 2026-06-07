@@ -9,6 +9,7 @@
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.fixtures :refer [random-email with-empty-app]]
    [instant.flags :as flags]
+   [instant.isn :as isn]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
@@ -17,6 +18,7 @@
    [instant.model.app-email-verification :as app-email-verification]
    [instant.model.app-oauth-service-provider :as provider-model]
    [instant.model.app-user :as app-user-model]
+   [instant.model.app-user-refresh-token :as refresh-token-model]
    [instant.model.rule :as rule-model]
    [instant.model.shared-oauth-client :refer [shared-credentials-user-limit]]
    [instant.postmark :as postmark]
@@ -438,6 +440,26 @@
             (request {:method :post
                       :url    "/runtime/signout"
                       :body   {:app_id app-id :refresh_token token}})
+            ;; Simulate the invalidator: the WAL delete on
+            ;; $userRefreshTokens would normally fire
+            ;; `mark-stale-topics!` with the topics that
+            ;; `topics-for-triple-delete` produces. With no invalidator
+            ;; running, do it ourselves — modelling the delete of the
+            ;; `hashedToken` triple, which is the attr the cached query
+            ;; subscribes to. tx-id/isn use Long/MAX_VALUE so we win
+            ;; against whatever tx-id the cached entry was stamped with.
+            (let [hashed-token-attr (system-catalog/get-attr-id
+                                     "$userRefreshTokens" "hashedToken")
+                  topic [#{:ea :eav :av :ave}
+                         #{(random-uuid)}
+                         #{hashed-token-attr}
+                         #{(refresh-token-model/hash-token token)}]]
+              (rs/mark-stale-topics! rs/store
+                                     app-id
+                                     Long/MAX_VALUE
+                                     (isn/test-isn Long/MAX_VALUE)
+                                     #{topic}
+                                     {}))
             (is (thrown-with-msg? ExceptionInfo #"status 400"
                                   (verify-refresh-token-req app-id token)))))))))
 
