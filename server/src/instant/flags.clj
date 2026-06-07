@@ -454,5 +454,4 @@
   (toggled? :send-with-sendgrid))
 
 (defn use-reactive-cache-for-verify-token? [app-id]
-  (or (config/test?)
-      (contains? (flag :use-reactive-cache-for-verify-token-apps) app-id)))
+  (contains? (flag :use-reactive-cache-for-verify-token-apps) app-id))
