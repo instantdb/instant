@@ -403,6 +403,44 @@
                                             [[:= :entity_id (parse-uuid (:id user3))]
                                              [:= :attr_id (:id system-catalog/$users-linked-primary-user)]]))))])))))
 
+(defn verify-refresh-token-req [app-id refresh-token]
+  (request {:method :post
+            :url    "/runtime/auth/verify_refresh_token"
+            :body   {:app-id app-id
+                     :refresh-token refresh-token}}))
+
+(deftest verify-refresh-token-reactive-cache-test
+  (with-empty-app
+    (fn [{app-id :id :as app}]
+      (with-redefs [flags/use-reactive-cache-for-verify-token?
+                    (fn [aid] (= aid app-id))
+                    rs/store (rs/init)]
+        (let [code  (send-code-runtime app {:email "a@b.c"})
+              user  (verify-code-runtime app {:email "a@b.c" :code code})
+              token (:refresh_token user)]
+
+          (testing "happy path returns the user with the same refresh_token"
+            (let [verified (-> (verify-refresh-token-req app-id token) :body :user)]
+              (is (= (:id user) (:id verified)))
+              (is (= "a@b.c" (:email verified)))
+              (is (= token (:refresh_token verified)))))
+
+          (testing "repeated calls hit the cache and stay correct"
+            (dotimes [_ 5]
+              (let [verified (-> (verify-refresh-token-req app-id token) :body :user)]
+                (is (= (:id user) (:id verified))))))
+
+          (testing "unknown refresh-token errors"
+            (is (thrown-with-msg? ExceptionInfo #"status 400"
+                                  (verify-refresh-token-req app-id (str (random-uuid))))))
+
+          (testing "after signout the token no longer verifies"
+            (request {:method :post
+                      :url    "/runtime/signout"
+                      :body   {:app_id app-id :refresh_token token}})
+            (is (thrown-with-msg? ExceptionInfo #"status 400"
+                                  (verify-refresh-token-req app-id token)))))))))
+
 (deftest upsert-oauth-link!
   (with-empty-app
     (fn [app]
