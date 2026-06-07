@@ -1351,15 +1351,35 @@
         path-has-selective-col? (some #(not= :a (:col %))
                                       (:path costs))
 
+        ;; If the only filter cols this index could seek by are :a (i.e.
+        ;; its :cols don't include any other filter component like :e or
+        ;; :v), then any remaining constant filter is a heap post-filter
+        ;; and doesn't shrink the scan. In that case attr-partition-rows
+        ;; is the true scan cost. If the index has another filter
+        ;; col in its cols (e.g. av_index has :v), the filter could push
+        ;; down and partition-rows would over-count.
+        index-can-pushdown-non-a-filter?
+        (some (fn [col]
+                (and (not= col :a)
+                     (contains? (:filter-components costs) col)))
+              (:cols index))
+
         scan-cost
-        (if (and (seq (:path costs))
-                 (not path-has-selective-col?)
-                 (:attr-partition-rows costs)
-                 (empty? (select-keys (:known-remaining costs)
-                                      (:filter-components costs))))
-          ;; When the path walks only :a (no selective col), the index
-          ;; will scan every row in those attr partitions
+        (if (or
+             ;; :a is the only thing in path, the index will scan every row
+             ;; partition-rows is the true scan cost.
+             (and (seq (:path costs))
+                  (not path-has-selective-col?)
+                  (:attr-partition-rows costs)
+                  (not index-can-pushdown-non-a-filter?))
+             ;; Empty path: this index has no usable prefix to seek by, so
+             ;; it would degrade to a full scan (or a filter-only scan
+             ;; against :a).
+             (and (empty? (:path costs))
+                  (:attr-partition-rows costs)
+                  (contains? (:filter-components costs) :a)))
           (:attr-partition-rows costs)
+
           scan-cost-from-path)
 
         max-filter-remaining (apply max 0 (vals (select-keys (:known-remaining costs)
