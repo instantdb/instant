@@ -72,6 +72,11 @@ public final class Logfmt {
         case '\n': sb.append("\\n"); break;
         case '\r': sb.append("\\r"); break;
         case '\t': sb.append("\\t"); break;
+        default:
+          throw new AssertionError(
+              "Logfmt escape loop landed on unhandled char " +
+              "0x" + Integer.toHexString(s.charAt(escapeAt)) +
+              " at index " + escapeAt);
       }
       i = escapeAt + 1;
     }

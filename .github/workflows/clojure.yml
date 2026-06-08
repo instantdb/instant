@@ -308,9 +308,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
     if: needs.detect_changes.outputs.vector_did_change == 'true'
+    permissions:
+      contents: read
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        persist-credentials: false
 
     - name: Run Vector unit tests
       uses: docker://timberio/vector:0.56.0-alpine

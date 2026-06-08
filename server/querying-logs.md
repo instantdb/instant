@@ -12,7 +12,7 @@ DuckDB directly against S3 (ad-hoc, no catalog). Prefer DuckDB because it is che
 | **Bucket**       | `s3://eb-logs-597134865416-us-east-1-an/`                                                                                                |
 | **Region**       | `us-east-1`                                                                                                                              |
 | **Prefix**       | `logs/env=<env-name>/year=YYYY/month=MM/day=DD/hour=HH/minute=MM/`                                                                       |
-| **Format**       | One snappy Parquet file per Vector batch (10 MB cap or 60 s; prod cuts ~3 files/min)                                                     |
+| **Format**       | One snappy Parquet file per Vector batch (100 MB cap or 60 s; prod cuts ~1 file/min)                                                     |
 | **Field schema** | [`log-fields.md`](./log-fields.md)                                                                                                       |
 | **Athena DDL**   | [`athena/instant_logs_prod.sql`](./athena/instant_logs_prod.sql), [`athena/instant_logs_staging.sql`](./athena/instant_logs_staging.sql) |
 
@@ -27,12 +27,12 @@ Trace IDs encode their start time as the **last 8 hex characters** (big-endian
 epoch seconds; see `instant.util.id-generator`). Decode before you query so
 you don't scan partitions you don't need.
 
-```
+```text
 trace_id = "abc...def01234"
                     ^^^^^^^^ epoch seconds (hex)
 ```
 
-```
+```bash
 python -c "import datetime; print(datetime.datetime.utcfromtimestamp(int('def01234', 16)))"
 ```
 
@@ -58,7 +58,7 @@ Same MCP server used for the CloudFront / ALB log tables. Tables already exist:
 
 Standard call shape (mirrors the CloudFront pattern in `CLAUDE.md`):
 
-```
+```text
 start-query-execution
   query_string="
     SELECT timestamp, level, message, exception_type, exception_message
@@ -120,7 +120,7 @@ LIMIT 100;
 
 Or as a bash one-liner, handy for piping into other tools:
 
-```
+```bash
 duckdb -markdown -c "
 INSTALL httpfs; LOAD httpfs; SET s3_region = 'us-east-1';
 CREATE SECRET (TYPE S3, PROVIDER credential_chain);

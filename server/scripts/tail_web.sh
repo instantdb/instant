@@ -16,7 +16,7 @@ done
 
 if [ -z "$instance_id" ]; then
   instances=$(aws ec2 describe-instances \
-    --filter "Name=tag:elasticbeanstalk:environment-name,Values=$env_name" \
+    --filters "Name=tag:elasticbeanstalk:environment-name,Values=$env_name" \
     --query "Reservations[].Instances[?State.Name == 'running'].[InstanceId, PrivateIpAddress, LaunchTime]" \
     --output text)
 

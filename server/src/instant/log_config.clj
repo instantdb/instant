@@ -79,9 +79,11 @@
     (.getBytes (.toString sb) StandardCharsets/UTF_8)))
 
 (defn logfmt-encoder
-  "A logback Encoder that emits one logfmt line per event. Stack traces are
-   summarized as `exception=<class> exception_message=<msg>` (no frames —
-   they'd break line-oriented parsing)."
+  "A logback Encoder that emits one logfmt line per event. Exceptions are
+   emitted as `exception_type=<class> exception_message=<msg>
+   exception_stacktrace=<full Java-style trace>`, with the trace and message
+   escaped as logfmt quoted strings so embedded newlines stay inside one
+   logfmt value and line-oriented parsing is preserved."
   ^EncoderBase []
   (proxy [EncoderBase] []
     (encode [^ILoggingEvent event]
