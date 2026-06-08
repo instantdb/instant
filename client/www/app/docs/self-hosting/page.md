@@ -208,7 +208,7 @@ The 'www', 'createbuckets', and 'server' containers can move freely between node
 
 ### Creating The Encryption Keys
 
-The InstantDB backend server requires the presence of a file at /resources/config/override.edn to provide keys for encrypting various secrets in the backend. In the single-container self-hosted setup, this is accomplished via a startup script that creates a file persisted to a volume. Since the backend service will be running on multiple machines without shared storage, we instead use [Docker Secrets](https://docs.docker.com/engine/swarm/secrets/) to mount this file.
+The InstantDB backend server requires the presence of a file at /app/resources/config/override.edn to provide keys for encrypting various secrets in the backend. In the single-container self-hosted setup, this is accomplished via a startup script that creates a file persisted to a volume. Since the backend service will be running on multiple machines without shared storage, we instead use [Docker Secrets](https://docs.docker.com/engine/swarm/secrets/) to mount this file.
 
 The easiest way to register this secret is to run the following on a leader machine.
 

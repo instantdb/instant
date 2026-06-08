@@ -32,8 +32,6 @@ services:
       - "-c"
       - "random_page_cost=1.1"
   www:
-    depends_on:
-      - server
     image: "ghcr.io/instantdb/dashboard:latest"
     environment:
       INSTANT_BACKEND_URL: ${SERVER_URL:? example http://server.localhost}
@@ -77,13 +75,15 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       S3_BUCKET: ${S3_BUCKET:-instant-bucket}
-    depends_on:
-      - minio
     entrypoint: >
       /bin/sh -c "
-      /usr/bin/mc alias set local http://minio:9000 $$$$MINIO_ROOT_USER $$$$MINIO_ROOT_PASSWORD;
+      until /usr/bin/mc alias set local http://minio:9000 $$$$MINIO_ROOT_USER $$$$MINIO_ROOT_PASSWORD; do sleep 2; done;
       /usr/bin/mc mb --ignore-existing local/$$$$S3_BUCKET;
       exit"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 20
 
   server:
     image: "ghcr.io/instantdb/server:swarm-test"
