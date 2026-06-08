@@ -168,12 +168,12 @@ The InstantDB repo includes a deploy-swarm.sh script designed to easily deploy I
 
 {% callout type="warning" %}
 This setup guide does not constitute a full production-ready deployment. You are still responsible for backups, observability, monitoring, etc.
-Every self-hosting situation is different so this intended to get you started in the right direction.
+Every self-hosting situation is different so this is intended to get you started in the right direction.
 {% /callout %}
 
 ### Prerequisite
 
-One or more servers with Docker installed. See above guide or the [Offical Docker Install Guide](https://docs.docker.com/engine/install/) for instructions.
+One or more servers with Docker installed. See above guide or the [Official Docker Install Guide](https://docs.docker.com/engine/install/) for instructions.
 
 ### Setup Guide
 
@@ -202,7 +202,7 @@ docker node update --label-add caddy=true --label-add storage=true
 
 For each machine that you would like to accept requests, make sure you assign the "caddy=true" output and point your DNS at that IP address.
 
-Chose one machine that is responsible for file storage and assign the "storage=true" label. This ensures that the Postgres and MinIO containers will always run on that node, preserving your data.
+Choose one machine that is responsible for file storage and assign the "storage=true" label. This ensures that the Postgres and MinIO containers will always run on that node, preserving your data.
 
 The 'www', 'createbuckets', and 'server' containers can move freely between nodes since they don't have persistent storage requirements.
 
