@@ -195,7 +195,7 @@ sinks:
     # `EB_ENV_NAME` is rewritten to the actual environment name (e.g.
     # `Instant-docker-prod-env-2`) at deploy time by the same prebuild hook
     # that does the substitution in docker-compose.yml.
-    key_prefix: "logs/env=EB_ENV_NAME/year=%Y/month=%m/day=%d/hour=%H/"
+    key_prefix: "logs/env=EB_ENV_NAME/year=%Y/month=%m/day=%d/hour=%H/minute=%M/"
     compression: "none"
     encoding:
       codec: "text"
