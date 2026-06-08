@@ -88,6 +88,7 @@ import {
   StoreInterface,
   createInstantRouteHandler,
   type StoreInterfaceStoreName,
+  type Logger,
 } from '@instantdb/core';
 
 import { InstantSvelteDatabase } from './InstantSvelteDatabase.svelte.js';
@@ -197,4 +198,7 @@ export {
 
   // Server helper
   createInstantRouteHandler,
+
+  // logger
+  type Logger,
 };

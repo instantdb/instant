@@ -7,16 +7,17 @@ export interface Logger {
 export default function createLogger(
   isEnabled: boolean,
   getStats: () => Record<string, any>,
+  baseLogger: Logger = console,
 ): Logger {
   return {
     info: isEnabled
-      ? (...args: any[]) => console.info(...args, getStats())
+      ? (...args: any[]) => baseLogger.info(...args, getStats())
       : () => {},
     debug: isEnabled
-      ? (...args: any[]) => console.debug(...args, getStats())
+      ? (...args: any[]) => baseLogger.debug(...args, getStats())
       : () => {},
     error: isEnabled
-      ? (...args: any[]) => console.error(...args, getStats())
+      ? (...args: any[]) => baseLogger.error(...args, getStats())
       : () => {},
   };
 }

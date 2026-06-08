@@ -102,6 +102,7 @@ import {
   CreateWriteStreamOpts,
   InstantWritableStream,
   InstantReadableStream,
+  type Logger,
 } from '@instantdb/core';
 
 /**
@@ -283,4 +284,7 @@ export {
   type SyncTableSyncTransaction,
   type SyncTableLoadFromStorage,
   type SyncTableSetupError,
+
+  // logger
+  type Logger,
 };

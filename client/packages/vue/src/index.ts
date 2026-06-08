@@ -88,6 +88,7 @@ import {
   StoreInterface,
   createInstantRouteHandler,
   type StoreInterfaceStoreName,
+  type Logger,
 } from '@instantdb/core';
 
 import { InstantVueDatabase, init } from './InstantVueDatabase.js';
@@ -196,4 +197,7 @@ export {
 
   // Server helper
   createInstantRouteHandler,
+
+  // logger
+  type Logger,
 };
