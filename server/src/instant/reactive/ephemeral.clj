@@ -200,17 +200,16 @@
         (.setEnabled metrics-config false))
 
       (config/using-swarm?)
-      (do
         ;; Resolve the Swarm tasks ourselves and hand Hazelcast concrete
         ;; per-IP members. Feeding it the `tasks.server` hostname is unreliable:
         ;; the TcpIpJoiner re-resolves the hostname per-port at join time and
         ;; dedups against itself, so DNSRR ordering can leave it with no peer.
-        (let [task-ips (resolve-task-ips)]
-          (.setEnabled tcp-ip-config true)
-          (.setMembers tcp-ip-config (map #(str % ":5701") task-ips))
-          (when-let [ip (get-swarm-ip task-ips)]
-            (.setPublicAddress network-config ip))
-          (.setEnabled metrics-config true)))
+      (let [task-ips (resolve-task-ips)]
+        (.setEnabled tcp-ip-config true)
+        (.setMembers tcp-ip-config (map #(str % ":5701") task-ips))
+        (when-let [ip (get-swarm-ip task-ips)]
+          (.setPublicAddress network-config ip))
+        (.setEnabled metrics-config true))
 
       :else
       (do
