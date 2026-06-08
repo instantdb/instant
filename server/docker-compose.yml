@@ -21,7 +21,11 @@ services:
     command: sh -c 'java $${JAVA_OPTS} --add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints -Djdk.attach.allowAttachSelf -Djava.awt.headless=true -Dcom.sun.management.jmxremote.port=10001 -Dcom.sun.management.jmxremote.rmi.port=10001 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -XX:StartFlightRecording=disk=true,maxsize=1G,name=instant,filename=instant_$(date +%s%N).jfr -Dcom.sun.management.jmxremote.local.only=false -Djava.rmi.server.hostname=localhost -server -jar target/instant-standalone.jar'
 
   vector:
-    image: timberio/vector:0.56.0-alpine
+    # Mirrored from timberio/vector:0.56.0-alpine into our private ECR so
+    # we don't depend on Docker Hub at deploy time. Bump the tag with
+    # `scripts/mirror_vector.sh --version <new-tag>` first, then change
+    # both this line and the matching one in .github/workflows/clojure.yml.
+    image: 597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-vector@sha256:3affd68215cbe72da19940b16b0c37919ba819ada34866ee5179fd97bbe4430e
     restart: unless-stopped
     network_mode: "host"
     # 1m gives the final S3 multipart upload comfortable headroom after the
