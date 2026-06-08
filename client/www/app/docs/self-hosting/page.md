@@ -225,7 +225,7 @@ docker secret create server_config ./override.edn
 
 Rather than cloning the repo on a server and filling out a .env file, we have provided a script that you can modify and execute to easily deploy the services with the proper configuration.
 
-To get started: clone the repo on your local computer and edit the `./self-hosting/deploy-script.sh` file.
+To get started: clone the repo on your local computer and edit the `./self-hosting/deploy-swarm.sh` file.
 
 ```bash
 SSH_HOST=root@ip

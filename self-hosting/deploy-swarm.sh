@@ -7,6 +7,8 @@ SSH_HOST=root@ip
 DASHBOARD_URL="https://dashboard@example.com"
 SERVER_URL="https://backend.example.com"
 S3_PUBLIC_ENDPOINT="https://files.example.com"
+POSTGRES_PASSWORD=changeme
+MINIO_ROOT_PASSWORD=changeme
 
 stack_config() {
   env -i \
@@ -14,6 +16,8 @@ stack_config() {
     DASHBOARD_URL="$DASHBOARD_URL" \
     SERVER_URL="$SERVER_URL" \
     S3_PUBLIC_ENDPOINT="$S3_PUBLIC_ENDPOINT" \
+    POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+    MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
     docker stack config --compose-file swarm.yml
 }
 

@@ -55,9 +55,6 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_BROWSER: "on"
       MINIO_SKIP_CLIENT_CERT_VALIDATION: "on"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     command: server /data --console-address ":9001" --address ":9000"
     volumes:
       - minio_data:/data
@@ -114,8 +111,6 @@ services:
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:? example http://storage.localhost}
       S3_BUCKET: ${S3_BUCKET:-instant-bucket}
-    ports:
-      - "8888:8888"
     secrets:
       - source: server_config
         target: /app/resources/config/override.edn
