@@ -303,6 +303,7 @@ export default class Reactor {
     this._log = createLogger(
       config.verbose || flags.devBackend || flags.instantLogs,
       () => this._reactorStats(),
+      config.logger,
     );
 
     this.versions = { ...(versions || {}), '@instantdb/core': version };

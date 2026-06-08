@@ -81,6 +81,7 @@ import {
   type ReadableStreamCtor,
   InstantWritableStream,
   InstantReadableStream,
+  type Logger,
 } from '@instantdb/core';
 
 import version from './version.ts';
@@ -135,6 +136,7 @@ type Config = {
   useDateObjects?: boolean;
   disableValidation?: boolean;
   verbose?: boolean;
+  logger?: Logger;
 };
 
 export type InstantConfig<
@@ -148,6 +150,7 @@ export type InstantConfig<
   useDateObjects: UseDates;
   disableValidation?: boolean;
   verbose?: boolean;
+  logger?: Logger;
   WritableStream?: WritableStreamCtor;
   ReadableStream?: ReadableStreamCtor;
 };
@@ -1101,17 +1104,14 @@ type AdminQueryOpts = {
   fetchOpts?: RequestInit;
 };
 
-interface Logger {
-  info: (...args: any[]) => void;
-  debug: (...args: any[]) => void;
-  error: (...args: any[]) => void;
-}
-
-function createLogger(isEnabled: boolean): Logger {
+function createLogger(
+  isEnabled: boolean,
+  baseLogger: Logger = console,
+): Logger {
   return {
-    info: isEnabled ? (...args: any[]) => console.info(...args) : () => {},
-    debug: isEnabled ? (...args: any[]) => console.debug(...args) : () => {},
-    error: isEnabled ? (...args: any[]) => console.error(...args) : () => {},
+    info: isEnabled ? (...args: any[]) => baseLogger.info(...args) : () => {},
+    debug: isEnabled ? (...args: any[]) => baseLogger.debug(...args) : () => {},
+    error: isEnabled ? (...args: any[]) => baseLogger.error(...args) : () => {},
   };
 }
 
@@ -1154,7 +1154,7 @@ class InstantAdminDatabase<
     this.streams = new Streams(this.#ensureInstantStream.bind(this));
     this.rooms = new Rooms<Schema>(this.config);
     this.webhooks = new Webhooks<Schema>(this.config, jsonFetch);
-    this.#log = createLogger(!!this.config.verbose);
+    this.#log = createLogger(!!this.config.verbose, this.config.logger);
   }
 
   /**
@@ -1719,4 +1719,7 @@ export {
 
   // error types
   type InstantIssue,
+
+  // logger
+  type Logger,
 };
