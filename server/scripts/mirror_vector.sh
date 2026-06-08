@@ -47,9 +47,11 @@ fi
 aws ecr get-login-password --region "$ecr_region" \
   | docker login --username AWS --password-stdin "$registry"
 
-docker pull "${upstream}:${version}"
-docker tag "${upstream}:${version}" "$target"
-docker push "$target"
+# Copy the full multi-arch manifest list (linux/amd64 + linux/arm64 + ...)
+# into ECR without materializing any single-arch image on this host. Using
+# `docker pull` + `docker tag` + `docker push` would push only the arch of
+# the machine running this script, breaking the other platform at runtime.
+docker buildx imagetools create --tag "$target" "${upstream}:${version}"
 
 # Print the digest so callers can pin to it if they want.
 digest=$(aws ecr describe-images \
