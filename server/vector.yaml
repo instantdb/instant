@@ -35,16 +35,27 @@ transforms:
       # the line as ours; otherwise tag the event so it stays queryable in
       # Athena via `WHERE raw = true`.
       if err == null && (is_string(fields.level) || is_string(fields.trace_id)) {
+        # Hold onto docker_logs' ingestion timestamp before merge — fields
+        # carries the app-emitted `timestamp` string and would otherwise
+        # clobber it.
+        ingestion_time = .timestamp
         . = merge(., fields)
         # EC2 instance ID injected via the vector.env file by the EB prebuild
         # hook.
         .instance_id = get_env_var("INSTANCE_ID") ?? null
         del(.message)
-        # Use the server's emitted time as the Vector event timestamp so the
-        # S3 sink's `%Y/%m/%d/%H` partition matches the trace_id epoch tail.
-        # ISO-8601 (`%+`) covers both the ms-precision logback timestamp and
-        # the ns-precision span timestamp.
-        .timestamp = parse_timestamp(.timestamp, "%+") ?? .timestamp
+        # Keep the app-emitted time queryable (ms precision from logback, ns
+        # from the span exporter; ISO-8601 `%+` covers both).
+        .event_time = parse_timestamp(.timestamp, "%+") ?? .timestamp
+        # Drive the S3 key_prefix off docker_logs' ingestion time (≈ now)
+        # rather than the app-emitted time. This caps the number of
+        # concurrently open `key_prefix` buffers at 1–2 minute partitions
+        # even if app-side timestamps lag or jump (vector replay, clock
+        # skew). Trade-off: long spans land in the minute their exporter
+        # flushed, not the minute they started — slightly off from the
+        # trace_id epoch tail. Query `event_time` if you need the
+        # app-emitted instant.
+        .timestamp = ingestion_time
 
         # Typed-field coercions. parse_logfmt always returns strings; each
         # named column has to be cast for parquet to get a typed column.
@@ -205,7 +216,8 @@ sinks:
       compression:
         algorithm: "snappy"
     batch:
-      max_bytes: 10000000
+      # 100 MB
+      max_bytes: 100000000
       timeout_secs: 60
 
 # Inline unit tests for the parse_logs remap. Run with `vector test
@@ -287,3 +299,25 @@ tests:
             source: |
               assert_eq!(.level, "INFO")
               assert!(!exists(.duration_ms))
+
+  - name: "event_time gets parsed app timestamp, .timestamp keeps ingestion time"
+    inputs:
+      - insert_at: parse_logs
+        type: log
+        log_fields:
+          # Test harness assigns a current `.timestamp` automatically; the
+          # logfmt `timestamp=` field here is an explicitly-lagged value the
+          # app emitted earlier.
+          message: 'level=INFO message=hi timestamp=2020-01-01T00:00:00Z'
+    outputs:
+      - extract_from: parse_logs
+        conditions:
+          - type: vrl
+            source: |
+              # .timestamp must NOT be the 2020 string from the message —
+              # it stays as the test-harness-assigned ingestion time (a real
+              # timestamp, recent).
+              assert!(is_timestamp(.timestamp))
+              assert!(to_unix_timestamp!(.timestamp) > 1700000000)
+              # .event_time captures the app-emitted instant.
+              assert_eq!(.event_time, t'2020-01-01T00:00:00Z')
