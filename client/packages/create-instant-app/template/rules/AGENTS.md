@@ -8,7 +8,7 @@ Instant is a client-side database (Modern Firebase) with built-in queries, trans
 
 # Instant SDKs
 
-Instant provides client-side JS SDKs and an admin SDK:
+Instant provides client-side SDKs and server-side SDKs:
 
 - `@instantdb/core` --- vanilla JS
 - `@instantdb/react` --- React
@@ -16,11 +16,13 @@ Instant provides client-side JS SDKs and an admin SDK:
 - `@instantdb/solidjs` --- SolidJS
 - `@instantdb/svelte` --- Svelte
 - `@instantdb/vue` --- Vue
-- `@instantdb/admin` --- backend scripts / servers
+- `@instantdb/admin` --- JS/TS backend SDK
+- `instantdb` --- Python backend SDK
 
 When installing, always check what package manager the project uses (npm, pnpm,
 bun) first and then install the latest version of the Instant SDK. If working in
-React use Next and Tailwind unless specified otherwise.
+React use Next and Tailwind unless specified otherwise. If working in python be
+sure to fetch the python documentation listed below.
 
 # Managing Instant Apps
 
@@ -429,6 +431,7 @@ Fetch the URL for a topic to learn more about it.
 - [Svelte](https://www.instantdb.com/docs/start-svelte.md): How to use Instant in Svelte apps.
 - [Vue](https://www.instantdb.com/docs/start-vue.md): How to use Instant in Vue apps.
 - [TanStack](https://www.instantdb.com/docs/start-tanstack.md): How to use Instant in TanStack apps.
+- [Python](https://www.instantdb.com/docs/start-python.md): How to use Instant with Python.
 
 # Final Note
 

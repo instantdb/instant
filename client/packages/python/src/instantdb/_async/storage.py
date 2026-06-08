@@ -1,0 +1,49 @@
+"""Storage uploads.
+
+Streams file-backed inputs (Path, open binary files) chunk by chunk so a
+large upload doesn't need to be buffered into memory first. `bytes` /
+`bytearray` go straight through.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from instantdb._async._upload_io import FileSource, _prepare_upload
+from instantdb._async.http import _AsyncHTTP
+
+
+class AsyncStorage:
+    def __init__(self, http: _AsyncHTTP, *, app_id: str) -> None:
+        self._http = http
+        self._app_id = app_id
+
+    async def upload_file(
+        self,
+        path: str,
+        file: FileSource,
+        *,
+        content_type: str | None = None,
+        content_disposition: str | None = None,
+        file_size: int | None = None,
+    ) -> dict[str, Any]:
+        prepared = await _prepare_upload(file, file_size)
+        try:
+            headers = {
+                "path": path,
+                "content-length": str(prepared.content_length),
+            }
+            # Omit content-type when unset so the server infers it from the path.
+            if content_type is not None:
+                headers["content-type"] = content_type
+            if content_disposition is not None:
+                headers["content-disposition"] = content_disposition
+            return await self._http.put_binary(
+                "/admin/storage/upload",
+                content=prepared.body,
+                extra_headers=headers,
+                params={"app_id": self._app_id},
+            )
+        finally:
+            if prepared.cleanup is not None:
+                prepared.cleanup()

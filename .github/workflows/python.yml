@@ -1,0 +1,61 @@
+name: Python CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'client/packages/python/**'
+      - 'client/packages/version/src/version.ts'
+      - '.github/workflows/python.yml'
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'client/packages/python/**'
+      - 'client/packages/version/src/version.ts'
+      - '.github/workflows/python.yml'
+
+jobs:
+  check:
+    name: Lint + typecheck + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+          enable-cache: true
+          cache-dependency-glob: client/packages/python/pyproject.toml
+
+      - name: Sync deps (pinned to Python 3.10 — the minimum supported)
+        working-directory: client/packages/python
+        run: uv sync --python 3.10
+
+      # Regenerate _sync/ first so stale generated sync files fail with the right
+      # diagnostic ("run make unasync") rather than masquerading as a sync
+      # test failure in the next step.
+      - name: Verify _sync/ is up to date with _async/
+        working-directory: client/packages/python
+        run: |
+          make unasync
+          # --porcelain catches both modifications and new files (which a
+          # plain `git diff --exit-code` would miss for untracked paths).
+          if [ -n "$(git status --porcelain src/instantdb/_sync/)" ]; then
+            echo "❌ Generated src/instantdb/_sync/ is stale."
+            echo ""
+            echo "Run 'make unasync' locally and commit the regenerated files."
+            echo ""
+            echo "--- git status ---"
+            git status --short src/instantdb/_sync/
+            echo ""
+            echo "--- git diff (tracked changes) ---"
+            git --no-pager diff src/instantdb/_sync/
+            exit 1
+          fi
+
+      - name: Run check (ruff + mypy + pytest)
+        working-directory: client/packages/python
+        run: make check

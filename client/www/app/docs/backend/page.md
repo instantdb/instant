@@ -8,10 +8,16 @@ nextjs:
 You can use Instant on the server as well! This can be especially useful for
 running scripts, custom auth flows, or sensitive application logic.
 
+We currently offer two server-side SDKs:
+
+- **JavaScript:** `@instantdb/admin` — the focus of this page.
+- **Python:** `instantdb` — see [Getting started with Python](/docs/start-python)
+  for the equivalent surface in Python.
+
 ## Admin SDK
 
-We currently offer a javascript library `@instantdb/admin` for using Instant in
-a non-browser context. This library is similar to our client SDK with a few
+`@instantdb/admin` is the JavaScript admin SDK for using Instant in a
+non-browser context. This library is similar to our client SDK with a few
 tweaks.
 
 ### init

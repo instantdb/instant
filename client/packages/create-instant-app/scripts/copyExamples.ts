@@ -11,6 +11,7 @@ const EXAMPLES_TO_COPY = [
   'vite-vanilla',
   'tanstack-start',
   'vue-vite',
+  'python-script',
 ] as const;
 
 async function main() {
