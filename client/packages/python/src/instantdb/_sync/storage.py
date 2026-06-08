@@ -25,7 +25,7 @@ class Storage:
         path: str,
         file: FileSource,
         *,
-        content_type: str = "application/octet-stream",
+        content_type: str | None = None,
         content_disposition: str | None = None,
         file_size: int | None = None,
     ) -> dict[str, Any]:
@@ -33,9 +33,11 @@ class Storage:
         try:
             headers = {
                 "path": path,
-                "content-type": content_type,
                 "content-length": str(prepared.content_length),
             }
+            # Omit content-type when unset so the server infers it from the path.
+            if content_type is not None:
+                headers["content-type"] = content_type
             if content_disposition is not None:
                 headers["content-disposition"] = content_disposition
             return self._http.put_binary(

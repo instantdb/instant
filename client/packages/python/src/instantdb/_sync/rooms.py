@@ -15,6 +15,8 @@ class Rooms:
         self._app_id = app_id
 
     def get_presence(self, room_type: str, room_id: str) -> dict[str, Any]:
+        # Presence reads always use admin auth, even on an as_user() client,
+        # matching the JS SDK (its Rooms never receives impersonation opts).
         result = self._http.get(
             "/admin/rooms/presence",
             params={
@@ -22,6 +24,7 @@ class Rooms:
                 "room-type": room_type,
                 "room-id": room_id,
             },
+            admin_only=True,
         )
         # Server returns {"sessions": null} for empty rooms; normalize to {}.
         return result.get("sessions") or {}

@@ -85,15 +85,14 @@ def test_rejects_t_that_isnt_an_integer():
 def test_rejects_signature_older_than_max_age():
     # The fixture's t is 1778610366; received_at one second past the tolerance
     # window is the smallest provable stale case.
-    with pytest.raises(InstantError, match="outside tolerance"):
+    with pytest.raises(InstantError, match="too old"):
         _verify(received_at=_FIXTURE_RECEIVED_AT + 301, max_age_seconds=300)
 
 
-def test_rejects_signature_dated_too_far_in_future():
-    # Symmetric to the stale check: a signature dated far ahead of received_at
-    # is also rejected. Catches clock-skew + forged-future-timestamp attacks.
-    with pytest.raises(InstantError, match="outside tolerance"):
-        _verify(received_at=_FIXTURE_RECEIVED_AT - 301, max_age_seconds=300)
+def test_accepts_signature_dated_in_future():
+    # One-sided check, matching JS: a timestamp ahead of received_at (receiver
+    # clock lagging the signer) is not stale, so it must not be rejected.
+    _verify(received_at=_FIXTURE_RECEIVED_AT - 301, max_age_seconds=300)
 
 
 def test_known_key_misses_unknown_kid_for_api_uri():

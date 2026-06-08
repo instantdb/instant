@@ -65,8 +65,10 @@ class _TxChunk:
     def update(self, args: dict[str, Any], opts: dict[str, Any] | None = None) -> _TxChunk:
         return self._append("update", args, opts)
 
-    def create(self, args: dict[str, Any], opts: dict[str, Any] | None = None) -> _TxChunk:
-        return self._append("create", args, opts)
+    def create(self, args: dict[str, Any]) -> _TxChunk:
+        # No opts: `create` is strict-insert. Only update/merge take opts
+        # (e.g. {"upsert": False}); the server spec rejects opts on create.
+        return self._append("create", args)
 
     def link(self, args: dict[str, Any]) -> _TxChunk:
         return self._append("link", args)

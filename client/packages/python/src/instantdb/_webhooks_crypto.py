@@ -78,11 +78,11 @@ def validate_timestamp(
 ) -> None:
     now = int(received_at if received_at is not None else time.time())
     age = now - timestamp
-    # Reject both stale and forged-future timestamps.
-    if abs(age) > max_age_seconds:
+    # Only reject stale timestamps (one-sided, like JS): a two-sided check
+    # false-rejects valid signatures when the receiver clock lags the signer.
+    if age > max_age_seconds:
         raise InstantError(
-            f"Webhook signature timestamp outside tolerance "
-            f"(age={age}s, tolerance=+/-{max_age_seconds}s)"
+            f"Webhook signature is too old (age={age}s, tolerance={max_age_seconds}s)"
         )
 
 

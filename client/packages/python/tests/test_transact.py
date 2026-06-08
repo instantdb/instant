@@ -42,6 +42,13 @@ def test_tx_update_with_opts():
     assert _get_ops(chunk) == [["update", "goals", "g-1", {"title": "x"}, {"upsert": False}]]
 
 
+def test_tx_create_has_no_opts():
+    # create is strict-insert; unlike update/merge it takes no opts, and the
+    # server spec rejects a 5th element on a create op.
+    chunk = _TxBuilder().goals["g-1"].create({"title": "x"})
+    assert _get_ops(chunk) == [["create", "goals", "g-1", {"title": "x"}]]
+
+
 def test_tx_chunks_are_immutable():
     base = _TxBuilder().goals["g-1"].update({"title": "x"})
     extended = base.link({"todos": "t-1"})

@@ -48,7 +48,9 @@ class _AsyncHTTP:
             )
             self._owns_client = True
 
-    def _headers(self, *, unauthenticated: bool = False) -> dict[str, str]:
+    def _headers(
+        self, *, unauthenticated: bool = False, admin_only: bool = False
+    ) -> dict[str, str]:
         if unauthenticated:
             return {"content-type": "application/json"}
         self._validate_auth()
@@ -60,7 +62,9 @@ class _AsyncHTTP:
         }
         if self._admin_token:
             h["authorization"] = f"Bearer {self._admin_token}"
-        h.update(self._impersonation)
+        # admin_only skips impersonation so the request uses admin auth.
+        if not admin_only:
+            h.update(self._impersonation)
         return h
 
     def _validate_auth(self) -> None:
@@ -90,8 +94,10 @@ class _AsyncHTTP:
             "POST", path, json=json, params=params, unauthenticated=unauthenticated
         )
 
-    async def get(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
-        return await self._request("GET", path, params=params)
+    async def get(
+        self, path: str, *, params: dict[str, Any] | None = None, admin_only: bool = False
+    ) -> Any:
+        return await self._request("GET", path, params=params, admin_only=admin_only)
 
     async def delete(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
         return await self._request("DELETE", path, params=params)
@@ -105,6 +111,9 @@ class _AsyncHTTP:
         params: dict[str, Any] | None = None,
     ) -> Any:
         headers = self._headers()
+        # Drop the default JSON content-type; a binary upload supplies its own
+        # via extra_headers, or omits it so the server infers from the path.
+        headers.pop("content-type", None)
         headers.update(extra_headers)
         response = await self._client.request(
             "PUT", path, params=params, content=content, headers=headers
@@ -119,13 +128,14 @@ class _AsyncHTTP:
         params: dict[str, Any] | None = None,
         json: Any = None,
         unauthenticated: bool = False,
+        admin_only: bool = False,
     ) -> Any:
         response = await self._client.request(
             method,
             path,
             params=params,
             json=_jsonable(json),
-            headers=self._headers(unauthenticated=unauthenticated),
+            headers=self._headers(unauthenticated=unauthenticated, admin_only=admin_only),
         )
         return self._handle_response(response)
 

@@ -138,11 +138,16 @@ class AsyncInstant:
         body: dict[str, Any] = {"query": q, "inference?": False}
         if rules is not None:
             body["rules-override"] = rules
-        return await self._http.post(
+        response = await self._http.post(
             "/admin/query_perms_check",
             params={"app_id": self._app_id},
             json=body,
         )
+        # Reshape kebab-case check-results to match the JS SDK's return shape.
+        return {
+            "result": response.get("result"),
+            "check_results": response.get("check-results"),
+        }
 
     async def debug_transact(
         self,

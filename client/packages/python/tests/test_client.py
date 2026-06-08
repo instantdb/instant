@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import httpx
 import pytest
 
-from instantdb import AsyncInstant, InstantError, id
+from instantdb import AsyncInstant, InstantAPIError, InstantError, id
 
 # ---------- as_user ----------
 
@@ -154,3 +154,52 @@ async def test_transact_serializes_datetime_values(mock_transport):
     body = json.loads(captured[0].content)
     assert body["steps"][0][3]["dueAt"] == due_at.isoformat()
     assert body["throw-on-missing-attrs?"] is False
+
+
+# ---------- debug_query response shape ----------
+
+
+async def test_debug_query_reshapes_check_results(mock_transport):
+    transport, _ = mock_transport(
+        lambda r: httpx.Response(
+            200, json={"result": {"goals": []}, "check-results": [{"ok": True}]}
+        )
+    )
+    async with AsyncInstant(app_id="app", admin_token="abc", _transport=transport) as db:
+        out = await db.as_user(guest=True).debug_query({"goals": {}})
+
+    assert out == {"result": {"goals": []}, "check_results": [{"ok": True}]}
+
+
+# ---------- rooms presence always uses admin auth ----------
+
+
+async def test_get_presence_ignores_impersonation(mock_transport):
+    transport, captured = mock_transport(lambda r: httpx.Response(200, json={"sessions": {}}))
+    async with AsyncInstant(app_id="app", admin_token="abc", _transport=transport) as db:
+        await db.as_user(email="a@b.com").rooms.get_presence("chat", "room-1")
+
+    headers = captured[0].headers
+    assert "as-email" not in headers
+    assert headers["authorization"] == "Bearer abc"
+
+
+# ---------- error fields ----------
+
+
+async def test_api_error_surfaces_hint_and_trace_id(mock_transport):
+    body = {
+        "type": "rate-limited",
+        "message": "Slow down",
+        "hint": {"retry-after": 5},
+        "trace-id": "trace-123",
+    }
+    transport, _ = mock_transport(lambda r: httpx.Response(429, json=body))
+    async with AsyncInstant(app_id="app", admin_token="abc", _transport=transport) as db:
+        with pytest.raises(InstantAPIError) as exc_info:
+            await db.query({"goals": {}})
+
+    err = exc_info.value
+    assert err.status == 429
+    assert err.hint == {"retry-after": 5}
+    assert err.trace_id == "trace-123"

@@ -180,5 +180,18 @@ async def test_upload_file_sends_streamed_body_with_correct_content_length(
     req = captured[0]
     assert req.method == "PUT"
     assert req.headers["content-length"] == str(len(payload))
+    assert req.headers["content-type"] == "application/octet-stream"
     assert req.headers["path"] == "dest.bin"
     assert req.content == payload
+
+
+async def test_upload_file_omits_content_type_when_not_provided(mock_transport):
+    # With no content_type, no content-type header is sent, so the server
+    # infers the MIME type from the path.
+    transport, captured = mock_transport(
+        lambda r: httpx.Response(200, json={"data": {"path": "x"}})
+    )
+    async with AsyncInstant(app_id="app", admin_token="abc", _transport=transport) as db:
+        await db.storage.upload_file("photos/demo.png", b"x")
+
+    assert "content-type" not in captured[0].headers
