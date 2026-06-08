@@ -151,6 +151,42 @@ describe.concurrent('create-instant-app e2e', { timeout: 120_000 }, () => {
         await t.cleanup();
       }
     });
+
+    it('scaffolds with --python flag', async () => {
+      const t = await createTestDir();
+      try {
+        const result = await runCreateInstantApp(
+          ['python-app', '--python', '--yes'],
+          { cwd: t.dir },
+        );
+
+        expect(result.exitCode).toBe(0);
+
+        const projectDir = join(t.dir, 'python-app');
+        const files = await readdir(projectDir);
+        expect(files).toContain('pyproject.toml');
+        expect(files).toContain('main.py');
+        expect(files).toContain('instant.schema.ts');
+        expect(files).toContain('instant.perms.ts');
+
+        const envContents = await readFile(join(projectDir, '.env'), 'utf-8');
+        expect(envContents).toMatch(/^INSTANT_APP_ID=.+/m);
+        expect(envContents).toMatch(/^INSTANT_APP_ADMIN_TOKEN=.+/m);
+
+        const pyproject = await readFile(
+          join(projectDir, 'pyproject.toml'),
+          'utf-8',
+        );
+        expect(pyproject).toMatch(/^name = "python-app"$/m);
+
+        const output = result.stdout + result.stderr;
+        expect(output).toMatch(/uv sync/);
+        expect(output).toMatch(/uv run python main\.py/);
+        expect(output).toMatch(/npx instant-cli push/);
+      } finally {
+        await t.cleanup();
+      }
+    });
   });
 
   describe('rule file flags', () => {

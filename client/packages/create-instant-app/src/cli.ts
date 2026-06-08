@@ -18,7 +18,8 @@ export type Project = {
     | 'sveltekit'
     | 'vue-vite'
     | 'vercel-ai-sdk'
-    | 'ai-chat';
+    | 'ai-chat'
+    | 'python-script';
   ruleFiles:
     | 'cursor'
     | 'claude'
@@ -65,6 +66,7 @@ const baseFromFlags = (flags: Record<string, any>): Project['base'] | null =>
   (flags.expo && 'expo') ||
   (flags.sv && 'sveltekit') ||
   (flags.vue && 'vue-vite') ||
+  (flags.python && 'python-script') ||
   null;
 
 const ruleFilesFromFlags = (
@@ -104,6 +106,7 @@ export const runCli = async (): Promise<Project> => {
         'vue-vite',
         'vercel-ai-sdk',
         'ai-chat',
+        'python-script',
       ]),
     )
     .addOption(
@@ -133,6 +136,11 @@ export const runCli = async (): Promise<Project> => {
     )
     .addOption(
       new Option('--vue', 'Use the Vue + Vite starter template').default(false),
+    )
+    .addOption(
+      new Option('--python', 'Use the Python script starter template').default(
+        false,
+      ),
     )
     .addOption(
       new Option('--no-git', "Don't create a git repo in the new project"),
@@ -333,6 +341,11 @@ export const runCli = async (): Promise<Project> => {
               {
                 value: 'ai-chat',
                 label: 'Vercel AI SDK Chat App',
+                secondary: true,
+              },
+              {
+                value: 'python-script',
+                label: 'Python: Script',
                 secondary: true,
               },
             ],

@@ -14,18 +14,15 @@ const toArray = <T>(value: Arrayable<T>): T[] =>
   Array.isArray(value) ? value : [value];
 
 /**
- * Resolve @instantdb packages from CLI's dependency tree.
- * For Deno projects, we alias all common @instantdb packages to @instantdb/core
- * since they all re-export the schema types from core.
+ * Resolve @instantdb packages from the CLI's own dependencies for
+ * projects without node_modules. All @instantdb packages re-export
+ * schema types from core, so a single core alias covers them all.
  */
 function getInstantAliases(): Record<string, string> | null {
   try {
     const require = createRequire(import.meta.url);
-    // Resolve @instantdb/core directly from CLI's dependencies
     const corePackageJson = require.resolve('@instantdb/core/package.json');
     const coreDir = path.dirname(corePackageJson);
-    // All @instantdb packages re-export schema types from core,
-    // so we can alias them all to core for schema loading purposes
     return {
       '@instantdb/core': coreDir,
       '@instantdb/react': coreDir,
@@ -39,7 +36,7 @@ function getInstantAliases(): Record<string, string> | null {
   }
 }
 
-function withDenoAliases<T>(
+function withAliases<T>(
   opts: LoadConfigOptions<T>,
   alias: Record<string, string>,
 ): LoadConfigOptions<T> {
@@ -76,14 +73,13 @@ export async function loadConfig<T>(
   opts: LoadConfigOptions<T>,
 ): Promise<LoadConfigResult<T>> {
   const projectInfo = await findProjectDir();
-  const isDeno = projectInfo?.type === 'deno';
+  const needsAliases =
+    projectInfo?.type === 'deno' || projectInfo?.type === 'python';
 
-  // Deno projects don't have node_modules, so we need to alias @instantdb/*
-  // packages to resolve from the CLI's own dependencies
   let res;
-  if (isDeno) {
+  if (needsAliases) {
     const alias = getInstantAliases();
-    res = await _loadConfig(alias ? withDenoAliases(opts, alias) : opts);
+    res = await _loadConfig(alias ? withAliases(opts, alias) : opts);
   } else {
     res = await _loadConfig(opts);
   }
