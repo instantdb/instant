@@ -1,9 +1,24 @@
 # Querying production logs
 
-Server stdout (every `log/*` call and every OpenTelemetry span) ships as logfmt
-through Vector to S3 as snappy-compressed Parquet, partitioned by env / year /
-month / day / hour / minute. Two ways to query: Athena (catalogued tables) and
-DuckDB directly against S3 (ad-hoc, no catalog). Prefer DuckDB because it is cheaper and faster.
+Server stdout ships as logfmt through Vector to S3 as snappy-compressed
+Parquet, partitioned by env / year / month / day / hour / minute. Two ways
+to query: Athena (catalogued tables) and DuckDB directly against S3
+(ad-hoc, no catalog). Prefer DuckDB because it is cheaper and faster.
+
+The dominant event type is the span. Every `tracer/with-span!` and
+`record-info!` produces one via the OTel exporter; these rows carry
+`trace_id`, `span_id`, `name`, `duration_ms`, and per-op attributes like
+`app_id` and `op`, but no `level`, `logger`, or `message`. Start
+investigations from `name`, `duration_ms`, or `exception_type`, not from
+`level`.
+
+The other shape is the log line. These come from Java libraries routed
+through logback (Hazelcast, Caffeine, Hikari, AWS SDK, Undertow) or from
+direct `clojure.tools.logging` calls that aren't wrapped in a span. They
+have `level`, `logger`, `message`, `thread`, and sometimes `exception_*`,
+but no `trace_id` or `name`. Because most failures surface through spans,
+`WHERE level = 'ERROR'` catches very few real errors; use
+`exception_type IS NOT NULL` instead, or OR the two together.
 
 ## Where the data lives
 
@@ -61,12 +76,12 @@ Standard call shape (mirrors the CloudFront pattern in `CLAUDE.md`):
 ```text
 start-query-execution
   query_string="
-    SELECT timestamp, level, message, exception_type, exception_message
+    SELECT timestamp, name, exception_type, exception_message, level, message
     FROM instant_logs
     WHERE year = 2026 AND month = 6 AND day = 6 AND hour = 23
       AND minute BETWEEN 15 AND 30
       AND app_id = '<app-id>'
-      AND level = 'ERROR'
+      AND (exception_type IS NOT NULL OR level = 'ERROR')
     LIMIT 100"
   query_execution_context={"Database": "default", "Catalog": "AwsDataCatalog"}
   work_group="primary"
@@ -142,6 +157,18 @@ sometimes different column types; `union_by_name` merges them. Without it
 DuckDB errors on the first column mismatch.
 
 ## Common queries
+
+### Errors
+
+Catches both span-thrown exceptions (most failures) and the rare
+library-logged ERROR.
+
+```sql
+SELECT timestamp, name, logger, exception_type, exception_message, message
+FROM read_parquet('s3://.../hour=23/minute=*/*.parquet', union_by_name=true)
+WHERE exception_type IS NOT NULL OR level = 'ERROR'
+ORDER BY timestamp DESC;
+```
 
 ### Find every event for a trace
 
