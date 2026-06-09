@@ -15,7 +15,6 @@
    slot_num in front of the LSN. Any time we migrate to a new db, we increment
    the slot_num."
   (:require
-   [instant.config :as config]
    [instant.util.json :as json])
   (:import
    (java.lang Comparable)
@@ -100,7 +99,7 @@
 (defn test-isn
   "Generates an isn. (test-isn i) will be less than (test-isn (inc i))"
   [^long i]
-  (->ISN config/invalidator-slot-num
+  (->ISN 0
          (LogSequenceNumber/valueOf i)))
 
 (defn ->bytes ^bytes [^ISN isn]
