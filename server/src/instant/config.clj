@@ -229,7 +229,7 @@
 
 (defn next-aurora-config-from-database-url []
   (when-let [url (or (System/getenv "NEXT_DATABASE_URL")
-                     (some-> @config-map :database-url crypt-util/secret-value))]
+                     (some-> @config-map :next-database-url crypt-util/secret-value))]
     (db-url->config url)))
 
 (defn get-next-aurora-config []

@@ -208,13 +208,16 @@
 
 (defn advance-primary-invalidator-to-lsn [remote-lsn]
   (let [process (invalidator/start-singleton {:stop-lsn remote-lsn
-                                                         :check-disabled (fn [] false)
-                                                         :get-conn-config (fn []
-                                                                            (config/get-aurora-config))
-                                                         :slot-num config/invalidator-slot-num})]
+                                              :check-disabled (fn [] false)
+                                              :get-conn-config (fn []
+                                                                 (config/get-aurora-config))
+                                              :slot-num config/invalidator-slot-num})]
     ;; Intentional def-locals so that we have a way to shut it down if something goes wrong
     (tool/def-locals)
-    (a/<!! (:completed-chan (:listener process)))))
+    (try
+      (a/<!! (:completed-chan (:listener process)))
+      (finally
+        ((:shutdown process))))))
 
 (defn primary-invalidator-restart-lsn []
   (:restart_lsn (sql/select-one ::primary-invalidator-restart-lsn
@@ -476,24 +479,29 @@
                                         {:app-id (config/instant-config-app-id)})
           quit (fn []
                  (rollback)
-                 (throw (Exception. "Abandoning failover, somehow the writes aren't in sync.")))]
-      (loop [i 0]
-        (if-let [row (sql/select-one next-pool ["select * from transactions where app_id = ?::uuid and id = ?::bigint"
-                                                (config/instant-config-app-id)
-                                                (:id tx)])]
-          (if (not= (:app_id row) (config/instant-config-app-id))
+                 (throw (ex-info "Abandoning failover, somehow the writes aren't in sync." {:quit? true})))]
+      (try
+        (loop [i 0]
+          (if-let [row (sql/select-one next-pool ["select * from transactions where app_id = ?::uuid and id = ?::bigint"
+                                                  (config/instant-config-app-id)
+                                                  (:id tx)])]
+            (if (not= (:app_id row) (config/instant-config-app-id))
+              (do
+                (println "Got a bad tx row" row)
+                (quit))
+              (sql/execute! next-pool ["SELECT setval('transactions_id_seq', ?::bigint, true)"
+                                       (+ (:id row) 1000)]))
             (do
-              (println "Got a bad tx row" row)
-              (quit))
-            (sql/execute! next-pool ["SELECT setval('transactions_id_seq', ?::bigint, true)"
-                                     (+ (:id row) 1000)]))
-          (do
-            (when (> i 100)
-              (println "Waited too long for data to sync")
-              (quit))
-            (println "Not yet synced, waiting for 50ms, i =" i)
-            (Thread/sleep 50)
-            (recur (inc i))))))
+              (when (> i 100)
+                (println "Waited too long for data to sync")
+                (quit))
+              (println "Not yet synced, waiting for 50ms, i =" i)
+              (Thread/sleep 50)
+              (recur (inc i)))))
+        (catch Throwable t
+          (when-not (-> t ex-data :quit?)
+            (rollback))
+          (throw t))))
 
     (set-status :resume)
     (println "Synced!")
