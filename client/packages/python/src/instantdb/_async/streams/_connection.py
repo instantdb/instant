@@ -24,6 +24,7 @@ import httpx_sse
 from instantdb._async.http import _AsyncHTTP
 from instantdb._errors import InstantError
 from instantdb._http_errors import api_error_from_response
+from instantdb._logger import _NO_LOG, _Log
 from instantdb._transact import id
 from instantdb._version import __version__
 
@@ -52,10 +53,12 @@ class _AsyncStreamConnection:
         *,
         on_message: Callable[[dict[str, Any]], None],
         on_reconnect: Callable[[], Awaitable[None]] | None = None,
+        log: _Log = _NO_LOG,
     ) -> None:
         self._http = http
         self._on_message = on_message
         self._on_reconnect = on_reconnect
+        self._log = log
         self._init_params: dict[str, str] | None = None
         # Set when the connection is ready for user sends. Cleared on each
         # reconnect attempt; re-set once any reconnect hook completes.
@@ -86,6 +89,7 @@ class _AsyncStreamConnection:
         if self._closed:
             return
         self._closed = True
+        self._log.info("[sse][close]")
         self._ready_event.set()
         if self._force_reconnect_tasks:
             tasks = list(self._force_reconnect_tasks)
@@ -151,6 +155,8 @@ class _AsyncStreamConnection:
         """Post bypassing the ready-event gate. Used by reconnect hooks."""
         assert self._init_params is not None
         event_id = client_event_id or id()
+        if self._log.enabled:
+            self._log.debug(f"[send] {event_id} {msg}")
         full_msg = {"client-event-id": event_id, **msg}
         body = {**self._init_params, "messages": [full_msg]}
         async with self._send_lock:
@@ -216,6 +222,7 @@ class _AsyncStreamConnection:
                         self._closed = True
                         self._ready_event.set()
                         return
+                    self._log.info("[sse][open]")
                     async for sse_event in event_source.aiter_sse():
                         if not sse_event.data:
                             continue
@@ -244,10 +251,13 @@ class _AsyncStreamConnection:
             attempts += 1
             last_attempt_at = now
             delay = min(_BACKOFF_MAX_SECONDS, 0.5 * (attempts - 1))
+            self._log.info(f"[sse][reconnect] attempt={attempts} delay={delay}")
             if delay > 0:
                 await asyncio.sleep(delay)
 
     def _dispatch(self, msg: dict[str, Any]) -> None:
+        if self._log.enabled:
+            self._log.debug(f"[receive] {msg}")
         if msg.get("op") == "sse-init":
             self._init_params = {
                 "machine_id": msg["machine-id"],

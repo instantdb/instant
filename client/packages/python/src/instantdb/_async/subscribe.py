@@ -40,6 +40,7 @@ import httpx_sse
 from instantdb._async.http import _AsyncHTTP
 from instantdb._errors import InstantAPIError
 from instantdb._http_errors import api_error_from_response
+from instantdb._logger import _NO_LOG, _Log
 from instantdb._transact import id
 from instantdb._version import __version__
 
@@ -67,9 +68,11 @@ class AsyncSubscription:
         http: _AsyncHTTP,
         *,
         query: dict[str, Any],
+        log: _Log = _NO_LOG,
     ) -> None:
         self._http = http
         self._query = query
+        self._log = log
         self._queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
         self._task: asyncio.Task[None] | None = None
         self._session_info: dict[str, str] | None = None
@@ -112,6 +115,7 @@ class AsyncSubscription:
             return
         self._closed = True
         self._ready_state = "closed"
+        self._log.info("[sse][close]")
         if self._task is not None and not self._task.done():
             self._task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -138,6 +142,8 @@ class AsyncSubscription:
         self._queue.put_nowait(payload)
 
     def _handle_message(self, msg: dict[str, Any]) -> None:
+        if self._log.enabled:
+            self._log.debug(f"[receive] {msg}")
         op = msg.get("op")
         if op == "sse-init":
             self._has_connected = True
@@ -179,6 +185,7 @@ class AsyncSubscription:
             )
 
     def _emit_error(self, error: InstantAPIError) -> None:
+        self._log.error(f"[error] {error}")
         self._enqueue(
             {
                 "type": "error",
@@ -217,6 +224,7 @@ class AsyncSubscription:
                 attempts += 1
                 last_attempt_at = now
                 delay = _backoff_delay(attempts)
+                self._log.info(f"[sse][reconnect] attempt={attempts} delay={delay}")
                 if delay > 0:
                     await asyncio.sleep(delay)
         finally:
@@ -262,6 +270,7 @@ class AsyncSubscription:
                         return
                     raise api_error_from_response(response)
                 self._ready_state = "open"
+                self._log.info("[sse][open]")
                 async for sse_event in event_source.aiter_sse():
                     if not sse_event.data:
                         continue

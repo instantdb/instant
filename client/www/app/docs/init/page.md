@@ -106,6 +106,8 @@ and `schema`. Here are all the options you can provide:
 
 - **verbose?**: Enables detailed console logging for debugging. When `true`, logs WebSocket messages and internal operations. Helpful for troubleshooting connection and sync issues.
 
+- **logger?**: Customize how `verbose` output is handled by passing an object with `debug`, `info`, and `error` methods (defaults to `console`). Useful for formatting logs (for example, JSON stringifying objects) or routing them somewhere other than the console. Only takes effect when `verbose` is `true`.
+
 - **queryCacheLimit?**: Maximum number of query subscriptions to cache for offline mode. Defaults to `10`. Cached queries provide instant data on app reload while fresh data loads in the background.
 
 - **useDateObjects?**: When `true`, all date columns in queries will return a Javascript `Date` object. Disabled by default.
