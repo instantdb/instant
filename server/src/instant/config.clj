@@ -44,6 +44,9 @@
 
 (defn test? [] (= :test (get-env)))
 
+(defn using-swarm? []
+  (some? (System/getenv "SWARM_SERVICE_NAME")))
+
 (defn aws-env? []
   (contains? #{:prod :staging} (get-env)))
 

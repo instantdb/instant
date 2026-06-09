@@ -58,6 +58,16 @@ JAVA_FLAGS="${JAVA_OPTS} \
     -Djava.awt.headless=true \
     -server"
 
+if [ "${1:-}" = "generate-override-config" ]; then
+    export OVERRIDE_CONFIG_PATH="${2:-resources/config/override.edn}"
+
+    java ${JAVA_FLAGS} \
+        -cp resources:target/instant-standalone.jar \
+        clojure.main \
+        -e "(require 'tasks) (tasks/generate-override-config nil)"
+    exit 0
+fi
+
 echo "Bootstrapping self-hosted server..."
 java ${JAVA_FLAGS} \
     -cp resources:target/instant-standalone.jar \
