@@ -270,6 +270,26 @@ result = db.query({
 
 See [Streams](/docs/streams) for the full reference.
 
+## Logging
+
+Pass `verbose=True` to `AsyncInstant` to log the realtime connection lifecycle
+to the standard library `instantdb` logger. Pass a `logger` (any object with
+`debug`, `info`, and `error`, such as a `logging.Logger`) to send it elsewhere.
+
+```python {% showCopy=true %}
+import logging
+from instantdb import AsyncInstant
+
+logging.basicConfig(level=logging.DEBUG)
+
+db = AsyncInstant(verbose=True)
+
+# Or send logs to your own logger
+db = AsyncInstant(verbose=True, logger=logging.getLogger("myapp"))
+```
+
+Only `AsyncInstant` has realtime, so the sync `Instant` has no `verbose` option.
+
 ## Auth
 
 Mirrors the JS `db.auth` namespace.

@@ -15,6 +15,7 @@ from typing import Any
 from instantdb._async.http import _AsyncHTTP
 from instantdb._async.streams._connection import _AsyncStreamConnection
 from instantdb._errors import InstantAPIError, InstantError
+from instantdb._logger import _NO_LOG, _Log
 from instantdb._transact import id
 
 _FLUSH_TIMEOUT_SECONDS = 30.0
@@ -27,10 +28,12 @@ class AsyncStreamWriter:
         *,
         client_id: str,
         rule_params: dict[str, Any] | None = None,
+        log: _Log = _NO_LOG,
     ) -> None:
         self._http = http
         self._client_id = client_id
         self._rule_params = rule_params
+        self._log = log
         self._reconnect_token = id()
         self._connection: _AsyncStreamConnection | None = None
         self._start_event_id: str | None = None
@@ -72,6 +75,7 @@ class AsyncStreamWriter:
             self._http,
             on_message=self._on_message,
             on_reconnect=self._on_reconnect,
+            log=self._log,
         )
         await self._connection.__aenter__()
         try:

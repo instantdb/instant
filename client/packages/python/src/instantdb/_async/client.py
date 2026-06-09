@@ -20,6 +20,11 @@ from instantdb._async.subscribe import AsyncSubscription
 # UNASYNC_REMOVE_END
 from instantdb._async.webhooks import AsyncWebhooks
 from instantdb._errors import InstantError
+
+# UNASYNC_REMOVE_START
+from instantdb._logger import Logger, make_logger
+
+# UNASYNC_REMOVE_END
 from instantdb._transact import _flatten_chunks, _TxBuilder, _TxChunk
 
 
@@ -30,6 +35,10 @@ class AsyncInstant:
         app_id: str | None = None,
         admin_token: str | None = None,
         api_uri: str = DEFAULT_API_URI,
+        # UNASYNC_REMOVE_START
+        verbose: bool = False,
+        logger: Logger | None = None,
+        # UNASYNC_REMOVE_END
         _impersonation: dict[str, str] | None = None,
         _transport: httpx.AsyncBaseTransport | None = None,
         _shared_client: httpx.AsyncClient | None = None,
@@ -46,6 +55,11 @@ class AsyncInstant:
         self._admin_token = admin_token
         self._api_uri = api_uri
         self._impersonation = _impersonation
+        # UNASYNC_REMOVE_START
+        self._verbose = verbose
+        self._logger = logger
+        self._log = make_logger(verbose, logger)
+        # UNASYNC_REMOVE_END
         self._http = _AsyncHTTP(
             app_id=app_id,
             admin_token=admin_token,
@@ -59,7 +73,7 @@ class AsyncInstant:
         self.storage = AsyncStorage(self._http, app_id=app_id)
         self.rooms = AsyncRooms(self._http, app_id=app_id)
         # UNASYNC_REMOVE_START
-        self.streams = AsyncStreams(self._http)
+        self.streams = AsyncStreams(self._http, log=self._log)
         # UNASYNC_REMOVE_END
         self.webhooks = AsyncWebhooks(self._http, app_id=app_id)
 
@@ -85,6 +99,10 @@ class AsyncInstant:
             app_id=self._app_id,
             admin_token=self._admin_token if self._admin_token is not None else "",
             api_uri=self._api_uri,
+            # UNASYNC_REMOVE_START
+            verbose=self._verbose,
+            logger=self._logger,
+            # UNASYNC_REMOVE_END
             _shared_client=self._http._client,
             **overrides,
         )
@@ -112,7 +130,7 @@ class AsyncInstant:
     ) -> AsyncSubscription:
         if rule_params is not None:
             q = {"$$ruleParams": rule_params, **q}
-        return AsyncSubscription(self._http, query=q)
+        return AsyncSubscription(self._http, query=q, log=self._log)
 
     # UNASYNC_REMOVE_END
     async def transact(self, chunks: _TxChunk | list[_TxChunk]) -> dict[str, Any]:

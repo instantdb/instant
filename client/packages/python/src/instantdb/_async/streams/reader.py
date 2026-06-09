@@ -20,6 +20,7 @@ import httpx
 from instantdb._async.http import _AsyncHTTP
 from instantdb._async.streams._connection import _AsyncStreamConnection
 from instantdb._errors import InstantAPIError, InstantError
+from instantdb._logger import _NO_LOG, _Log
 
 # Server can ask the reader to retry by sending stream-append with `retry: true`,
 # or by responding with a 5xx on an S3 file fetch. Match JS's 10-attempt budget.
@@ -35,6 +36,7 @@ class AsyncStreamReader:
         stream_id: str | None = None,
         byte_offset: int = 0,
         rule_params: dict[str, Any] | None = None,
+        log: _Log = _NO_LOG,
     ) -> None:
         if client_id is None and stream_id is None:
             raise InstantError("Must provide client_id or stream_id")
@@ -43,6 +45,7 @@ class AsyncStreamReader:
         self._stream_id = stream_id
         self._byte_offset = byte_offset
         self._rule_params = rule_params
+        self._log = log
         self._connection: _AsyncStreamConnection | None = None
         self._event_id: str | None = None
         # Outgoing chunks (str), errors, or None sentinel for end-of-stream.
@@ -63,6 +66,7 @@ class AsyncStreamReader:
             self._http,
             on_message=self._on_message,
             on_reconnect=self._on_reconnect,
+            log=self._log,
         )
         await self._connection.__aenter__()
         self._materializer_task = asyncio.create_task(self._materialize_loop())

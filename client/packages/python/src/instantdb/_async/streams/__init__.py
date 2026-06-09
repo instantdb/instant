@@ -25,11 +25,13 @@ from typing import Any
 from instantdb._async.http import _AsyncHTTP
 from instantdb._async.streams.reader import AsyncStreamReader
 from instantdb._async.streams.writer import AsyncStreamWriter
+from instantdb._logger import _NO_LOG, _Log
 
 
 class AsyncStreams:
-    def __init__(self, http: _AsyncHTTP) -> None:
+    def __init__(self, http: _AsyncHTTP, *, log: _Log = _NO_LOG) -> None:
         self._http = http
+        self._log = log
 
     def write(
         self,
@@ -41,6 +43,7 @@ class AsyncStreams:
             self._http,
             client_id=client_id,
             rule_params=rule_params,
+            log=self._log,
         )
 
     def read(
@@ -57,6 +60,7 @@ class AsyncStreams:
             stream_id=stream_id,
             byte_offset=byte_offset,
             rule_params=rule_params,
+            log=self._log,
         )
 
 
