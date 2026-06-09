@@ -10,12 +10,18 @@
    [instant.jdbc.sql :as sql]
    [instant.jdbc.wal :as wal]
    [instant.reactive.aggregator :as aggregator]
+   [instant.reactive.ephemeral :as eph]
+   [instant.reactive.invalidator :as invalidator]
    [instant.util.crypt :refer [bytes->hex-string]]
    [instant.util.lang :as lang]
    [next.jdbc]
    [next.jdbc.result-set :as rs])
   (:import
+   (com.hazelcast.map IMap)
+   (com.hazelcast.map.impl DataAwareEntryEvent)
+   (com.hazelcast.map.listener EntryAddedListener EntryRemovedListener EntryUpdatedListener)
    (java.sql ResultSet ResultSetMetaData)
+   (java.util.function BiFunction)
    (org.postgresql.jdbc PgConnection)))
 
 (defn start-new-pool [aurora-config]
@@ -24,6 +30,13 @@
 
 ;; Keep this here just in case
 (declare previous-conn-pool)
+
+;; ---------------
+;; Testing locally
+
+;; If you want to test locally, make sure you set up a local replica inside of a
+;; separate postgres instance (not just a separate db), because postgres slot names
+;; are global across all dbs on the instance.
 
 ;; ---------------------
 ;; Invalidator migration
@@ -91,8 +104,8 @@
             (recur (inc i))))))))
 
 (defn replication-origin-status []
-  (with-open [pool (aurora/start-pool 1 (config/get-next-aurora-config))]
-    (let [res (sql/select ::replication-origin-status pool ["select * from pg_replication_origin_status"])]
+  (with-open [conn (next.jdbc/get-connection (config/get-next-aurora-config))]
+    (let [res (sql/select ::replication-origin-status conn ["select * from pg_replication_origin_status"])]
       (assert (= 1 (count res)))
       (first res))))
 
@@ -106,7 +119,7 @@
                                                   :check-disabled (fn [] false)
                                                   :get-conn-config (fn []
                                                                      (config/get-aurora-config))
-                                                  :slot-num (unchecked-inc-int aggregator/global-slot-num)})]
+                                                  :slot-num aggregator/global-slot-num})]
     ;; Intentional def-locals so that we have a way to shut it down if something goes wrong
     (tool/def-locals)
     (a/<!! (:completed-chan listener))))
@@ -137,17 +150,20 @@
                                                   :skip-empty-updates (= :dev (config/get-env))
                                                   :check-disabled (fn [] false)
                                                   :get-conn-config (fn []
-                                                                     (config/get-next-aurora-config))})]
+                                                                     (config/get-next-aurora-config))
+                                                  :slot-num (unchecked-inc aggregator/global-slot-num)})]
     ;; Intentional def-locals so that we have a way to shut it down if something goes wrong
     (tool/def-locals)
     (alter-var-root #'aggregator/shutdown (fn [_] (:shutdown listener)))))
 
 (defn migrate-aggregator-to-replica
-  "Migrates aggregator to a slot on the replice.
+  "Migrates aggregator to a slot on the replica.
    Should be called from an nrepl session on a production instance.
+   Find the instance that is currently running the aggregator, then detach it from the load
+   balancer before you start.
    After running the migration, deploy a change that defaults to the replica when
    choosing the slot, then set the `disable-aggregator` flag to false once it is fully
-   deployed."
+   deployed, stop the aggregator on this machine, and shut this machine down."
   []
   (create-aggregator-on-replica)
   (pause-aggregator-on-primary)
@@ -158,11 +174,343 @@
     (set-wal-aggregator-lsn-to-local-lsn local_lsn))
   (start-aggregator-on-replica-slot))
 
+;; -------------------------------
+;; Singleton invalidator migration
+
+;; Same idea as the aggregator, We need to move the singleton slot from the primary to the
+;; replica before we failover.
+
+(defn create-invalidator-on-replica []
+  (let [{:keys [connection]} (wal/create-sync-db-replication-slot-and-connection (config/get-next-aurora-config)
+                                                                                 "invalidator")]
+    (.close ^PgConnection connection)))
+
+(defn pause-invalidator-on-primary []
+  (let [attrs (attr-model/get-by-app-id (config/instant-config-app-id))
+        setting-aid (:id (attr-model/seek-by-fwd-ident-name ["toggles" "setting"] attrs))
+        toggle-aid (:id (attr-model/seek-by-fwd-ident-name ["toggles" "toggled"] attrs))]
+    (tx/transact! (aurora/conn-pool :write)
+                  attrs
+                  (config/instant-config-app-id)
+                  [[:add-triple [setting-aid "disable-singleton-invalidator"] toggle-aid true]])
+
+    (loop [i 0]
+      (if (> i 100)
+        (throw (ex-info "Time out waiting for invalidator to stop" {}))
+        (let [inactive? (= false (:active (sql/select-one ::invalidator-status
+                                                          (aurora/conn-pool :read)
+                                                          ["select active from pg_replication_slots
+                                                             where slot_name = 'invalidator'"])))]
+          (when-not inactive?
+            (println "Waiting for invalidator to stop" i)
+            (Thread/sleep 1000)
+            (recur (inc i))))))))
+
+(defn advance-primary-invalidator-to-lsn [remote-lsn]
+  (let [process (invalidator/start-singleton {:stop-lsn remote-lsn
+                                                         :check-disabled (fn [] false)
+                                                         :get-conn-config (fn []
+                                                                            (config/get-aurora-config))
+                                                         :slot-num config/invalidator-slot-num})]
+    ;; Intentional def-locals so that we have a way to shut it down if something goes wrong
+    (tool/def-locals)
+    (a/<!! (:completed-chan (:listener process)))))
+
+(defn primary-invalidator-restart-lsn []
+  (:restart_lsn (sql/select-one ::primary-invalidator-restart-lsn
+                                (aurora/conn-pool :read)
+                                ["select restart_lsn from pg_replication_slots
+                                   where slot_name = 'invalidator'"])))
+
+(defn advance-replica-invalidator-slot-to-lsn
+  "Fast-forwards the replica's invalidator slot to `local-lsn` so that when we
+   start reading from it we don't redeliver events that the primary invalidator
+   already wrote to history up through `remote_lsn`."
+  [local-lsn]
+  (with-open [conn (next.jdbc/get-connection (config/get-next-aurora-config))]
+    (sql/select-one ::advance-replica-invalidator-slot
+                    conn
+                    ["select pg_replication_slot_advance('invalidator', ?::pg_lsn)" local-lsn])))
+
+(defn start-invalidator-on-replica-slot []
+  (invalidator/stop-singleton-global)
+  (let [process (invalidator/start-singleton {:check-disabled (fn [] false)
+                                              :get-conn-config (fn []
+                                                                 (config/get-next-aurora-config))
+                                              :slot-num (unchecked-inc config/invalidator-slot-num)})]
+    ;; Intentional def-locals so that we have a way to shut it down if something goes wrong
+    (tool/def-locals)
+    (alter-var-root #'invalidator/singleton-process (fn [_] process))))
+
+(defn migrate-invalidator-to-replica
+  "Migrates singleton invalidator to a slot on the replica.
+   Should be called from an nrepl session on a production instance.
+   Find the instance that is currently running the invalidator, then detach it from the load
+   balancer before you start.
+   After running the migration, deploy a change that defaults to the replica when
+   choosing the slot, then set the `disable-singleton-invalidator` flag to false once it is fully
+   deployed, stop the singleton-invalidator on this machine, make sure it starts properly on a new
+   machine and shut this machine down."
+  []
+  (create-invalidator-on-replica)
+  (pause-invalidator-on-primary)
+  (let [{:keys [remote_lsn local_lsn]} (replication-origin-status)]
+    (println "remote_lsn:" (str remote_lsn))
+    (println "local_lsn:" (str local_lsn))
+    (advance-primary-invalidator-to-lsn remote_lsn)
+    (advance-replica-invalidator-slot-to-lsn local_lsn))
+  (start-invalidator-on-replica-slot))
 
 ;; --------
 ;; Failover
 
+(defn my-failover-key []
+  {:instance-id @config/instance-id
+   :process-id @config/process-id})
+
+(defn get-failover-map ^IMap []
+  (.getMap (eph/get-hz) "failover-map"))
+
+(defn init-hz-on-leader
+  "Run once manually on the leader."
+  []
+  (let [m (get-failover-map)]
+    (when-not (empty? m)
+      (throw (Exception. "The failover-map is not empty")))
+    (IMap/.set m :leader (my-failover-key))
+    (IMap/.set m :status :wait-for-followers)
+    m))
+
+(defn init-hz-on-follower
+  "Run once manually in a repl on each follower after running init-hz-on-leader
+   Watch carefully for any errors once failover starts."
+  []
+  (let [next-pool aurora/-replica-conn-pool
+        _ (assert next-pool "no replica conn pool")
+        conn-pool-fn-before aurora/conn-pool
+        prev-pool aurora/-conn-pool
+        next-pool-promise (promise)
+        m (get-failover-map)
+        my-key (my-failover-key)
+        repl-out *out*
+
+        set-my-status (fn [status]
+                        (binding [*out* repl-out]
+                          (println "setting status to" status))
+                        (IMap/.compute m
+                                       :followers
+                                       (reify BiFunction (apply [_ _k v]
+                                                           (assoc-in v [my-key :status] status)))))
+        finished-promise (promise)]
+    (when-not (= (:status m) :wait-for-followers)
+      (throw (Exception. (str "Unexpected status " (:status m) ", expected :wait-for-followers"))))
+    (let [current-status (atom :wait-for-followers)
+          handle-event (fn [^DataAwareEntryEvent event]
+                         (let [k (.getKey event)]
+                           (when (= k :status)
+                             (let [[status-before status-after] (swap-vals! current-status (fn [_v] (.getValue event)))]
+                               (binding [*out* repl-out]
+                                 (println "status change " status-before "->" status-after))
+
+                               (case [status-before status-after]
+                                 [:wait-for-followers :pause-writes]
+                                 ;; Make the write connections wait, send the read connections to the replica
+                                 (do
+                                   (alter-var-root #'aurora/conn-pool (fn [_] (fn [rw]
+                                                                                (case rw
+                                                                                  (:read :read-replica) (aurora/memoized-read-only-wrapper next-pool)
+                                                                                  @next-pool-promise))))
+                                   (set-my-status :pause-writes))
+
+                                 [:pause-writes :cancel-in-progress]
+                                 (do
+                                   (binding [*out* repl-out]
+                                     (println "Canceling in-progress transactions"
+                                              (count @(:stmts sql/default-statement-tracker))))
+                                   (sql/cancel-in-progress sql/default-statement-tracker)
+                                   (set-my-status :cancel-in-progress))
+
+                                 [:cancel-in-progress :resume]
+                                 (do
+                                   (binding [*out* repl-out]
+                                     (println "resuming"))
+                                   (deliver next-pool-promise next-pool)
+                                   (alter-var-root #'aurora/-conn-pool (fn [_] next-pool))
+                                   (alter-var-root #'aurora/conn-pool (fn [_] conn-pool-fn-before))
+                                   (lang/close prev-pool)
+                                   (set-my-status :resume)
+                                   (deliver finished-promise {:ok true}))
+
+                                 ([:pause-writes :rollback]
+                                  [:cancel-in-progress :rollback])
+                                 (do
+                                   (binding [*out* repl-out]
+                                     (println "Abandoning failover, got rollback"))
+                                   (deliver next-pool-promise prev-pool)
+                                   (alter-var-root #'aurora/conn-pool (fn [_] conn-pool-fn-before))
+                                   (set-my-status :rollback)
+                                   (deliver finished-promise {:ok false :error :rollback}))
+
+                                 (do
+                                   (binding [*out* repl-out]
+                                     (println "UNEXPECTED STATE TRANSITION" status-before status-after))
+                                   (set-my-status :failed)))))))
+          listener-id (IMap/.addEntryListener m
+                                              (reify
+                                                EntryAddedListener
+                                                (entryAdded [_ event]
+                                                  (handle-event event))
+
+                                                EntryRemovedListener
+                                                (entryRemoved [_ event]
+                                                  (handle-event event))
+
+                                                EntryUpdatedListener
+                                                (entryUpdated [_ event]
+                                                  (handle-event event)))
+                                              true)]
+      ;; intentional def-locals so we can stop things if necessary
+      (tool/def-locals)
+      (set-my-status :ready)
+      (println "Added listener, set status to ready, waiting for leader to start...")
+      (println (into {} m))
+      (println "Finished" @finished-promise)
+      (IMap/.removeEntryListener m listener-id))))
+
 (defn do-failover-to-new-db
+  "Intended to be run from a production repl, will failover making the replica the primary.
+   Before running set the `failing-over` and the `disable-aggregator` feature flags to `true`,
+   then set them back to `false` after the failover is complete.
+
+   Before running this:
+   1. Run (init-hz-on-leader) on this instance
+   2. Run (init-hz-on-follower) on every other instance
+   3. Check that (get-failover-map) has all of the instances that you'd expect."
+  []
+  (println "Failing over to new db")
+  (let [m (get-failover-map)
+        my-key (my-failover-key)
+        set-status (fn [status]
+                     (IMap/.set m :status status))
+        next-pool aurora/-replica-conn-pool
+        _ (assert next-pool "no replica conn pool")
+        conn-pool-fn-before aurora/conn-pool
+        prev-pool aurora/-conn-pool
+        next-pool-promise (promise)
+        rollback (fn []
+                   (println "Abandoning failover")
+                   (deliver next-pool-promise prev-pool)
+                   (alter-var-root #'aurora/conn-pool (fn [_] conn-pool-fn-before))
+                   (set-status :rollback))
+        wait-for-followers (fn [{:keys [expected-status
+                                        previous-status
+                                        timeout-ms]}]
+                             (loop [start (System/currentTimeMillis)]
+                               (cond (every? (fn [[_k v]]
+                                               (= (:status v) expected-status))
+                                             (:followers m))
+                                     {:status :ok}
+
+                                     (some (fn [[_k v]]
+                                             (and (not= expected-status (:status v))
+                                                  (not= previous-status (:status v))))
+                                           (:followers m))
+                                     {:status :invalid-status}
+
+                                     (< timeout-ms (- (System/currentTimeMillis) start))
+                                     {:status :timeout}
+
+                                     :else (do
+                                             (Thread/sleep 100)
+                                             (recur start)))))]
+    (when-let [not-ready (seq (filter (fn [[_k v]]
+                                        (not= :ready (:status v)))
+                                      (:followers m)))]
+      (throw (ex-info "Some instances are not in the ready state" {:not-ready not-ready})))
+
+    (when (not= (:leader m) my-key)
+      (throw (ex-info "We're not the leader" {:leader (:leader m)})))
+
+    (when (not= (:status m) :wait-for-followers)
+      (throw (ex-info "Invalid status" {:expected :wait-for-followers
+                                        :got (:status m)})))
+
+    (when (not= (count (:followers m))
+                (dec (count (.getMembers (.getCluster (eph/get-hz))))))
+      (throw (ex-info "Invalid follower count" {:follower-count (count (:followers m))
+                                                :member-count (dec (count (.getMembers (.getCluster (eph/get-hz)))))})))
+
+    (tool/def-locals)
+    (println "Started next pool")
+    ;; Make the write connections wait, send the read connections to the replica
+    (set-status :pause-writes)
+    (alter-var-root #'aurora/conn-pool (fn [_] (fn [rw]
+                                                 (case rw
+                                                   (:read :read-replica) (aurora/memoized-read-only-wrapper next-pool)
+                                                   @next-pool-promise))))
+
+    (let [wait-res (wait-for-followers {:expected-status :pause-writes
+                                        :previous-status :ready
+                                        :timeout-ms 500})]
+      (when-not (= (:status wait-res) :ok)
+        (rollback)
+        (throw (ex-info (str "Error waiting for followers " (:status wait-res)) {:wait-res wait-res}))))
+
+    ;; Give transactions half the receive-timeout to complete
+    (println "Waiting for 2.5 seconds for transactions to complete")
+    (Thread/sleep 2500)
+    (set-status :cancel-in-progress)
+    (println "Canceling in-progress transactions"
+             (count @(:stmts sql/default-statement-tracker)))
+    (sql/cancel-in-progress sql/default-statement-tracker)
+
+    (let [wait-res (wait-for-followers {:expected-status :cancel-in-progress
+                                        :previous-status :pause-writes
+                                        :timeout-ms 1000})]
+      (when-not (= (:status wait-res) :ok)
+        (rollback)
+        (throw (ex-info (str "Error waiting for followers " (:status wait-res)) {:wait-res wait-res}))))
+    ;; Create a transaction we can use as a proxy for everything syncing over to
+    ;; the new instance
+    (let [tx (transaction-model/create! prev-pool
+                                        {:app-id (config/instant-config-app-id)})
+          quit (fn []
+                 (rollback)
+                 (throw (Exception. "Abandoning failover, somehow the writes aren't in sync.")))]
+      (loop [i 0]
+        (if-let [row (sql/select-one next-pool ["select * from transactions where app_id = ?::uuid and id = ?::bigint"
+                                                (config/instant-config-app-id)
+                                                (:id tx)])]
+          (if (not= (:app_id row) (config/instant-config-app-id))
+            (do
+              (println "Got a bad tx row" row)
+              (quit))
+            (sql/execute! next-pool ["SELECT setval('transactions_id_seq', ?::bigint, true)"
+                                     (+ (:id row) 1000)]))
+          (do
+            (when (> i 100)
+              (println "Waited too long for data to sync")
+              (quit))
+            (println "Not yet synced, waiting for 50ms, i =" i)
+            (Thread/sleep 50)
+            (recur (inc i))))))
+
+    (set-status :resume)
+    (println "Synced!")
+    (println "Continuing with all queries and transactions on the new db.")
+    (deliver next-pool-promise next-pool)
+    (alter-var-root #'aurora/-conn-pool (fn [_] next-pool))
+    (alter-var-root #'aurora/conn-pool (fn [_] conn-pool-fn-before))
+    (def previous-conn-pool prev-pool)
+    (println "Closing the old connection pool.")
+    (lang/close prev-pool)
+    (println "NEXT STEPS:")
+    (println "  0. Check that all followers updated their status to resume and have finished")
+    (println "  1. Put the old database to sleep so that it doesn't accidentally get written to.")
+    (println "  2. Deploy a PR that updates the config so that replica is the primary and redeploy")
+    (:followers m)))
+
+(defn do-failover-to-new-db-single-instance-only
   "Intended to be run from a production repl, will failover making the replica the primary.
    Before running set the `failing-over` and the `disable-aggregator` feature flags to `true`,
    then set them back to `false` after the failover is complete.
