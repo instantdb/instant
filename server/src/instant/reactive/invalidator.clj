@@ -952,7 +952,7 @@
                           ;; When we're not transitioning to a new cluster,
                           ;; this lets us check if the slot is active without
                           ;; creating a new connection
-                          {:same-as-read-conn true})]
+                          {:same-as-read-conn false})]
     (start-singleton {:get-conn-config get-conn-config
                       :check-disabled (fn []
                                         (flags/toggled? :disable-singleton-invalidator))
