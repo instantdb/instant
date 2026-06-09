@@ -945,7 +945,8 @@
                  (cleanup-local-process process-id))}))
 
 (defn start-singleton-global []
-  (let [conn-config (config/get-aurora-config)
+  (let [conn-config (or (config/get-next-aurora-config)
+                        (config/get-aurora-config))
         get-conn-config (with-meta (fn []
                                      conn-config)
                           ;; When we're not transitioning to a new cluster,
