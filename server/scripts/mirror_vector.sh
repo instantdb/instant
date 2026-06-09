@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+set -o pipefail
 
 # Mirrors a Vector image from Docker Hub into our private ECR repo. Run this
 # whenever we want to use a new upstream Vector version, then update the tag
