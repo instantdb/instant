@@ -76,18 +76,41 @@ async def test_subscription_logs_received_messages():
     assert any(level == "debug" and "[receive]" in msg for level, msg in spy.calls)
 
 
+async def test_disabled_subscription_skips_payload_formatting():
+    # The hot-path guard must skip building the log string when disabled, so a
+    # silent connection never serializes the payload on every message.
+    class _Tripwire(dict):
+        formatted = False
+
+        def __repr__(self) -> str:
+            type(self).formatted = True
+            return "<msg>"
+
+    http = _AsyncHTTP(app_id="app", admin_token="abc")
+    try:
+        sub = AsyncSubscription(http, query={"goals": {}})  # no logger -> disabled
+        sub._handle_message(_Tripwire({"op": "refresh-ok", "computations": []}))
+    finally:
+        await http.aclose()
+    assert _Tripwire.formatted is False
+
+
 # ---------- stream connection wires the logger in ----------
 
 
 async def test_stream_connection_logs_received_messages():
     spy = _SpyLogger()
-    conn = _AsyncStreamConnection(
-        _AsyncHTTP(app_id="app", admin_token="abc"),
-        on_message=lambda _: None,
-        log=make_logger(True, spy),
-    )
-    conn._dispatch({"op": "stream-append", "content": "hi"})
-    assert any("[receive]" in msg for _, msg in spy.calls)
+    http = _AsyncHTTP(app_id="app", admin_token="abc")
+    try:
+        conn = _AsyncStreamConnection(
+            http,
+            on_message=lambda _: None,
+            log=make_logger(True, spy),
+        )
+        conn._dispatch({"op": "stream-append", "content": "hi"})
+        assert any("[receive]" in msg for _, msg in spy.calls)
+    finally:
+        await http.aclose()
 
 
 # ---------- client threads verbose/logger through ----------
@@ -121,10 +144,10 @@ async def test_as_user_clone_preserves_logger():
     db = AsyncInstant(app_id="app", admin_token="abc", verbose=True, logger=spy)
     try:
         impersonated = db.as_user(guest=True)
-        assert impersonated._verbose is True
-        assert impersonated._logger is spy
         sub = impersonated.subscribe_query({"goals": {}})
         sub._handle_message({"op": "refresh-ok", "computations": []})
+        # Logging through the clone proves both verbose and logger carried over:
+        # a dropped verbose would silence it; a dropped logger would miss the spy.
         assert any("[receive]" in msg for _, msg in spy.calls)
     finally:
         await db.aclose()

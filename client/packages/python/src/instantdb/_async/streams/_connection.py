@@ -155,7 +155,8 @@ class _AsyncStreamConnection:
         """Post bypassing the ready-event gate. Used by reconnect hooks."""
         assert self._init_params is not None
         event_id = client_event_id or id()
-        self._log.debug(f"[send] {event_id} {msg}")
+        if self._log.enabled:
+            self._log.debug(f"[send] {event_id} {msg}")
         full_msg = {"client-event-id": event_id, **msg}
         body = {**self._init_params, "messages": [full_msg]}
         async with self._send_lock:
@@ -255,7 +256,8 @@ class _AsyncStreamConnection:
                 await asyncio.sleep(delay)
 
     def _dispatch(self, msg: dict[str, Any]) -> None:
-        self._log.debug(f"[receive] {msg}")
+        if self._log.enabled:
+            self._log.debug(f"[receive] {msg}")
         if msg.get("op") == "sse-init":
             self._init_params = {
                 "machine_id": msg["machine-id"],

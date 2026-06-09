@@ -142,7 +142,8 @@ class AsyncSubscription:
         self._queue.put_nowait(payload)
 
     def _handle_message(self, msg: dict[str, Any]) -> None:
-        self._log.debug(f"[receive] {msg}")
+        if self._log.enabled:
+            self._log.debug(f"[receive] {msg}")
         op = msg.get("op")
         if op == "sse-init":
             self._has_connected = True

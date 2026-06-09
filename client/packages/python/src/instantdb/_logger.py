@@ -32,9 +32,14 @@ def _noop(message: str) -> None:
 
 
 class _Log:
-    """Log sink that no-ops every method when disabled."""
+    """Log sink that no-ops every method when disabled.
+
+    `enabled` lets a caller skip building an expensive log string (e.g.
+    serializing a full message payload) before reaching the no-op.
+    """
 
     def __init__(self, enabled: bool, base: Logger) -> None:
+        self.enabled = enabled
         self.debug = base.debug if enabled else _noop
         self.info = base.info if enabled else _noop
         self.error = base.error if enabled else _noop
