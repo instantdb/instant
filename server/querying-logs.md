@@ -28,7 +28,6 @@ but no `trace_id` or `name`. Because most failures surface through spans,
 | **Region**       | `us-east-1`                                                                                                                              |
 | **Prefix**       | `logs/env=<env-name>/year=YYYY/month=MM/day=DD/hour=HH/minute=MM/`                                                                       |
 | **Format**       | One snappy Parquet file per Vector batch (100 MB cap or 60 s; prod cuts ~1 file/min)                                                     |
-| **Field schema** | [`log-fields.md`](./log-fields.md)                                                                                                       |
 | **Athena DDL**   | [`athena/instant_logs_prod.sql`](./athena/instant_logs_prod.sql), [`athena/instant_logs_staging.sql`](./athena/instant_logs_staging.sql) |
 
 Environment names (used both in the S3 path and Athena partition values):
@@ -212,22 +211,37 @@ need to drop columns from a `SELECT *`.
 
 ## Schema drift caveats
 
-Some fields acquired a `to_int` coercion in vector.yaml after data had
-already been written without it. In old parquet files they're string-typed;
-in new ones they're int-typed. The known ones:
+Every typed column in the DDL has to match what Vector wrote to parquet.
+There are two ways drift sneaks in.
 
-- `port`
-- `tx_bytes`
-- `active_connections`, `idle_connections`, `pending_threads`
-- `clojure_error_line`
-- `run_time_ms`, `total_delay_ms`, `attempt`, `loops`, `message_count`, `skipped_size`
+The first is when a field gets added to a `to_int` or `to_bool` block in
+`vector.yaml`, but old parquet files (written before the coercion landed)
+still have it as a string. Athena fails the next time a query touches a
+partition that straddles the change:
+`HIVE_BAD_DATA: Field port's type BINARY (string) is incompatible with
+bigint`.
 
-In DuckDB with `union_by_name = true`, these read fine (typed as the
-broader type, with mixed values).
+The second is when a field that was always written as a string starts
+arriving as a number from some new code path. The error looks the same,
+just in the opposite direction.
 
-In Athena, the DDL declares these columns as `string` to dodge
-`Field X's type BINARY is incompatible with bigint`. Cast at the call site
-when you need them as numbers: `CAST("port" AS BIGINT)`.
+Before adding a coercion, ask whether you'll actually filter or aggregate
+on the typed value. If you only ever inspect the column when it shows up,
+leave it as a string. Storing every counter as `bigint` costs nothing
+operationally but creates a drift-prone DDL row you'll have to revisit
+when the column's history shifts again.
+
+When you hit the error in Athena, the fastest fix is to rerun the query
+in DuckDB with `union_by_name = true`. DuckDB auto-promotes mixed types
+across files and the query works. If you must stay on Athena, either
+restrict the `WHERE` clause to a partition range that's entirely on one
+side of the change, or declare the column as `string` in the DDL and
+cast at the call site: `CAST("port" AS BIGINT)`.
+
+The fields currently coerced live in `vector.yaml`'s `parse_logs`
+transform. Declarations in `athena/instant_logs_*.sql` should match what's
+coerced there; if they drift apart, every query against a straddling
+partition fails.
 
 ## Cost & efficiency
 

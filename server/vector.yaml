@@ -43,7 +43,14 @@ transforms:
         # EC2 instance ID injected via the vector.env file by the EB prebuild
         # hook.
         .instance_id = get_env_var("INSTANCE_ID") ?? null
-        del(.message)
+        # Drop the raw docker envelope, but only when there was no
+        # `message=` in the logfmt to replace it with. Log lines (from
+        # log_config.clj) always emit `message=`, so the merge above
+        # already overwrote `.message` with the parsed content. Spans
+        # don't, so `.message` is still the raw envelope.
+        if !exists(fields.message) {
+          del(.message)
+        }
         # Keep the app-emitted time queryable (ms precision from logback, ns
         # from the span exporter; ISO-8601 `%+` covers both).
         .event_time = parse_timestamp(.timestamp, "%+") ?? .timestamp
@@ -160,9 +167,6 @@ transforms:
         if exists(.skipped_size) { .skipped_size = to_int(.skipped_size) ?? null }
         if exists(.message_count) { .message_count = to_int(.message_count) ?? null }
 
-        # Ints — Clojure ex-triage line number.
-        if exists(.clojure_error_line) { .clojure_error_line = to_int(.clojure_error_line) ?? null }
-
         # Ints — other numerics.
         if exists(.attempt) { .attempt = to_int(.attempt) ?? null }
         if exists(.limit) { .limit = to_int(.limit) ?? null }
@@ -256,6 +260,8 @@ tests:
               assert_eq!(.level, "ERROR")
               assert_eq!(.exception_type, "java.lang.RuntimeException")
               assert!(contains!(.exception_stacktrace, "instant.foo.bar"))
+              # Log lines emit `message=`, so the parsed value is kept.
+              assert_eq!(.message, "boom")
 
   - name: "non-logfmt line keeps message and gets raw=true"
     inputs:
