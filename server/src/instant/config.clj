@@ -225,13 +225,23 @@
     (assoc config
            :ApplicationName application-name)))
 
-(defn get-next-aurora-config []
+(defn next-aurora-config-from-cluster-id [application-name]
   (when-let [cluster-id (or (System/getenv "NEXT_DATABASE_CLUSTER_ID")
                             (some-> @config-map :next-database-cluster-id))]
-    (let [application-name (uri/query-encode (format "%s, %s"
-                                                     @hostname
-                                                     @process-id))]
-      (assoc (aurora-config/rds-cluster-id->db-config cluster-id application-name)
+    (aurora-config/rds-cluster-id->db-config cluster-id application-name)))
+
+(defn next-aurora-config-from-database-url []
+  (when-let [url (or (System/getenv "NEXT_DATABASE_URL")
+                     (some-> @config-map :next-database-url crypt-util/secret-value))]
+    (db-url->config url)))
+
+(defn get-next-aurora-config []
+  (let [application-name (uri/query-encode (format "%s, %s"
+                                                   @hostname
+                                                   @process-id))]
+    (when-let [config (or (next-aurora-config-from-cluster-id application-name)
+                          (next-aurora-config-from-database-url))]
+      (assoc config
              :ApplicationName application-name))))
 
 (defn dashboard-origin

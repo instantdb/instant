@@ -863,15 +863,11 @@
           (.onCompleted observer)
           (catch Throwable _ nil))))))
 
-(defn start-singleton []
+(defn start-singleton [{:keys [get-conn-config
+                               check-disabled
+                               slot-num
+                               stop-lsn]}]
   (let [process-id (gen-process-id)
-        conn-config (config/get-aurora-config)
-        get-conn-config (with-meta (fn []
-                                     conn-config)
-                          ;; When we're not transitioning to a new cluster,
-                          ;; this lets us check if the slot is active without
-                          ;; creating a new connection
-                          {:same-as-read-conn true})
         _ (wal/ensure-slot (get-conn-config) "invalidator")
         acquire-slot-interrupt-chan (a/chan (a/sliding-buffer 1))
 
@@ -920,22 +916,23 @@
             (when (not= member-id config/machine-id)
               (subscribe member-id)))
 
-        {shutdown-listener :shutdown}
+        {shutdown-listener :shutdown :as listener}
         (start-singleton-listener
          {:acquire-slot-interval-ms 10000
           :process-id @config/process-id
-          :check-disabled (fn []
-                            (flags/toggled? :disable-singleton-invalidator))
+          :check-disabled check-disabled
           :acquire-slot-interrupt-chan acquire-slot-interrupt-chan
           :get-conn-config get-conn-config
-          :slot-num config/invalidator-slot-num
+          :slot-num slot-num
           :previous-isn-atom previous-isn-atom
+          :stop-lsn stop-lsn
           :get-remote-observers (fn []
                                   (-> @grpc-registry
                                       :remote-observers
                                       vals))
           :queue queue})]
-    {:shutdown (fn []
+    {:listener listener
+     :shutdown (fn []
                  (remove-hz-cb)
                  (shutdown-listener)
                  ;; Shutdown outbound subscribers
@@ -946,6 +943,19 @@
                      (catch Throwable _ nil)))
                  ;; Shutdown inbound subscribers if we're the last
                  (cleanup-local-process process-id))}))
+
+(defn start-singleton-global []
+  (let [conn-config (config/get-aurora-config)
+        get-conn-config (with-meta (fn []
+                                     conn-config)
+                          ;; When we're not transitioning to a new cluster,
+                          ;; this lets us check if the slot is active without
+                          ;; creating a new connection
+                          {:same-as-read-conn true})]
+    (start-singleton {:get-conn-config get-conn-config
+                      :check-disabled (fn []
+                                        (flags/toggled? :disable-singleton-invalidator))
+                      :slot-num config/invalidator-slot-num})))
 
 (defn start
   "Entry point for invalidator. Starts a WAL listener and pipes WAL records to
@@ -998,14 +1008,17 @@
       (do
         (tracer/record-info! {:name "invalidator/singleton-startup-prevented-by-config"})
         nil)
-      (start-singleton))))
+      (start-singleton-global))))
+
+(defn stop-singleton-global []
+  (when (and (bound? #'singleton-process)
+             singleton-process)
+    ((:shutdown singleton-process))))
 
 (defn stop-global []
   (when (bound? #'wal-opts)
     (stop wal-opts))
-  (when (and (bound? #'singleton-process)
-             singleton-process)
-    ((:shutdown singleton-process))))
+  (stop-singleton-global))
 
 (defn restart []
   (stop-global)
