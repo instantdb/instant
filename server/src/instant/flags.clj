@@ -369,14 +369,15 @@
 
 (defn order-topics-match-updates-only?
   "When true (the default), an ordered+limited query's page-info topic only
-   matches value-changed *updates* to the sort key, not inserts. New rows
-   entering the window are caught by the where/enumeration topic, so the page
-   topic doesn't need to fire on inserts -- and not firing on them keeps a write
-   to the sort key in some *other* parent (e.g. a new message in another
-   conversation for `messages where conversation.id = X order by createdAt`)
-   from re-running the query, while still catching a row reordering into the
-   window. Set the `skip-order-topic-updates-only` toggle to revert to the old
-   app-wide behavior."
+   matches sort-key changes on rows that *already exist* -- value updates, plus
+   first setting or clearing the value (see topics/lifecycle-entities) -- not the
+   writes that *create* a brand-new row. New rows are caught by the
+   where/enumeration topic, so the page topic doesn't need to fire on them, and
+   not firing keeps a new row in some *other* parent (e.g. a new message in
+   another conversation for `messages where conversation.id = X order by
+   createdAt`) from re-running the query, while still catching a row reordering
+   into the window. Set the `skip-order-topic-updates-only` toggle to revert to
+   the old app-wide behavior."
   []
   (not (toggled? :skip-order-topic-updates-only)))
 

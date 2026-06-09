@@ -3219,16 +3219,25 @@
   {:action :insert
    :columns (into [(wal-col "entity_id" (str eid)) (wal-col "attr_id" (str attr))
                    (wal-col "value" (str v))] (wal-index-cols))})
+(defn- wal-id-insert
+  "An entity's id self-triple insert ([e id-attr e]) -- marks the entity as
+   created in the batch, the way the client always writes it on create."
+  [eid id-attr]
+  {:action :insert
+   :columns (into [(wal-col "entity_id" (str eid)) (wal-col "attr_id" (str id-attr))
+                   (wal-col "value" (str "\"" eid "\""))] (wal-index-cols))})
 
 (deftest order-topic-matches-updates-not-inserts
   ;; An ordered+limited query whose entities are matched through a parent->child
   ;; many-link (e.g. `messages where conversation.id = X order by createdAt`)
   ;; binds the matched rows as `ref-value`s, so the page-info (order) topic is
   ;; app-wide (`[:ave _ createdAt _]`) and every write to the order attr anywhere
-  ;; re-runs the query. The order topic only needs to catch *re-sorts* (updates);
-  ;; new rows are caught by the where/link topic. So the page topic subscribes to
-  ;; the `:mutated` marker, which only value-changed updates emit -- it catches a
-  ;; row reordering into the window but ignores inserts elsewhere.
+  ;; re-runs the query. The order topic only needs to catch *re-sorts*; brand-new
+  ;; rows are caught by the where/link topic. So the page topic subscribes to the
+  ;; `:mutated` marker, which a value change -- or a value appearing/disappearing
+  ;; on a row that *already existed* -- emits, but a brand-new row (which writes
+  ;; its own id triple) does not. That catches a re-sort, including first setting
+  ;; the order key on an existing row, while still ignoring inserts elsewhere.
   (with-empty-app
     (fn [app]
       (let [conn (aurora/conn-pool :write)
@@ -3262,12 +3271,19 @@
               link-q {:messages {:$ {:where {:conversation.id (str convo-eid)}
                                      :order {:priority "desc"} :limit 5}}}
               off-window (first msg-eids) ;; priority 1, outside a desc/limit-5 window
-              ;; an off-window row reordered into the window (sort-key update)
+              ;; an existing off-window row reordered into the window (sort-key update)
               reorder-ivs (topics/topics-for-changes
                            {:triple-changes [(wal-update-change off-window priority 1 100)]})
-              ;; a brand-new message in some *other* conversation (sort-key insert)
+              ;; an existing off-window row gets its sort key set for the first
+              ;; time (an insert, but on a row that already exists)
+              first-set-ivs (topics/topics-for-changes
+                             {:triple-changes [(wal-insert-change off-window priority 100)]})
+              ;; a brand-new message elsewhere: it writes its own id triple, so
+              ;; its sort-key insert must not re-run the query
+              new-msg (random-uuid)
               insert-ivs (topics/topics-for-changes
-                          {:triple-changes [(wal-insert-change (random-uuid) priority 100)]})
+                          {:triple-changes [(wal-id-insert new-msg msgs-id)
+                                            (wal-insert-change new-msg priority 100)]})
               caught? (fn [ivs toggle?]
                         (let [run #(boolean (rs/matching-topic-intersection?
                                              ivs (query-topics ctx link-q)))]
@@ -3275,11 +3291,13 @@
                             (binding [flags/*toggle-overrides* {:skip-order-topic-updates-only true}]
                               (run))
                             (run))))]
-          (testing "default: catches off-window reorders, ignores cross-parent inserts"
+          (testing "default: catches re-sorts of existing rows, ignores new rows elsewhere"
             (is (caught? reorder-ivs false)
                 "an off-window row reordered into the window still invalidates")
+            (is (caught? first-set-ivs false)
+                "first setting the sort key on an existing row still invalidates")
             (is (not (caught? insert-ivs false))
-                "a new message in another conversation does NOT invalidate (no spam)"))
+                "a brand-new message elsewhere does NOT invalidate (no spam)"))
 
           (testing "skip toggle reverts to the old app-wide behavior"
             (is (caught? reorder-ivs true))
