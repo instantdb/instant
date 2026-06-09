@@ -22,7 +22,7 @@
 
 (declare shutdown)
 
-(def global-slot-num (int 0))
+(def global-slot-num (int 1))
 
 ;; --------------
 ;; Initialization
