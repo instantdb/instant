@@ -12,7 +12,7 @@ const DashMeResponse = Schema.Struct({
   }),
 });
 
-const DashAppResponse = Schema.Struct({
+export const DashAppResponse = Schema.Struct({
   app: Schema.Struct({
     id: Schema.String,
     title: Schema.String,

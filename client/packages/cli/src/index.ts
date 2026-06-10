@@ -33,6 +33,9 @@ import { authClientUpdateCmd } from './commands/auth/client/update.ts';
 import { authOriginListCmd } from './commands/auth/origin/list.ts';
 import { authOriginDeleteCmd } from './commands/auth/origin/delete.ts';
 import { authOriginAddCmd } from './commands/auth/origin/add.ts';
+import { authEmailPushCmd } from './commands/auth/email/push.ts';
+import { authEmailPullCmd } from './commands/auth/email/pull.ts';
+import { authEmailResetCmd } from './commands/auth/email/reset.ts';
 import { link } from './logging.ts';
 import { appListCommand } from './commands/app/list.ts';
 import { appDeleteCommand } from './commands/app/delete.ts';
@@ -45,6 +48,9 @@ import { webhooksDisableCmd } from './commands/webhooks/disable.ts';
 import { webhooksEventsListCmd } from './commands/webhooks/events/list.ts';
 import { webhooksEventsPayloadCmd } from './commands/webhooks/events/payload.ts';
 import { webhooksEventsResendCmd } from './commands/webhooks/events/resend.ts';
+import { emailStatusCmd } from './commands/auth/email/status.ts';
+import { verifyCmd } from './commands/auth/email/verify.ts';
+import { resendEmailCmd } from './commands/auth/email/resend.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -634,6 +640,150 @@ export const webhooksEventsPayloadDef = webhooksEvents
     );
   });
 
+const authEmail = auth
+  .command('email')
+  .description('Manage custom magic code email templates');
+
+export const authEmailStatusDef = authEmail
+  .command('status')
+  .description('Get status for the custom magic code email template')
+  .option(
+    '-a --app <app-id>',
+    'App ID to push email settings to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option('--json', 'Output email status as JSON')
+  .action((opts) => {
+    runCommandEffect(
+      emailStatusCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            appId: opts.app,
+            coerce: false,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    );
+  });
+
+export const authEmailPushDef = authEmail
+  .command('push')
+  .description('Push the custom magic code email template.')
+  .option(
+    '-a --app <app-id>',
+    'App ID to push email settings to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option(
+    '-f --file <path>',
+    'Path to instant.email.ts. Defaults to INSTANT_EMAIL_FILE_PATH or auto-discovery.',
+  )
+  .action((opts) =>
+    runCommandEffect(
+      authEmailPushCmd({ file: opts.file }).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    ),
+  );
+
+export const authEmailPullDef = authEmail
+  .command('pull')
+  .description('Pull the custom magic code email template.')
+  .option(
+    '-a --app <app-id>',
+    'App ID to pull email settings from. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option(
+    '-f --file <path>',
+    'Path to instant.email.ts. Defaults to INSTANT_EMAIL_FILE_PATH or auto-discovery.',
+  )
+  .action((opts) =>
+    runCommandEffect(
+      authEmailPullCmd({ file: opts.file }).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    ),
+  );
+
+export const authEmailResetDef = authEmail
+  .command('reset')
+  .description('Delete the custom magic code email template.')
+  .option(
+    '-a --app <app-id>',
+    'App ID to reset email settings for. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((opts) =>
+    runCommandEffect(
+      authEmailResetCmd().pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    ),
+  );
+
+export const authEmailResendDef = authEmail
+  .command('resend')
+  .description('Resend the verification email')
+  .option(
+    '-a --app <app-id>',
+    'App ID to reset email settings for. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action(() => {
+    runCommandEffect(
+      resendEmailCmd.pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    );
+  });
+
+export const authEmailVerifyDef = authEmail
+  .command('verify')
+  .description('Verify a custom email sender with a magic code')
+  .argument('<code>', 'The magic code to verify')
+  .option(
+    '-a --app <app-id>',
+    'App ID to reset email settings for. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .action((code, opts) => {
+    runCommandEffect(
+      verifyCmd(code, opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }),
+        ),
+      ),
+    );
+  });
+
 export const initWithoutFilesDef = program
   .command('init-without-files')
   .description('Generate a new app id and admin token pair without any files.')
@@ -677,7 +827,7 @@ program
 
 export const infoDef = program
   .command('info')
-  .description('Display CLI version and login status')
+  .description('Display CLI version, login status, and app info')
   .action(async () => {
     const authLayer = AuthLayerLive({
       coerce: false,

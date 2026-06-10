@@ -86,6 +86,16 @@ function getEnvPermsPathWithLogging(): string | undefined {
   return path;
 }
 
+function getEnvEmailPathWithLogging(): string | undefined {
+  const path = process.env.INSTANT_EMAIL_FILE_PATH;
+  if (path) {
+    console.log(
+      `Using INSTANT_EMAIL_FILE_PATH=${chalk.green(process.env.INSTANT_EMAIL_FILE_PATH)}`,
+    );
+  }
+  return path;
+}
+
 export function getSchemaReadCandidates(): ConfigCandidate[] {
   const existing = getEnvSchemaPathWithLogging();
 
@@ -177,6 +187,48 @@ export function getPermsReadCandidates(): ConfigCandidate[] {
   return candidates;
 }
 
+export function getEmailReadCandidates(emailPath?: string): ConfigCandidate[] {
+  const existing = emailPath ?? getEnvEmailPathWithLogging();
+  if (existing) {
+    return [{ files: existing, transform: transformImports }];
+  }
+  const extensions = ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'];
+
+  const candidates: ConfigCandidate[] = [];
+
+  candidates.push({
+    files: 'instant.email',
+    extensions,
+    transform: transformImports,
+  });
+
+  const srcPaths = findPathsRecursive('src', 3, 'instant.email');
+  for (const srcPath of srcPaths) {
+    candidates.push({
+      files: srcPath,
+      extensions,
+      transform: transformImports,
+    });
+  }
+
+  const libPaths = findPathsRecursive('lib', 2, 'instant.email');
+  for (const libPath of libPaths) {
+    candidates.push({
+      files: libPath,
+      extensions,
+      transform: transformImports,
+    });
+  }
+
+  candidates.push({
+    files: 'app/instant.email',
+    extensions,
+    transform: transformImports,
+  });
+
+  return candidates;
+}
+
 export function getSchemaPathToWrite(existingPath?: string): string {
   if (existingPath) return existingPath;
   if (process.env.INSTANT_SCHEMA_FILE_PATH) {
@@ -197,4 +249,14 @@ export function getPermsPathToWrite(): string {
     return join('src', 'instant.perms.ts');
   }
   return 'instant.perms.ts';
+}
+
+export function getEmailPathToWrite(): string {
+  if (process.env.INSTANT_EMAIL_FILE_PATH) {
+    return process.env.INSTANT_EMAIL_FILE_PATH;
+  }
+  if (existsSync(join(process.cwd(), 'src'))) {
+    return join('src', 'instant.email.ts');
+  }
+  return 'instant.email.ts';
 }
