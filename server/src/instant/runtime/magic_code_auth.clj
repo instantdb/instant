@@ -200,11 +200,9 @@
         custom-email-verified? (and (seq custom-email)
                                     (:verified template))
 
-        sender-email (if (flags/use-app-email-verification?)
-                       (if custom-email-verified?
-                         custom-email
-                         default-sender-email)
-                       (or custom-email default-sender-email))
+        sender-email (if custom-email-verified?
+                       custom-email
+                       default-sender-email)
 
         email-params    (if template
                           {:sender-email sender-email

@@ -9,14 +9,14 @@
     [instant.util.exception :as ex]
     [instant.util.test :as test-util]))
 
-(defn- create-sender! [{:keys [user-id email]}]
+(defn- create-sender! [{:keys [email]}]
   (sql/execute-one!
    (aurora/conn-pool :write)
    ["INSERT INTO app_email_senders
-     (id, user_id, postmark_id, email, name)
-     VALUES (?::uuid, ?::uuid, ?, ?, ?)
-     RETURNING *"
-    (random-uuid) user-id 123456 email "Test Sender"]))
+      (id, postmark_id, email, name)
+      VALUES (?::uuid, ?, ?, ?)
+      RETURNING *"
+    (random-uuid) 123456 email "Test Sender"]))
 
 (deftest consume-verification-code-once
   (with-user

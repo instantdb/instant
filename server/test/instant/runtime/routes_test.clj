@@ -170,14 +170,14 @@
     (is (re-find #"123456" body))
     (is (re-find #"10 minutes" body))))
 
-(defn- create-email-sender! [{:keys [user-id email]}]
+(defn- create-email-sender! [{:keys [email]}]
   (sql/execute-one!
    (aurora/conn-pool :write)
    ["INSERT INTO app_email_senders
-     (id, user_id, postmark_id, email, name)
-     VALUES (?::uuid, ?::uuid, ?, ?, ?)
-     RETURNING *"
-    (random-uuid) user-id 123456 email "Custom Sender"]))
+      (id, postmark_id, email, name)
+      VALUES (?::uuid, ?, ?, ?)
+      RETURNING *"
+    (random-uuid) 123456 email "Custom Sender"]))
 
 (defn- create-magic-code-template! [{:keys [app-id sender-id]}]
   (app-email-template-model/put! {:app-id app-id
@@ -187,7 +187,7 @@
                                   :subject "{code} is your code"
                                   :body "Your code is {code}"}))
 
-(deftest magic-code-custom-sender-requires-instant-verification-when-flagged
+(deftest magic-code-custom-sender-requires-instant-verification
   (with-empty-app
     (fn [app]
       (let [custom-email (random-email)
@@ -200,28 +200,26 @@
           (app-email-verification/put! {:app-id (:id app)
                                         :sender-id (:id sender)
                                         :verified false})
-          (binding [flags/*toggle-overrides* {:use-app-email-verification? true}]
-            (let [letter (atom nil)]
-              (with-redefs [magic-code-auth/check-send-rate-limit! (constantly nil)
-                            postmark/send-structured! #(reset! letter %)]
-                (magic-code-auth/send! {:app-id (:id app)
-                                        :email "recipient@example.com"}))
-              (is (= (:email (config/app-email-sender))
-                     (get-in @letter [:from :email]))))))
+          (let [letter (atom nil)]
+            (with-redefs [magic-code-auth/check-send-rate-limit! (constantly nil)
+                          postmark/send-structured! #(reset! letter %)]
+              (magic-code-auth/send! {:app-id (:id app)
+                                      :email "recipient@example.com"}))
+            (is (= (:email (config/app-email-sender))
+                   (get-in @letter [:from :email])))))
 
         (testing "verified custom sender is used"
           (app-email-verification/mark-verified! {:id (:id (app-email-verification/get-by-app-and-sender
                                                             (:id app)
                                                             (:id sender)))
                                                   :app-id (:id app)})
-          (binding [flags/*toggle-overrides* {:use-app-email-verification? true}]
-            (let [letter (atom nil)]
-              (with-redefs [magic-code-auth/check-send-rate-limit! (constantly nil)
-                            postmark/send-structured! #(reset! letter %)]
-                (magic-code-auth/send! {:app-id (:id app)
-                                        :email "recipient@example.com"}))
-              (is (= custom-email
-                     (get-in @letter [:from :email]))))))))))
+          (let [letter (atom nil)]
+            (with-redefs [magic-code-auth/check-send-rate-limit! (constantly nil)
+                          postmark/send-structured! #(reset! letter %)]
+              (magic-code-auth/send! {:app-id (:id app)
+                                      :email "recipient@example.com"}))
+            (is (= custom-email
+                   (get-in @letter [:from :email])))))))))
 
 (defn update-created-at [app-id code created-at]
   (sql/execute!
