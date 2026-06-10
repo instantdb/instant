@@ -1,4 +1,7 @@
-import type { User } from './clientTypes.js';
+import type {
+  InstantRouteHandlerBody,
+  InstantRouteHandlerPayloadByType,
+} from './routeHandlerProtocol.ts';
 
 type CreateRouteHandlerConfig = {
   appId: string;
@@ -6,7 +9,7 @@ type CreateRouteHandlerConfig = {
 
 function createUserSyncResponse(
   config: CreateRouteHandlerConfig,
-  user: User | null,
+  user: InstantRouteHandlerPayloadByType['sync-user']['user'],
 ) {
   if (user && user.refresh_token) {
     return new Response(JSON.stringify({ ok: true }), {
@@ -37,7 +40,7 @@ function errorResponse(status: number, message: string) {
 export const createInstantRouteHandler = (config: CreateRouteHandlerConfig) => {
   return {
     POST: async (req: Request) => {
-      let body: { type?: string; appId?: string; user?: User | null };
+      let body: Partial<InstantRouteHandlerBody>;
       try {
         body = await req.json();
       } catch {

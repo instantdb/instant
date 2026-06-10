@@ -87,6 +87,9 @@ import {
   type SyncTableSetupError,
   StoreInterface,
   createInstantRouteHandler,
+  type InstantRouteHandlerPayloadByType,
+  type InstantRouteHandlerType,
+  type InstantRouteHandlerBody,
   type StoreInterfaceStoreName,
   type Logger,
 } from '@instantdb/core';
@@ -192,6 +195,9 @@ export {
 
   // Server helper
   createInstantRouteHandler,
+  type InstantRouteHandlerPayloadByType,
+  type InstantRouteHandlerType,
+  type InstantRouteHandlerBody,
 
   // logger
   type Logger,
