@@ -1174,10 +1174,17 @@
                    0
                    (case (:type vs)
                      :total (:total sketch)
-                     :constant (cms/check sketch
-                                          (when (instance? java.time.Instant (:value vs))
-                                            :date)
-                                          (:value vs))
+                     :constant (let [n (cms/check sketch
+                                                    (when (instance? java.time.Instant (:value vs))
+                                                      :date)
+                                                    (:value vs))]
+                                 (if (and (= :v component)
+                                          (= :av (idx-key (:idx named-p)))
+                                          (not (flags/toggled? :disable-hint-plan-av-fix false)))
+                                   ;; av_index is unique on :v, so it can't be more than one
+                                   ;; if the sketch is overloaded, it may over count
+                                   (min 1 n)
+                                   n))
                      :lookup (if-let [sketch (:sketch (get sketches {:app-id app-id
                                                                      :attr-id (:attr-id vs)}))]
                                ;; Lookups are only on unique attrs, so we know that it will be at most 1
