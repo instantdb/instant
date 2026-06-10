@@ -3,8 +3,7 @@
             [instant.jdbc.sql :as sql]
             [instant.model.app-email-verification :as verification]
             [instant.postmark :as postmark]
-            [instant.util.exception :as ex]
-            [instant.flags :as flags])
+            [instant.util.exception :as ex])
   (:import (java.util UUID)))
 
 (defn get-by-email
@@ -86,18 +85,13 @@
                       :name name
                       :app-id app-id
                       :postmark-id postmark-id})
-        _ (if (flags/use-app-email-verification?)
-            (verification/put! {:app-id app-id
-                                :sender-id (:id sender)
-                                :verified false})
-            (verification/put! {:app-id app-id
-                                :sender-id (:id sender)
-                                :verified true}))]
+        _ (verification/put! {:app-id app-id
+                              :sender-id (:id sender)
+                              :verified false})]
     {:sender sender}))
 
 (comment
   (postmark/add-sender! {:email "hi@marky.fyi" :name "Marky"})
-  (flags/use-app-email-verification?)
   (ex-data *e)
   (def r (postmark/list-senders! 50 0))
   (def ss (get-in r [:body :SenderSignatures]))

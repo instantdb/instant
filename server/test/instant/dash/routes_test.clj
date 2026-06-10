@@ -4,7 +4,6 @@
    [clojure.test :refer [deftest is testing use-fixtures]]
    [instant.config :as config]
    [instant.fixtures :refer [random-email with-empty-app with-org with-pro-app with-startup-org with-free-org with-user]]
-   [instant.flags :as flags]
    [instant.dash.ephemeral-app :as ephemeral-app]
    [instant.dash.get-a-db :as get-a-db]
    [instant.jdbc.aurora :as aurora]
@@ -1071,9 +1070,8 @@
       (with-empty-app
         (:id user)
         (fn [app]
-          (with-redefs [flags/use-app-email-verification? (constantly true)]
-            (let [sender-email (random-email)
-                  letter (atom nil)]
+          (let [sender-email (random-email)
+                letter (atom nil)]
               (with-redefs [postmark/add-sender! (constantly {:body {:ID 123456}})
                             postmark/send-structured! #(reset! letter %)
                             magic-code-auth/check-custom-sender-rate-limit! (constantly nil)]
@@ -1107,7 +1105,7 @@
                                        :email-type "magic-code"})]
                     (is (= 200 (:status verify-resp)))
                     (is (= true (get-in verify-resp [:body :verified])))
-                    (is (= true (:verification_verified verification)))))))))))))
+                    (is (= true (:verification_verified verification))))))))))))
 
 ;; ---
 ;; get-a-db
