@@ -1713,7 +1713,7 @@
 (defn annotate-pattern-with-hints
   "Annotates the pattern with best-index and adds updates the symbol-map."
   [ctx symbol-map pattern]
-  (let [row-estimate (estimate-rows ctx pattern)
+  (let [initial-row-estimate (estimate-rows ctx pattern)
         ;; The sketch estimate doesn't account for join selectivity.
         ;; If this pattern joins with a previous CTE (variable in symbol-map),
         ;; cap the row-estimate at the join cardinality.
@@ -1739,21 +1739,23 @@
                 e-is-new? (and (= :variable e-tag)
                                (not (contains? symbol-map e-var)))]
             (if join-cap
-              [(min row-estimate join-cap)
+              [(min initial-row-estimate join-cap)
                (if e-is-new?
                  ;; Ref join: :e fans out. Use sketch but cap at
                  ;; join-cap * 20 to bound the inflated sketch estimate
                  ;; while allowing for typical fan-out ratios.
-                 (min row-estimate (* 20 join-cap))
+                 (min initial-row-estimate (* 20 join-cap))
                  ;; Entity join: 1:1, cap is exact.
-                 (min row-estimate join-cap))]
-              [row-estimate row-estimate]))
-          [row-estimate row-estimate])
+                 (min initial-row-estimate join-cap))]
+              [initial-row-estimate initial-row-estimate]))
+          [initial-row-estimate initial-row-estimate])
         pattern-symbol-map (pattern->symbol-map-placeholder pattern
                                                             symbol-map-row-estimate)]
     {:symbol-map (merge-with min symbol-map pattern-symbol-map)
      :pattern (assoc pattern
                      :row-estimate row-estimate
+                     :symbol-map-row-estimate symbol-map-row-estimate
+                     :initial-row-estimate initial-row-estimate
                      :symbol-map symbol-map
                      :best-index
                      (best-index ctx
@@ -1826,9 +1828,25 @@
 
 (declare annotate-with-hints-impl)
 
+(defn cap-symbol-map-by-page-limit
+  "If we know that the previous cte has `limit`, then we can cap its row estimate
+   at the limit value."
+  [symbol-map page-info-pattern limit]
+  (if (and page-info-pattern limit)
+    (reduce (fn [m [ctype [tag sym]]]
+              (if (and (= tag :variable)
+                       (contains? #{:e :v} ctype)
+                       (contains? m sym))
+                (update m sym min limit)
+                m))
+            symbol-map
+            (variable-components page-info-pattern))
+    symbol-map))
+
 (defn annotate-pattern-group-with-hints [ctx initial-symbol-map pattern-group]
   (let [level (:level ctx 0)
         page-info-pattern (get-in pattern-group [:page-info :named-pattern 1])
+        page-info-limit (get-in pattern-group [:page-info :limit])
 
         page-info-first? (and page-info-pattern
                               (= level 0)
@@ -1845,7 +1863,12 @@
                                                                                 page-pattern-row-estimate)
                                                {})
                                              initial-symbol-map)
-                                      (:patterns pattern-group))]
+                                      (:patterns pattern-group))
+        child-symbol-map (if (flags/toggled? :disable-cap-symbol-map-by-page-limit false)
+                           symbol-map
+                           (cap-symbol-map-by-page-limit symbol-map
+                                                         page-info-pattern
+                                                         page-info-limit))]
     (cond-> pattern-group
       true (assoc :patterns patterns)
       page-info-pattern (update-in [:page-info :named-pattern 1]
@@ -1858,7 +1881,7 @@
                                                         (when (not page-info-first?)
                                                           symbol-map)))))
       (:children pattern-group) ((fn [pg]
-                                   (annotate-with-hints-impl (assoc ctx :level (inc level)) symbol-map pg))))))
+                                   (annotate-with-hints-impl (assoc ctx :level (inc level)) child-symbol-map pg))))))
 
 (defn annotate-with-hints-impl
   [ctx symbol-map nested-named-patterns]
@@ -1938,6 +1961,41 @@
        (= 1 (count (uspec/tagged-unwrap (:a named-p))))
        (contains? (flags/flag :always-materialize-attr-ids)
                   (first (uspec/tagged-unwrap (:a named-p))))))
+
+(defn enable-row-hints? [query-hash]
+  (and (or (flags/toggled? :enable-row-hints-globally true)
+           (coll/exists? (fn [h] (= query-hash h))
+                         (flags/flag :enable-row-hints-query-hashes)))
+       (not (coll/exists? (fn [h] (= query-hash h))
+                          (flags/flag :disable-row-hints-query-hashes)))))
+
+(defn row-hint-threshold
+  "If we set a row hint larger than this, we're probably better off letting pg decide."
+  []
+  (flags/flag :row-hint-threshold 10000))
+
+(defn overcompressing?
+  "Filters out row hints where we the row estimate is likely to be off."
+  [named-p]
+  (let [upstream-syms (:symbol-map named-p)
+        ;; Outer-rows proxy: the min of upstream counts
+        ;; for whichever of :e/:v are bound coming in.
+        outer-rows (reduce (fn [acc c]
+                             (let [[tag variable] (get named-p c)]
+                               (if-let [v (and (= tag :variable)
+                                               (get upstream-syms variable))]
+                                 (if acc (min acc v) v)
+                                 acc)))
+                           nil
+                           [:e :v])]
+    ;; When the hint would claim the join compresses
+    ;; the outer side by more than 10x, skip it.
+    ;; That's the zone where being wrong is expensive
+    ;; (PG commits to materializing a CTE that turns
+    ;; out to be huge).
+    (and outer-rows
+         (> outer-rows
+            (* 11 (:row-estimate named-p))))))
 
 (defn- joining-with
   "Produces subsequent match tables. Each table joins on the previous
@@ -2022,10 +2080,21 @@
                                          :eav)
                                     (:name (:best-index-if-eav named-p))
                                     ;;:eav_uuid_index
-                                    (:name best-idx))]
+                                    (:name best-idx))
+
+                              base-hints (if (and (:row-estimate named-p)
+                                                  (or prev-table (= 1 (count parent-froms)))
+                                                  (pos? (:row-estimate named-p))
+                                                  (< (:row-estimate named-p) (row-hint-threshold))
+                                                  (not (overcompressing? named-p)))
+                                           [(pg-hint/rows (or prev-table
+                                                              (first parent-froms))
+                                                          triples-alias
+                                                          (:row-estimate named-p))]
+                                           [])]
                           (if idx
-                            [(hint-fn triples-alias idx)]
-                            []))
+                            (conj base-hints (hint-fn triples-alias idx))
+                            base-hints))
                         [])]
     {:cte cte
      :pg-hints (into pattern-hints where-hints)}))
@@ -2710,7 +2779,7 @@
   info we need to collect the data from the sql result, build fully-qualified
   topics (replacing join-sym with the actual value), and fully-qualified datalog
   queries."
-  [_ctx prefix app-id nested-named-patterns]
+  [ctx prefix app-id nested-named-patterns]
   (let [{:keys [ctes result-tables children pg-hints]}
         (accumulate-nested-match-query prefix app-id nested-named-patterns)
         tables (set (map :table result-tables))
@@ -2728,9 +2797,14 @@
                                ;; option, let's not override their wisdom.
                                :else %)
                             ctes)
+
                  :pg-hints (if (flags/toggled? :disable-pg-hints)
                              []
-                             pg-hints)
+                             (if (enable-row-hints? (:query-hash ctx))
+                               pg-hints
+                               (filterv (fn [hint]
+                                          (not= :'Rows (first hint)))
+                                        pg-hints)))
                  :select [[(into [:json_build_array]
                                  (mapv (fn [tables]
                                          (into [:json_build_object]
