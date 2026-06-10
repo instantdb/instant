@@ -87,6 +87,7 @@
   (let [attrs (attr-model/get-by-app-id (config/instant-config-app-id))
         setting-aid (:id (attr-model/seek-by-fwd-ident-name ["toggles" "setting"] attrs))
         toggle-aid (:id (attr-model/seek-by-fwd-ident-name ["toggles" "toggled"] attrs))]
+    ;; TODO: This needs a transaction-model/create! or else it doesn't trigger an update
     (tx/transact! (aurora/conn-pool :write)
                   attrs
                   (config/instant-config-app-id)
@@ -165,6 +166,7 @@
    choosing the slot, then set the `disable-aggregator` flag to false once it is fully
    deployed, stop the aggregator on this machine, and shut this machine down."
   []
+  ;; TODO: We should grab the replication slot on the primary so that we're sure it's not active
   (create-aggregator-on-replica)
   (pause-aggregator-on-primary)
   (let [{:keys [remote_lsn local_lsn]} (replication-origin-status)]
@@ -189,6 +191,7 @@
   (let [attrs (attr-model/get-by-app-id (config/instant-config-app-id))
         setting-aid (:id (attr-model/seek-by-fwd-ident-name ["toggles" "setting"] attrs))
         toggle-aid (:id (attr-model/seek-by-fwd-ident-name ["toggles" "toggled"] attrs))]
+    ;; TODO: This needs a transaction-model/create! or else it doesn't trigger an update
     (tx/transact! (aurora/conn-pool :write)
                   attrs
                   (config/instant-config-app-id)
@@ -255,6 +258,7 @@
    deployed, stop the singleton-invalidator on this machine, make sure it starts properly on a new
    machine and shut this machine down."
   []
+  ;; TODO: We should grab the replication slot on the primary so that we're sure it's not active
   (create-invalidator-on-replica)
   (pause-invalidator-on-primary)
   (let [{:keys [remote_lsn local_lsn]} (replication-origin-status)]
