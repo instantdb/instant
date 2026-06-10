@@ -46,7 +46,7 @@
 
  :rate-limit-hmac-key {:enc "01506bc4f45346e25ec4784dd454f700a0168ccfc6a55ce40594c615d82e6b174178781647198d0561ae1fdae197512eb148fef4e7c1cf3798deadaaebdf206502ef67e446bb5c43e8bcf36a738626cf93ad658bf62a0f2f7e5ebb8931df361078cbcf5348da648d57b933ddf907059a878ae29d10"}
 
- :database-cluster-id "instant-aurora-17"
+ :database-cluster-id "aurora-instant-cluster"
 
  :next-database-cluster-id "aurora-instant-cluster"
 
