@@ -971,8 +971,7 @@
                                       :close-signal-chan close-signal-chan
                                       :ex-handler wal-ex-handler
                                       :get-conn-config (fn []
-                                                         (or (config/get-next-aurora-config)
-                                                             (config/get-aurora-config)))
+                                                         (config/get-aurora-config))
                                       :slot-suffix process-id
                                       :slot-type :invalidator
                                       :slot-num config/invalidator-slot-num})]
