@@ -1,6 +1,10 @@
 import Link from 'next/link';
-import { GitHubIcon, XIcon } from './icons';
+import { DiscordIcon, GitHubIcon, XIcon } from './icons';
 import { LogoType } from '../marketingUi';
+
+const twitterUrl = 'https://twitter.com/instant_db';
+const discordUrl = 'https://discord.com/invite/VU53p7uQcE';
+const githubUrl = 'https://github.com/instantdb/instant';
 
 const footerLinks = {
   Product: [
@@ -21,10 +25,13 @@ const footerLinks = {
     { href: '/about', label: 'About' },
     { href: '/hiring', label: 'Careers' },
     { href: 'mailto:hello@instantdb.com', label: 'Contact' },
-  ],
-  Legal: [
     { href: '/privacy', label: 'Privacy Policy' },
     { href: '/terms', label: 'Terms' },
+  ],
+  Community: [
+    { href: twitterUrl, label: 'Twitter' },
+    { href: discordUrl, label: 'Discord' },
+    { href: githubUrl, label: 'Github' },
   ],
 };
 
@@ -37,7 +44,7 @@ export function Footer() {
             <LogoType />
             <div className="mt-3 flex items-center gap-3">
               <a
-                href="https://twitter.com/instant_db"
+                href={twitterUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-500 transition-colors"
@@ -45,7 +52,15 @@ export function Footer() {
                 <XIcon className="h-5 w-5" />
               </a>
               <a
-                href="https://github.com/instantdb/instant"
+                href={discordUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 transition-colors"
+              >
+                <DiscordIcon className="h-5 w-5" />
+              </a>
+              <a
+                href={githubUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-500 transition-colors"
@@ -59,16 +74,23 @@ export function Footer() {
             <div key={category}>
               <h3 className="text-sm font-semibold">{category}</h3>
               <ul className="mt-4 space-y-3">
-                {links.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-gray-500 transition-colors"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
+                {links.map((link) => {
+                  const isExternal = link.href.startsWith('http');
+                  return (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        className="text-sm text-gray-500 transition-colors"
+                        {...(isExternal && {
+                          target: '_blank',
+                          rel: 'noopener noreferrer',
+                        })}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
