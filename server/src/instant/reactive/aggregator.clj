@@ -22,7 +22,7 @@
 
 (declare shutdown)
 
-(def global-slot-num (int 0))
+(def global-slot-num (int 1))
 
 ;; --------------
 ;; Initialization
@@ -616,7 +616,8 @@
                          :check-disabled (fn []
                                            (flags/toggled? :disable-aggregator))
                          :get-conn-config (fn []
-                                            (config/get-aurora-config))
+                                            (or (config/get-next-aurora-config)
+                                                (config/get-aurora-config)))
                          :slot-num global-slot-num})))
 
 (defn start-global []

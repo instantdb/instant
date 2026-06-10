@@ -104,7 +104,7 @@
             (recur (inc i))))))))
 
 (defn replication-origin-status []
-  (with-open [conn (next.jdbc/get-connection (config/get-next-aurora-config))]
+  (with-open [conn (#'wal/get-pg-replication-conn (config/get-next-aurora-config))]
     (let [res (sql/select ::replication-origin-status conn ["select * from pg_replication_origin_status"])]
       (assert (= 1 (count res)))
       (first res))))
@@ -230,7 +230,7 @@
    start reading from it we don't redeliver events that the primary invalidator
    already wrote to history up through `remote_lsn`."
   [local-lsn]
-  (with-open [conn (next.jdbc/get-connection (config/get-next-aurora-config))]
+  (with-open [conn (#'wal/get-pg-replication-conn (config/get-next-aurora-config))]
     (sql/select-one ::advance-replica-invalidator-slot
                     conn
                     ["select pg_replication_slot_advance('invalidator', ?::pg_lsn)" local-lsn])))
