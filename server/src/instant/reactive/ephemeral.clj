@@ -157,6 +157,9 @@
                                   (.setAttribute "instance-id" instance-id)
                                   (.setAttribute "machine-id" (str config/machine-id)))]
 
+    (when (aws-env?)
+      (.setProperty config "hazelcast.logging.type" "slf4j"))
+
     ;; Docs: https://docs.hazelcast.com/hazelcast/5.5/system-properties
     (doseq [[prop value] [[ClusterProperty/PHONE_HOME_ENABLED "false"]
                           [ClusterProperty/SHUTDOWNHOOK_ENABLED "false"]

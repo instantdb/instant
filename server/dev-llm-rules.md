@@ -178,6 +178,16 @@ scripts/nrepl-eval < scratch/probe.clj                     # from a file
 scripts/nrepl-eval --port 6006 "(+ 1 1)"                   # explicit port
 ```
 
+## Investigating production behavior
+
+Server stdout ships as logfmt through Vector to S3 parquet. Every `log/*`
+call and every OpenTelemetry span lands there, queryable as the
+`instant_logs` Athena table or directly via DuckDB against the bucket.
+
+Read [`querying-logs.md`](./querying-logs.md) before reaching for grep or
+`aws logs tail`. It covers the bucket layout, trace-ID partition decoding,
+the Athena vs DuckDB tradeoff, and common queries.
+
 ## Navigation Guide
 
 - **Schema/permissions work**: Start at `model/schema.clj` and `model/rule.clj`, then `db/cel.clj` for CEL evaluation

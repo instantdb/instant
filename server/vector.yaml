@@ -1,0 +1,329 @@
+sources:
+  # Reads stdout/stderr from running containers via the Docker Engine API.
+  # We match the web service via its Docker Compose label rather than name —
+  # `include_containers` requires *exact* name matches, and EB's compose
+  # project prefix (`current-web-1`) defeats a literal `web`. The label
+  # `com.docker.compose.service=web` is set by Compose regardless of the
+  # project name and matches just the app container.
+  # https://vector.dev/docs/reference/configuration/sources/docker_logs/
+  docker:
+    type: "docker_logs"
+    include_labels:
+      - "com.docker.compose.service=web"
+    docker_host: "unix:///var/run/docker.sock"
+
+api:
+  enabled: true
+  address: 127.0.0.1:8686
+
+transforms:
+  # Parses our logfmt-formatted log/span lines and lifts fields to top level.
+  # https://vector.dev/docs/reference/configuration/transforms/remap/
+  parse_logs:
+    type: "remap"
+    inputs:
+      - "docker"
+    source: |
+      fields, err = parse_logfmt(.message)
+      # `parse_logfmt` is *very* permissive — bare tokens like `println`
+      # output ("this is not logfmt") parse to `{this: true, is: true, ...}`
+      # which would pollute the parquet schema with garbage columns. And a
+      # line like "this trace_id is on the level" has matching key names but
+      # boolean values. Require one of our envelope fields (`level` from
+      # log_config, `trace_id` from the span exporter) to be present *as a
+      # string* — that's how our encoders always emit them — before treating
+      # the line as ours; otherwise tag the event so it stays queryable in
+      # Athena via `WHERE raw = true`.
+      if err == null && (is_string(fields.level) || is_string(fields.trace_id)) {
+        # Hold onto docker_logs' ingestion timestamp before merge — fields
+        # carries the app-emitted `timestamp` string and would otherwise
+        # clobber it.
+        ingestion_time = .timestamp
+        . = merge(., fields)
+        # EC2 instance ID injected via the vector.env file by the EB prebuild
+        # hook.
+        .instance_id = get_env_var("INSTANCE_ID") ?? null
+        # Drop the raw docker envelope, but only when there was no
+        # `message=` in the logfmt to replace it with. Log lines (from
+        # log_config.clj) always emit `message=`, so the merge above
+        # already overwrote `.message` with the parsed content. Spans
+        # don't, so `.message` is still the raw envelope.
+        if !exists(fields.message) {
+          del(.message)
+        }
+        # Keep the app-emitted time queryable (ms precision from logback, ns
+        # from the span exporter; ISO-8601 `%+` covers both).
+        .event_time = parse_timestamp(.timestamp, "%+") ?? .timestamp
+        # Drive the S3 key_prefix off docker_logs' ingestion time (≈ now)
+        # rather than the app-emitted time. This caps the number of
+        # concurrently open `key_prefix` buffers at 1–2 minute partitions
+        # even if app-side timestamps lag or jump (vector replay, clock
+        # skew). Trade-off: long spans land in the minute their exporter
+        # flushed, not the minute they started — slightly off from the
+        # trace_id epoch tail. Query `event_time` if you need the
+        # app-emitted instant.
+        .timestamp = ingestion_time
+
+        # Typed-field coercions. parse_logfmt always returns strings; each
+        # named column has to be cast for parquet to get a typed column.
+        # Names are on-the-wire form (clj-otel snake_cases hyphenated
+        # keywords and drops Clojure's `?` predicate suffix; see
+        # log-fields.md). `if exists` guards keep events that don't carry
+        # the field from gaining null columns. `?? null` means a value that
+        # somehow fails to coerce becomes null rather than corrupting the
+        # parquet column type. Inlined rather than `for_each`-over-array so
+        # there's no per-event collection allocation.
+
+        # Bools.
+        if exists(.child_threw_exception) { .child_threw_exception = to_bool(.child_threw_exception) ?? null }
+        if exists(.admin) { .admin = to_bool(.admin) ?? null }
+        if exists(.already_processed) { .already_processed = to_bool(.already_processed) ?? null }
+        if exists(.already_subscribed) { .already_subscribed = to_bool(.already_subscribed) ?? null }
+        if exists(.done) { .done = to_bool(.done) ?? null }
+        if exists(.escaping) { .escaping = to_bool(.escaping) ?? null }
+        if exists(.finished) { .finished = to_bool(.finished) ?? null }
+        if exists(.handle_locally) { .handle_locally = to_bool(.handle_locally) ?? null }
+        if exists(.iq_topic) { .iq_topic = to_bool(.iq_topic) ?? null }
+        if exists(.rate_limited) { .rate_limited = to_bool(.rate_limited) ?? null }
+        if exists(.requires_tika) { .requires_tika = to_bool(.requires_tika) ?? null }
+        if exists(.schema_changes) { .schema_changes = to_bool(.schema_changes) ?? null }
+        if exists(.skip) { .skip = to_bool(.skip) ?? null }
+        if exists(.skipped_event) { .skipped_event = to_bool(.skipped_event) ?? null }
+        if exists(.throwing) { .throwing = to_bool(.throwing) ?? null }
+        if exists(.tika_enabled) { .tika_enabled = to_bool(.tika_enabled) ?? null }
+        if exists(.error) { .error = to_bool(.error) ?? null }
+        if exists(.error_on_error) { .error_on_error = to_bool(.error_on_error) ?? null }
+        if exists(.job_not_grabbed) { .job_not_grabbed = to_bool(.job_not_grabbed) ?? null }
+        if exists(.use_tx_queue) { .use_tx_queue = to_bool(.use_tx_queue) ?? null }
+        if exists(.warning) { .warning = to_bool(.warning) ?? null }
+
+        # Ints — durations & span-built-in.
+        if exists(.duration_ms) { .duration_ms = to_int(.duration_ms) ?? null }
+        if exists(.gap_ms) { .gap_ms = to_int(.gap_ms) ?? null }
+        if exists(.interval_ms) { .interval_ms = to_int(.interval_ms) ?? null }
+        if exists(.isn_waited_ms) { .isn_waited_ms = to_int(.isn_waited_ms) ?? null }
+        if exists(.latency_ms) { .latency_ms = to_int(.latency_ms) ?? null }
+        if exists(.max_isn_wait_ms) { .max_isn_wait_ms = to_int(.max_isn_wait_ms) ?? null }
+        if exists(.queue_latency_ms) { .queue_latency_ms = to_int(.queue_latency_ms) ?? null }
+        if exists(.span_time_ms) { .span_time_ms = to_int(.span_time_ms) ?? null }
+        if exists(.throttle_ms) { .throttle_ms = to_int(.throttle_ms) ?? null }
+        if exists(.timeout_ms) { .timeout_ms = to_int(.timeout_ms) ?? null }
+        if exists(.total_ms) { .total_ms = to_int(.total_ms) ?? null }
+        if exists(.tx_latency_ms) { .tx_latency_ms = to_int(.tx_latency_ms) ?? null }
+        if exists(.tx_ms) { .tx_ms = to_int(.tx_ms) ?? null }
+        if exists(.run_time_ms) { .run_time_ms = to_int(.run_time_ms) ?? null }
+        if exists(.total_delay_ms) { .total_delay_ms = to_int(.total_delay_ms) ?? null }
+        if exists(.wait_ms) { .wait_ms = to_int(.wait_ms) ?? null }
+
+        # Ints — Postgres socket counters (instant.jdbc.sql).
+        if exists(.bytes_read) { .bytes_read = to_int(.bytes_read) ?? null }
+        if exists(.bytes_written) { .bytes_written = to_int(.bytes_written) ?? null }
+        if exists(.tx_bytes) { .tx_bytes = to_int(.tx_bytes) ?? null }
+
+        # Ints — Hikari connection-pool gauges.
+        if exists(.active_connections) { .active_connections = to_int(.active_connections) ?? null }
+        if exists(.idle_connections) { .idle_connections = to_int(.idle_connections) ?? null }
+        if exists(.pending_threads) { .pending_threads = to_int(.pending_threads) ?? null }
+
+        # Ints — counts.
+        if exists(.apps_count) { .apps_count = to_int(.apps_count) ?? null }
+        if exists(.attrs_count) { .attrs_count = to_int(.attrs_count) ?? null }
+        if exists(.cached_count) { .cached_count = to_int(.cached_count) ?? null }
+        if exists(.changed_datoms_count) { .changed_datoms_count = to_int(.changed_datoms_count) ?? null }
+        if exists(.changed_sketch_count) { .changed_sketch_count = to_int(.changed_sketch_count) ?? null }
+        if exists(.concurrent_handler_count) { .concurrent_handler_count = to_int(.concurrent_handler_count) ?? null }
+        if exists(.connection_count) { .connection_count = to_int(.connection_count) ?? null }
+        if exists(.created_count) { .created_count = to_int(.created_count) ?? null }
+        if exists(.deleted_count) { .deleted_count = to_int(.deleted_count) ?? null }
+        if exists(.entity_count) { .entity_count = to_int(.entity_count) ?? null }
+        if exists(.event_count) { .event_count = to_int(.event_count) ?? null }
+        if exists(.in_progress_query_count) { .in_progress_query_count = to_int(.in_progress_query_count) ?? null }
+        if exists(.iv_topics_count) { .iv_topics_count = to_int(.iv_topics_count) ?? null }
+        if exists(.job_count) { .job_count = to_int(.job_count) ?? null }
+        if exists(.join_count) { .join_count = to_int(.join_count) ?? null }
+        if exists(.match_count) { .match_count = to_int(.match_count) ?? null }
+        if exists(.num_invalidated_sockets) { .num_invalidated_sockets = to_int(.num_invalidated_sockets) ?? null }
+        if exists(.num_sockets) { .num_sockets = to_int(.num_sockets) ?? null }
+        if exists(.num_tx_steps) { .num_tx_steps = to_int(.num_tx_steps) ?? null }
+        if exists(.ref_data_count) { .ref_data_count = to_int(.ref_data_count) ?? null }
+        if exists(.retry_worker_count) { .retry_worker_count = to_int(.retry_worker_count) ?? null }
+        if exists(.revoked_token_count) { .revoked_token_count = to_int(.revoked_token_count) ?? null }
+        if exists(.row_count) { .row_count = to_int(.row_count) ?? null }
+        if exists(.sink_count) { .sink_count = to_int(.sink_count) ?? null }
+        if exists(.sketch_count) { .sketch_count = to_int(.sketch_count) ?? null }
+        if exists(.token_count) { .token_count = to_int(.token_count) ?? null }
+        if exists(.total_count) { .total_count = to_int(.total_count) ?? null }
+        if exists(.triple_count) { .triple_count = to_int(.triple_count) ?? null }
+        if exists(.triples_insert_count) { .triples_insert_count = to_int(.triples_insert_count) ?? null }
+        if exists(.update_count) { .update_count = to_int(.update_count) ?? null }
+        if exists(.wal_record_count) { .wal_record_count = to_int(.wal_record_count) ?? null }
+        if exists(.worker_count) { .worker_count = to_int(.worker_count) ?? null }
+
+        # Ints — sizes / byte counts.
+        if exists(.batch_size) { .batch_size = to_int(.batch_size) ?? null }
+        if exists(.buffer_byte_size) { .buffer_byte_size = to_int(.buffer_byte_size) ?? null }
+        if exists(.chunks_byte_size) { .chunks_byte_size = to_int(.chunks_byte_size) ?? null }
+        if exists(.size) { .size = to_int(.size) ?? null }
+        if exists(.skipped_size) { .skipped_size = to_int(.skipped_size) ?? null }
+        if exists(.message_count) { .message_count = to_int(.message_count) ?? null }
+
+        # Ints — other numerics.
+        if exists(.attempt) { .attempt = to_int(.attempt) ?? null }
+        if exists(.limit) { .limit = to_int(.limit) ?? null }
+        if exists(.loops) { .loops = to_int(.loops) ?? null }
+        if exists(.max_attempts) { .max_attempts = to_int(.max_attempts) ?? null }
+        if exists(.max_isn) { .max_isn = to_int(.max_isn) ?? null }
+        if exists(.max_loops) { .max_loops = to_int(.max_loops) ?? null }
+        if exists(.offset) { .offset = to_int(.offset) ?? null }
+        if exists(.port) { .port = to_int(.port) ?? null }
+        if exists(.timeout) { .timeout = to_int(.timeout) ?? null }
+        if exists(.tries) { .tries = to_int(.tries) ?? null }
+
+        # Drop any field whose coercion above failed (left it as null) so
+        # the parquet schema doesn't get a `null`-typed column that would
+        # clash with the real type in a later batch. `compact` is VRL's
+        # built-in for this; recursive: false leaves nulls inside the
+        # docker_logs `label` struct alone.
+        . = compact(., recursive: false)
+      } else {
+        .raw = true
+      }
+
+sinks:
+  # Hourly-partitioned parquet so an Athena query keyed off a trace ID can
+  # decode the epoch-seconds tail (see instant.util.id-generator) and prune
+  # to a single partition.
+  # https://vector.dev/docs/reference/configuration/sinks/aws_s3/
+  s3_parquet:
+    type: "aws_s3"
+    inputs:
+      - "parse_logs"
+    bucket: "eb-logs-597134865416-us-east-1-an"
+    region: "us-east-1"
+    # S3 object tags. Lifecycle rules in the bucket can filter on
+    # `tag-key:source` `tag-value:vector` (and/or `env=EB_ENV_NAME`) to
+    # expire just our objects without touching anything else dropped in
+    # the same prefix.
+    tags:
+      source: "vector"
+      env: "EB_ENV_NAME"
+    # `EB_ENV_NAME` is rewritten to the actual environment name (e.g.
+    # `Instant-docker-prod-env-2`) at deploy time by the same prebuild hook
+    # that does the substitution in docker-compose.yml.
+    key_prefix: "logs/env=EB_ENV_NAME/year=%Y/month=%m/day=%d/hour=%H/minute=%M/"
+    compression: "none"
+    encoding:
+      codec: "text"
+    batch_encoding:
+      codec: "parquet"
+      schema_mode: "auto_infer"
+      compression:
+        algorithm: "snappy"
+    batch:
+      # 100 MB
+      max_bytes: 100000000
+      timeout_secs: 60
+
+# Inline unit tests for the parse_logs remap. Run with `vector test
+# vector.yaml`. Catches regressions like a misspelled VRL function or a
+# coercion that silently fails on a known shape.
+tests:
+  - name: "span line lifts fields and coerces duration_ms"
+    inputs:
+      - insert_at: parse_logs
+        type: log
+        log_fields:
+          message: 'trace_id=abc123 duration_ms=42 name="instaql/query" entity_count=7'
+    outputs:
+      - extract_from: parse_logs
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.trace_id, "abc123")
+              assert_eq!(.duration_ms, 42)
+              assert_eq!(.name, "instaql/query")
+              assert_eq!(.entity_count, 7)
+              assert!(!exists(.message))
+              assert!(!exists(.raw))
+
+  - name: "log line with exception preserves stacktrace"
+    inputs:
+      - insert_at: parse_logs
+        type: log
+        log_fields:
+          message: 'level=ERROR logger=instant.foo message="boom" exception_type=java.lang.RuntimeException exception_stacktrace="java.lang.RuntimeException: boom\n\tat instant.foo.bar(foo.clj:12)"'
+    outputs:
+      - extract_from: parse_logs
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "ERROR")
+              assert_eq!(.exception_type, "java.lang.RuntimeException")
+              assert!(contains!(.exception_stacktrace, "instant.foo.bar"))
+              # Log lines emit `message=`, so the parsed value is kept.
+              assert_eq!(.message, "boom")
+
+  - name: "non-logfmt line keeps message and gets raw=true"
+    inputs:
+      - insert_at: parse_logs
+        type: log
+        log_fields:
+          message: 'this is not logfmt'
+    outputs:
+      - extract_from: parse_logs
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.raw, true)
+              assert_eq!(.message, "this is not logfmt")
+              assert!(!exists(.trace_id))
+
+  - name: "bare tokens that happen to spell our envelope keys still go raw"
+    inputs:
+      - insert_at: parse_logs
+        type: log
+        log_fields:
+          message: 'this trace_id is on the level'
+    outputs:
+      - extract_from: parse_logs
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.raw, true)
+              assert_eq!(.message, "this trace_id is on the level")
+
+  - name: "failed coercion drops field via compact"
+    inputs:
+      - insert_at: parse_logs
+        type: log
+        log_fields:
+          message: 'level=INFO message=hello duration_ms=not_a_number'
+    outputs:
+      - extract_from: parse_logs
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.level, "INFO")
+              assert!(!exists(.duration_ms))
+
+  - name: "event_time gets parsed app timestamp, .timestamp keeps ingestion time"
+    inputs:
+      - insert_at: parse_logs
+        type: log
+        log_fields:
+          # Test harness assigns a current `.timestamp` automatically; the
+          # logfmt `timestamp=` field here is an explicitly-lagged value the
+          # app emitted earlier.
+          message: 'level=INFO message=hi timestamp=2020-01-01T00:00:00Z'
+    outputs:
+      - extract_from: parse_logs
+        conditions:
+          - type: vrl
+            source: |
+              # .timestamp must NOT be the 2020 string from the message —
+              # it stays as the test-harness-assigned ingestion time (a real
+              # timestamp, recent).
+              assert!(is_timestamp(.timestamp))
+              assert!(to_unix_timestamp!(.timestamp) > 1700000000)
+              # .event_time captures the app-emitted instant.
+              assert_eq!(.event_time, t'2020-01-01T00:00:00Z')

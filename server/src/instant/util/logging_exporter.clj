@@ -5,18 +5,22 @@
    [clojure.tools.logging :as log]
    [instant.config :as config]
    [instant.flags :as flags]
-   [instant.util.coll :as ucoll])
+   [instant.util.coll :as ucoll]
+   [instant.util.logfmt :as logfmt])
   (:import
    (instant SpanTrackException)
-   (io.opentelemetry.api.common AttributeKey)
+   (io.opentelemetry.api.common AttributeKey AttributeType)
    (io.opentelemetry.api.trace Span SpanId)
    (io.opentelemetry.sdk.common CompletableResultCode)
    (io.opentelemetry.sdk.trace.data SpanData
                                     EventData
                                     ExceptionEventData)
    (io.opentelemetry.sdk.trace.export SpanExporter)
+   (java.io PrintStream)
+   (java.time Instant)
    (java.util.concurrent TimeUnit)
-   (java.util.concurrent.atomic AtomicBoolean)))
+   (java.util.concurrent.atomic AtomicBoolean)
+   (java.util.function BiConsumer Supplier)))
 
 (set! *warn-on-reflection* true)
 
@@ -230,13 +234,105 @@
       true)  ; App ID not in config, always log
     true))  ; No app ID, always log
 
-(defn log-spans [spans]
+;; ------
+;; logfmt formatter (hot path: single StringBuilder pass, no intermediate map,
+;; no reflection). One line per span: `k=v k=v ...`. Values containing space,
+;; `=`, `"`, or whitespace get wrapped in `"..."` with `\` / `"` / `\n` / `\r`
+;; / `\t` escaped.
+
+(defn append-logfmt-attr [^StringBuilder sb ^AttributeKey k v]
+  (let [k-str (.getKey k)]
+    (when-not (exclude? k-str)
+      (.append sb \space)
+      (logfmt/append-logfmt-key sb k-str)
+      (.append sb \=)
+      (let [t (.getType k)]
+        (condp identical? t
+          AttributeType/STRING (logfmt/append-logfmt-string sb (truncate ^String v))
+          AttributeType/LONG (.append sb (long v))
+          AttributeType/DOUBLE (.append sb (double v))
+          AttributeType/BOOLEAN (.append sb ^String (if v "true" "false"))
+          AttributeType/STRING_ARRAY
+          (logfmt/append-logfmt-string sb (str "[" (string/join "," v) "]"))
+          AttributeType/LONG_ARRAY
+          (logfmt/append-logfmt-string sb (str "[" (string/join "," v) "]"))
+          AttributeType/DOUBLE_ARRAY
+          (logfmt/append-logfmt-string sb (str "[" (string/join "," v) "]"))
+          AttributeType/BOOLEAN_ARRAY
+          (logfmt/append-logfmt-string sb (str "[" (string/join "," v) "]"))
+          (logfmt/append-logfmt-string sb (truncate (str v))))))))
+
+(defn write-span-logfmt!
+  "Append one logfmt line for `span` into `sb` (no trailing newline).
+   `attr-consumer` must close over the same `sb` and call `append-logfmt-attr`."
+  [^StringBuilder sb ^BiConsumer attr-consumer ^SpanData span]
+  (.append sb "trace_id=")
+  (.append sb (.getTraceId span))
+  (.append sb " duration_ms=")
+  (.append sb (long (duration-ms span)))
+  (.append sb " name=")
+  (logfmt/append-logfmt-string sb (.getName span))
+  (.forEach (.getAttributes span) attr-consumer)
+  (doseq [^EventData event (.getEvents span)]
+    (if (and (instance? ExceptionEventData event)
+             (exception-belongs-to-child-span?
+              (.getException ^ExceptionEventData event)
+              (.getSpanId span)))
+      (.append sb " child_threw_exception=true")
+      (.forEach (.getAttributes event) attr-consumer)))
+  (.append sb " span_id=")
+  (.append sb (.getSpanId span))
+  (.append sb " timestamp=")
+  (.append sb (.toString (Instant/ofEpochSecond 0 (.getStartEpochNanos span)))))
+
+(defn span->logfmt-str ^String [^SpanData span]
+  (let [sb (StringBuilder. 1024)
+        attr-consumer (reify BiConsumer
+                        (accept [_ k v]
+                          (append-logfmt-attr sb ^AttributeKey k v)))]
+    (write-span-logfmt! sb attr-consumer span)
+    (.toString sb)))
+
+;; ------
+;; Batched logfmt emit: one StringBuilder + one stdout write per export batch.
+;; BatchSpanProcessor calls export from a single worker, but we use a
+;; ThreadLocal so the buffer is safe under any processor configuration.
+
+(def ^PrintStream stdout System/out)
+
+(def ^ThreadLocal batch-sb-tl
+  (ThreadLocal/withInitial
+   (reify Supplier
+     (get [_] (StringBuilder. 65536)))))
+
+(defn log-spans-logfmt! [spans]
+  (let [^StringBuilder sb (.get batch-sb-tl)
+        _ (.setLength sb 0)
+        attr-consumer (reify BiConsumer
+                        (accept [_ k v]
+                          (append-logfmt-attr sb ^AttributeKey k v)))]
+    (doseq [span spans
+            :when (or (include-span? span)
+                      (and log-spans?
+                           (should-log? span)
+                           (not (exclude-span? span))))]
+      (write-span-logfmt! sb attr-consumer span)
+      (.append sb \newline))
+    (when (pos? (.length sb))
+      (.print stdout (.toString sb)))))
+
+(defn log-spans-text! [spans]
   (doseq [span spans
           :when (or (include-span? span)
                     (and log-spans?
                          (should-log? span)
                          (not (exclude-span? span))))]
     (log/info (span-str span))))
+
+(def log-spans
+  (if config/use-logfmt?
+    log-spans-logfmt!
+    log-spans-text!))
 
 (defn export [^AtomicBoolean shutdown? spans]
   (if (.get shutdown?)

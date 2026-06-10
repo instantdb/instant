@@ -50,6 +50,8 @@
 (defn aws-env? []
   (contains? #{:prod :staging} (get-env)))
 
+(def use-logfmt? (aws-env?))
+
 (defonce instance-id
   (delay
     (when (aws-env?)
