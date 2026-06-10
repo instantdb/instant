@@ -24,7 +24,13 @@ import { schemaTypescriptFileToInstantSchema } from './typescript-schema.ts';
 
 import version from './version.ts';
 import { ProgressPromise } from './ProgressPromise.ts';
-import { i, type InstantRules } from '@instantdb/core';
+import {
+  i,
+  type InstantRules,
+  type InstantRouteHandlerPayloadByType,
+  type InstantRouteHandlerType,
+  type InstantRouteHandlerBody,
+} from '@instantdb/core';
 import { exchangeCodeForToken, exchangeRefreshToken } from './serverOAuth.ts';
 import { clerkDomainFromPublishableKey } from './clerk.ts';
 import {
@@ -55,6 +61,9 @@ export {
   type OAuthHandlerConfig,
   type OAuthScope,
   type InstantRules,
+  type InstantRouteHandlerPayloadByType,
+  type InstantRouteHandlerType,
+  type InstantRouteHandlerBody,
   OAuthHandler,
   InstantOAuthError,
   generateSchemaTypescriptFile,
