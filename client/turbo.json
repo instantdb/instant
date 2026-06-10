@@ -63,7 +63,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**"]
+      "outputs": ["dist/**", ".next/**", "template/base/**"]
     },
     "publish-package": {
       "cache": false,

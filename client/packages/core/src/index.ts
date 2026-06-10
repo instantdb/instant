@@ -29,6 +29,7 @@ import {
 } from './utils/PersistedObject.ts';
 import { createInstantRouteHandler } from './createRouteHandler.ts';
 import { parseSchemaFromJSON } from './parseSchemaFromJSON.ts';
+import type { Logger } from './utils/log.ts';
 
 import type {
   PresenceOpts,
@@ -169,6 +170,7 @@ export type Config = {
   apiURI?: string;
   devtool?: boolean | DevtoolConfig;
   verbose?: boolean;
+  logger?: Logger;
   queryCacheLimit?: number;
   useDateObjects: boolean;
   disableValidation?: boolean;
@@ -185,6 +187,7 @@ export type InstantConfig<
   apiURI?: string;
   devtool?: boolean | DevtoolConfig;
   verbose?: boolean;
+  logger?: Logger;
   queryCacheLimit?: number;
   useDateObjects: UseDates;
   disableValidation?: boolean;
@@ -1225,6 +1228,7 @@ export {
   type StoreInterfaceClass,
   type StoreInterfaceStoreName,
   createInstantRouteHandler,
+  type Logger,
 };
 
 /** @deprecated Use StoreInterface instead */

@@ -44,6 +44,9 @@
 
 (defn test? [] (= :test (get-env)))
 
+(defn using-swarm? []
+  (some? (System/getenv "SWARM_SERVICE_NAME")))
+
 (defn aws-env? []
   (contains? #{:prod :staging} (get-env)))
 
@@ -222,13 +225,23 @@
     (assoc config
            :ApplicationName application-name)))
 
-(defn get-next-aurora-config []
+(defn next-aurora-config-from-cluster-id [application-name]
   (when-let [cluster-id (or (System/getenv "NEXT_DATABASE_CLUSTER_ID")
                             (some-> @config-map :next-database-cluster-id))]
-    (let [application-name (uri/query-encode (format "%s, %s"
-                                                     @hostname
-                                                     @process-id))]
-      (assoc (aurora-config/rds-cluster-id->db-config cluster-id application-name)
+    (aurora-config/rds-cluster-id->db-config cluster-id application-name)))
+
+(defn next-aurora-config-from-database-url []
+  (when-let [url (or (System/getenv "NEXT_DATABASE_URL")
+                     (some-> @config-map :next-database-url crypt-util/secret-value))]
+    (db-url->config url)))
+
+(defn get-next-aurora-config []
+  (let [application-name (uri/query-encode (format "%s, %s"
+                                                   @hostname
+                                                   @process-id))]
+    (when-let [config (or (next-aurora-config-from-cluster-id application-name)
+                          (next-aurora-config-from-database-url))]
+      (assoc config
              :ApplicationName application-name))))
 
 (defn dashboard-origin
@@ -400,7 +413,7 @@
 ;; Should be increased by 1 every time we move the slot to a new
 ;; machine. This gives us a way to have a consistent ordering of LSNs
 ;; across database upgrades.
-(def invalidator-slot-num 0)
+(def invalidator-slot-num 1)
 
 ;; Cuts off when the calendar turns to March in every time zone on Earth
 (def free-teams-cutoff (-> (ZonedDateTime/of 2026 3 1 0 0 0 0 (ZoneId/of "Etc/GMT+12"))

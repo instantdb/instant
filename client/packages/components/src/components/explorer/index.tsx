@@ -143,7 +143,7 @@ export type EditSchemaScreen =
 
 export type ExplorerDialog =
   | { type: 'add-row' }
-  | { type: 'edit-row'; rowId: string }
+  | { type: 'edit-row'; rowId: string; focusAttr?: string }
   | { type: 'edit-schema'; screen: EditSchemaScreen }
   | { type: 'new-namespace' }
   | { type: 'recently-deleted-ns' };

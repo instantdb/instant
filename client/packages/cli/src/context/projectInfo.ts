@@ -17,7 +17,7 @@ export class ProjectInfo extends Context.Tag(
   ProjectInfo,
   {
     pkgDir: string;
-    projectType: 'node' | 'deno';
+    projectType: 'node' | 'deno' | 'python';
     instantModuleName: string;
   }
 >() {}
@@ -53,11 +53,11 @@ const getProjectInfo = (
     if (!projectDir) {
       return yield* new ProjectInfoError({
         message:
-          "Couldn't find a project directory (package.json). Is there a package.json or deno.json file?",
+          "Couldn't find a project directory. Is there a package.json, deno.json, or pyproject.toml file?",
       });
     }
 
-    if (projectDir.type === 'deno') {
+    if (projectDir.type === 'deno' || projectDir.type === 'python') {
       return {
         pkgDir: projectDir.dir,
         projectType: projectDir.type,

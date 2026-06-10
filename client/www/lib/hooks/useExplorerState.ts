@@ -63,9 +63,17 @@ function validateExplorerDialog(v: unknown): ExplorerDialog | null {
       return { type: 'new-namespace' };
     case 'recently-deleted-ns':
       return { type: 'recently-deleted-ns' };
-    case 'edit-row':
+    case 'edit-row': {
       if (typeof obj.rowId !== 'string') return null;
-      return { type: 'edit-row', rowId: obj.rowId };
+      const dialog: { type: 'edit-row'; rowId: string; focusAttr?: string } = {
+        type: 'edit-row',
+        rowId: obj.rowId,
+      };
+      if (typeof obj.focusAttr === 'string' && obj.focusAttr.length > 0) {
+        dialog.focusAttr = obj.focusAttr;
+      }
+      return dialog;
+    }
     case 'edit-schema': {
       const screen = validateEditSchemaScreen(obj.screen);
       if (!screen) return null;

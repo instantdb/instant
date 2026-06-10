@@ -50,6 +50,13 @@ module.exports = [
         optionalLLM: true,
       },
       {
+        title: 'Getting started w/ Python',
+        href: '/docs/start-python',
+        prevHref: null,
+        nextHref: '/docs/create-instant-app',
+        optionalLLM: true,
+      },
+      {
         title: 'Create Instant App',
         prevHref: null,
         href: '/docs/create-instant-app',

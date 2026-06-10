@@ -1,0 +1,9 @@
+[project]
+name = "instantdb-sandbox"
+version = "0.0.0"
+description = "Manual integration tester for the instantdb Python SDK"
+requires-python = ">=3.10"
+dependencies = ["instantdb"]
+
+[tool.uv.sources]
+instantdb = { path = "../../packages/python", editable = true }

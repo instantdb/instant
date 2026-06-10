@@ -162,7 +162,8 @@
                   (update :enable-wal-entity-log-apps-map parse-uuids-map-flag)
                   (update :cloudfront-signed-url-apps parse-uuids-flag)
                   (update :smokescreen-whitelist-ips parse-ips-flag)
-                  (update :refresh-throttled-apps parse-uuids-flag))
+                  (update :refresh-throttled-apps parse-uuids-flag)
+                  (update :use-reactive-cache-for-verify-token-apps parse-uuids-flag))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
@@ -451,3 +452,6 @@
 
 (defn send-with-sendgrid? []
   (toggled? :send-with-sendgrid))
+
+(defn use-reactive-cache-for-verify-token? [app-id]
+  (contains? (flag :use-reactive-cache-for-verify-token-apps) app-id))

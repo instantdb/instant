@@ -77,20 +77,29 @@
                         (when params
                           {:query (uri/map->query-string (first params))})))))
 
-(defn ensure-override-config
-  "Creates a config file that will override the default `dev.edn` config,
-  since an oss developer won't be able to decode the dev.edn file."
-  []
-  (when-not (io/resource "config/override.edn")
+(defn generate-override-config
+  "Writes a fresh OSS override config. Set OVERRIDE_CONFIG_PATH to write outside
+  resources/config/override.edn, e.g. when creating a Docker Swarm secret."
+  [_args]
+  (let [path (or (System/getenv "OVERRIDE_CONFIG_PATH")
+                 "resources/config/override.edn")]
+    (io/make-parents path)
     (crypt-util/register-aead)
     (crypt-util/register-signature)
-    (println "Writing config file to server/resources/config/override.edn")
-    (spit "resources/config/override.edn"
+    (println "Writing config file to" path)
+    (spit path
           (pr-str
            {:aead-keyset {:encrypted? false
                           :json (crypt-util/generate-unencrypted-aead-keyset)}
             :webhook-keyset {:encrypted? false
                              :json (crypt-util/generate-webhook-signing-key)}}))))
+
+(defn ensure-override-config
+  "Creates a config file that will override the default `dev.edn` config,
+  since an oss developer won't be able to decode the dev.edn file."
+  []
+  (when-not (io/resource "config/override.edn")
+    (generate-override-config nil)))
 
 (defn migrate-database []
   (config/init)

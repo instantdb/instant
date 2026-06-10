@@ -1317,22 +1317,70 @@
 
   ## :a-only correction
 
-  When the path only has :a, scan-cost = 1 (one attribute), which doesn't
-  reflect actual rows. We correct using the max remaining cardinality:
-    created_at [:a] with {:e 708, :v 466906} → max(1, 466906) = 466906"
+  When the path walks only :a (no selective col follows), the cost-per-
+  step is (count attrs) — e.g. an IN list of 5 attr_ids contributes 5
+  to scan-cost. That number reflects the IN-list arity, not the rows
+  Postgres actually reads. PG will scan every row in those attr
+  partitions, then filter on whatever join/filter columns are still
+  unresolved.
+
+  We replace scan-cost with `attr-partition-rows` in that case — the
+  sketch-derived sum of \"rows for these attr_ids\" for the named-p's
+  :a constants. That correctly tags partition scans as expensive vs.
+  entity-IN seeks. Without it, [:a]-only paths tie with [:e]-only
+  paths and the comparator's avg-path-cost tie-break (which prefers
+  lower numbers) ends up picking the partition scan.
+
+    created_at [:a 5] with {:e 12, :v _}
+      naive scan-cost          = 5
+      attr-partition-rows      = 1,662,465  (sum of sketch :total
+                                              across the 5 attrs)
+      rows-scanned             = 1,662,465  (uses the corrected value)"
   [index]
   (let [costs (:index-costs index)
 
-        scan-cost (reduce (fn [acc {:keys [cost col]}]
-                            (let [next-cost (* acc cost)]
-                              (if (contains? (:unique-cols index) col)
-                                (reduced next-cost)
-                                next-cost)))
-                          1
-                          (:path costs))
+        scan-cost-from-path
+        (reduce (fn [acc {:keys [cost col]}]
+                  (let [next-cost (* acc cost)]
+                    (if (contains? (:unique-cols index) col)
+                      (reduced next-cost)
+                      next-cost)))
+                1
+                (:path costs))
 
         path-has-selective-col? (some #(not= :a (:col %))
                                       (:path costs))
+
+        ;; If the only filter cols this index could seek by are :a (i.e.
+        ;; its :cols don't include any other filter component like :e or
+        ;; :v), then any remaining constant filter is a heap post-filter
+        ;; and doesn't shrink the scan. In that case attr-partition-rows
+        ;; is the true scan cost. If the index has another filter
+        ;; col in its cols (e.g. av_index has :v), the filter could push
+        ;; down and partition-rows would over-count.
+        index-can-pushdown-non-a-filter?
+        (some (fn [col]
+                (and (not= col :a)
+                     (contains? (:filter-components costs) col)))
+              (:cols index))
+
+        scan-cost
+        (if (or
+             ;; :a is the only thing in path, the index will scan every row
+             ;; partition-rows is the true scan cost.
+             (and (seq (:path costs))
+                  (not path-has-selective-col?)
+                  (:attr-partition-rows costs)
+                  (not index-can-pushdown-non-a-filter?))
+             ;; Empty path: this index has no usable prefix to seek by, so
+             ;; it would degrade to a full scan (or a filter-only scan
+             ;; against :a).
+             (and (empty? (:path costs))
+                  (:attr-partition-rows costs)
+                  (contains? (:filter-components costs) :a)))
+          (:attr-partition-rows costs)
+
+          scan-cost-from-path)
 
         max-filter-remaining (apply max 0 (vals (select-keys (:known-remaining costs)
                                                              (:filter-components costs))))
@@ -1548,6 +1596,22 @@
                                   #{}
                                   [:e :a :v :created-at])
 
+        ;; Sum of "rows with this attr_id" for each attr in the named-p's
+        ;; :a constant set. Used as scan-cost for indexes that walk only
+        ;; :a — the partition scan touches every row with these attrs,
+        ;; not just the count of attrs in the IN list.
+        attr-partition-rows
+        (let [[a-tag a-val] (:a named-p)]
+          (when (= a-tag :constant)
+            (let [app-id (:app-id ctx)
+                  sketches (:sketches ctx)]
+              (reduce + 0
+                      (keep (fn [attr-id]
+                              (get-in sketches
+                                      [{:app-id app-id :attr-id attr-id}
+                                       :sketch :total]))
+                            a-val)))))
+
         indexes-with-costs
         (map (fn [idx-config]
                (let [costs (reduce (fn [acc col]
@@ -1582,6 +1646,18 @@
                                     :path []
                                     :unique-cols (:unique-cols idx-config)}
                                    (:cols idx-config))
+
+                     walked-cols (set (map :col (:path costs)))
+                     covered-cols (if (some #(not= :a %) walked-cols)
+                                    (->> (:cols idx-config)
+                                         (remove walked-cols)
+                                         set)
+                                    #{})
+                     costs (if (new-index-cost?)
+                             (update costs :join-remaining
+                                     (fn [jr]
+                                       (apply dissoc jr covered-cols)))
+                             costs)
                      ;; Check if the index path resolves an expensive predicate
                      ;; that the index handles more efficiently than a per-row
                      ;; filter. Only $like/$ilike qualify — they are expensive
@@ -1595,7 +1671,9 @@
                                     (contains? #{:$like :$ilike}
                                                (-> value :$comparator :op)))))
                            (:path costs))
-                     costs (assoc costs :path-resolves-function? path-resolves-function?)
+                     costs (assoc costs
+                                  :path-resolves-function? path-resolves-function?
+                                  :attr-partition-rows attr-partition-rows)
                      cfg (assoc idx-config
                                 :index-costs costs
                                 :matching-idx-key? (= (:idx-key idx-config)

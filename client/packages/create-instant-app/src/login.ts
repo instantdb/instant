@@ -198,6 +198,7 @@ const createPermissiveEphemeralApp = async (
     path: '/dash/apps/ephemeral',
     body: {
       title,
+      schema: metadata?.schema,
       rules: {
         $users: {
           view: 'true',

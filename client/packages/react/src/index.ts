@@ -95,6 +95,7 @@ import {
   type StoreInterfaceStoreName,
   InstantWritableStream,
   InstantReadableStream,
+  type Logger,
 } from '@instantdb/core';
 
 import { InstantReactAbstractDatabase } from '@instantdb/react-common';
@@ -212,4 +213,7 @@ export {
 
   // Server helper
   createInstantRouteHandler,
+
+  // logger
+  type Logger,
 };
