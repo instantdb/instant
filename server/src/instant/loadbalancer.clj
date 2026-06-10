@@ -9,7 +9,9 @@
    [instant.util.json :as json]
    [instant.util.tracer :as tracer])
   (:import
+   (java.lang InterruptedException)
    (java.time Duration Instant)
+   (software.amazon.awssdk.core.exception AbortedException)
    (software.amazon.awssdk.services.sns SnsClient)
    (software.amazon.awssdk.services.sns.model ListSubscriptionsByTopicRequest SubscribeRequest Subscription UnsubscribeRequest)
    (software.amazon.awssdk.services.sqs SqsClient)
@@ -99,24 +101,31 @@
     (.deleteMessage (sqs-client) ^DeleteMessageRequest req)))
 
 (defn poll-queue [queue-url on-message]
-  (loop [backoff 0]
-    (let [next-action (try
-                        (let [messages (get-messages queue-url)]
-                          (doseq [^Message message messages]
-                            (on-message (json/<-json (.body message) true))
-                            (delete-message queue-url message))
-                          :continue)
-                        (catch Throwable t
-                          (tracer/record-exception-span! t {:name "loadbalancer/get-messages-error"})
-                          :backoff))]
-      (case next-action
-        :continue (recur 0)
-        :backoff
-        (do (Thread/sleep (long (* 1000
-                                   (get [2 10 30 60] backoff 60))))
-            (recur (inc backoff))))))
-  (tracer/record-exception-span! (ex-info "Poll Queue Existed Early" {:queue-url queue-url})
-                                 {:name "loadbalancer/poll-queue-error"}))
+  (try
+    (loop [backoff 0]
+      (let [next-action (try
+                          (let [messages (get-messages queue-url)]
+                            (doseq [^Message message messages]
+                              (on-message (json/<-json (.body message) true))
+                              (delete-message queue-url message))
+                            :continue)
+                          (catch Throwable t
+                            (when-not (or (instance? InterruptedException t)
+                                          (and (instance? AbortedException t)
+                                               (instance? InterruptedException (.getCause t))))
+                              (tracer/record-exception-span! t {:name "loadbalancer/get-messages-error"}))
+                            :backoff))]
+        (case next-action
+          :quit :quit
+          :continue (recur 0)
+          :backoff
+          (do (Thread/sleep (long (* 1000
+                                     (get [2 10 30 60] backoff 60))))
+              (recur (inc backoff))))))
+    (tracer/record-exception-span! (ex-info "Poll Queue Existed Early" {:queue-url queue-url})
+                                   {:name "loadbalancer/poll-queue-error"})
+    (catch InterruptedException _
+      nil)))
 
 (defn add-conn-drain [conn-drain-futs]
   (let [drain-id (random-uuid)
