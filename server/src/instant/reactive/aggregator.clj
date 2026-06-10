@@ -616,8 +616,7 @@
                          :check-disabled (fn []
                                            (flags/toggled? :disable-aggregator))
                          :get-conn-config (fn []
-                                            (or (config/get-next-aurora-config)
-                                                (config/get-aurora-config)))
+                                            (config/get-aurora-config))
                          :slot-num global-slot-num})))
 
 (defn start-global []
