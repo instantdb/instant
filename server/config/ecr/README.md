@@ -72,7 +72,7 @@ Keeps the moving `prod` and `staging` tags forever. SHA-tagged images age out af
 }
 ```
 
-ECR is aware of image indexes, a tagged manifest list protects its referenced platform manifests even when those children appear untagged. So rule 3 only expires true orphans.
+ECR is aware of image indexes, a tagged manifest list protects its referenced platform manifests even when those children appear untagged. So rule 4 only expires true orphans.
 
 ## Policy: `instant-prod-ecr-buildcache`
 
