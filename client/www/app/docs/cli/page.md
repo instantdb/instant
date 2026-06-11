@@ -255,11 +255,13 @@ npx instant-cli@latest auth origin add \
 You can manage your email templates for sending magic codes by using an `instant.email.ts` file in your codebase.
 
 To create the file and pull in the current configuration:
+
 ```shell
 npx instant-cli@latest auth email pull
 ```
 
 It will create a file like this:
+
 ```typescript
 // We provide a few dynamic variables for you to use in your email:
 // {code}, the magic code e.g. 123456
@@ -269,9 +271,9 @@ It will create a file like this:
 // Note: {code} is required in both the subject and body.
 const email = {
   authEmail: {
-    subject: "{code} is your verification code for {app_title}",
-    senderName: "test-fresh",
-    senderEmail: "verify@drewh.cloud",
+    subject: '{code} is your verification code for {app_title}',
+    senderName: 'test-fresh',
+    senderEmail: 'verify@drewh.cloud',
     body: `<div style="background: #f6f6f6; font-family: Helvetica, Arial, sans-serif; line-height: 1.6; font-size: 18px;">
       <div style="max-width: 650px; margin: 0 auto; background: white; padding: 20px;">
         <p><strong>Welcome,</strong></p>
@@ -292,8 +294,7 @@ const email = {
 `,
   },
 };
-
-````
+```
 
 Just like on the dashboard, you can use the [variables available for the subject line and body](/docs/emails#variables)
 
