@@ -297,6 +297,8 @@ const email = {
 
 Just like on the dashboard, you can use the [variables available for the subject line and body](/docs/emails#variables)
 
+Note: {code} is required in both the subject and body.
+
 Commands to manage the email template:
 
 ```shell
