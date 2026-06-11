@@ -9,7 +9,7 @@ export const EmailConfig = Schema.Struct({
   authEmail: Schema.Struct({
     subject: Schema.String,
     senderName: Schema.String,
-    senderEmail: Schema.optional(Schema.String),
+    senderEmail: Schema.NullishOr(Schema.String),
     body: Schema.String,
   }),
 });
@@ -65,7 +65,7 @@ export const submitVerification = Effect.fn(function* (code: string) {
 
 const VerificationSchema = Schema.Struct({
   instant: Schema.Struct({
-    'verified?': Schema.Boolean,
+    'verified?': Schema.Boolean.pipe(Schema.NullishOr),
   }),
   verification: Schema.Struct({
     Confirmed: Schema.Boolean,
