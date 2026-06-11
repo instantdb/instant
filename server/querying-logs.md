@@ -169,6 +169,23 @@ For a trace ID, decode the timestamp (see "Trace ID → partition" above)
 and list every minute from 5 before to 5 after. That covers Vector's
 ingestion-vs-event-time skew without scanning a whole hour.
 
+Watch the rollover: if the decoded minute is within 5 of :00 or :59 the
+window spans two hours, and at 23:55–00:04 it spans two days. The
+`hour=`/`day=` segments change too, so you have to emit paths for both
+sides or you'll silently miss files. Generate them with proper datetime
+arithmetic rather than tweaking the minute by hand:
+
+```bash
+DECODED="2026-06-11 16:57:30"  # from the python decode step
+for off in $(seq -5 5); do
+  python3 -c "
+import datetime as d
+t = d.datetime.fromisoformat('$DECODED').replace(tzinfo=d.timezone.utc) + d.timedelta(minutes=$off)
+print(f's3://eb-logs-597134865416-us-east-1-an/logs/env=Instant-docker-prod-env-2/year={t.year}/month={t.month:02d}/day={t.day:02d}/hour={t.hour:02d}/minute={t.minute:02d}/*.parquet')
+"
+done
+```
+
 `union_by_name = true` is required. Different parquet files (especially
 from before/after a vector.yaml change) have different column sets and
 sometimes different column types; `union_by_name` merges them. Without it
