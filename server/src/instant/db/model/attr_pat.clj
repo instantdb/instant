@@ -387,6 +387,18 @@
                                rev-attr)
                            :attr
                            {:args [value-etype value-label]})
+        ;; The `id` attr stores the entity-id as its value. When matching on it
+        ;; for equality (or `$in`), translate to an entity-id lookup so we use
+        ;; the pkey instead of scanning every id triple by value.
+        id-eids (when (and (not= :ref value-type)
+                           (= fwd-attr attr)
+                           (= "id" (attr-model/fwd-label attr)))
+                  (let [vs (if (set? v) v #{v})]
+                    (when (every? (fn [x]
+                                    (and (not (map? x))
+                                         (uuid-util/coerce x)))
+                                  vs)
+                      (into #{} (map uuid-util/coerce) vs))))
         v-coerced (if (not= :ref value-type)
                     (let [state (update state :in conj :$ :where value-label)]
                       (coerce-value-for-typed-comparison! state
@@ -428,9 +440,15 @@
                                   :message (format "Only indexed attrs can check for `nil` in `$in`. %s.%s is not indexed."
                                                    (attr-model/fwd-etype fwd-attr)
                                                    (attr-model/fwd-label fwd-attr))}]))
-    (if (and (= :ref value-type)
-             (= attr rev-attr))
+    (cond
+      id-eids
+      [(level-sym value-etype value-level) id {:$eid id-eids}]
+
+      (and (= :ref value-type)
+           (= attr rev-attr))
       [v-coerced id (level-sym value-etype value-level)]
+
+      :else
       [(level-sym value-etype value-level) id v-coerced])))
 
 (defn attr-pats->patterns-impl
@@ -452,7 +470,12 @@
          (let [[e a v] attr-pat
                attr (attr-by-id ctx a)
                v-actualized? (component-actualized? seen v)
-               pat [(best-index attr v-actualized?) e a v]
+               ;; `$eid` matches on the entity-id, so it must use the :ea
+               ;; index regardless of the attr's unique?/index? flags.
+               idx (if (and (map? v) (contains? v :$eid))
+                     :ea
+                     (best-index attr v-actualized?))
+               pat [idx e a v]
                acc' (update acc :pats conj pat)]
            (cond-> acc'
              (d/variable? e) (update :seen conj e)

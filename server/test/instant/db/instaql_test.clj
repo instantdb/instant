@@ -1536,7 +1536,7 @@
            (query-pretty
             {:users
              {:$ {:where {:id (resolvers/->uuid r "eid-alex")}}}})
-           '({:topics ([#{:av} _ #{:users/id} #{"eid-alex"}]
+           '({:topics ([#{:ea} #{"eid-alex"} #{:users/id} _]
                        --
                        [#{:ea} #{"eid-alex"}
                         #{:users/createdAt :users/email :users/id :users/fullName
@@ -1548,6 +1548,32 @@
                         ("eid-alex" :users/email "alex@instantdb.com")
                         ("eid-alex" :users/handle "alex")
                         ("eid-alex" :users/createdAt "2021-01-09 18:53:07.993689"))})))))))
+
+(deftest where-by-id-targets-entity-id
+  ;; Regression: `where {id: X}` must compile to an entity-id lookup (which uses
+  ;; the pkey) instead of a value match that scans every id triple of the etype.
+  (with-zeneca-app
+    (fn [app r]
+      (let [ctx (make-ctx app)
+            alex (resolvers/->uuid r "eid-alex")
+            stepan (resolvers/->uuid r "eid-stepan-parunashvili")
+            musashi (resolvers/->uuid r "eid-musashi")
+            where-pats (fn [q]
+                         (get-in (iq/instaql-query->patterns ctx q)
+                                 [:patterns :children :pattern-groups 0 :patterns]))]
+        (testing "equality on id compiles to an :ea $eid match"
+          (let [[idx _e _a v] (first (where-pats {:users {:$ {:where {:id alex}}}}))]
+            (is (= :ea idx))
+            (is (= {:$eid #{alex}} v))))
+        (testing "$in on id compiles to an :ea $eid match over all ids"
+          (let [[idx _e _a v] (first (where-pats {:users {:$ {:where {:id {:$in [alex stepan]}}}}}))]
+            (is (= :ea idx))
+            (is (= {:$eid #{alex stepan}} v))))
+        (testing "a nested path ending in id is also an entity-id match"
+          (let [pats (where-pats {:users {:$ {:where {:bookshelves.books.id musashi}}}})]
+            (is (some (fn [p]
+                        (and (vector? p) (= {:$eid #{musashi}} (nth p 3 nil))))
+                      pats))))))))
 
 (deftest deep-where
   (with-zeneca-app
@@ -1583,7 +1609,7 @@
              (query-pretty
               {:users
                {:$ {:where {:bookshelves.books.id bookshelves-id}}}})
-             '({:topics ([#{:av} _ #{:books/id} #{"eid-musashi"}]
+             '({:topics ([#{:ea} #{"eid-musashi"} #{:books/id} _]
                          [#{:vae} _ #{:bookshelves/books} #{"eid-musashi"}]
                          [#{:vae} _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
                          --
@@ -3772,7 +3798,7 @@
             r (resolvers/make-zeneca-resolver (:id app))]
         (is-pretty-eq?
          (query-pretty ctx r {:users {:$ {:where {:id shared-id}}}})
-         '({:topics ([#{:av} _ #{:users/id} #{"eid-title"}]
+         '({:topics ([#{:ea} #{"eid-title"} #{:users/id} _]
                      --
                      [#{:ea} #{"eid-title"}
                       #{:users/createdAt :users/email :users/id :users/fullName
@@ -3784,7 +3810,7 @@
                       ("eid-title" :users/id "eid-title"))}))
         (is-pretty-eq?
          (query-pretty ctx r {:books {:$ {:where {:id shared-id}}}})
-         '({:topics ([#{:av} _ #{:books/id} #{"eid-title"}]
+         '({:topics ([#{:ea} #{"eid-title"} #{:books/id} _]
                      --
                      [#{:ea} #{"eid-title"}
                       #{:books/pageCount :books/isbn13 :books/description :books/id

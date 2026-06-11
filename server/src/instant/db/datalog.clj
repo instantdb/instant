@@ -51,6 +51,7 @@
 ;; Pattern
 
 (s/def ::$entityIdStartsWith string?)
+(s/def ::$eid (s/coll-of uuid? :kind set? :min-count 0))
 
 (defn pattern-component [v-type]
   (s/or :constant (s/coll-of v-type :kind set? :min-count 0)
@@ -84,7 +85,7 @@
                                                             :min-count 0)
                                        :any #{'_}
                                        :variable symbol?
-                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$comparator ::$entityIdStartsWith)])))
+                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$comparator ::$entityIdStartsWith ::$eid)])))
 
 (s/def ::idx-key #{:ea :eav :av :ave :vae})
 (s/def ::data-type #{:string :number :boolean :date})
@@ -146,7 +147,8 @@
                 (or (contains? c :$not)
                     (contains? c :$isNull)
                     (contains? c :$comparator)
-                    (contains? c :$entityIdStartsWith)))
+                    (contains? c :$entityIdStartsWith)
+                    (contains? c :$eid)))
            (symbol? c)
            (set? c))
         c
@@ -383,8 +385,9 @@
   "Given a named-pattern and the symbol-values from previous patterns,
    returns the topic that would invalidate the query"
   [{:keys [idx e a v]} symbol-values]
-  (if (and (= :function (first v))
-           (contains? (second v) :$isNull))
+  (cond
+    (and (= :function (first v))
+         (contains? (second v) :$isNull))
     ;; This might be a lot simpler if we had a way to do
     ;; (not [?e :attr-id])
     [[#{:ea}
@@ -395,6 +398,16 @@
       '_
       #{(-> v second :$isNull :attr-id)}
       '_]]
+
+    (and (= :function (first v))
+         (contains? (second v) :$eid))
+    ;; Matching on entity-id, so invalidate when those entities change.
+    [[#{:ea}
+      (-> v second :$eid)
+      (component->topic-component symbol-values :a a)
+      '_]]
+
+    :else
     [[#{(idx-key idx)}
       (component->topic-component symbol-values :e e)
       (component->topic-component symbol-values :a a)
@@ -752,7 +765,12 @@
                   (let [prefix val]
                     [[:and
                       [:>= :entity-id (prefix->uuid-start prefix)]
-                      [:<= :entity-id (prefix->uuid-end prefix)]]])))
+                      [:<= :entity-id (prefix->uuid-end prefix)]]])
+                  ;; The `id` attr's value is the entity-id, so match on
+                  ;; entity-id directly to use the pkey instead of scanning
+                  ;; every id triple by value.
+                  :$eid
+                  [(in-any :entity-id val :uuid)]))
     []))
 
 (defn- entity-function-clauses [[e-tag e-value]]
@@ -1166,6 +1184,7 @@
                                         ;; No good way to count entity-ids, so plan
                                         ;; for the worst case
                                         :$entityIdStartsWith [{:type :total}]
+                                        :$eid [{:type :total}]
                                         :$comparator [{:type :compare
                                                        :op (:op body)
                                                        :data-type (:data-type body)
