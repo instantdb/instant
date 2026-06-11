@@ -18,6 +18,7 @@ import {
   getEmailTemplateStatus,
 } from './status.ts';
 import chalk from 'chalk';
+import { getDefaultEmailTemplate } from './pull.ts';
 
 export const authEmailPushCmd = Effect.fn(function* (
   opts: OptsFromCommand<typeof authEmailPushDef>,
@@ -26,7 +27,12 @@ export const authEmailPushCmd = Effect.fn(function* (
   const { appId } = yield* CurrentApp;
   const http = yield* InstantHttpAuthed;
   const authEmail = emailConfig.authEmail;
-  const senderEmail = authEmail.senderEmail;
+  const defTemplate = yield* getDefaultEmailTemplate;
+  const senderEmail =
+    // If the value in the code is the default instant-owned email, remove it from the request
+    authEmail.senderEmail === defTemplate.senderEmail
+      ? undefined
+      : emailConfig.authEmail.senderEmail;
 
   yield* http
     .pipe(
@@ -74,7 +80,10 @@ export const authEmailPushCmd = Effect.fn(function* (
     );
   }
 
-  if (emailConfig.authEmail.senderEmail) {
+  if (
+    emailConfig.authEmail.senderEmail &&
+    emailConfig.authEmail.senderEmail !== defTemplate.senderEmail
+  ) {
     const verification = yield* getVerification;
     if (verification.verification) {
       yield* Effect.log(
