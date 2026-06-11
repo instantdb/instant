@@ -1,10 +1,41 @@
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
-import { Button, Content, Copyable, SectionHeading } from '@/components/ui';
+import { Button, Copyable } from '@/components/ui';
 import { useAuthToken } from '@/lib/auth';
 import config, { bugsAndQuestionsInviteUrl } from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
-import { useRouter } from 'next/router';
+import { CheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 import React, { useEffect, useState } from 'react';
+
+function QueryBlock({ query }: { query: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="relative w-full">
+      <pre className="w-full overflow-x-auto rounded border bg-gray-50 p-3 pr-10 text-left font-mono text-xs text-gray-700">
+        {query}
+      </pre>
+      <button
+        type="button"
+        aria-label="Copy query"
+        onClick={() => {
+          navigator.clipboard
+            .writeText(query)
+            .then(() => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            })
+            .catch(() => {});
+        }}
+        className="absolute top-2 right-2 cursor-pointer rounded border border-gray-200 bg-white p-1 text-gray-500 shadow-xs hover:bg-gray-50 hover:text-gray-700"
+      >
+        {copied ? (
+          <CheckIcon className="h-4 w-4" />
+        ) : (
+          <ClipboardDocumentIcon className="h-4 w-4" />
+        )}
+      </button>
+    </div>
+  );
+}
 
 function fetchDebugUriInfo(
   { traceId, spanId }: { traceId: string; spanId: string },
@@ -22,20 +53,32 @@ function fetchDebugUriInfo(
   );
 }
 
-function AdminInfo({ urls }: { urls: { label: string; url: string }[] }) {
+function AdminInfo({
+  urls,
+}: {
+  urls: { label: string; url: string; query?: string }[];
+}) {
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex w-full max-w-2xl flex-col items-center gap-4">
       <div>Admin URLs</div>
       {urls.map((u) => (
-        <a
-          key={u.url}
-          target="_blank"
-          href={u.url}
-          rel="noopener noreferrer"
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          {u.label}
-        </a>
+        <div key={u.url} className="flex w-full flex-col items-center gap-2">
+          <a
+            target="_blank"
+            href={u.url}
+            rel="noopener noreferrer"
+            onClick={() => {
+              if (u.query) {
+                navigator.clipboard.writeText(u.query).catch(() => {});
+              }
+            }}
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            {u.label}
+            {u.query ? ' (opens link and copies query to clipboard)' : ''}
+          </a>
+          {u.query ? <QueryBlock query={u.query} /> : null}
+        </div>
       ))}
     </div>
   );

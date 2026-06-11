@@ -385,9 +385,8 @@
     (response/ok {:urls [{:label "View trace in Honeycomb"
                           :url (tracer/honeycomb-uri {:trace-id trace-id
                                                       :span-id span-id})}
-                         {:label "Search trace in Cloudwatch"
-                          :url (tracer/cloudwatch-uri {:trace-id trace-id
-                                                       :span-id span-id})}]})))
+                         (merge {:label "Search trace in Athena"}
+                                (tracer/athena-query {:trace-id trace-id}))]})))
 
 ;; ---
 ;; Dash
