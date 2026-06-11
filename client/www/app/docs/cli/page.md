@@ -261,11 +261,17 @@ npx instant-cli@latest auth email pull
 
 It will create a file like this:
 ```typescript
+// We provide a few dynamic variables for you to use in your email:
+// {code}, the magic code e.g. 123456
+// {app_title}, your app's title, i.e. test-fresh
+// {user_email}, the user's email address, e.g. happyuser@gmail.com
+// {expiration}, the magic code expiration, e.g. 10 minutes
+// Note: {code} is required in both the subject and body.
 const email = {
   authEmail: {
     subject: "{code} is your verification code for {app_title}",
-    senderName: "My App",
-    senderEmail: "verify@myapp.com",
+    senderName: "test-fresh",
+    senderEmail: "verify@drewh.cloud",
     body: `<div style="background: #f6f6f6; font-family: Helvetica, Arial, sans-serif; line-height: 1.6; font-size: 18px;">
       <div style="max-width: 650px; margin: 0 auto; background: white; padding: 20px;">
         <p><strong>Welcome,</strong></p>
@@ -282,27 +288,14 @@ const email = {
           you didn't request this code, please reply to this email.
         </p>
       </div>
-    </div>`,
+    </div>
+`,
   },
 };
 
-export default email;
 ````
 
-We provide a few dynamic variables for you to use in your email:
-
-{code}: the magic code e.g. 123456
-
-{app_title}: your app's title, i.e. test-fresh
-
-{user_email}: the user's email address, e.g. happyuser@gmail.com
-
-{expiration}: the magic code expiration, e.g. 10 minutes
-
-
-{% callout type="note" %}
-Note: {code} is required in both the subject and body.
-{% /callout %}
+Just like on the dashboard, you can use the [variables available for the subject line and body](/docs/emails#variables)
 
 Commands to manage the email template:
 
