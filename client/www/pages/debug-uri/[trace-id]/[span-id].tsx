@@ -55,9 +55,14 @@ function fetchDebugUriInfo(
 
 function AdminInfo({
   urls,
+  traceId,
+  spanId,
 }: {
   urls: { label: string; url: string; query?: string }[];
+  traceId: string;
+  spanId: string;
 }) {
+  const agentPrompt = `Investigate this trace. Read server/querying-logs.md.\n\ntrace_id: ${traceId}\nspan_id: ${spanId}`;
   return (
     <div className="flex w-full max-w-2xl flex-col items-center gap-4">
       <div>Admin URLs</div>
@@ -80,6 +85,10 @@ function AdminInfo({
           {u.query ? <QueryBlock query={u.query} /> : null}
         </div>
       ))}
+      <div className="flex w-full flex-col items-center gap-2">
+        <div>Prompt for agent</div>
+        <QueryBlock query={agentPrompt} />
+      </div>
     </div>
   );
 }
@@ -109,7 +118,11 @@ function Page() {
     <div className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-4 p-8 px-4 py-12">
       <div className="text-4xl">🐞</div>
       {adminInfo ? (
-        <AdminInfo urls={adminInfo.urls} />
+        <AdminInfo
+          urls={adminInfo.urls}
+          traceId={router.query['trace-id'] as string}
+          spanId={router.query['span-id'] as string}
+        />
       ) : (
         <p>We don't have any additional information about this error.</p>
       )}

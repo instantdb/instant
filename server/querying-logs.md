@@ -114,8 +114,13 @@ One-time setup at the top of each session:
 INSTALL httpfs;
 LOAD httpfs;
 SET s3_region = 'us-east-1';
+SET threads = 16;
 CREATE SECRET (TYPE S3, PROVIDER credential_chain);
 ```
+
+`threads = 16` is the only knob that controls S3 fetch parallelism.
+Each thread runs its own range-GETs and spends most of its time blocked
+on the network, so going above core count is fine.
 
 (If `credential_chain` doesn't pick up the right credentials, you can pin
 to a profile explicitly with `..., PROFILE '<your-profile>'`.)
@@ -136,7 +141,7 @@ Or as a bash one-liner, handy for piping into other tools:
 
 ```bash
 duckdb -markdown -c "
-INSTALL httpfs; LOAD httpfs; SET s3_region = 'us-east-1';
+INSTALL httpfs; LOAD httpfs; SET s3_region = 'us-east-1'; SET threads = 16;
 CREATE SECRET (TYPE S3, PROVIDER credential_chain);
 SELECT *
 FROM read_parquet('s3://eb-logs-597134865416-us-east-1-an/logs/env=Instant-docker-prod-env-2/year=2026/month=06/day=06/hour=23/minute=*/*.parquet', union_by_name=true)
@@ -145,17 +150,53 @@ ORDER BY timestamp;
 "
 ```
 
-Glob narrower than an hour: `hour=23/minute={15..30}/*.parquet`. Whole hour:
-`hour=23/minute=*/*.parquet`. Multiple hours: `hour={22,23}/minute=*/*.parquet`.
-Whole day: `hour=*/minute=*/*.parquet`. DuckDB expands these and reads files
-in parallel.
+DuckDB does not support brace expansion (`{15..30}`, `{22,23}`) in S3
+paths. Whole hour: `hour=23/minute=*/*.parquet`. Whole day:
+`hour=*/minute=*/*.parquet`. For a narrower window, pass a list of
+explicit paths:
+
+```sql
+SELECT *
+FROM read_parquet([
+  's3://.../hour=23/minute=15/*.parquet',
+  's3://.../hour=23/minute=16/*.parquet',
+  's3://.../hour=23/minute=17/*.parquet'
+], union_by_name = true)
+WHERE trace_id = '<the-trace-id>';
+```
+
+For a trace ID, decode the timestamp (see "Trace ID → partition" above)
+and list every minute from 5 before to 5 after. That covers Vector's
+ingestion-vs-event-time skew without scanning a whole hour.
 
 `union_by_name = true` is required. Different parquet files (especially
 from before/after a vector.yaml change) have different column sets and
 sometimes different column types; `union_by_name` merges them. Without it
 DuckDB errors on the first column mismatch.
 
+### Save results to a local file
+
+If you'll look at the same window more than once, write it to a local
+parquet file and query that instead of re-scanning S3:
+
+```sql
+COPY (
+  SELECT *
+  FROM read_parquet([...], union_by_name = true)
+  WHERE trace_id = '<the-trace-id>'
+) TO '/tmp/trace-<id>.parquet' (FORMAT PARQUET);
+```
+
+Then:
+
+```bash
+duckdb -markdown -c "SELECT * FROM read_parquet('/tmp/trace-<id>.parquet') ORDER BY timestamp;"
+```
+
 ## Common queries
+
+Prefer `SELECT *`. The schema is wide (see `athena/instant_logs_prod.sql`)
+and op-specific columns are easy to leave out by accident.
 
 ### Errors
 
@@ -163,7 +204,7 @@ Catches both span-thrown exceptions (most failures) and the rare
 library-logged ERROR.
 
 ```sql
-SELECT timestamp, name, logger, exception_type, exception_message, message
+SELECT *
 FROM read_parquet('s3://.../hour=23/minute=*/*.parquet', union_by_name=true)
 WHERE exception_type IS NOT NULL OR level = 'ERROR'
 ORDER BY timestamp DESC;
@@ -172,7 +213,7 @@ ORDER BY timestamp DESC;
 ### Find every event for a trace
 
 ```sql
-SELECT timestamp, name, level, message, duration_ms, exception_message
+SELECT *
 FROM read_parquet('s3://eb-logs-.../env=Instant-docker-prod-env-2/year=2026/month=06/day=06/hour=23/minute=*/*.parquet', union_by_name=true)
 WHERE trace_id = '<id>'
 ORDER BY timestamp;
@@ -201,7 +242,7 @@ ORDER BY timestamp;
 
 ```sql
 -- DuckDB
-SELECT * EXCLUDE (exception_stacktrace, label)
+SELECT * EXCLUDE (some_noisy_column)
 FROM read_parquet('s3://.../hour=23/minute=*/*.parquet', union_by_name=true)
 WHERE trace_id = '<id>';
 ```
