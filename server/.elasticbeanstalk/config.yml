@@ -1,6 +1,6 @@
 branch-defaults:
   default:
-    environment: instant-docker-prod-env
+    environment: Instant-docker-prod-env-2
     group_suffix: null
 global:
   application_name: instant-docker-prod

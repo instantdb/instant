@@ -347,15 +347,29 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
+    - name: Determine deploy target
+      id: target
+      env:
+        COMMIT_MSG: ${{ github.event.head_commit.message }}
+      run: |
+        if [[ "$COMMIT_MSG" == *"[staging]"* ]]; then
+          echo "target=staging" >> "$GITHUB_OUTPUT"
+        else
+          echo "target=prod" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Build, tag, and push docker image to Amazon ECR
       working-directory: server
       env:
         IMAGE_TAG: ${{ github.sha }}
+        DEPLOY_TARGET: ${{ steps.target.outputs.target }}
       run: |
         docker buildx build --push \
-          --cache-to mode=max,image-manifest=true,oci-mediatypes=true,compression=zstd,type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:cache \
+          --cache-to mode=max,image-manifest=true,oci-mediatypes=true,compression=zstd,type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr-buildcache:cache \
+          --cache-from type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr-buildcache:cache \
           --cache-from type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:cache \
-          -t 597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:$IMAGE_TAG .
+          -t 597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:$IMAGE_TAG \
+          -t 597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:$DEPLOY_TARGET .
 
   publish-eb:
     runs-on: ubuntu-latest
