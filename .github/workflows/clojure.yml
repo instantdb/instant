@@ -367,7 +367,6 @@ jobs:
         docker buildx build --push \
           --cache-to mode=max,image-manifest=true,oci-mediatypes=true,compression=zstd,type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr-buildcache:cache \
           --cache-from type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr-buildcache:cache \
-          --cache-from type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:cache \
           -t 597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:$IMAGE_TAG \
           -t 597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:$DEPLOY_TARGET .
 
