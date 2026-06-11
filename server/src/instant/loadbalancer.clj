@@ -11,7 +11,6 @@
   (:import
    (java.lang InterruptedException)
    (java.time Duration Instant)
-   (software.amazon.awssdk.core.exception AbortedException)
    (software.amazon.awssdk.services.sns SnsClient)
    (software.amazon.awssdk.services.sns.model ListSubscriptionsByTopicRequest SubscribeRequest Subscription UnsubscribeRequest)
    (software.amazon.awssdk.services.sqs SqsClient)
