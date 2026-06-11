@@ -25,10 +25,10 @@ Keeps the moving `prod` and `staging` tags forever. SHA-tagged images age out af
   "rules": [
     {
       "rulePriority": 1,
-      "description": "Keep the moving prod and staging tags forever",
+      "description": "Keep the moving prod tag forever",
       "selection": {
         "tagStatus": "tagged",
-        "tagPatternList": ["prod", "staging"],
+        "tagPatternList": ["prod"],
         "countType": "imageCountMoreThan",
         "countNumber": 9999
       },
@@ -36,6 +36,17 @@ Keeps the moving `prod` and `staging` tags forever. SHA-tagged images age out af
     },
     {
       "rulePriority": 2,
+      "description": "Keep the moving staging tag forever",
+      "selection": {
+        "tagStatus": "tagged",
+        "tagPatternList": ["staging"],
+        "countType": "imageCountMoreThan",
+        "countNumber": 9999
+      },
+      "action": {"type": "expire"}
+    },
+    {
+      "rulePriority": 3,
       "description": "Expire other tagged images after 90 days",
       "selection": {
         "tagStatus": "tagged",
@@ -47,7 +58,7 @@ Keeps the moving `prod` and `staging` tags forever. SHA-tagged images age out af
       "action": {"type": "expire"}
     },
     {
-      "rulePriority": 3,
+      "rulePriority": 4,
       "description": "Expire untagged images after 7 days",
       "selection": {
         "tagStatus": "untagged",
