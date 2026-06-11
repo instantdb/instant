@@ -18,6 +18,7 @@
    (io.opentelemetry.sdk.resources Resource)
    (io.opentelemetry.sdk.trace SdkTracer SdkTracerProvider SpanLimits)
    (io.opentelemetry.sdk.trace.export BatchSpanProcessor SimpleSpanProcessor)
+   (java.time Instant OffsetDateTime ZoneOffset)
    (java.util.concurrent TimeUnit)))
 
 (def ^:dynamic *span* nil)
@@ -284,7 +285,40 @@
           trace-id
           span-id))
 
-(defn cloudwatch-uri [{:keys [trace-id span-id]}]
-  (format "https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:logs-insights$3FqueryDetail$3D~(end~0~start~-43200~timeType~'RELATIVE~tz~'LOCAL~unit~'seconds~editorString~'fields*20*40timestamp*2c*20*40message*2c*20*40logStream*2c*20*40log*0a*7c*20filter*20*40message*20like*20*27%s*2f%s*27*0a*7c*20sort*20*40timestamp*20desc*0a*7c*20limit*2010000~queryId~'974cdbee-1e72-4492-9aef-c79ac11afe79~source~(~'*2faws*2felasticbeanstalk*2fInstant-docker-prod-env-2*2fvar*2flog*2feb-docker*2fcontainers*2feb-current-app*2fstdouterr.log)~lang~'CWLI)"
-          trace-id
-          span-id))
+(def athena-log-table
+  {:prod "instant_logs"
+   :staging "instant_logs_staging"})
+
+(defn- athena-window-clause
+  [^Instant start ^long window-mins]
+  (let [partitions (->> (range (- window-mins) (inc window-mins))
+                        (map (fn [^long n]
+                               (.atOffset (.plusSeconds start (* 60 n)) ZoneOffset/UTC)))
+                        (reduce (fn [acc ^OffsetDateTime odt]
+                                  (let [k [(.getYear odt) (.getMonthValue odt)
+                                           (.getDayOfMonth odt) (.getHour odt)]]
+                                    (update acc k (fnil conj (sorted-set)) (.getMinute odt))))
+                                {}))
+        clauses (for [[[y mo d h] mins] partitions]
+                  (format "(year = %d AND month = %d AND day = %d AND hour = %d AND minute BETWEEN %d AND %d)"
+                          y mo d h (apply min mins) (apply max mins)))]
+    (apply str (interpose "\n       OR " clauses))))
+
+(defn athena-query
+  "Build a SQL query that finds every log row for `trace-id`.
+
+   The partition filter covers ten minutes on either side of the trace's
+   decoded start time."
+  [{:keys [trace-id]}]
+  (let [start (id-gen/trace-id->instant trace-id)
+        table (get athena-log-table (config/get-env) "instant_logs")
+        query (format (str "SELECT *\n"
+                           "FROM %s\n"
+                           "WHERE (%s)\n"
+                           "  AND trace_id = '%s'\n"
+                           "ORDER BY \"timestamp\"")
+                      table
+                      (athena-window-clause start 10)
+                      trace-id)]
+    {:url "https://us-east-1.console.aws.amazon.com/athena/home?region=us-east-1#/query-editor"
+     :query query}))
