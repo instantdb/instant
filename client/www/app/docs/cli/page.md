@@ -249,3 +249,76 @@ npx instant-cli@latest auth client update \
 npx instant-cli@latest auth origin add \
   --type website --url <your-domain>
 ```
+
+## Magic Code Templates
+
+You can manage your email templates for sending magic codes by using an `instant.email.ts` file in your codebase.
+
+To create the file and pull in the current configuration:
+```shell
+npx instant-cli@latest auth email pull
+```
+
+It will create a file like this:
+```typescript
+const email = {
+  authEmail: {
+    subject: "{code} is your verification code for {app_title}",
+    senderName: "My App",
+    senderEmail: "verify@myapp.com",
+    body: `<div style="background: #f6f6f6; font-family: Helvetica, Arial, sans-serif; line-height: 1.6; font-size: 18px;">
+      <div style="max-width: 650px; margin: 0 auto; background: white; padding: 20px;">
+        <p><strong>Welcome,</strong></p>
+        <p>
+          You asked to join {app_title}. To complete your registration, use this
+          verification code:
+        </p>
+        <h2 style="text-align: center"><strong>{code}</strong></h2>
+        <p>
+          Copy and paste this into the confirmation box, and you'll be on your way.
+        </p>
+        <p>
+          Note: This code will expire in {expiration}, and can only be used once. If
+          you didn't request this code, please reply to this email.
+        </p>
+      </div>
+    </div>`,
+  },
+};
+
+export default email;
+````
+
+We provide a few dynamic variables for you to use in your email:
+
+{code}: the magic code e.g. 123456
+
+{app_title}: your app's title, i.e. test-fresh
+
+{user_email}: the user's email address, e.g. happyuser@gmail.com
+
+{expiration}: the magic code expiration, e.g. 10 minutes
+
+
+{% callout type="note" %}
+Note: {code} is required in both the subject and body.
+{% /callout %}
+
+Commands to manage the email template:
+
+```shell
+# Save your changes to `instant.email.ts`
+npx instant-cli@latest auth email push
+
+# View the status of the email configuration and verification
+npx instant-cli@latest auth email status
+
+# Reset your email template to the Instant default template (only updates the file, requires push)
+npx instant-cli@latest auth email reset
+
+# Verify a custom email address using the code sent to the email.
+npx instant-cli@latest auth email verify <code>
+
+# Resend the custom address verification email
+npx instant-cli@latest auth email resend
+```
