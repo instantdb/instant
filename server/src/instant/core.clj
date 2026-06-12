@@ -16,7 +16,6 @@
    [instant.db.indexing-jobs :as indexing-jobs]
    [instant.db.hint-testing :as hint-testing]
    [instant.db.model.wal-log :as wal-log-model]
-   [instant.model.history :as history-model]
    [instant.db.model.transaction :as tx-model]
    [instant.demo-routes :as demo-routes]
    [instant.storage.sweeper :as storage-sweeper]
@@ -33,6 +32,8 @@
    [instant.log-config :as log-config]
    [instant.mma-example :as mma-example]
    [instant.machine-summaries]
+   [instant.model.history :as history-model]
+   [instant.model.triples-size-updates :as triples-size-updates]
    [instant.nippy]
    [instant.nrepl :as nrepl]
    [instant.oauth-apps.routes :as oauth-app-routes]
@@ -345,7 +346,10 @@
           (history-model/stop)))
       (future
         (tracer/with-span! {:name "stop-loadbalancer-listener"}
-          (loadbalancer-listener/stop)))))
+          (loadbalancer-listener/stop)))
+      (future
+        (tracer/with-span! {:name "stop-triples-size-updates"}
+          (triples-size-updates/stop)))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []
@@ -464,6 +468,8 @@
         (catch Throwable t
           (tracer/record-exception-span! t {:name "load-balancer-listener-init-error"
                                             :escaping? false})))
+      (with-log-init :triples-size-updates
+        (triples-size-updates/start))
       (log/info "Finished initializing"))
     (catch Throwable t
       (log/error t "Error in startup")

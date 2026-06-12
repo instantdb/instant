@@ -565,8 +565,10 @@
             (do
               (println "Got a bad tx row" row)
               (quit))
-            (sql/execute! next-pool ["SELECT setval('transactions_id_seq', ?::bigint, true)"
-                                     (+ (:id row) 1000)]))
+            (do
+              (sql/execute! next-pool ["SELECT setval('transactions_id_seq', ?::bigint, true)"
+                                       (+ (:id row) 1000)])
+              (sql/execute! next-pool ["SELECT setval('triples_size_updates_id_seq', nextval('triples_size_updates_id_seq') + 100000, true)"])))
           (do
             (when (> i 100)
               (println "Waited too long for data to sync")

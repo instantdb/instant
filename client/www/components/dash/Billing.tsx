@@ -24,7 +24,14 @@ export function roundToDecimal(num: number, decimalPlaces: number) {
 
 export function friendlyUsage(usage: number) {
   if (usage < GB_1) {
-    return `${roundToDecimal(usage / (1024 * 1024), 2)} MB`;
+    const mb = roundToDecimal(usage / (1024 * 1024), 2);
+    if (mb === 0) {
+      const kb = roundToDecimal(usage / 1024, 2);
+      if (kb !== 0) {
+        return `${kb} KB`;
+      }
+    }
+    return `${mb} MB`;
   }
   return `${roundToDecimal(usage / (1024 * 1024 * 1024), 2)} GB`;
 }

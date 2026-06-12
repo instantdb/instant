@@ -190,6 +190,7 @@
               "created_at" (assoc data :created-at value)
               "ea" (assoc data :ea value)
               "eav" (assoc data :eav value)
+              ;; TODO(dww): Remove after deploying triples-size-updates
               "pg_size" (assoc data :pg-size value)
               data))
           {}
@@ -310,9 +311,11 @@
                                     :checked-data-type (:checked-data-type triples-data)}
                             reverse-record (when (store-reverse? triples-data)
                                              {:value (:entity-id triples-data)})
+                            ;; TODO(dww): Remove after deploying triples-size-updates
                             pg-size (:pg-size triples-data)]
                         (cond-> acc
                           true (update-in [key :records record] (fnil + 0) incr)
+                          ;; TODO(dww): Remove after deploying triples-size-updates
                           pg-size (update-in [key :triples-pg-size] (fnil + 0) (* incr pg-size))
                           true (update-in [key :max-lsn] lsn-max lsn)
                           reverse-record (update-in [key :reverse-records reverse-record] (fnil + 0) incr))))
@@ -354,6 +357,7 @@
                          (conj acc (cond-> sketch
                                      true (update :sketch cms/add-batch records)
                                      true (assoc :max-lsn max-lsn)
+                                     ;; TODO(dww): Remove after deploying triples-size-updates
                                      triples-pg-size (update :triples-pg-size (fnil + 0) triples-pg-size)
                                      (seq reverse-records)
                                      (update :reverse-sketch (fnil cms/add-batch (cms/make-sketch)) reverse-records)))
