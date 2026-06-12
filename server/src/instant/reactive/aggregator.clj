@@ -50,9 +50,7 @@
                                  {:name :eav
                                   :pgtype "boolean"}
                                  {:name :ea
-                                  :pgtype "boolean"}
-                                 {:name :pg-size
-                                  :pgtype "integer"}]
+                                  :pgtype "boolean"}]
                                 {:handle-json-parse-error (fn [e _props]
                                                             ;; Replace objects that are too large to read
                                                             ;; with an empty object. That will keep it out
@@ -100,8 +98,7 @@
                              triples (transient {})
                              reverse-triples (transient {})
                              sketch (cms/make-sketch)
-                             reverse-sketch (cms/make-sketch)
-                             triples-pg-size 0]
+                             reverse-sketch (cms/make-sketch)]
                         (if (and (= app-id (:app-id (first s)))
                                  (= attr-id (:attr-id (first s))))
                           (let [triple (update-triple (first s))
@@ -118,8 +115,7 @@
                                      (cond-> (transient {})
                                        ref-k (assoc! ref-k 1))
                                      (cms/add-batch sketch (persistent! triples))
-                                     (cms/add-batch reverse-sketch (persistent! reverse-triples))
-                                     (+ triples-pg-size (long (:pg-size triple))))
+                                     (cms/add-batch reverse-sketch (persistent! reverse-triples)))
                               (recur (rest s)
                                      app-id
                                      attr-id
@@ -127,8 +123,7 @@
                                      (cond-> reverse-triples
                                        ref-k (assoc! ref-k (inc (get reverse-triples ref-k 0))))
                                      sketch
-                                     reverse-sketch
-                                     (+ triples-pg-size (long (:pg-size triple))))))
+                                     reverse-sketch)))
                           (let [forward-sketch (cms/add-batch sketch (persistent! triples))
                                 reverse-sketch (cms/add-batch reverse-sketch (persistent! reverse-triples))]
                             (vswap! sketch-count inc)
@@ -136,8 +131,7 @@
                                    :attr-id attr-id
                                    :sketch forward-sketch
                                    :reverse-sketch (when (pos? (:total reverse-sketch))
-                                                     reverse-sketch)
-                                   :triples-pg-size triples-pg-size}
+                                                     reverse-sketch)}
                                   (collect s)))))
                       (end-span true))))]
     (collect copy-seq)))
