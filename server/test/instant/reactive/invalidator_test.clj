@@ -405,15 +405,48 @@
 
 (deftest changes-produce-correct-topics
   (testing "insert triples"
-    (is (= #{[#{:ea} #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
+    ;; These inserts carry no id self-triple in the batch, so they read as values
+    ;; set on an already-existing entity (e.g. backfilling a field) and get the
+    ;; `:mutated` marker so an ordered query catches the re-sort. A real entity
+    ;; *creation* also writes the id triple and does not -- see "create entity".
+    (is (= #{[#{:mutated :ea} #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
               #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
               #{"New Movie"}]
-             [#{:ea} #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
+             [#{:mutated :ea} #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
               #{#uuid "6a631008-d315-4bbd-8665-c92aed9abc9c"}
               #{1987}]}
            (topics/topics-for-changes {:triple-changes create-triple-changes}))))
+  (testing "create entity (id triple in batch) does not mark its values :mutated"
+    (let [eid (random-uuid)
+          id-attr (random-uuid)
+          title-attr (random-uuid)
+          cols (fn [e a v] [{:name "entity_id" :value (str e)}
+                            {:name "attr_id" :value (str a)}
+                            {:name "value" :value v}
+                            {:name "ea" :value true} {:name "eav" :value false}
+                            {:name "av" :value false} {:name "ave" :value false}
+                            {:name "vae" :value false}])]
+      (is (= #{[#{:ea} #{eid} #{id-attr} #{(str eid)}]
+               [#{:ea} #{eid} #{title-attr} #{"Hi"}]}
+             (topics/topics-for-changes
+              {:triple-changes [{:action :insert :columns (cols eid id-attr (str "\"" eid "\""))}
+                                {:action :insert :columns (cols eid title-attr "\"Hi\"")}]})))))
+  (testing "retracting a single value (entity survives) is marked :mutated"
+    (let [eid (random-uuid)
+          attr (random-uuid)]
+      (is (= #{[#{:mutated :ea} #{eid} #{attr} #{"Hi"}]}
+             (topics/topics-for-changes
+              {:triple-changes [{:action :delete
+                                 :identity [{:name "entity_id" :value (str eid)}
+                                            {:name "attr_id" :value (str attr)}
+                                            {:name "value" :value "\"Hi\""}
+                                            {:name "ea" :value true} {:name "eav" :value false}
+                                            {:name "av" :value false} {:name "ave" :value false}
+                                            {:name "vae" :value false}]}]})))))
   (testing "update triples"
-    (is (= '#{[#{:ea}
+    ;; `:mutated` marks a value-changed update so ordered queries can catch
+    ;; reorders without firing on inserts (see topics/topics-for-triple-update).
+    (is (= '#{[#{:mutated :ea}
                #{#uuid "7c6b379b-d841-46e1-8970-2da7e0cbc490"}
                #{#uuid "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"}
                #{"Updated Movie3" "Old Movie"}]}

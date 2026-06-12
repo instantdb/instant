@@ -79,14 +79,23 @@
       :else
       v-parsed)))
 
-(defn- topics-for-triple-insert [change]
+(defn- topics-for-triple-insert [change created-entities]
   (let [m (columns->map (:columns change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
         v (parse-v m)
         ks (->> #{:ea :eav :av :ave :vae}
                 (filter m)
-                set)]
+                set)
+        ;; A value appearing on an entity that *already existed* (e.g. setting an
+        ;; order attr for the first time) is a re-sort an ordered+limited query
+        ;; must catch, so we add the `:mutated` marker. A value written while
+        ;; *creating* the entity is already caught by the where/enumeration topic
+        ;; (the new row's id/link triples), so we leave it off -- that's what
+        ;; keeps a new row in some other parent from re-running the query.
+        ks (if (contains? created-entities e)
+             ks
+             (conj ks :mutated))]
     [[ks #{e} #{a} #{v}]]))
 
 (defn- topics-for-triple-update
@@ -114,34 +123,83 @@
 
           (and (= e old-e)
                (= a old-a))
-          [[ks #{e} #{a} (set [v old-v])]]
+          ;; `:mutated` marks that this attr's value changed (vs was just
+          ;; inserted). Ordered+limited queries subscribe to it so they catch a
+          ;; row reordering into the window without also re-running on every
+          ;; insert (new rows are caught by the where/enumeration topic).
+          [[(conj ks :mutated) #{e} #{a} (set [v old-v])]]
 
           ;; We shouldn't hit this, but just in case
           :else
-          [[ks #{e} #{a} #{v}]
-           [ks #{e} #{a} #{old-v}]])))
+          [[(conj ks :mutated) #{e} #{a} #{v}]
+           [(conj ks :mutated) #{e} #{a} #{old-v}]])))
 
-(defn- topics-for-triple-delete [change]
+(defn- topics-for-triple-delete [change deleted-entities]
   (let [m (columns->map (:identity change) true)
         e (UUID/fromString (:entity_id m))
         a (UUID/fromString (:attr_id m))
         v (parse-v m)
         ks (->> #{:ea :eav :av :ave :vae}
                 (filter m)
-                set)]
+                set)
+        ;; Retracting one of an entity's values (without deleting the whole
+        ;; entity) can drop a row out of an ordered window, so we mark it
+        ;; `:mutated` like an update. Deleting the *entity* instead removes its
+        ;; id triple and is caught by the where/enumeration topic, so its value
+        ;; retractions don't need the marker (see lifecycle-entities).
+        ks (if (contains? deleted-entities e)
+             ks
+             (conj ks :mutated))]
     [[ks #{e} #{a} #{v}]]))
 
-(defn topics-for-change [{:keys [action] :as change}]
-  (case action
-    :insert (topics-for-triple-insert change)
-    :update (topics-for-triple-update change)
-    :delete (topics-for-triple-delete change)
-    []))
+(defn- id-self-triple?
+  "An entity's id triple is its self-triple `[e id-attr e]`: the value equals the
+   entity and it's an object (non-ref) attr. Its insert/delete is our marker that
+   the *entity itself* was created/destroyed in this batch (the client always
+   writes the id triple on create, and we skip no-op id updates otherwise)."
+  [m]
+  (boolean
+   (and (not (:eav m))
+        (:value m)
+        (= (:entity_id m) (<-json (:value m))))))
+
+(defn- lifecycle-entities
+  "Scans a batch of triple changes for entities whose existence changed in it,
+   keyed off the id self-triple. Returns `{:created #{..} :deleted #{..}}`. A
+   value insert/delete on an entity *outside* these sets is a value appearing or
+   disappearing on a surviving row -- a re-sort -- so it earns `:mutated`; one
+   *inside* them is part of creating/destroying the row and is already caught by
+   the where/enumeration topic."
+  [changes]
+  (reduce (fn [acc {:keys [action columns identity]}]
+            (case action
+              :insert (let [m (columns->map columns true)]
+                        (cond-> acc
+                          (id-self-triple? m)
+                          (update :created conj (UUID/fromString (:entity_id m)))))
+              :delete (let [m (columns->map identity true)]
+                        (cond-> acc
+                          (id-self-triple? m)
+                          (update :deleted conj (UUID/fromString (:entity_id m)))))
+              acc))
+          {:created #{} :deleted #{}}
+          changes))
+
+(defn topics-for-change
+  ([change]
+   (topics-for-change change nil))
+  ([{:keys [action] :as change} {:keys [created deleted]}]
+   (case action
+     :insert (topics-for-triple-insert change (or created #{}))
+     :update (topics-for-triple-update change)
+     :delete (topics-for-triple-delete change (or deleted #{}))
+     [])))
 
 (defn topics-for-triple-changes [changes]
-  (->> changes
-       (mapcat topics-for-change)
-       set))
+  (let [lifecycle (lifecycle-entities changes)]
+    (->> changes
+         (mapcat #(topics-for-change % lifecycle))
+         set)))
 
 (defn- topics-for-ident-upsert [{:keys [columns]}]
   (let [indexes #{:ea :eav :av :ave :vae}

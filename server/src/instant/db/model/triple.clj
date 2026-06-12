@@ -44,7 +44,9 @@
     #(s/gen #{"foo" (UUID/randomUUID)  25 nil true})))
 
 (s/def ::triple (s/cat :e ::lookup :a ::attr-id :v ::value))
-(s/def ::index #{:ea :eav :av :ave :vae})
+;; `:ea`..`:vae` are the triple index permutations; `:mutated` is a topic-only
+;; marker meaning "this attr's value changed" (see topics/topics-for-triple-update).
+(s/def ::index #{:ea :eav :av :ave :vae :mutated})
 (s/def ::md5 ::uspec/non-blank-string)
 
 (s/def ::enhanced-triple

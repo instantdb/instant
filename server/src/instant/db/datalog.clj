@@ -86,7 +86,7 @@
                                        :variable symbol?
                                        :function (s/keys :req-un [(or ::$not ::$isNull ::$comparator ::$entityIdStartsWith)])))
 
-(s/def ::idx-key #{:ea :eav :av :ave :vae})
+(s/def ::idx-key #{:ea :eav :av :ave :vae :mutated})
 (s/def ::data-type #{:string :number :boolean :date})
 (s/def ::index-map (s/keys :req-un [::idx-key ::data-type]))
 (s/def ::index (s/or :keyword ::idx-key
@@ -2934,6 +2934,21 @@
        (let [{:keys [cte-cols symbol-fields pattern page-info]} pattern-meta
              {:keys [symbol-values symbol-values-for-topics]} acc
              topics (named-pattern->topics pattern symbol-values-for-topics)
+             ;; The page-info pattern (order/limit) re-sorts the result, so its
+             ;; topic exists to catch a row whose sort key *changes* (an update),
+             ;; including a row reordering into the window. A *new* row entering
+             ;; the window is already caught by the where/enumeration topic, so
+             ;; the page topic doesn't need to fire on inserts -- and firing on
+             ;; them is what made it app-wide spam (e.g. for
+             ;; `messages where conversation.id = X order by createdAt`, the
+             ;; topic is `[:ave _ createdAt _]`, which every new message anywhere
+             ;; matched). Rewrite the page topic's index to `:mutated`, which
+             ;; only value-changed updates emit (see
+             ;; topics/topics-for-triple-update), so it matches reorders but not
+             ;; inserts.
+             topics (if (and page-info (flags/order-topics-match-updates-only?))
+                      (mapv (fn [topic] (assoc topic 0 #{:mutated})) topics)
+                      topics)
              {:keys [join-rows page-info-rows symbol-values symbol-values-for-topics]}
              (reduce (fn [acc row]
                        (let [join-row (sql-row->triple row cte-cols coerce-uuids?)
