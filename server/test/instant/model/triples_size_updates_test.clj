@@ -22,11 +22,11 @@
                {})))
 
 (defn actual-sizes-by-attr
-  "Computes SUM(triples_column_size(t)) per attr_id directly from the
+  "Computes SUM(pg_column_size(t)) per attr_id directly from the
    triples table. This is the ground truth the aggregate should match."
   [app-id]
   (->> (sql/select (aurora/conn-pool :read)
-                   ["select attr_id, sum(triples_column_size(t))::bigint as pg_size
+                   ["select attr_id, sum(pg_column_size(t))::bigint as pg_size
                      from triples t where app_id = ?::uuid group by attr_id" app-id])
        (reduce (fn [m {:keys [attr_id pg_size]}]
                  (assoc m attr_id pg_size))
@@ -88,7 +88,7 @@
           (drain!)
           (is (empty? (queue-rows (:id app)))))
 
-        (testing "aggregate matches SUM(triples_column_size) per attr"
+        (testing "aggregate matches SUM(pg_column_size) per attr"
           (assert-aggregate-matches-actual! (:id app)))))))
 
 (deftest update-emits-delta-and-aggregate-stays-correct

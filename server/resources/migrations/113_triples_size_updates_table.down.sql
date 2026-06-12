@@ -244,5 +244,3 @@ drop function clean_triples_size_updates();
 drop table triples_size_aggregate;
 
 drop table triples_size_updates;
-
-alter table attr_sketches drop column triples_size;

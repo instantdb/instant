@@ -145,7 +145,7 @@ begin
 
 
   insert into triples_size_updates (app_id, attr_id, pg_size)
-    select n.app_id, n.attr_id, sum(public.triples_column_size(n.*))::bigint
+    select n.app_id, n.attr_id, sum(pg_column_size(n.*))::bigint
       from newrows n
      group by n.app_id, n.attr_id;
 
@@ -255,9 +255,9 @@ begin
 
   insert into triples_size_updates (app_id, attr_id, pg_size)
     select app_id, attr_id, sum(delta)::bigint
-      from (select n.app_id, n.attr_id,  public.triples_column_size(n.*)::bigint as delta from newrows n
+      from (select n.app_id, n.attr_id,  pg_column_size(n.*)::bigint as delta from newrows n
             union all
-            select o.app_id, o.attr_id, -public.triples_column_size(o.*)::bigint as delta from oldrows o) x
+            select o.app_id, o.attr_id, -pg_column_size(o.*)::bigint as delta from oldrows o) x
      group by app_id, attr_id
     having sum(delta) <> 0;
 
@@ -355,7 +355,7 @@ begin
   end if;
 
   insert into triples_size_updates (app_id, attr_id, pg_size)
-    select app_id, attr_id, -sum(public.triples_column_size(o.*))::bigint
+    select app_id, attr_id, -sum(pg_column_size(o.*))::bigint
       from oldrows o
      group by app_id, attr_id;
 
