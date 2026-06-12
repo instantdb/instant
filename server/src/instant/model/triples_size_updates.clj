@@ -23,10 +23,14 @@
                       :using :ids
                       :where [:= :triples-size-updates.id :ids.id]
                       :returning [:app-id :attr-id :pg-size]}]]
+
     :insert-into [[:triples_size_aggregate [:app-id :attr-id :pg-size]]
-                  {:select [:app-id :attr-id [[:sum :pg_size] :pg-size]]
+                  {:select [:deletes.app-id :deletes.attr-id [[:sum :deletes.pg_size] :pg-size]]
                    :from :deletes
-                   :group-by [:app-id :attr-id]}]
+                   ;; Join filters out (app_id, attr_id) whose parent was deleted mid-batch.
+                   :join [:apps [:= :apps.id  :deletes.app-id]
+                          :attrs [:= :attrs.id :deletes.attr-id]]
+                   :group-by [:deletes.app-id :deletes.attr-id]}]
     :on-conflict {:on-constraint :triples_size_aggregate_pkey}
     :do-update-set {:pg-size [:+
                               :triples_size_aggregate.pg_size
