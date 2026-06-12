@@ -349,7 +349,7 @@
           (loadbalancer-listener/stop)))
       (future
         (tracer/with-span! {:name "stop-triples-size-updates"}
-          (triples-size-updates/stop)))))
+          (triples-size-updates/stop-global)))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []
@@ -469,7 +469,7 @@
           (tracer/record-exception-span! t {:name "load-balancer-listener-init-error"
                                             :escaping? false})))
       (with-log-init :triples-size-updates
-        (triples-size-updates/start))
+        (triples-size-updates/start-global))
       (log/info "Finished initializing"))
     (catch Throwable t
       (log/error t "Error in startup")
