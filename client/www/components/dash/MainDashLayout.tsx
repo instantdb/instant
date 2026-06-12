@@ -19,17 +19,17 @@ import { useRouter } from 'next/router';
 
 export type FetchedDash = ReturnType<typeof useFetchedDash>;
 
-const getInitialWorkspace = () => {
-  // pull from the "org" query param
-  const org = new URLSearchParams(window.location.search).get('org');
+const WORKSPACE_STORAGE_KEY = 'workspace';
 
-  if (org) return org;
-  if (!window) return 'personal';
+const getSavedWorkspace = () =>
+  typeof window === 'undefined'
+    ? null
+    : window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
 
-  const possibleSaved = window.localStorage.getItem('workspace');
-
-  if (possibleSaved) return possibleSaved;
-  return 'personal';
+const saveWorkspace = (workspaceId: string) => {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, workspaceId);
+  }
 };
 
 export const { use: useFetchedDash, provider: DashFetchProvider } =
@@ -37,9 +37,38 @@ export const { use: useFetchedDash, provider: DashFetchProvider } =
     'dashResponse',
     (args?: { workspaceId?: string | null | undefined }) => {
       const dashResult = useDashFetch();
-      const [currentWorkspaceId, setWorkspace] = useState<string | 'personal'>(
-        args?.workspaceId || getInitialWorkspace(),
-      );
+      const router = useReadyRouter();
+
+      // Read once: the workspace we were in last time, used to reopen a bare
+      // /dash where you left off. An explicit switch clears it so a restored
+      // default never overrides a deliberate choice.
+      const [restoredWorkspace, setRestoredWorkspace] =
+        useState(getSavedWorkspace);
+
+      // The URL is the source of truth. With no `org` we reopen the workspace
+      // you were last in (a bare entry); an `app` in the URL resolves its own
+      // workspace (see pages/dash), so we skip the restore then. The devtool
+      // seeds the workspace via `args`.
+      const getWorkspaceId = (): string => {
+        if (router.query.org) return router.query.org as string;
+        if (args?.workspaceId) return args.workspaceId;
+        if (restoredWorkspace && !router.query.app) return restoredWorkspace;
+        return 'personal';
+      };
+      const currentWorkspaceId = getWorkspaceId();
+
+      const setWorkspace = (
+        workspaceId: string | 'personal',
+        opts?: { replace?: boolean },
+      ) => {
+        setRestoredWorkspace(null);
+        const query = workspaceId === 'personal' ? {} : { org: workspaceId };
+        if (opts?.replace) {
+          router.replace({ query });
+        } else {
+          router.push({ query });
+        }
+      };
 
       const workspace = useWorkspace(dashResult, currentWorkspaceId);
 
@@ -48,42 +77,18 @@ export const { use: useFetchedDash, provider: DashFetchProvider } =
         await workspace.mutate();
       };
 
-      const router = useReadyRouter();
+      // Remember the current workspace so the next bare /dash can restore it.
+      useEffect(() => {
+        saveWorkspace(currentWorkspaceId);
+      }, [currentWorkspaceId]);
 
+      // If we can't load the org (e.g. we were removed from it) fall back to
+      // the personal account.
       useEffect(() => {
         if (workspace.error) {
-          setWorkspace('personal');
+          setWorkspace('personal', { replace: true });
         }
       }, [workspace.error]);
-
-      useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        window.localStorage.setItem('workspace', currentWorkspaceId);
-
-        // Use Next.js router for navigation instead of direct history manipulation
-        const currentUrl = new URL(window.location.href);
-
-        // set the query param
-        // if its personal remove the query param
-        if (currentWorkspaceId === 'personal') {
-          if (currentUrl.searchParams.has('org')) {
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.delete('org');
-            router.replace(newUrl.pathname + newUrl.search, undefined, {
-              shallow: true,
-            });
-          }
-        } else {
-          if (currentUrl.searchParams.get('org') !== currentWorkspaceId) {
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.set('org', currentWorkspaceId);
-            router.replace(newUrl.pathname + newUrl.search, undefined, {
-              shallow: true,
-            });
-          }
-        }
-      }, [currentWorkspaceId, router.pathname]);
 
       const addNewAppOptimistically = (
         promise: Promise<any>,
