@@ -120,7 +120,10 @@
                                                                     [:pg_relation_size "triples"]]]]
                                                            0]]]
                                                 :from [[:triples-size-aggregate :agg]]
-                                                :where [:= :agg.app_id :apps.id]}
+                                                :join [[:attrs :a] [:= :a.id :agg.attr_id]]
+                                                :where [:and
+                                                        [:= :agg.app_id :apps.id]
+                                                        [:= nil :a.deletion_marked_at]]}
 
                                                {:select [[[:coalesce
                                                            [:*
@@ -132,7 +135,10 @@
                                                                     [:pg_relation_size "triples"]]]]
                                                            0]]]
                                                 :from [[:attr-sketches :s]]
-                                                :where [:= :s.app_id :apps.id]})
+                                                :join [[:attrs :a] [:= :a.id :s.attr_id]]
+                                                :where [:and
+                                                        [:= :s.app_id :apps.id]
+                                                        [:= nil :a.deletion_marked_at]]})
                                              :usage]
                                             [{:select [[[:coalesce [:sum :s.total] 0]]]
                                               :from [[:attr_sketches :s]]
@@ -159,7 +165,10 @@
                                                                     [:pg_relation_size "triples"]]]]
                                                            0]]]
                                                 :from [[:triples-size-aggregate :agg]]
-                                                :where [:in :agg.app_id {:select :id :from :apps :where [:= :apps.org_id :orgs.id]}]}
+                                                :join [[:attrs :a] [:= :a.id :agg.attr_id]]
+                                                :where [:and
+                                                        [:in :agg.app_id {:select :id :from :apps :where [:= :apps.org_id :orgs.id]}]
+                                                        [:= nil :a.deletion_marked_at]]}
 
                                                {:select [[[:coalesce
                                                            [:*
@@ -171,7 +180,10 @@
                                                                     [:pg_relation_size "triples"]]]]
                                                            0]]]
                                                 :from [[:attr-sketches :s]]
-                                                :where [:in :s.app_id {:select :id :from :apps :where [:= :apps.org_id :orgs.id]}]})
+                                                :join [[:attrs :a] [:= :a.id :s.attr_id]]
+                                                :where [:and
+                                                        [:in :s.app_id {:select :id :from :apps :where [:= :apps.org_id :orgs.id]}]
+                                                        [:= nil :a.deletion_marked_at]]})
                                              :usage]
                                             [{:select [[[:coalesce [:sum :s.total] 0]]]
                                               :from [[:attr_sketches :s]]

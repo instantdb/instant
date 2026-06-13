@@ -27,7 +27,7 @@
 ;; --------------
 ;; Initialization
 
-(def triples-copy-sql "copy (select app_id, attr_id, entity_id, value, checked_data_type, created_at, eav, ea, pg_size from triples order by app_id, attr_id) to stdout with (format binary)")
+(def triples-copy-sql "copy (select app_id, attr_id, entity_id, value, checked_data_type, created_at, eav, ea from triples order by app_id, attr_id) to stdout with (format binary)")
 
 (defn initial-sketch-seq
   "Returns a lazy seq of sketches with app-id and attr-id, expects `copy-sql` to sort by

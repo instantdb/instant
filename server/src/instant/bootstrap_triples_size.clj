@@ -96,4 +96,4 @@
     (tracer/with-span! {:name ::delete-existing}
       (doseq [group (partition-all 5000 ids-to-delete)]
         (delete-triples-size-rows group)))
-    (println "Set the disable-triples-size-collection flag to true to start the collection process.")))
+    (println "Set the disable-triples-size-collection flag to false to start the collection process.")))
