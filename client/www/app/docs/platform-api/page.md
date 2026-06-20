@@ -43,7 +43,7 @@ First things first, let's create a temporary app.
 
 A temporary app is an Instant app that deletes itself in 2 weeks. You can use them to run quick experiments or spin apps up for tests.
 
-You don't need authenticate to create temporary apps, so they're a great way to get a sense of our tools.
+You don't need to authenticate to create temporary apps, so they're a great way to get a sense of our tools.
 
 **Here's how to make a temporary app with CLI:**
 
@@ -121,13 +121,13 @@ To create long-lived apps, you'll need to authenticate first.
 
 ### Authentication for creating apps
 
-You have two options for authenticate and create long-lived apps:
+You have two options to authenticate and create long-lived apps:
 
 **Option 1: Personal Access Tokens**
 
-The quickest way to get started is to create a Personal Access Token. You can create Personal Access Tokens by going to user settings in "Dashboard -> Settings -> New Accesss Token". Here's a direct [link](https://www.instantdb.com/dash/user-settings).
+The quickest way to get started is to create a Personal Access Token. You can create Personal Access Tokens by going to user settings in "Dashboard -> Settings -> New Access Token". Here's a direct [link](https://www.instantdb.com/dash/user-settings).
 
-Once you click "New Access Token", you'll get a token that this:
+Once you click "New Access Token", you'll get a token that looks like this:
 
 ```bash
 per_xxx11x1xxx1xx1x11x1x1111xxx1xx11x11xxxx1x1x1x1111xxx11111xxx111x
@@ -161,7 +161,7 @@ npx instant-cli init-without-files --title my-long-lived-app --token YOUR_TOKEN
 
 Pretty nice!
 
-**And similarily, for the platform API:**
+**And similarly, for the platform API:**
 
 ```javascript
 import { PlatformApi } from '@instantdb/platform';

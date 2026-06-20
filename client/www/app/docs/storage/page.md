@@ -393,7 +393,7 @@ db.transact(fileIds.map((id) => db.tx.$files[id].delete()));
 
 You can use `db.transact` to update file paths, as well as any custom columns you've added to files.
 
-So if you're schema looked like this:
+So if your schema looked like this:
 
 ```javascript
 import { i } from "@instantdb/react";
@@ -569,7 +569,7 @@ By default, Storage permissions are disabled. This means that until you explicit
 - _view_ permissions enable viewing `$files`
 - _update_ permissions enable updating `$files`
 - _delete_ permissions enable deleting `$files`
-- _view_ permissions on `$files` and _update_ permisssions on the forward entity enabling linking and unlinking `$files`
+- _view_ permissions on `$files` and _update_ permissions on the forward entity enabling linking and unlinking `$files`
 
 In your permissions rules, you can use `auth` to access the currently authenticated user, and `data` to access the file metadata.
 

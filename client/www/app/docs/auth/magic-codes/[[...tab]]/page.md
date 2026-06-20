@@ -472,6 +472,6 @@ The fields must be defined as optional attributes on `$users` in your schema. A 
 
 If you need to create a user with a pre-defined code for app store review or testing, you can assign a magic code to an email from the Auth page of the Dashboard.
 
-When a test user signs in, they can use the static code instead of receiving the code an email. The static code will never expire and will always be valid until it is deleted from the dashboard.
+When a test user signs in, they can use the static code instead of receiving the code in an email. The static code will never expire and will always be valid until it is deleted from the dashboard.
 
 {% /nav-default %}

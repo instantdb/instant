@@ -217,7 +217,7 @@ Suppose our data model looks like this
 }
 ```
 
-And we have a rules defined as
+And we have rules defined as
 
 ```json
 {

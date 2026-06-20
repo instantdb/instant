@@ -341,7 +341,7 @@ console.log(data)
 Notice the difference between these three cases.
 
 - A) Fetched all todos for goal with id `health`
-- B) Filtered goals with a least one todo titled `Code a bunch`
+- B) Filtered goals with at least one todo titled `Code a bunch`
 - C) Fetched all goals and filtered associated todos by title `Go on a run`
 
 {% /callout %}
@@ -915,9 +915,9 @@ console.log(data)
 
 ### $isNull
 
-The `where` clause supports `$isNull` queries that will filters entities by whether the field value is either null or undefined.
+The `where` clause supports `$isNull` queries that will filter entities by whether the field value is either null or undefined.
 
-Set `$isNull` to `true` to return entities where where the field is null or undefined.
+Set `$isNull` to `true` to return entities where the field is null or undefined.
 
 Set `$isNull` to `false` to return entities where the field is not null and not undefined.
 
