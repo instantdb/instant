@@ -178,7 +178,7 @@ db.transact(
 );
 ```
 
-You can mark attribute as optional by calling `.optional()`:
+You can mark an attribute as optional by calling `.optional()`:
 
 ```typescript
 const _schema = i.schema({

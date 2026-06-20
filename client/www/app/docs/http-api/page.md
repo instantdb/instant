@@ -32,7 +32,7 @@ curl -X POST "https://api.instantdb.com/admin/query" \
 
 ## Reading and Writing Data
 
-`POST /admin/query` and `POST /admin/transact` let your read and write data as an admin.
+`POST /admin/query` and `POST /admin/transact` let you read and write data as an admin.
 
 ### query
 
@@ -165,7 +165,7 @@ curl -X POST "https://api.instantdb.com/admin/query" \
 
 {% callout type="note" %}
 `As-Email` requires an `ADMIN_TOKEN`. For `As-Token` and `As-Guest`, you could skip the
-`Authorization` if you want too.
+`Authorization` if you want to.
 {% /callout %}
 
 ## Retrieve a user

@@ -184,7 +184,7 @@ const guestDB = db.asUser({
   guest: true,
 });
 
-// Queries and transactions work will work with respective permissions
+// Queries and transactions will work with respective permissions
 await userDB.query({ todos: {} });
 await guestDB.query({ publicData: {} });
 ```
@@ -303,7 +303,7 @@ app.post('/sign-in', async (req, res) => {
 const token = await db.auth.createToken({ id });
 ```
 
-If a user with the provider id or email does not exist, `db.auth.createToken` will create the user for you.
+If a user with the provided id or email does not exist, `db.auth.createToken` will create the user for you.
 
 ### 2. Frontend: db.auth.signInWithToken
 

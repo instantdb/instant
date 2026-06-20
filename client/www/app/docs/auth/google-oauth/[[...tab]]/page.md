@@ -420,7 +420,7 @@ function Login() {
 }
 ```
 
-When your users clicks on the link, they'll be redirected to Google to start the OAuth flow and then back to your site.
+When your users click on the link, they'll be redirected to Google to start the OAuth flow and then back to your site.
 
 Instant will automatically log them in to your app when they are redirected!
 
