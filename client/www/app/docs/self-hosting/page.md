@@ -229,7 +229,7 @@ To get started: clone the repo on your local computer and edit the `./self-hosti
 
 ```bash
 SSH_HOST=root@ip
-DASHBOARD_URL="https://dashboard@example.com"
+DASHBOARD_URL="https://dashboard.example.com"
 SERVER_URL="https://backend.example.com"
 S3_PUBLIC_ENDPOINT="https://files.example.com"
 
