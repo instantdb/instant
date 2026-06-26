@@ -459,7 +459,8 @@
    before each transaction so a conn that has already hit the limit (every txn
    throws while building the datom) recovers on its next transaction."
   [conn]
-  (when (> (long (:max-tx @conn)) ds-tx-reset-threshold)
+  (when (and (> (long (:max-tx @conn)) ds-tx-reset-threshold)
+             (not (flags/conn-tx-reset-disabled?)))
     (reset-conn-tx! conn)))
 
 (defn transact! [span-name conn tx-data]
