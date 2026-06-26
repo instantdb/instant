@@ -487,5 +487,35 @@
       (is (<= (* 0.5 total-ms) elapsed (* 3 total-ms))
           (str "expected wall time near " total-ms "ms, got " elapsed "ms")))))
 
+(deftest reset-conn-tx!
+  (let [store  (rs/init)
+        app-id (random-uuid)
+        conn   (rs/app-conn store app-id)]
+    ;; Advance the tx counter past tx0 and create a few entities.
+    (rs/transact! "test" conn [{:db/id -1
+                                :datalog-query/app-id app-id
+                                :datalog-query/query [[:ea 1]]}])
+    (rs/transact! "test" conn [{:db/id -2
+                                :datalog-query/app-id app-id
+                                :datalog-query/query [[:ea 2]]}])
+    (let [db-before     @conn
+          datoms-before (set (map (juxt :e :a :v) (d/datoms db-before :eavt)))]
+      (is (> (:max-tx db-before) rs/ds-tx0))
+
+      (rs/reset-conn-tx! conn)
+
+      (let [db-after @conn]
+        (testing "tx counter is reset to tx0"
+          (is (= rs/ds-tx0 (:max-tx db-after))))
+        (testing "datoms (eids, attrs, values) are preserved"
+          (is (= datoms-before
+                 (set (map (juxt :e :a :v) (d/datoms db-after :eavt))))))
+        (testing "max-eid is preserved so new entities don't collide"
+          (is (= (:max-eid db-before) (:max-eid db-after))))
+        (testing "lookups still resolve after reset"
+          (is (some? (d/entity db-after [:tx-meta/app-id app-id])))
+          (is (some? (d/entity db-after [:datalog-query/app-id+query
+                                         [app-id [[:ea 1]]]]))))))))
+
 (comment
   (test/run-tests *ns*))

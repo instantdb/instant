@@ -427,7 +427,43 @@
                    []
                    datalog-query-eids))
 
+(def ^:const ds-tx0
+  "Datascript's starting transaction id (see datascript.db/tx0)."
+  0x20000000)
+
+(def ^:const ds-tx-reset-threshold
+  "Datascript stores datom tx-ids as 32-bit ints (max 0x7FFFFFFF). A long-lived
+   store conn for a busy app keeps bumping max-tx on every transaction and would
+   eventually overflow. We rebuild the db to reset the counter once max-tx gets
+   within ~1M of the limit, which leaves ample headroom for in-flight txns."
+  (- 0x7FFFFFFF 1000000))
+
+(defn reset-conn-tx!
+  "Rebuilds the conn's db with every datom's tx reset to tx0 to avoid overflowing
+   datascript's 32-bit tx-id. Eids are preserved (so refs and the datalog cache
+   stay valid) and the conn is reused (so its executors, cache, and live
+   subscriptions survive)."
+  [conn]
+  (lang/with-reentrant-lock (:lock (meta conn))
+    (let [db @conn]
+      (tracer/with-span! {:name "store/reset-conn-tx!"
+                          :attributes {:app-id (:app-id (meta conn))
+                                       :max-tx (:max-tx db)}}
+        (let [datoms (mapv (fn [d]
+                             (d/datom (:e d) (:a d) (:v d) ds-tx0 true))
+                           (d/datoms db :eavt))]
+          (reset! conn (d/init-db datoms (:schema db))))))))
+
+(defn maybe-reset-conn-tx!
+  "Resets the conn's tx counter when it nears datascript's 32-bit limit. Checked
+   before each transaction so a conn that has already hit the limit (every txn
+   throws while building the datom) recovers on its next transaction."
+  [conn]
+  (when (> (long (:max-tx @conn)) ds-tx-reset-threshold)
+    (reset-conn-tx! conn)))
+
 (defn transact! [span-name conn tx-data]
+  (maybe-reset-conn-tx! conn)
   (let [report (if (or (flags/toggled? :enable-store-batching-globally)
                        (contains? (flags/flag :enable-store-batching-apps)
                                   (:app-id (meta conn))))
