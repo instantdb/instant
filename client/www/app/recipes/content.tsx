@@ -268,7 +268,7 @@ function Example({
         {/* Code panel -- relative wrapper so grid row is sized by previews only */}
         <div className="relative h-[50vh] md:h-auto">
           <div
-            className="flex flex-col overflow-hidden rounded-lg border border-gray-200 md:absolute md:inset-0"
+            className="flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 md:absolute md:inset-0"
             style={{ backgroundColor: '#faf8f5' }}
           >
             <div className="flex items-center border-b border-gray-200/60">
