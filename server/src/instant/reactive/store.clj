@@ -428,21 +428,18 @@
                    datalog-query-eids))
 
 (def ^:const ds-tx0
-  "Datascript's starting transaction id (see datascript.db/tx0)."
+  "Datascript's starting tx id (datascript.db/tx0)."
   0x20000000)
 
 (def ^:const ds-tx-reset-threshold
-  "Datascript stores datom tx-ids as 32-bit ints (max 0x7FFFFFFF). A long-lived
-   store conn for a busy app keeps bumping max-tx on every transaction and would
-   eventually overflow. We rebuild the db to reset the counter once max-tx gets
-   within ~1M of the limit, which leaves ample headroom for in-flight txns."
+  "Reset the tx counter once max-tx gets this close to datascript's 32-bit
+   tx-id limit (0x7FFFFFFF)."
   (- 0x7FFFFFFF 1000000))
 
 (defn reset-conn-tx!
   "Rebuilds the conn's db with every datom's tx reset to tx0 to avoid overflowing
-   datascript's 32-bit tx-id. Eids are preserved (so refs and the datalog cache
-   stay valid) and the conn is reused (so its executors, cache, and live
-   subscriptions survive)."
+   datascript's 32-bit tx-id. Reuses the conn and preserves eids, so refs, the
+   datalog cache, and live subscriptions survive."
   [conn]
   (lang/with-reentrant-lock (:lock (meta conn))
     (let [db @conn]
@@ -452,7 +449,10 @@
         (let [datoms (mapv (fn [d]
                              (d/datom (:e d) (:a d) (:v d) ds-tx0 true))
                            (d/datoms db :eavt))]
-          (reset! conn (d/init-db datoms (:schema db))))))))
+          ;; Carry :max-eid forward; init-db would recompute it from live datoms,
+          ;; letting a retracted highest eid get reused and alias stale cache keys.
+          (reset! conn (assoc (d/init-db datoms (:schema db))
+                              :max-eid (:max-eid db))))))))
 
 (defn maybe-reset-conn-tx!
   "Resets the conn's tx counter when it nears datascript's 32-bit limit. Checked
