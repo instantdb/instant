@@ -262,4 +262,4 @@ For the advanced use case of integrating with TanStack Query and enabling SSR, r
 
 You can also check out the [Working with data](/docs/init) section to learn more Instant concepts.
 
-As you get more familiar with Instant, check out our [Recommended Workflow](/docs/recommended-workflow) docs for using Instant in your projects.
+As you get more familiar with Instant, check out our [Recommended Workflow](/docs/workflow) docs for using Instant in your projects.
