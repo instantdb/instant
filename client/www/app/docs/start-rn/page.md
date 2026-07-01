@@ -240,4 +240,4 @@ In this video Simon builds on top of the concepts from Beto's video and shows of
 
 If you prefer reading docs, you can also check out the [Working with data](/docs/init) section to learn more Instant concepts.
 
-As you get more familiar with Instant, check out our [Recommended Workflow](/docs/recommended-workflow) docs for using Instant in your projects.
+As you get more familiar with Instant, check out our [Recommended Workflow](/docs/workflow) docs for using Instant in your projects.
