@@ -65,6 +65,7 @@ export const RenameOrg = () => {
           className="min-w-[300px]"
           placeholder="Enter new organization name"
           onChange={(e) => setValue(e)}
+          ignorePasswordManager
         />
 
         <div className="flex justify-end gap-2 pt-2 md:pt-4">

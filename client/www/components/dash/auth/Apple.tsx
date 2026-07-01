@@ -150,6 +150,7 @@ export function AddClientExpanded({
         onChange={setClientName}
         label="Client Name"
         placeholder="e.g. apple"
+        ignorePasswordManager
       />
       <TextInput
         tabIndex={2}

@@ -39,6 +39,7 @@ export function NewNamespaceDialog({
         placeholder="Name your namespace"
         onChange={(n) => setName(n)}
         autoFocus
+        ignorePasswordManager
       />
 
       <ActionButton

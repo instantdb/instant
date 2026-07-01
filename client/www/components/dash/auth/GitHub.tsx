@@ -122,6 +122,7 @@ export function AddGitHubClientForm({
         onChange={setClientName}
         label="Client name"
         placeholder="e.g. github-web"
+        ignorePasswordManager
       />
 
       <TextInput
