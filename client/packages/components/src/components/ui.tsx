@@ -200,6 +200,7 @@ export function TextInput({
   title,
   required,
   onBlur,
+  ignorePasswordManager,
 }: {
   value: string;
   type?: 'text' | 'email' | 'sensitive' | 'password';
@@ -216,6 +217,9 @@ export function TextInput({
   title?: string | undefined;
   required?: boolean | undefined;
   onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
+  // Suppress the password manager overlay on non-credential fields
+  // (e.g. naming a namespace or app), where their icon is just noise.
+  ignorePasswordManager?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -225,6 +229,10 @@ export function TextInput({
     }
   }, []);
 
+  // Sensitive inputs already opt out of password managers so they can't
+  // save the secret; plain fields can opt out to drop the noisy icon.
+  const ignorePw = type === 'sensitive' || ignorePasswordManager;
+
   return (
     <label className="flex flex-col gap-1">
       {label ? <Label>{label}</Label> : null}
@@ -232,12 +240,12 @@ export function TextInput({
         disabled={disabled}
         title={title}
         // Try to prevent password managers (LastPass, 1Password,
-        // BitWarden) from attaching to or saving sensitive input.
-        autoComplete={type === 'sensitive' ? 'off' : undefined}
-        data-lpignore={type === 'sensitive' ? 'true' : undefined}
-        data-1p-ignore={type === 'sensitive' ? 'true' : undefined}
-        data-bwignore={type === 'sensitive' ? 'true' : undefined}
-        data-form-type={type === 'sensitive' ? 'other' : undefined}
+        // BitWarden) from attaching to or saving the input.
+        autoComplete={ignorePw ? 'off' : undefined}
+        data-lpignore={ignorePw ? 'true' : undefined}
+        data-1p-ignore={ignorePw ? 'true' : undefined}
+        data-bwignore={ignorePw ? 'true' : undefined}
+        data-form-type={ignorePw ? 'other' : undefined}
         // LastPass attaches its UI to any <input type="password"> even
         // when data-lpignore="true" is set. To opt out we render the
         // field as type="text" and use -webkit-text-security to mask

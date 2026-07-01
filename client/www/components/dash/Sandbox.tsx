@@ -650,6 +650,7 @@ export function Sandbox({
             label={<div className="pt-2 pb-0 font-normal">Sandbox Name</div>}
             value={newSaveName}
             onChange={setNewSaveName}
+            ignorePasswordManager
           />
           <div className="flex justify-end pt-2">
             <Button type="submit">Save</Button>

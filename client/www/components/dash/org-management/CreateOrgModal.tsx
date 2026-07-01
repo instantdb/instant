@@ -80,6 +80,7 @@ export const CreateOrgModal = ({
             label="Name"
             placeholder="My Organization"
             onChange={(e) => setValue(e)}
+            ignorePasswordManager
           />
           <div className="flex justify-end gap-2 pt-4">
             <Button

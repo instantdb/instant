@@ -129,6 +129,7 @@ export function AddLinkedInClientForm({
         onChange={setClientName}
         label="Client name"
         placeholder="e.g. linkedin-web"
+        ignorePasswordManager
       />
 
       <TextInput

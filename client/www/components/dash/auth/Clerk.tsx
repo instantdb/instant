@@ -340,6 +340,7 @@ export function AddClerkClientForm({
         onChange={setClientName}
         label="Unique name"
         placeholder="e.g. clerk"
+        ignorePasswordManager
       />
       <TextInput
         tabIndex={2}

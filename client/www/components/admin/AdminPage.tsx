@@ -326,6 +326,7 @@ export function Admin({
                   <TextInput
                     {...appNameForm.inputProps('name')}
                     placeholder="My awesome app"
+                    ignorePasswordManager
                   />
                 </div>
                 <Button
