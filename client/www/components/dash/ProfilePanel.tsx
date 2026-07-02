@@ -8,7 +8,6 @@ import {
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import Link from 'next/link';
-import { useReadyRouter } from '../clientOnlyPage';
 import { UserSettingsIcon } from '../icons/UserSettingsIcon';
 import {
   Button,
@@ -24,7 +23,6 @@ import { useFlag } from '@/lib/hooks/useFlag';
 
 export const ProfilePanel = () => {
   const dashResponse = useFetchedDash();
-  const router = useReadyRouter();
 
   const email = dashResponse.data.user.email;
 
@@ -74,9 +72,8 @@ export const ProfilePanel = () => {
                 )}
               >
                 <button
-                  onClick={async () => {
+                  onClick={() => {
                     dashResponse.setWorkspace('personal');
-                    router.push('/dash');
                     close();
                   }}
                   className="grow px-2 py-2 text-left"
@@ -110,10 +107,6 @@ export const ProfilePanel = () => {
                   <button
                     onClick={() => {
                       dashResponse.setWorkspace(org.id);
-                      router.push({
-                        pathname: '/dash',
-                        query: { org: org.id },
-                      });
                       close();
                     }}
                     className="grow px-2 py-2 text-left"
@@ -132,11 +125,8 @@ export const ProfilePanel = () => {
                     <Tooltip>
                       <TooltipTrigger>
                         <Link
-                          href="/dash/org"
-                          onClick={() => {
-                            dashResponse.setWorkspace(org.id);
-                            close();
-                          }}
+                          href={`/dash/org?org=${org.id}`}
+                          onClick={() => close()}
                         >
                           <div className="p-3 transition-colors hover:bg-gray-200 dark:hover:bg-neutral-600">
                             <Cog6ToothIcon height={16} width={16} />
