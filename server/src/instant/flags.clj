@@ -371,6 +371,20 @@
 (defn use-coarse-topics? [app-id]
   (contains? (flag :coarse-topics-apps) app-id))
 
+(defn order-topics-match-updates-only?
+  "When true (the default), an ordered+limited query's page-info topic only
+   matches sort-key changes on rows that *already exist* -- value updates, plus
+   first setting or clearing the value (see topics/lifecycle-entities) -- not the
+   writes that *create* a brand-new row. New rows are caught by the
+   where/enumeration topic, so the page topic doesn't need to fire on them, and
+   not firing keeps a new row in some *other* parent (e.g. a new message in
+   another conversation for `messages where conversation.id = X order by
+   createdAt`) from re-running the query, while still catching a row reordering
+   into the window. Set the `skip-order-topic-updates-only` toggle to revert to
+   the old app-wide behavior."
+  []
+  (not (toggled? :skip-order-topic-updates-only)))
+
 (defn use-get-datalog-queries-for-topics-v3? []
   (toggled? :use-get-datalog-queries-for-topics-v3? true))
 
