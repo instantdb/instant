@@ -455,3 +455,18 @@
 
 (defn use-reactive-cache-for-verify-token? [app-id]
   (contains? (flag :use-reactive-cache-for-verify-token-apps) app-id))
+
+(defn triples-size-collection-batch-size []
+  (flag :triples-size-collection-batch-size 5000))
+
+(defn triples-size-collection-max-loops []
+  (flag :triples-size-collection-max-loops 1000))
+
+(defn disable-triples-size-collection? []
+  ;; Defaults to disabled so that we can bootstrap before
+  ;; we start the process.
+  (flag :disable-triples-size-collection true))
+
+;; TODO(dww): Remove after deploying triples-size-updates
+(defn new-db-size? []
+  (toggled? :use-new-db-size false))

@@ -4,7 +4,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [clojure.core :as c]
-   [instant.flags :refer [get-emails]]
+   [instant.flags :as flags :refer [get-emails]]
    [instant.stripe :as stripe]
    [instant.model.app-file :as app-file-model]))
 
@@ -109,17 +109,36 @@
                                             [:customer-email :user_email]
                                             :monthly-revenue
                                             :start-timestamp
-                                            [{:select [[[:coalesce
-                                                         [:*
-                                                          [:sum :s.triples_pg_size]
-                                                          [:case
-                                                           [:= [:pg_relation_size "triples"] 0] 1
-                                                           :else [:/
-                                                                  [:cast [:pg_total_relation_size "triples"] :numeric]
-                                                                  [:pg_relation_size "triples"]]]]
-                                                         0]]]
-                                              :from [[:attr-sketches :s]]
-                                              :where [:= :s.app_id :apps.id]}
+                                            [(if (flags/new-db-size?)
+                                               {:select [[[:coalesce
+                                                           [:*
+                                                            [:sum :agg.pg_size]
+                                                            [:case
+                                                             [:= [:pg_relation_size "triples"] 0] 1
+                                                             :else [:/
+                                                                    [:cast [:pg_total_relation_size "triples"] :numeric]
+                                                                    [:pg_relation_size "triples"]]]]
+                                                           0]]]
+                                                :from [[:triples-size-aggregate :agg]]
+                                                :join [[:attrs :a] [:= :a.id :agg.attr_id]]
+                                                :where [:and
+                                                        [:= :agg.app_id :apps.id]
+                                                        [:= nil :a.deletion_marked_at]]}
+
+                                               {:select [[[:coalesce
+                                                           [:*
+                                                            [:sum :s.triples_pg_size]
+                                                            [:case
+                                                             [:= [:pg_relation_size "triples"] 0] 1
+                                                             :else [:/
+                                                                    [:cast [:pg_total_relation_size "triples"] :numeric]
+                                                                    [:pg_relation_size "triples"]]]]
+                                                           0]]]
+                                                :from [[:attr-sketches :s]]
+                                                :join [[:attrs :a] [:= :a.id :s.attr_id]]
+                                                :where [:and
+                                                        [:= :s.app_id :apps.id]
+                                                        [:= nil :a.deletion_marked_at]]})
                                              :usage]
                                             [{:select [[[:coalesce [:sum :s.total] 0]]]
                                               :from [[:attr_sketches :s]]
@@ -135,17 +154,36 @@
                                             [:customer-email :user_email]
                                             :monthly-revenue
                                             :start-timestamp
-                                            [{:select [[[:coalesce
-                                                         [:*
-                                                          [:sum :s.triples_pg_size]
-                                                          [:case
-                                                           [:= [:pg_relation_size "triples"] 0] 1
-                                                           :else [:/
-                                                                  [:cast [:pg_total_relation_size "triples"] :numeric]
-                                                                  [:pg_relation_size "triples"]]]]
-                                                         0]]]
-                                              :from [[:attr-sketches :s]]
-                                              :where [:in :s.app_id {:select :id :from :apps :where [:= :apps.org_id :orgs.id]}]}
+                                            [(if (flags/new-db-size?)
+                                               {:select [[[:coalesce
+                                                           [:*
+                                                            [:sum :agg.pg_size]
+                                                            [:case
+                                                             [:= [:pg_relation_size "triples"] 0] 1
+                                                             :else [:/
+                                                                    [:cast [:pg_total_relation_size "triples"] :numeric]
+                                                                    [:pg_relation_size "triples"]]]]
+                                                           0]]]
+                                                :from [[:triples-size-aggregate :agg]]
+                                                :join [[:attrs :a] [:= :a.id :agg.attr_id]]
+                                                :where [:and
+                                                        [:in :agg.app_id {:select :id :from :apps :where [:= :apps.org_id :orgs.id]}]
+                                                        [:= nil :a.deletion_marked_at]]}
+
+                                               {:select [[[:coalesce
+                                                           [:*
+                                                            [:sum :s.triples_pg_size]
+                                                            [:case
+                                                             [:= [:pg_relation_size "triples"] 0] 1
+                                                             :else [:/
+                                                                    [:cast [:pg_total_relation_size "triples"] :numeric]
+                                                                    [:pg_relation_size "triples"]]]]
+                                                           0]]]
+                                                :from [[:attr-sketches :s]]
+                                                :join [[:attrs :a] [:= :a.id :s.attr_id]]
+                                                :where [:and
+                                                        [:in :s.app_id {:select :id :from :apps :where [:= :apps.org_id :orgs.id]}]
+                                                        [:= nil :a.deletion_marked_at]]})
                                              :usage]
                                             [{:select [[[:coalesce [:sum :s.total] 0]]]
                                               :from [[:attr_sketches :s]]
