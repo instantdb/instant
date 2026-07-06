@@ -244,8 +244,10 @@
         :join [[:apps :a] [:= :t.app_id :a.id]
                [:instant_users :u] [:= :a.creator_id :u.id]]
         :where [:and
-                [:= :t.attr_id fm-attr]
-                [:= :t.checked-data-type [:cast "number" :checked_data_type]]
+                ;; Inline the attr id and data type so the planner can match the
+                ;; partial triples_files_size_idx predicate (see migration 113)
+                [:= :t.attr_id [:inline (str fm-attr)]]
+                [:= :t.checked-data-type [:cast [:inline "number"] :checked_data_type]]
                 :t.ave]
         :group-by [:t.app_id :a.title :u.email]
         :order-by [[:total_byte_size :desc]]})))))
