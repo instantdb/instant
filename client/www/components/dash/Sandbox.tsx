@@ -603,7 +603,7 @@ export function Sandbox({
                 deleteSandbox(selectedSandbox);
               }}
               label="Delete Sandbox"
-              icon={<TrashIcon />}
+              icon={<TrashIcon width={18} />}
             />
 
             <IconButton
@@ -618,7 +618,7 @@ export function Sandbox({
           </>
         )}
         <IconButton
-          icon={<PlusIcon />}
+          icon={<PlusIcon width={18} />}
           label="Save As..."
           onClick={() => {
             saveCurrentDialog.onOpen();
