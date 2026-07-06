@@ -458,31 +458,30 @@ for a more detailed example showing how you may leverage links to implement an a
 
 ## Using Storage with React Native
 
-The SDK expects a `File` object. In React Native the built-in `fetch` function can be used to construct a `File`, then you can pass that to the `uploadFile` method.
+`db.storage.uploadFile` expects a `File` or `Blob`.
 
-Example:
+On Expo SDK 56 and above, `expo/fetch` is the global `fetch` and reads local
+files directly, so hand it a `File` from `expo-file-system`:
 
 ```typescript
-import { init, InstaQLEntity } from '@instantdb/react-native';
-import schema, { AppSchema } from '../instant.schema';
-import * as FileSystem from 'expo-file-system';
-
-const APP_ID = process.env.EXPO_PUBLIC_INSTANT_APP_ID;
-
-const db = init({ appId: APP_ID, schema });
+import { File } from 'expo-file-system';
 
 const localFilePath = 'file:///var/mobile/Containers/Data/my_file.m4a';
+const file = new File(localFilePath);
 
-const fileInfo = await FileSystem.getInfoAsync(localFilePath);
+await db.storage.uploadFile('my_file.m4a', file, {
+  contentType: 'audio/x-m4a',
+});
+```
 
-if (!fileInfo.exists) {
-  throw new Error(`File does not exist at path: ${localFilePath}`);
-}
+On Expo SDK 55 and below (or bare React Native), the built-in `fetch` returns a
+native `Blob` you can wrap in a `File`:
 
-// Convert the local file to a File object
-const res = await fetch(fileInfo.uri);
+```typescript
+const localFilePath = 'file:///var/mobile/Containers/Data/my_file.m4a';
+const res = await fetch(localFilePath);
 const blob = await res.blob();
-const file = new File([blob], payload.recordingId, { type: 'audio/x-m4a' });
+const file = new File([blob], 'my_file.m4a', { type: 'audio/x-m4a' });
 
 await db.storage.uploadFile('my_file.m4a', file);
 ```
