@@ -3,7 +3,8 @@ create table triples_size_updates (
   -- Intentionally did not add a foreign key constraint to keep inserts fast
   app_id uuid not null,
   attr_id uuid not null,
-  pg_size bigint not null
+  pg_size bigint not null,
+  files_size bigint
 );
 
 -- Minimize bottleneck on generating ids. Creates gaps in ids, but
@@ -47,6 +48,7 @@ create table triples_size_aggregate (
   app_id uuid not null references apps (id) on delete cascade,
   attr_id uuid not null references attrs (id) on delete cascade,
   pg_size bigint not null,
+  files_size bigint,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   primary key (app_id, attr_id)
@@ -144,8 +146,15 @@ begin
   end if;
 
 
-  insert into triples_size_updates (app_id, attr_id, pg_size)
-    select n.app_id, n.attr_id, sum(pg_column_size(n.*))::bigint
+  insert into triples_size_updates (app_id, attr_id, pg_size, files_size)
+    select n.app_id,
+           n.attr_id,
+           sum(pg_column_size(n.*))::bigint,
+           -- This is the attr_id for $files.size
+           sum(case when n.attr_id = '96653230-13ff-ffff-2a35-24609fffffff'
+                    then triples_extract_number_value(n.value)
+                    else 0
+               end)::bigint
       from newrows n
      group by n.app_id, n.attr_id;
 
@@ -253,13 +262,27 @@ begin
     end if;
   end if;
 
-  insert into triples_size_updates (app_id, attr_id, pg_size)
-    select app_id, attr_id, sum(delta)::bigint
-      from (select n.app_id, n.attr_id,  pg_column_size(n.*)::bigint as delta from newrows n
+  insert into triples_size_updates (app_id, attr_id, pg_size, files_size)
+    select app_id, attr_id, sum(pg_delta)::bigint, sum(files_delta)::bigint
+      from (select n.app_id, n.attr_id,
+                    pg_column_size(n.*)::bigint as pg_delta,
+                    -- This is the attr_id for $files.size
+                    case when n.attr_id = '96653230-13ff-ffff-2a35-24609fffffff'
+                         then triples_extract_number_value(n.value)
+                         else 0
+                    end as files_delta
+              from newrows n
             union all
-            select o.app_id, o.attr_id, -pg_column_size(o.*)::bigint as delta from oldrows o) x
+            select o.app_id, o.attr_id,
+                   -pg_column_size(o.*)::bigint as pg_delta,
+                   -- This is the attr_id for $files.size
+                    case when o.attr_id = '96653230-13ff-ffff-2a35-24609fffffff'
+                         then -triples_extract_number_value(o.value)
+                         else 0
+                    end as files_delta
+              from oldrows o) x
      group by app_id, attr_id
-    having sum(delta) <> 0;
+    having sum(pg_delta) <> 0 or sum(files_delta) <> 0;
 
   return null;
 end;
@@ -354,8 +377,15 @@ begin
     end if;
   end if;
 
-  insert into triples_size_updates (app_id, attr_id, pg_size)
-    select app_id, attr_id, -sum(pg_column_size(o.*))::bigint
+  insert into triples_size_updates (app_id, attr_id, pg_size, files_size)
+    select app_id,
+           attr_id,
+           -sum(pg_column_size(o.*))::bigint,
+           -- This is the attr_id for $files.size
+           -sum(case when o.attr_id = '96653230-13ff-ffff-2a35-24609fffffff'
+                     then triples_extract_number_value(o.value)
+                     else 0
+                end)::bigint
       from oldrows o
      group by app_id, attr_id;
 

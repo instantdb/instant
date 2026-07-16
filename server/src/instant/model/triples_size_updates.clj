@@ -22,10 +22,10 @@
            [:deletes {:delete-from :triples-size-updates
                       :using :ids
                       :where [:= :triples-size-updates.id :ids.id]
-                      :returning [:app-id :attr-id :pg-size]}]]
+                      :returning [:app-id :attr-id :pg-size :files-size]}]]
 
-    :insert-into [[:triples_size_aggregate [:app-id :attr-id :pg-size]]
-                  {:select [:deletes.app-id :deletes.attr-id [[:sum :deletes.pg_size] :pg-size]]
+    :insert-into [[:triples_size_aggregate [:app-id :attr-id :pg-size :files-size]]
+                  {:select [:deletes.app-id :deletes.attr-id [[:sum :deletes.pg_size] :pg-size] [[:sum :deletes.files-size] :files-size]]
                    :from :deletes
                    ;; Join filters out (app_id, attr_id) whose parent was deleted mid-batch.
                    :join [:apps [:= :apps.id  :deletes.app-id]
@@ -34,7 +34,14 @@
     :on-conflict {:on-constraint :triples_size_aggregate_pkey}
     :do-update-set {:pg-size [:+
                               :triples_size_aggregate.pg_size
-                              :excluded.pg_size]}}))
+                              :excluded.pg_size]
+                    ;; Update files-size only if one of the arguments is non-null
+                    :files-size [:coalesce
+                                 [:+
+                                  :triples_size_aggregate.files_size
+                                  :excluded.files_size]
+                                 :triples_size_aggregate.files_size
+                                 :excluded.files_size]}}))
 (defn collect-batch!
   ([] (collect-batch! (aurora/conn-pool :write) (flags/triples-size-collection-batch-size)))
   ([conn batch-size]

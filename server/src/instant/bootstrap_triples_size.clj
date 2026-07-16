@@ -13,26 +13,30 @@
    (org.postgresql.jdbc PgConnection)))
 
 (def insert-triples-size-rows-q
-  (uhsql/preformat {:insert-into [[:triples-size-updates [:app-id :attr-id :pg-size]]
-                                  {:select [:app-id :attr-id :pg-size]
-                                   :from [[[:unnest :?app-id :?attr-id :?pg-size]
-                                           [:t [:composite :app-id :attr-id :pg-size]]]]}]}))
+  (uhsql/preformat {:insert-into [[:triples-size-updates [:app-id :attr-id :pg-size :files-size]]
+                                  {:select [:app-id :attr-id :pg-size :files-size]
+                                   :from [[[:unnest :?app-id :?attr-id :?pg-size :?files-size]
+                                           [:t [:composite :app-id :attr-id :pg-size :files-size]]]]}]}))
 (defn insert-triples-size-rows [group]
   (let [params (loop [app-id (transient [])
                       attr-id (transient [])
                       pg-size (transient [])
+                      files-size (transient [])
                       group group]
                  (if-let [item (first group)]
                    (recur (conj! app-id (:app_id item))
                           (conj! attr-id (:attr_id item))
                           (conj! pg-size (:pg_size item))
+                          (conj! files-size (:files_size item))
                           (next group))
                    {:app-id (with-meta (persistent! app-id)
                               {:pgtype "uuid[]"})
                     :attr-id (with-meta (persistent! attr-id)
                                {:pgtype "uuid[]"})
                     :pg-size (with-meta (persistent! pg-size)
-                               {:pgtype "bigint[]"})}))]
+                               {:pgtype "bigint[]"})
+                    :files-size (with-meta (persistent! files-size)
+                                  {:pgtype "bigint[]"})}))]
     (sql/do-execute! ::insert-triples-size-rows
                      (aurora/conn-pool :write)
                      (uhsql/formatp insert-triples-size-rows-q
@@ -45,30 +49,42 @@
                     (with-meta ids {:pgtype "bigint[]"})]))
 
 (defn collect-sizes [^PgConnection conn]
-  (let [m (HashMap.)
-        app-map-fn (reify Function
-                     (apply [_ _k]
-                       (HashMap.)))]
-    (doseq [{:keys [app_id attr_id pg_size]}
+  (let [files-size-id #uuid "96653230-13ff-ffff-2a35-24609fffffff"
+        size-map (HashMap.)
+        files-size-map (HashMap.)
+        create-map-fn (reify Function
+                        (apply [_ _k]
+                          (HashMap.)))]
+    (doseq [{:keys [app_id attr_id files_size pg_size]}
             (copy/copy-seq conn
-                           "copy (select app_id, attr_id, pg_column_size(triples) from triples) to stdout with (format binary)"
+                           "copy (select app_id, attr_id, pg_column_size(triples), case when attr_id = '96653230-13ff-ffff-2a35-24609fffffff' then triples_extract_number_value(value)::bigint else 0::bigint end as files_size from triples) to stdout with (format binary)"
                            [{:name :app_id
                              :pgtype "uuid"}
                             {:name :attr_id
                              :pgtype "uuid"}
                             {:name :pg_size
-                             :pgtype "integer"}])]
-      (let [app-map (.computeIfAbsent m app_id app-map-fn)]
+                             :pgtype "integer"}
+                            {:name :files_size
+                             :pgtype "bigint"}])]
+      (when (= attr_id files-size-id)
+        (HashMap/.compute files-size-map app_id (reify BiFunction
+                                                  (apply [_ _k v]
+                                                    (if v
+                                                      (+ files_size v)
+                                                      (long files_size))))))
+      (let [app-map (.computeIfAbsent size-map app_id create-map-fn)]
         (HashMap/.compute app-map attr_id (reify BiFunction
                                             (apply [_ _k v]
                                               (if v
                                                 (+ pg_size v)
                                                 (long pg_size)))))))
-    (for [[app-id attr-map] m
+    (for [[app-id attr-map] size-map
           [attr-id size] attr-map]
       {:app_id app-id
        :attr_id attr-id
-       :pg_size size})))
+       :pg_size size
+       :files_size (when (= attr-id files-size-id)
+                     (get files-size-map app-id))})))
 
 (def slot-name "bootstrap_triples_size")
 

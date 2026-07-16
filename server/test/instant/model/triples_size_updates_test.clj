@@ -6,12 +6,35 @@
    [instant.fixtures :refer [with-empty-app]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.model.triples-size-updates :as tsu]))
+   [instant.model.triples-size-updates :as tsu]
+   [instant.system-catalog :as system-catalog]))
+
+(def files-id-aid (system-catalog/get-attr-id "$files" "id"))
+(def files-path-aid (system-catalog/get-attr-id "$files" "path"))
+(def files-size-aid (system-catalog/get-attr-id "$files" "size"))
+(def files-loc-aid (system-catalog/get-attr-id "$files" "location-id"))
 
 (defn queue-rows [app-id]
   (sql/select (aurora/conn-pool :read)
-              ["select attr_id, pg_size from triples_size_updates
+              ["select attr_id, pg_size, files_size from triples_size_updates
                 where app_id = ?::uuid order by id" app-id]))
+
+(defn files-size-aggregate [app-id]
+  (:files_size
+   (sql/select-one (aurora/conn-pool :read)
+                   ["select coalesce(sum(files_size), 0)::bigint as files_size
+                     from triples_size_aggregate where app_id = ?::uuid" app-id])))
+
+(defn actual-files-size [app-id]
+  (:files_size
+   (sql/select-one (aurora/conn-pool :read)
+                   ["select coalesce(sum(triples_extract_number_value(value)), 0)::bigint as files_size
+                     from triples where app_id = ?::uuid and attr_id = ?::uuid"
+                    app-id files-size-aid])))
+
+(defn assert-files-size-aggregate-matches-actual! [app-id]
+  (is (= (actual-files-size app-id)
+         (files-size-aggregate app-id))))
 
 (defn aggregate-by-attr [app-id]
   (->> (sql/select (aurora/conn-pool :read)
@@ -143,6 +166,89 @@
             (drain!)
             (assert-aggregate-matches-actual! (:id app))
             (is (zero? (get (aggregate-by-attr (:id app)) (:id name-attr) 0)))))))))
+
+(defn insert-file! [app file-id size]
+  (transact! app
+             [[:add-triple file-id files-id-aid (str file-id)]
+              [:add-triple file-id files-path-aid (str "path-" file-id ".png")]
+              [:add-triple file-id files-size-aid size]
+              [:add-triple file-id files-loc-aid (str "loc-" file-id)]]))
+
+(deftest insert-file-emits-files-size-on-size-attr-only
+  (with-empty-app
+    (fn [app]
+      (drain!) ;; flush anything from app creation
+      (let [file-id (random-uuid)]
+        (insert-file! app file-id 100)
+
+        (testing "queue rows carry files_size only on the $files.size row"
+          (let [rows (queue-rows (:id app))
+                by-attr (into {} (map (juxt :attr_id :files_size)) rows)]
+            (is (= 100 (get by-attr files-size-aid)))
+            (is (every? zero? (vals (dissoc by-attr files-size-aid))))))
+
+        (drain!)
+        (testing "aggregate files_size matches sum of $files.size values"
+          (assert-files-size-aggregate-matches-actual! (:id app))
+          (is (= 100 (actual-files-size (:id app)))))
+
+        (testing "adding a second file accumulates"
+          (insert-file! app (random-uuid) 250)
+          (drain!)
+          (assert-files-size-aggregate-matches-actual! (:id app))
+          (is (= 350 (actual-files-size (:id app)))))))))
+
+(deftest update-files-size-emits-delta
+  (with-empty-app
+    (fn [app]
+      (let [file-id (random-uuid)]
+        (insert-file! app file-id 100)
+        (drain!)
+        (is (= 100 (files-size-aggregate (:id app))))
+
+        (testing "growing the size emits a positive files_size delta"
+          (transact! app [[:add-triple file-id files-size-aid 250]])
+          (let [rows (filter #(= files-size-aid (:attr_id %))
+                             (queue-rows (:id app)))]
+            (is (seq rows))
+            (is (= 150 (reduce + (map :files_size rows)))))
+          (drain!)
+          (assert-files-size-aggregate-matches-actual! (:id app))
+          (is (= 250 (files-size-aggregate (:id app)))))
+
+        (testing "shrinking the size emits a negative files_size delta"
+          (transact! app [[:add-triple file-id files-size-aid 10]])
+          (let [rows (filter #(= files-size-aid (:attr_id %))
+                             (queue-rows (:id app)))]
+            (is (seq rows))
+            (is (= -240 (reduce + (map :files_size rows)))))
+          (drain!)
+          (assert-files-size-aggregate-matches-actual! (:id app))
+          (is (= 10 (files-size-aggregate (:id app)))))
+
+        (testing "updating to the same size emits no rows"
+          (transact! app [[:add-triple file-id files-size-aid 10]])
+          (is (empty? (queue-rows (:id app)))))))))
+
+(deftest delete-file-emits-negative-files-size
+  (with-empty-app
+    (fn [app]
+      (let [file-id (random-uuid)]
+        (insert-file! app file-id 100)
+        (drain!)
+        (is (= 100 (files-size-aggregate (:id app))))
+
+        (testing "deleting the file emits a negative files_size on the size row"
+          (transact! app [[:delete-entity file-id "$files"]])
+          (let [rows (filter #(= files-size-aid (:attr_id %))
+                             (queue-rows (:id app)))]
+            (is (seq rows))
+            (is (= -100 (reduce + (map :files_size rows))))))
+
+        (drain!)
+        (testing "after collect, aggregate files_size is 0"
+          (assert-files-size-aggregate-matches-actual! (:id app))
+          (is (zero? (files-size-aggregate (:id app)))))))))
 
 (deftest collect-is-noop-on-empty-queue
   (with-empty-app

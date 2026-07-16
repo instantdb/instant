@@ -2,6 +2,7 @@
   (:require
    [instant.jdbc.aurora :as aurora]
    [instant.db.model.attr :as attr-model]
+   [instant.flags :as flags]
    [instant.system-catalog :refer [all-attrs] :rename {all-attrs $system-attrs}]
    [instant.system-catalog-ops :refer [update-op query-op]]
    [instant.jdbc.sql :as sql]
@@ -235,20 +236,35 @@
    (let [fm-attr (attr-model/resolve-attr-id $system-attrs "$files" "size")]
      (sql/select
       conn
-      (hsql/format
-       {:select [:t.app_id :a.title
-                 [:u.email :creator_email]
-                 [[:sum [[:triples_extract_number_value :t.value]]] :total_byte_size]
-                 [[:count :t.*] :total_file_count]]
-        :from [[:triples :t]]
-        :join [[:apps :a] [:= :t.app_id :a.id]
-               [:instant_users :u] [:= :a.creator_id :u.id]]
-        :where [:and
-                [:= :t.attr_id fm-attr]
-                [:= :t.checked-data-type [:cast "number" :checked_data_type]]
-                :t.ave]
-        :group-by [:t.app_id :a.title :u.email]
-        :order-by [[:total_byte_size :desc]]})))))
+      (if (flags/new-db-size?)
+        (hsql/format
+         {:select [:s.app_id :a.title
+                   [:u.email :creator_email]
+                   [:agg.files_size :total_byte_size]
+                   [:s.total :total_file_count]]
+          :from [[:apps :a]]
+          :join [[:instant_users :u] [:= :a.creator_id :u.id]
+                 [:attr_sketches :s] [:and
+                                      [:= :s.app_id :a.id]
+                                      [:= :s.attr_id fm-attr]]
+                 [:triples-size-aggregate :agg] [:and
+                                                 [:= :agg.app_id :a.id]
+                                                 [:= :agg.attr_id fm-attr]]]
+          :order-by [[:total_byte_size :desc]]})
+        (hsql/format
+         {:select [:t.app_id :a.title
+                   [:u.email :creator_email]
+                   [[:sum [[:triples_extract_number_value :t.value]]] :total_byte_size]
+                   [[:count :t.*] :total_file_count]]
+          :from [[:triples :t]]
+          :join [[:apps :a] [:= :t.app_id :a.id]
+                 [:instant_users :u] [:= :a.creator_id :u.id]]
+          :where [:and
+                  [:= :t.attr_id fm-attr]
+                  [:= :t.checked-data-type [:cast "number" :checked_data_type]]
+                  :t.ave]
+          :group-by [:t.app_id :a.title :u.email]
+          :order-by [[:total_byte_size :desc]]}))))))
 
 (defn get-app-usage
   ([app-id] (get-app-usage (aurora/conn-pool :read) app-id))
@@ -258,15 +274,26 @@
    (let [fm-attr (attr-model/resolve-attr-id $system-attrs "$files" "size")]
      (sql/select-one
       conn
-      (hsql/format
-       {:select [[[:count :t.*] :total_file_count]
-                 [[:coalesce [:sum [[:triples_extract_number_value :t.value]]] :0] :total_byte_size]]
-        :from [[:triples :t]]
-        :where [:and
-                [:= :t.app_id app-id]
-                [:= :t.attr_id fm-attr]
-                [:= :t.checked-data-type [:cast "number" :checked_data_type]]
-                :t.ave]})))))
+      (if (flags/new-db-size?)
+        (hsql/format
+         {:select [[:s.total :total_file_count]
+                   [:agg.files_size :total_byte_size]]
+          :from [[:attr_sketches :s]]
+          :join [[:triples-size-aggregate :agg] [:and
+                                                 [:= :s.app_id :agg.app_id]
+                                                 [:= :s.attr_id :agg.attr_id]]]
+          :where [:and
+                  [:= :s.app_id app-id]
+                  [:= :s.attr_id fm-attr]]})
+        (hsql/format
+         {:select [[[:count :t.*] :total_file_count]
+                   [[:coalesce [:sum [[:triples_extract_number_value :t.value]]] :0] :total_byte_size]]
+          :from [[:triples :t]]
+          :where [:and
+                  [:= :t.app_id app-id]
+                  [:= :t.attr_id fm-attr]
+                  [:= :t.checked-data-type [:cast "number" :checked_data_type]]
+                  :t.ave]}))))))
 
 (defn get-org-usage
   ([org-id] (get-org-usage (aurora/conn-pool :read) org-id))
@@ -276,12 +303,28 @@
    (let [fm-attr (attr-model/resolve-attr-id $system-attrs "$files" "size")]
      (sql/select-one
       conn
-      (hsql/format
-       {:select [[[:count :t.*] :total_file_count]
-                 [[:coalesce [:sum [[:triples_extract_number_value :t.value]]] :0] :total_byte_size]]
-        :from [[:triples :t]]
-        :where [:and
-                [:in :t.app_id {:select :id :from :apps :where [:= :org_id org-id]}]
-                [:= :t.attr_id fm-attr]
-                [:= :t.checked-data-type [:cast "number" :checked_data_type]]
-                :t.ave]})))))
+      (if (flags/new-db-size?)
+        (hsql/format
+         {:select [[{:select [[[:coalesce [:sum :s.total] :0]]]
+                     :from [[:apps :a]]
+                     :join [[:attr_sketches :s] [:= :s.app_id :a.id]]
+                     :where [:and
+                             [:= :a.org_id org-id]
+                             [:= :s.attr-id fm-attr]]}
+                    :total_file_count]
+
+                   [{:select [[[:coalesce [:sum :agg.files_size] :0]]]
+                     :from [[:apps :a]]
+                     :join [[:triples_size_aggregate :agg] [:= :agg.app_id :a.id]]
+                     :where [:and
+                             [:= :a.org_id org-id]
+                             [:= :agg.attr-id fm-attr]]} :total_byte_size]]})
+        (hsql/format
+         {:select [[[:count :t.*] :total_file_count]
+                   [[:coalesce [:sum [[:triples_extract_number_value :t.value]]] :0] :total_byte_size]]
+          :from [[:triples :t]]
+          :where [:and
+                  [:in :t.app_id {:select :id :from :apps :where [:= :org_id org-id]}]
+                  [:= :t.attr_id fm-attr]
+                  [:= :t.checked-data-type [:cast "number" :checked_data_type]]
+                  :t.ave]}))))))
