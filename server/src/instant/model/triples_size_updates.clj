@@ -58,9 +58,12 @@
     (loop [loops 0
            total-collected 0]
       (if (= loops max-loops)
-        (when (config/prod?)
-          (discord/send-error-async! (str (:instateam discord/mention-constants)
-                                          " collect triples size is backed up after " loops " iterations.")))
+        (do
+          (tracer/add-data! {:attributes {:total-collected total-collected
+                                          :loops loops}})
+          (when (config/prod?)
+            (discord/send-error-async! (str (:instateam discord/mention-constants)
+                                            " collect triples size is backed up after " loops " iterations."))))
         (let [update-count (:next.jdbc/update-count (first (collect-batch!)))]
           (if (zero? update-count)
             (tracer/add-data! {:attributes {:total-collected total-collected

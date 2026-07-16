@@ -315,19 +315,19 @@ begin
     -- Write the entities to the wal
     with by_etype as (
       -- Forward entities
-      select a.etype, n.entity_id
-        from oldrows n
+      select a.etype, o.entity_id
+        from oldrows o
         join attrs a
-          on n.attr_id = a.id
+          on o.attr_id = a.id
          and a.app_id in (app_id_setting, 'a1111111-1111-1111-1111-111111111ca7')
       union
       -- Ref entities
-      select a.reverse_etype etype, json_uuid_to_uuid(n.value) entity_id
-        from oldrows n
+      select a.reverse_etype etype, json_uuid_to_uuid(o.value) entity_id
+        from oldrows o
         join attrs a
-          on n.attr_id = a.id
+          on o.attr_id = a.id
          and a.app_id in (app_id_setting, 'a1111111-1111-1111-1111-111111111ca7')
-       where n.vae
+       where o.vae
     ),
     etypes as (
       select distinct etype from by_etype
