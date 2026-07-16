@@ -996,8 +996,8 @@ export const InnerExplorer: React.FC<{
                   <strong>{selectedNamespace.name}</strong>{' '}
                   {currentNav.where ? (
                     <>
-                      {' '}
-                      where <strong>{currentNav.where[0]}</strong> ={' '}
+                      &nbsp;where&nbsp;
+                      <strong>{currentNav.where[0]}</strong> ={' '}
                       <em className="rounded-xs border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
                         {JSON.stringify(currentNav.where[1])}
                       </em>
