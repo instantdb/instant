@@ -276,15 +276,20 @@
       conn
       (if (flags/new-db-size?)
         (hsql/format
-         {:select [[:s.total :total_file_count]
-                   [:agg.files_size :total_byte_size]]
-          :from [[:attr_sketches :s]]
-          :join [[:triples-size-aggregate :agg] [:and
-                                                 [:= :s.app_id :agg.app_id]
-                                                 [:= :s.attr_id :agg.attr_id]]]
-          :where [:and
-                  [:= :s.app_id app-id]
-                  [:= :s.attr_id fm-attr]]})
+         {:select [[[:coalesce
+                     {:select :total
+                      :from :attr_sketches
+                      :where [:and
+                              [:= :app_id app-id]
+                              [:= :attr_id fm-attr]]}
+                     :0] :total_file_count]
+                   [[:coalesce
+                     {:select :files_size
+                      :from :triples-size-aggregate
+                      :where [:and
+                              [:= :app_id app-id]
+                              [:= :attr_id fm-attr]]}
+                     :0] :total_byte_size]]})
         (hsql/format
          {:select [[[:count :t.*] :total_file_count]
                    [[:coalesce [:sum [[:triples_extract_number_value :t.value]]] :0] :total_byte_size]]
