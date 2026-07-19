@@ -175,6 +175,8 @@ npx expo run:ios # or npx expo run:android
 
 That's it! Instant will now use MMKV for local persistence instead of AsyncStorage.
 
+When you use a custom store, `@react-native-async-storage/async-storage` becomes optional, so you can remove it from your dependencies.
+
 ## Using expo-sqlite for storage (optional)
 
 If your app already uses [expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/), you can use it for Instant's local persistence too.
@@ -215,6 +217,8 @@ npx expo run:ios # or npx expo run:android
 ```
 
 That's it! Instant will now use expo-sqlite for local persistence instead of AsyncStorage.
+
+When you use a custom store, `@react-native-async-storage/async-storage` becomes optional, so you can remove it from your dependencies.
 
 ## Implementing your own store
 

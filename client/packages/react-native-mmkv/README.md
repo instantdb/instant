@@ -40,7 +40,7 @@ npm i @instantdb/react-native @instantdb/react-native-mmkv
 ### Install peer dependencies
 
 ```shell
-npx expo install react-native-mmkv react-native-nitro-modules @react-native-community/netinfo react-native-get-random-values @react-native-async-storage/async-storage
+npx expo install react-native-mmkv react-native-nitro-modules @react-native-community/netinfo react-native-get-random-values
 ```
 
 ### Prebuild
