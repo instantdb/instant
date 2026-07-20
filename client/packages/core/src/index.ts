@@ -73,6 +73,7 @@ import type {
   User,
   AuthResult,
   ConnectionStatus,
+  AppStatusState,
 } from './clientTypes.ts';
 import type {
   InstantQuery,
@@ -828,6 +829,32 @@ class InstantCoreDatabase<
   }
 
   /**
+   * The app's maintenance-mode state. While read-only, reads and live
+   * queries keep working but writes are rejected. The state arrives on the
+   * connection handshake, so pair it with `subscribeConnectionStatus` if
+   * you need to know whether it's fresh.
+   *
+   * @example
+   *   const { isLoading, isReadOnly } = db.getAppStatus();
+   */
+  getAppStatus(): AppStatusState {
+    return this._reactor.getAppStatusState();
+  }
+
+  /**
+   * Listen for changes to the app's maintenance-mode state. The callback
+   * fires immediately with the current state.
+   *
+   * @example
+   *   const unsub = db.subscribeAppStatus(({ isReadOnly }) => {
+   *     if (isReadOnly) showMaintenanceBanner();
+   *   });
+   */
+  subscribeAppStatus(cb: (state: AppStatusState) => void): UnsubscribeFn {
+    return this._reactor.subscribeAppStatus(cb);
+  }
+
+  /**
    * Join a room to publish and subscribe to topics and presence.
    *
    * @see https://instantdb.com/docs/presence-and-topics
@@ -1116,6 +1143,7 @@ export {
   type TransactionChunk,
   type AuthState,
   type ConnectionStatus,
+  type AppStatusState,
   type User,
   type AuthToken,
   type TxChunk,

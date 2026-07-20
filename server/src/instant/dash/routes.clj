@@ -30,6 +30,7 @@
             [instant.model.app-email-template :as app-email-template-model]
             [instant.model.app-email-verification :as app-email-verification]
             [instant.model.app-email-verification-code :as app-email-verification-code]
+            [instant.model.app-status :as app-status-model]
             [instant.model.app-file :as app-file-model]
             [instant.model.app-members :as instant-app-members]
             [instant.model.app-oauth-client :as app-oauth-client-model]
@@ -1479,6 +1480,13 @@
                                  :sender-name sender-name})
     (response/ok {:sent-to to})))
 
+(defn app-status-post [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :admin req)
+        status (ex/get-param! req [:body :status] app-status-model/coerce-status)]
+    (app-status-model/set-status! {:app-id app-id
+                                   :status status})
+    (response/ok {:status (name status)})))
+
 (defn app-rename-post [req]
   (let
    [{{app-id :id} :app} (req->app-and-user! :owner req)
@@ -2270,6 +2278,7 @@
 
   (GET "/dash/apps/ephemeral/:app_id" [] ephemeral-app/http-get-handler)
   (POST "/dash/apps/ephemeral" [] ephemeral-app/http-post-handler)
+  (POST "/dash/apps/ephemeral/:app_id/status" [] ephemeral-app/http-status-post-handler)
 
   (POST "/dash/apps/ephemeral/:app_id/claim" [] claim-app-post)
   (POST "/dash/apps/:app_id/claim" [] claim-app-post)
@@ -2329,6 +2338,7 @@
   (DELETE "/dash/personal_access_tokens/:id" [] personal-access-tokens-delete)
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
+  (POST "/dash/apps/:app_id/status" [] app-status-post)
   (POST "/dash/apps/:app_id/transfer_to_org/:org_id" [] app-transfer-to-org)
 
   (POST "/dash/apps/:app_id/set-magic-code-expiry" [] app-set-magic-code-expiry)

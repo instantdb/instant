@@ -4,6 +4,8 @@
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.model.app :as app-model]
+   [instant.model.app-admin-token :as app-admin-token-model]
+   [instant.model.app-status :as app-status-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
    [instant.model.schema :as schema-model]
@@ -90,6 +92,24 @@
 (comment
   (def res (http-post-handler {:body {:title "my-app"}}))
   (http-get-handler {:params {:app_id (-> res :body :app :id str)}}))
+
+(defn http-status-post-handler
+  "Lets sandboxes toggle maintenance mode on an ephemeral app. Auth is the
+   app's admin token since ephemeral apps have no dashboard user."
+  [req]
+  (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
+        {app-creator-id :creator_id} (app-model/get-by-id! {:id app-id})
+        _ (ex/assert-permitted!
+           :ephemeral-app?
+           app-id
+           (= (:id @ephemeral-creator) app-creator-id))
+        admin-token (ex/get-param! req [:body :admin-token] uuid-util/coerce)
+        _ (app-admin-token-model/fetch! {:app-id app-id
+                                         :token admin-token})
+        status (ex/get-param! req [:body :status] app-status-model/coerce-status)]
+    (app-status-model/set-status! {:app-id app-id
+                                   :status status})
+    (response/ok {:status (name status)})))
 
 ;; ----------- 
 ;; Sweeper 

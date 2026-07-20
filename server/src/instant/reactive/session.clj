@@ -23,6 +23,7 @@
    [instant.lib.ring.sse :as sse]
    [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
+   [instant.model.app-status :as app-status-model]
    [instant.model.app-stream :as app-stream-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.instant-user :as instant-user-model]
@@ -186,7 +187,8 @@
                                           :session-id      sess-id
                                           :client-event-id client-event-id
                                           :auth            auth
-                                          :attrs           attrs})))
+                                          :attrs           attrs
+                                          :app-status      {:status (name (app-status-model/get-status app-id))}})))
 
 (defn- get-auth! [store sess-id]
   (let [{:session/keys [auth]} (rs/session store sess-id)]
@@ -227,6 +229,7 @@
 (defn- handle-add-query! [store sess-id {:keys [q client-event-id return-type] :as _event}]
   (let [{:keys [app user admin?]} (get-auth! store sess-id)
         {app-id :id} app
+        _ (app-status-model/assert-read-allowed! app-id)
         instaql-queries (rs/session-instaql-queries store app-id sess-id)]
     (cond
       (contains? instaql-queries q)
@@ -467,7 +470,12 @@
         current-user (-> auth :user)
         admin? (-> auth :admin?)
         {:keys [attrs table-info]} (get-attrs (:app auth))
-        stale-queries (rs/get-stale-instaql-queries store app-id sess-id)
+        ;; While disabled we refuse to recompute or send data. Queries stay
+        ;; registered and marked stale, so they recover on re-enable.
+        disabled? (= :disabled (app-status-model/get-status app-id))
+        stale-queries (if disabled?
+                        []
+                        (rs/get-stale-instaql-queries store app-id sess-id))
         opts {:store store
               :app-id app-id
               :current-user current-user
@@ -636,6 +644,7 @@
 (defn- handle-join-room! [store sess-id {:keys [client-event-id data] :as event}]
   (let [auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
+        _ (app-status-model/assert-read-allowed! app-id)
         current-user (-> auth :user)
         room-id (validate-room-id event)]
     (eph/join-room! store app-id sess-id current-user room-id data)
@@ -1035,6 +1044,9 @@
 
          ::ex/permission-denied
          ::ex/permission-evaluation-failed
+
+         ::ex/app-read-only
+         ::ex/app-disabled
 
          ::ex/param-missing
          ::ex/param-malformed

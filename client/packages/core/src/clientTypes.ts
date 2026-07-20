@@ -22,3 +22,7 @@ export type ConnectionStatus =
   | 'authenticated'
   | 'closed'
   | 'errored';
+
+export type AppStatusState =
+  | { isLoading: true; isReadOnly: undefined }
+  | { isLoading: false; isReadOnly: boolean };
