@@ -1,0 +1,21 @@
+services:
+  www:
+    build:
+      context: ../client
+      dockerfile: Dockerfile.www
+    ports:
+      - "3000:3000"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  server:
+    build:
+      context: ../server
+      dockerfile: Dockerfile.self-hosted
+    ports:
+      - "8888:8888"
+    environment:
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}

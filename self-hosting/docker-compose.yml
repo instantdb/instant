@@ -74,8 +74,6 @@ services:
       createbuckets:
         condition: service_completed_successfully
     image: "ghcr.io/instantdb/server:latest"
-    deploy:
-      replicas: 2
     environment:
       WAL_HISTORY_STORAGE: pg
       DATABASE_URL: "postgresql://${POSTGRES_USER:-instant}:${POSTGRES_PASSWORD:-pass}@postgres:5432/${POSTGRES_DB:-instant}?sslmode=disable"
