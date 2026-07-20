@@ -367,13 +367,15 @@ begin
       into log_to_table_setting;
 
 
-    if ents_msg is not null then
-      if log_to_table_setting is not null and log_to_table_setting then
-        insert into wal_logs (id, created_at, hour_bucket, prefix, content)
-             values (gen_random_uuid(), now(), date_part('hour', now() at time zone 'UTC')::int % 8, 'delete_ents', ents_msg);
-      else
-        perform pg_logical_emit_message(true, 'delete_ents', ents_msg);
-      end if;
+    -- Emit unconditionally when webhooks are enabled: the invalidator drops
+    -- wal-records with no messages/wal-logs, and a full-entity delete leaves
+    -- by_entity empty. The webhook code reconstructs the before-state from
+    -- triple_changes, so an empty payload here is fine as a signal.
+    if log_to_table_setting is not null and log_to_table_setting then
+      insert into wal_logs (id, created_at, hour_bucket, prefix, content)
+           values (gen_random_uuid(), now(), date_part('hour', now() at time zone 'UTC')::int % 8, 'delete_ents', coalesce(ents_msg, '[]'));
+    else
+      perform pg_logical_emit_message(true, 'delete_ents', coalesce(ents_msg, '[]'));
     end if;
   end if;
 
