@@ -175,7 +175,48 @@ npx expo run:ios # or npx expo run:android
 
 That's it! Instant will now use MMKV for local persistence instead of AsyncStorage.
 
-### Implementing your own store
+## Using expo-sqlite for storage (optional)
+
+If your app already uses [expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/), you can use it for Instant's local persistence too.
+
+### Install the expo-sqlite package
+
+```shell {% showCopy=true %}
+npm i @instantdb/expo-sqlite
+
+# Install the expo-sqlite peer dependency
+npx expo install expo-sqlite
+```
+
+Note: expo-sqlite is included in Expo Go, so no prebuild is needed to try it out. For development builds, run a prebuild as usual:
+
+```shell {% showCopy=true %}
+npx expo prebuild
+```
+
+### Configure Instant to use expo-sqlite
+
+Import `Store` from `@instantdb/expo-sqlite` and pass it to `init`:
+
+```tsx {% showCopy=true %}
+import { init } from '@instantdb/react-native';
+import Store from '@instantdb/expo-sqlite';
+
+const db = init({
+  appId: APP_ID,
+  Store: Store,
+});
+```
+
+Then run your app on a device or simulator:
+
+```shell {% showCopy=true %}
+npx expo run:ios # or npx expo run:android
+```
+
+That's it! Instant will now use expo-sqlite for local persistence instead of AsyncStorage.
+
+## Implementing your own store
 
 You can also implement your own local cache interface by extending `StoreInterface` from `@instantdb/react-native`. Here's an example in-memory store implementation:
 

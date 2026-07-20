@@ -20,6 +20,7 @@
                     :svelte "./packages/svelte"
                     :vue "./packages/vue"
                     :react-native-mmkv "./packages/react-native-mmkv"
+                    :expo-sqlite "./packages/expo-sqlite"
                     :resumable-stream "./packages/resumable-stream"
                     :webhooks "./packages/webhooks"})
 
