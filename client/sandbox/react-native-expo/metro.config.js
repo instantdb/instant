@@ -24,4 +24,25 @@ config.resolver.nodeModulesPaths = [
 // So instead we do this per https://github.com/expo/expo/issues/17261#issuecomment-1681206857
 config.resolver.disableHierarchicalLookup = false;
 
+// 4. Our storage adapters (@instantdb/react-native-mmkv, @instantdb/expo-sqlite) take
+// their native module as a peerDependency, but also keep a devDependency copy of it to
+// typecheck against. In the workspace those copies are symlinked into the adapter, so
+// Metro resolves them instead of this app's, and we end up bundling a second react-native.
+// Resolve them from the app so there's only ever one copy.
+const singletonModules = ['expo-sqlite', 'react-native-mmkv'];
+
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  const isSingleton = singletonModules.some(
+    (m) => moduleName === m || moduleName.startsWith(`${m}/`),
+  );
+  if (isSingleton) {
+    return context.resolveRequest(
+      { ...context, originModulePath: path.join(projectRoot, 'package.json') },
+      moduleName,
+      platform,
+    );
+  }
+  return context.resolveRequest(context, moduleName, platform);
+};
+
 module.exports = config;
