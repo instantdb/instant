@@ -829,29 +829,28 @@ class InstantCoreDatabase<
   }
 
   /**
-   * The app's maintenance-mode state. While read-only, reads and live
-   * queries keep working but writes are rejected. The state arrives on the
-   * connection handshake, so pair it with `subscribeConnectionStatus` if
-   * you need to know whether it's fresh.
+   * Listen for changes to the app's maintenance-mode state. While
+   * `isReadOnly` is true, writes are rejected server-side but reads and
+   * live queries keep working. `isLoading` is true until the first
+   * connection handshake delivers the state; the callback fires
+   * immediately with the current state and again on every change.
    *
    * @example
-   *   const { isLoading, isReadOnly } = db.getAppStatus();
-   */
-  getAppStatus(): AppStatusState {
-    return this._reactor.getAppStatusState();
-  }
-
-  /**
-   * Listen for changes to the app's maintenance-mode state. The callback
-   * fires immediately with the current state.
-   *
-   * @example
-   *   const unsub = db.subscribeAppStatus(({ isReadOnly }) => {
-   *     if (isReadOnly) showMaintenanceBanner();
+   *   const unsub = db.subscribeAppStatus(({ isLoading, isReadOnly }) => {
+   *     if (!isLoading && isReadOnly) showMaintenanceBanner();
    *   });
    */
   subscribeAppStatus(cb: (state: AppStatusState) => void): UnsubscribeFn {
-    return this._reactor.subscribeAppStatus(cb);
+    const toState = (
+      status: 'active' | 'read-only' | 'disabled' | undefined,
+    ): AppStatusState =>
+      status === undefined
+        ? { isLoading: true, isReadOnly: undefined }
+        : { isLoading: false, isReadOnly: status !== 'active' };
+    cb(toState(this._reactor._appStatus));
+    return this._reactor.subscribeAppStatus(
+      (status: 'active' | 'read-only' | 'disabled') => cb(toState(status)),
+    );
   }
 
   /**

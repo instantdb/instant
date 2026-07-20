@@ -9,7 +9,7 @@
    [instant.db.model.triple :as triple-model]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.model.app-status :as app-status-model]
+   [instant.model.app :as app-model]
    [instant.system-catalog :refer [system-catalog-app-id]]
    [instant.util.coll :as coll]
    [instant.util.exception :as ex]
@@ -570,7 +570,9 @@
                                        :num-tx-steps (count tx-step-vecs)
                                        :detailed-tx-steps (pr-str tx-step-vecs)}}
         (prevent-system-catalog-updates! app-id opts)
-        (app-status-model/assert-write-allowed! app-id tx-step-maps)
+        ;; Sign-out passes :bypass-app-status? -- it must work in every status
+        (when-not (:bypass-app-status? opts)
+          (app-model/assert-write-allowed! app-id))
         (validate-mode conn app-id tx-step-maps)
         ;; n.b. transaction-model/create! must be the first write to the db
         ;;      or else the invalidator will miss the transaction.

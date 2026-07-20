@@ -5,7 +5,6 @@
    [instant.flags :as flags]
    [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
-   [instant.model.app-status :as app-status-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
    [instant.model.schema :as schema-model]
@@ -106,8 +105,8 @@
         admin-token (ex/get-param! req [:body :admin-token] uuid-util/coerce)
         _ (app-admin-token-model/fetch! {:app-id app-id
                                          :token admin-token})
-        status (ex/get-param! req [:body :status] app-status-model/coerce-status)]
-    (app-status-model/set-status! {:app-id app-id
+        status (ex/get-param! req [:body :status] app-model/coerce-status)]
+    (app-model/set-status! {:app-id app-id
                                    :status status})
     (response/ok {:status (name status)})))
 

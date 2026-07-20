@@ -73,8 +73,9 @@
 
 (defn notify-app-status-changed
   "Pushes the app's status to this machine's sessions when an apps row
-   changes. Updates are rare and the event is idempotent, so we don't diff
-   old vs. new columns."
+   changes. We can't diff old vs. new: apps uses the default replica
+   identity, so the update record only carries the new row. Sends are rare
+   (any apps-row update) and clients no-op on an unchanged status."
   [wal-record app-id]
   (when (and app-id (= :update (:action wal-record)))
     (when-let [status (get-column (:columns wal-record) "status")]

@@ -392,13 +392,23 @@ export default abstract class InstantReactAbstractDatabase<
    *  }
    */
   useAppStatus = (): AppStatusState => {
+    const stateRef = useRef<AppStatusState>(defaultAppStatusState);
+
     const subscribe = useCallback((cb: () => void) => {
-      return this.core.subscribeAppStatus(cb);
+      return this.core.subscribeAppStatus((state) => {
+        if (
+          state.isLoading !== stateRef.current.isLoading ||
+          state.isReadOnly !== stateRef.current.isReadOnly
+        ) {
+          stateRef.current = state;
+          cb();
+        }
+      });
     }, []);
 
     const state = useSyncExternalStore<AppStatusState>(
       subscribe,
-      () => this.core.getAppStatus(),
+      () => stateRef.current,
       () => defaultAppStatusState,
     );
 

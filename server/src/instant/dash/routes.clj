@@ -21,6 +21,7 @@
             [instant.intern.metrics :as metrics]
             [instant.isn :as isn]
             [instant.jdbc.aurora :as aurora]
+            [instant.jdbc.sql :as sql]
             [instant.lib.ring.websocket :as ws]
             [instant.machine-summaries :as machine-summaries]
             [instant.model.app :as app-model]
@@ -30,7 +31,6 @@
             [instant.model.app-email-template :as app-email-template-model]
             [instant.model.app-email-verification :as app-email-verification]
             [instant.model.app-email-verification-code :as app-email-verification-code]
-            [instant.model.app-status :as app-status-model]
             [instant.model.app-file :as app-file-model]
             [instant.model.app-members :as instant-app-members]
             [instant.model.app-oauth-client :as app-oauth-client-model]
@@ -67,6 +67,7 @@
             [instant.stripe :as stripe]
             [instant.superadmin.routes :refer [req->superadmin-app!
                                                req->superadmin-user!]]
+            [instant.system-catalog-ops :refer [query-op]]
             [instant.util.async :refer [fut-bg]]
             [instant.util.crypt :as crypt-util]
             [instant.util.date :as date]
@@ -563,9 +564,63 @@
 ;; ---------
 ;; Apps Auth
 
+(defn get-dash-auth-data [{:keys [app-id]}]
+  (query-op
+   (aurora/conn-pool :read)
+   {:app-id app-id}
+   (fn [{:keys [admin-query]}]
+     (let [redirect-origins
+           (-> (sql/select-one
+                ::get-dash-auth-data
+                (aurora/conn-pool :read)
+                ["SELECT json_build_object(
+                     'authorized_redirect_origins', (
+                       SELECT json_agg(json_build_object(
+                         'id', ro.id,
+                         'service', ro.service,
+                         'params', ro.params,
+                         'created_at', ro.created_at
+                       ))
+                       FROM (SELECT * from app_authorized_redirect_origins ro
+                              WHERE ro.app_id = a.id
+                              ORDER BY ro.created_at desc)
+                       AS ro
+                     )
+                   ) AS data
+                   FROM apps a
+                   WHERE a.id = ?::uuid AND a.deletion_marked_at IS NULL"
+                 app-id])
+               (get-in [:data "authorized_redirect_origins"]))
+
+           {:strs [$oauthProviders
+                   $oauthClients]}
+           (admin-query {:$oauthProviders {}
+                         :$oauthClients {}})
+
+           providers (map (fn [provider]
+                            {"id" (get provider "id")
+                             "provider_name" (get provider "name")
+                             "created_at" (get provider "$serverCreatedAt")})
+                          $oauthProviders)
+
+           clients (map (fn [client]
+                          {"id" (get client "id")
+                           "client_name" (get client "name")
+                           "client_id" (get client "clientId")
+                           "provider_id" (get client "$oauthProvider")
+                           "meta" (get client "meta")
+                           "discovery_endpoint" (get client "discoveryEndpoint")
+                           "created_at" (get client "$serverCreatedAt")
+                           "redirect_to" (get client "redirectTo")
+                           "use_shared_credentials" (boolean (get client "useSharedCredentials"))})
+                        $oauthClients)]
+       {:data {"oauth_service_providers" providers
+               "oauth_clients" clients
+               "authorized_redirect_origins" redirect-origins}}))))
+
 (defn dash-apps-auth-get [req]
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/read req)
-        {:keys [data]} (app-model/get-dash-auth-data {:app-id app-id})]
+        {:keys [data]} (get-dash-auth-data {:app-id app-id})]
     (response/ok data)))
 
 (defn authorized-redirect-origins-post [req]
@@ -1482,8 +1537,8 @@
 
 (defn app-status-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :admin req)
-        status (ex/get-param! req [:body :status] app-status-model/coerce-status)]
-    (app-status-model/set-status! {:app-id app-id
+        status (ex/get-param! req [:body :status] app-model/coerce-status)]
+    (app-model/set-status! {:app-id app-id
                                    :status status})
     (response/ok {:status (name status)})))
 

@@ -13,7 +13,6 @@
    [instant.admin.transact-queue :as tx-queue]
    [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
-   [instant.model.app-status :as app-status-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
@@ -145,7 +144,7 @@
   (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
         inference? (-> req :body :inference? boolean)
         {:keys [app-id] :as perms} (get-perms! req :data/read)
-        _ (app-status-model/assert-read-allowed! app-id)
+        _ (app-model/assert-read-allowed! app-id)
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool (aurora/conn-pool :read)}
                     :app-id app-id
