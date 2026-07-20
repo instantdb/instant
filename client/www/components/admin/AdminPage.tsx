@@ -29,7 +29,6 @@ import {
   SectionHeading,
   Select,
   SubsectionHeading,
-  Switch,
   TextInput,
   useDialog,
 } from '@/components/ui';
@@ -840,9 +839,7 @@ function ReadOnlyModeRow({ app }: { app: InstantApp }) {
       }
       confirmDialog.onClose();
       successToast(
-        newStatus === 'read-only'
-          ? 'Read-only mode enabled.'
-          : 'Read-only mode disabled. Writes are accepted again.',
+        newStatus === 'read-only' ? 'Writes paused.' : 'Writes resumed.',
       );
     } catch (e) {
       errorToast('Failed to update the app status.');
@@ -854,53 +851,57 @@ function ReadOnlyModeRow({ app }: { app: InstantApp }) {
   return (
     <div className="flex items-center justify-between gap-4 p-4">
       <div className="flex min-w-0 flex-col">
-        <span className="font-medium">
-          {isAppDisabled ? 'This app has been disabled' : 'Read-only mode'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="font-medium">Read-only mode</span>
+          {isReadOnly ? (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
+              read-only
+            </span>
+          ) : (
+            <Pill>{isAppDisabled ? 'disabled' : 'off'}</Pill>
+          )}
+        </div>
         <span className="text-sm text-gray-500 dark:text-neutral-400">
           {isAppDisabled
-            ? 'Reads and writes are paused. Contact the Instant team to re-enable it.'
-            : isReadOnly
-              ? 'Writes are paused. Reads and live queries keep working.'
-              : 'Pause all writes while you migrate data or debug an issue.'}
+            ? 'Reads and writes are paused. Contact the Instant team to re-enable this app.'
+            : 'Pause all writes while you migrate data or debug an issue.'}
         </span>
       </div>
-      <Switch
-        checked={isReadOnly}
-        disabled={isAppDisabled || isUpdating}
-        aria-label="Read-only mode"
-        onCheckedChange={(checked) => {
-          if (checked) {
-            confirmDialog.onOpen();
-          } else {
-            setStatus('active');
-          }
-        }}
-      />
-      <Dialog title="Enable read-only mode" {...confirmDialog}>
+      {!isAppDisabled &&
+        (isReadOnly ? (
+          <button
+            type="button"
+            disabled={isUpdating}
+            onClick={() => setStatus('active')}
+            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            Resume writes
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={isUpdating}
+            onClick={confirmDialog.onOpen}
+            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-red-300 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
+          >
+            Pause writes
+          </button>
+        ))}
+      <Dialog title="Pause writes" {...confirmDialog}>
         <div className="flex flex-col gap-2">
-          <SubsectionHeading>Enable read-only mode</SubsectionHeading>
-          <Content className="space-y-2">
-            <p>Writes from your users will be rejected while this is on.</p>
-            <p>Reads, live queries, and presence keep working.</p>
-            <p>
-              Offline writes queued on user devices will be rejected, not saved
-              for later.
-            </p>
+          <SubsectionHeading>Pause writes</SubsectionHeading>
+          <Content>
+            Writes from your users will be rejected while paused, including
+            offline writes queued on their devices. Reads, live queries, and
+            presence keep working.
           </Content>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="subtle" onClick={confirmDialog.onClose}>
-              Cancel
-            </Button>
-            <Button
-              variant="secondary"
-              loading={isUpdating}
-              className="border-amber-300 bg-amber-100 text-amber-800 hover:enabled:border-amber-400 hover:enabled:bg-amber-200 hover:enabled:text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:enabled:bg-amber-900/50 dark:hover:enabled:text-amber-100"
-              onClick={() => setStatus('read-only')}
-            >
-              Enable read-only mode
-            </Button>
-          </div>
+          <Button
+            variant="destructive"
+            loading={isUpdating}
+            onClick={() => setStatus('read-only')}
+          >
+            Pause writes
+          </Button>
         </div>
       </Dialog>
     </div>
