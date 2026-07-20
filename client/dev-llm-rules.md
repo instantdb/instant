@@ -35,6 +35,7 @@ The client directory is a pnpm monorepo managed with Turbo. It contains the Inst
 - **`react-common/`** (`@instantdb/react-common`) - Shared hooks/logic between React and React Native.
 - **`react-native/`** (`@instantdb/react-native`) - React Native client with AsyncStorage and NetInfo integration.
 - **`react-native-mmkv/`** (`@instantdb/react-native-mmkv`) - MMKV storage adapter for React Native.
+- **`expo-sqlite/`** (`@instantdb/expo-sqlite`) - expo-sqlite storage adapter for React Native.
 - **`solidjs/`** (`@instantdb/solidjs`) - SolidJS client library.
 - **`svelte/`** (`@instantdb/svelte`) - Svelte client library.
 
