@@ -268,8 +268,12 @@
 (defn stripe-secret []
   ;; Add an override from the environment because we need
   ;; it for the tests (populated at https://github.com/jsventures/instant/settings/secrets/actions)
-  (or (System/getenv "STRIPE_API_KEY")
-      (some-> @config-map :stripe-secret crypt-util/secret-value)))
+  (let [env-secret (System/getenv "STRIPE_API_KEY")]
+    (or (when-not (string/blank? env-secret) env-secret)
+        (some-> @config-map :stripe-secret crypt-util/secret-value))))
+
+(defn default-paid-app? []
+  (string/blank? (stripe-secret)))
 
 (defn stripe-webhook-secret []
   (-> @config-map :stripe-webhook-secret crypt-util/secret-value))
