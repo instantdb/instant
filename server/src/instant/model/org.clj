@@ -68,7 +68,8 @@
                                                    [:or
                                                     [:< :m.created_at :?free-teams-cutoff]
                                                     [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
-                                                    [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]}]
+                                                    [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]
+                                                    [:= :app-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]]]}]
                            [:combined {:union-all [{:select :* :from :membered}
                                                    {:select :* :from :app-membered :where [:not-in :id {:select :id :from :membered}]}]}]]
 
@@ -106,7 +107,8 @@
                                            [:or
                                             [:< :m.created_at :?free-teams-cutoff]
                                             [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
-                                            [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]}]}))
+                                            [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]
+                                            [:= :app-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]]]}]}))
 
 (defn apps-for-org
   ([params] (apps-for-org (aurora/conn-pool :read) params))
