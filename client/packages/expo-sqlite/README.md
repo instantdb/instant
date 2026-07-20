@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a 
+  <a
     href="https://discord.com/invite/VU53p7uQcE" >
     <img height=20 src="https://img.shields.io/discord/1031957483243188235" />
   </a>
@@ -18,9 +18,9 @@
    <a href="https://instantdb.com/examples">Examples</a> ·
    <a href="https://www.instantdb.com/docs/start-rn">Docs</a> ·
    <a href="https://discord.com/invite/VU53p7uQcE">Discord</a>
-<p>
+</p>
 
-Welcome to [Instant's](http://instantdb.com) Expo SQLite interface.
+Welcome to [Instant's](https://instantdb.com) Expo SQLite interface.
 
 ## Usage
 
