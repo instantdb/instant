@@ -10,6 +10,7 @@
    [instant.jdbc.sql :as sql]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
+   [instant.plans :as plans]
    [instant.system-catalog :as system-catalog]
    [instant.util.cache :as cache]
    [instant.util.crypt :as crypt-util]
@@ -63,26 +64,61 @@
    (sql/select ::authorized-users conn
                (uhsql/formatp authorized-users-q {:app-id app-id}))))
 
+(def ^:private create-default-paid-subscription-q
+  (uhsql/preformat
+   {:with [[:subscription
+            {:insert-into :instant-subscriptions
+             :values [{:id :?subscription-id
+                       :user-id [:cast :?user-id :uuid]
+                       :app-id [:cast :?app-id :uuid]
+                       :subscription-type-id [:inline plans/PRO_SUBSCRIPTION_TYPE]
+                       :source [:inline "self-hosted"]}]
+             :returning :*}]
+           [:app-update
+            {:update :apps
+             :set {:subscription-id :?subscription-id}
+             :where [:= :id :?app-id]}]]
+    :select :*
+    :from :subscription}))
+
+(defn- create-default-paid-subscription!
+  [conn {:keys [app-id user-id]}]
+  (let [subscription-id (random-uuid)]
+    (sql/execute-one! ::create-default-paid-subscription!
+                      conn
+                      (uhsql/formatp create-default-paid-subscription-q
+                                    {:subscription-id subscription-id
+                                     :user-id user-id
+                                     :app-id app-id}))))
+
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [id title creator-id org-id admin-token]}]
-   (let [query {:with [[:app_insert
-                        {:insert-into :apps
-                         :values [{:id id
-                                   :title title
-                                   :creator-id creator-id
-                                   :org-id org-id}]
-                         :returning :*}]
-                       [:token_insert
-                        {:insert-into :app_admin_tokens
-                         :values [{:app-id id
-                                   :token admin-token}]
-                         :returning :*}]]
-                :select [:app_insert.* [:token_insert.token :admin-token]]
-                :from :app_insert
-                :join [:token_insert [:= :token_insert.app_id :app_insert.id]]}
-         app-with-token (sql/execute-one! ::create! conn (hsql/format query))]
-     (rename-keys app-with-token {:admin_token :admin-token}))))
+   (next-jdbc/with-transaction [tx-conn conn]
+     (let [query {:with [[:app_insert
+                          {:insert-into :apps
+                           :values [{:id id
+                                     :title title
+                                     :creator-id creator-id
+                                     :org-id org-id}]
+                           :returning :*}]
+                         [:token_insert
+                          {:insert-into :app_admin_tokens
+                           :values [{:app-id id
+                                     :token admin-token}]
+                           :returning :*}]]
+                  :select [:app_insert.* [:token_insert.token :admin-token]]
+                  :from :app_insert
+                  :join [:token_insert [:= :token_insert.app_id :app_insert.id]]}
+           app-with-token (sql/execute-one! ::create! tx-conn (hsql/format query))
+           app (rename-keys app-with-token {:admin_token :admin-token})]
+       (if (config/default-paid-app?)
+         (let [subscription (create-default-paid-subscription!
+                             tx-conn
+                             {:app-id id
+                              :user-id creator-id})]
+           (assoc app :subscription_id (:id subscription)))
+         app)))))
 
 (defn get-by-id*
   ([id]
