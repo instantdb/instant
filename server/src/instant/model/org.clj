@@ -1,6 +1,7 @@
 (ns instant.model.org
   (:require
    [instant.config :as config]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
@@ -164,7 +165,6 @@
          query (uhsql/formatp invites-for-org-q params)]
      (sql/select ::invites-for-org conn query))))
 
-
 (def org-for-user-q
   (uhsql/preformat {:with [[:membered {:select [:o.id
                                                 :o.title
@@ -227,7 +227,6 @@
          (ex/assert-record! :org {:args [{:user-id user-id
                                           :org-id org-id}]})))))
 
-
 (def create-org-q
   (uhsql/preformat {:with [[:org {:insert-into :orgs
                                   :values [{:id :?org-id
@@ -264,7 +263,27 @@
          query (uhsql/formatp delete-org-q params)]
      (sql/execute-one! ::delete! conn query))))
 
-(def usage-q
+(def usage-q-new
+  (uhsql/preformat {:select [[[:coalesce
+                               [:*
+                                [:sum :agg.pg_size]
+                                [:case
+                                 [:= :0 [:pg_relation_size [:inline "triples"]]] :1
+                                 :else [:/
+                                        [:cast [:pg_total_relation_size [:inline "triples"]] :numeric]
+                                        [:pg_relation_size [:inline "triples"]]]]]
+                               :0]
+                              :num_bytes]]
+                    :from [[:triples-size-aggregate :agg]]
+                    :join [[:apps :app] [:= :agg.app_id :app.id]
+                           [:attrs :attr] [:= :agg.attr_id :attr.id]]
+                    :where [:and
+                            [:= :app.org_id :?org-id]
+                            [:= nil :app.deletion-marked-at]
+                            [:= nil :attr.deletion-marked-at]]}))
+
+;; TODO(dww): Remove after deploying triples-size-updates
+(def usage-q-old
   (uhsql/preformat {:select [[[:coalesce
                                [:*
                                 [:sum :s.triples_pg_size]
@@ -300,7 +319,10 @@
    (sql/select-one
     ::org-usage
     conn
-    (uhsql/formatp usage-q {:org-id org-id}))))
+    (uhsql/formatp (if (flags/new-db-size?)
+                     usage-q-new
+                     usage-q-old)
+                   {:org-id org-id}))))
 
 (def rename-q (uhsql/preformat {:update :orgs
                                 :set {:title :?title}
