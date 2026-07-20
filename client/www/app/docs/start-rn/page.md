@@ -216,7 +216,7 @@ npx expo run:ios # or npx expo run:android
 
 That's it! Instant will now use expo-sqlite for local persistence instead of AsyncStorage.
 
-### Implementing your own store
+## Implementing your own store
 
 You can also implement your own local cache interface by extending `StoreInterface` from `@instantdb/react-native`. Here's an example in-memory store implementation:
 
