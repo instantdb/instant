@@ -30,19 +30,21 @@ config.resolver.disableHierarchicalLookup = false;
 // Metro resolves them instead of this app's, and we end up bundling a second react-native.
 // Resolve them from the app so there's only ever one copy.
 const singletonModules = ['expo-sqlite', 'react-native-mmkv'];
+const defaultResolveRequest = config.resolver.resolveRequest;
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  const resolve = defaultResolveRequest ?? context.resolveRequest;
   const isSingleton = singletonModules.some(
     (m) => moduleName === m || moduleName.startsWith(`${m}/`),
   );
   if (isSingleton) {
-    return context.resolveRequest(
+    return resolve(
       { ...context, originModulePath: path.join(projectRoot, 'package.json') },
       moduleName,
       platform,
     );
   }
-  return context.resolveRequest(context, moduleName, platform);
+  return resolve(context, moduleName, platform);
 };
 
 module.exports = config;
