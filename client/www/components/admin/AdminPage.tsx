@@ -29,6 +29,7 @@ import {
   SectionHeading,
   Select,
   SubsectionHeading,
+  Switch,
   TextInput,
   useDialog,
 } from '@/components/ui';
@@ -501,9 +502,10 @@ export function Admin({
           <div className="flex flex-col gap-3 pb-4">
             <SectionHeader
               title="Danger zone"
-              description="These actions are irreversible and permanently delete data."
+              description="Pause writes, or permanently delete data."
             />
             <div className="overflow-hidden rounded-sm border border-dashed border-red-200 dark:border-red-900/50">
+              <ReadOnlyModeRow app={app} />
               {isMinRole('owner', role) && (
                 <DangerRow
                   title="Clear app"
@@ -801,6 +803,107 @@ function InviteTeamMemberDialog({
         onClick={onSubmit}
       />
     </ActionForm>
+  );
+}
+
+function ReadOnlyModeRow({ app }: { app: InstantApp }) {
+  const dashResponse = useFetchedDash();
+  const token = useContext(TokenContext);
+  const confirmDialog = useDialog();
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const status = app.status ?? 'active';
+  const isReadOnly = status === 'read-only';
+  const isAppDisabled = status === 'disabled';
+
+  async function setStatus(newStatus: 'active' | 'read-only') {
+    setIsUpdating(true);
+    try {
+      const promise = jsonMutate(
+        `${config.apiURI}/dash/apps/${app.id}/status`,
+        {
+          method: 'POST',
+          token,
+          body: { status: newStatus },
+        },
+      );
+      const update = (d: { apps?: InstantApp[] } | undefined) => {
+        const _app = d?.apps?.find((a) => a.id === app.id);
+        if (!_app) return;
+
+        _app.status = newStatus;
+      };
+      if (dashResponse.data.workspace.type === 'personal') {
+        await dashResponse.optimisticUpdate(promise, update);
+      } else {
+        await dashResponse.optimisticUpdateWorkspace(promise, update);
+      }
+      confirmDialog.onClose();
+      successToast(
+        newStatus === 'read-only'
+          ? 'Read-only mode enabled.'
+          : 'Read-only mode disabled. Writes are accepted again.',
+      );
+    } catch (e) {
+      errorToast('Failed to update the app status.');
+    } finally {
+      setIsUpdating(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-4 p-4">
+      <div className="flex min-w-0 flex-col">
+        <span className="font-medium">
+          {isAppDisabled ? 'This app has been disabled' : 'Read-only mode'}
+        </span>
+        <span className="text-sm text-gray-500 dark:text-neutral-400">
+          {isAppDisabled
+            ? 'Reads and writes are paused. Contact the Instant team to re-enable it.'
+            : isReadOnly
+              ? 'Writes are paused. Reads and live queries keep working.'
+              : 'Pause all writes while you migrate data or debug an issue.'}
+        </span>
+      </div>
+      <Switch
+        checked={isReadOnly}
+        disabled={isAppDisabled || isUpdating}
+        aria-label="Read-only mode"
+        onCheckedChange={(checked) => {
+          if (checked) {
+            confirmDialog.onOpen();
+          } else {
+            setStatus('active');
+          }
+        }}
+      />
+      <Dialog title="Enable read-only mode" {...confirmDialog}>
+        <div className="flex flex-col gap-2">
+          <SubsectionHeading>Enable read-only mode</SubsectionHeading>
+          <Content className="space-y-2">
+            <p>Writes from your users will be rejected while this is on.</p>
+            <p>Reads, live queries, and presence keep working.</p>
+            <p>
+              Offline writes queued on user devices will be rejected, not saved
+              for later.
+            </p>
+          </Content>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="subtle" onClick={confirmDialog.onClose}>
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              loading={isUpdating}
+              className="border-amber-300 bg-amber-100 text-amber-800 hover:enabled:border-amber-400 hover:enabled:bg-amber-200 hover:enabled:text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-200 dark:hover:enabled:bg-amber-900/50 dark:hover:enabled:text-amber-100"
+              onClick={() => setStatus('read-only')}
+            >
+              Enable read-only mode
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+    </div>
   );
 }
 

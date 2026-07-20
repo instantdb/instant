@@ -570,6 +570,16 @@ function Dashboard() {
         <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 md:flex-row md:gap-4 dark:border-b-neutral-700">
           <div className="flex items-center gap-2">
             <h2 className="font-semibold md:text-xl">{app.title}</h2>
+            {app.status === 'read-only' && (
+              <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
+                Read-only
+              </Badge>
+            )}
+            {app.status === 'disabled' && (
+              <Badge className="bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-200">
+                Disabled
+              </Badge>
+            )}
             {dashResponse.data.workspace.type === 'org' && (
               <Badge>{capitalize(dashResponse.data.workspace.org.role)}</Badge>
             )}
