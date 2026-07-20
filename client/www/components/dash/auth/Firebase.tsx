@@ -177,6 +177,7 @@ export function AddFirebaseClientForm({
         onChange={setClientName}
         label="Unique name"
         placeholder="e.g. firebase"
+        ignorePasswordManager
       />
       <TextInput
         tabIndex={2}

@@ -8,7 +8,7 @@ nextjs:
 The quickest way to add Stripe to your Instant app is to tell your LLM to do it. Just say "add Stripe payments" and follow along step by step.
 
 For more guidance we've put together three reference examples with tutorials you
-can follow along. Each example also has addiitonal docs you can copy and paste for your agent.
+can follow along. Each example also has additional docs you can copy and paste for your agent.
 
 ## Stripe Examples
 

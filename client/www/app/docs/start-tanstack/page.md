@@ -31,7 +31,7 @@ Add the InstantDB React Library:
 npm i @instantdb/react
 ```
 
-Use `instant-cli` to set up a new Instant project. This prompt you to log in if you haven't already., It will then create a schema file, permissions file, and update your `.env` file.
+Use `instant-cli` to set up a new Instant project. This will prompt you to log in if you haven't already. It will then create a schema file, permissions file, and update your `.env` file.
 
 ```shell
 npx instant-cli init
@@ -262,4 +262,4 @@ For the advanced use case of integrating with TanStack Query and enabling SSR, r
 
 You can also check out the [Working with data](/docs/init) section to learn more Instant concepts.
 
-As you get more familiar with Instant, check out our [Recommended Workflow](/docs/recommended-workflow) docs for using Instant in your projects.
+As you get more familiar with Instant, check out our [Recommended Workflow](/docs/workflow) docs for using Instant in your projects.

@@ -1106,7 +1106,7 @@ export function EditRowDialog({
       </div>
       <div
         ref={formBodyRef}
-        className="scrollbar-gutter-stable mt-4 min-h-0 flex-1 overflow-y-auto px-4"
+        className="scrollbar-gutter-stable mt-4 min-h-0 flex-1 overflow-y-auto px-4 pb-4"
       >
         <div className="flex flex-col gap-4">
           {op === 'add' ? (

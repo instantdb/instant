@@ -206,6 +206,7 @@ export function AddGoogleClientForm({
         onChange={setClientName}
         label="Client name"
         placeholder={`e.g. google-${appType}`}
+        ignorePasswordManager
       />
 
       {useSharedCredentials ? (

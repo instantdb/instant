@@ -260,6 +260,7 @@ function CreateFirstAppScreen(props: {
             onChange={(t) => {
               props.onAppNameChange(t);
             }}
+            ignorePasswordManager
           />
           <Button
             type="submit"

@@ -5,7 +5,7 @@ nextjs:
     description: 'How to use Instant with LLMs'
 ---
 
-You can supercharge your Instant experience by using it with LLMs. Just add our Instant rules and your off to the races!
+You can supercharge your Instant experience by using it with LLMs. Just add our Instant rules and you're off to the races!
 
 ## Instant Skill
 
@@ -40,7 +40,7 @@ You may need to restart your editor for the rules to take effect.
 ### Markdown Docs and llms.txt
 
 You can attach `.md` to the end of any doc page url to get raw markdown. This can be helpful to paste into your LLM if you're stuck on
-particular functionality. For example, here's the recommended docs for [adding auth](/docs/auth/magic-codes.md.md)
+particular functionality. For example, here's the recommended docs for [adding auth](/docs/auth/magic-codes.md)
 
 We recommend starting with the rules files above and adding more docs as needed.
 If you want though you can get all our docs at once in markdown format via
@@ -78,7 +78,7 @@ Or edit your `~/.cursor/mcp.json` directly:
 
 ### Claude Code
 
-If you're on a paid Claude plan, you can add the the server via the command line
+If you're on a paid Claude plan, you can add the server via the command line
 
 ```text {% showCopy="true" %}
 claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp
@@ -90,7 +90,7 @@ auth flow to enable the Instant MCP server in your claude code sessions!
 
 ### Codex
 
-If you're on a paid OpenAI plan, you can add the the server via the command line
+If you're on a paid OpenAI plan, you can add the server via the command line
 
 Edit your `~/.codex/config.toml` to include the [`rmcp_client` feature](https://developers.openai.com/codex/mcp/):
 
@@ -111,7 +111,7 @@ Now run `codex` to start Codex. You can run `/mcp` to see Instant in your list.
 
 ### Gemini
 
-If you're on a paid Google AI plan, you can add the the server via the command line
+If you're on a paid Google AI plan, you can add the server via the command line
 
 ```text {% showCopy="true" %}
 gemini mcp add --transport http instant https://mcp.instantdb.com/mcp

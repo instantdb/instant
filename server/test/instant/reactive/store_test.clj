@@ -487,5 +487,61 @@
       (is (<= (* 0.5 total-ms) elapsed (* 3 total-ms))
           (str "expected wall time near " total-ms "ms, got " elapsed "ms")))))
 
+(deftest reset-conn-tx!
+  (let [store  (rs/init)
+        app-id (random-uuid)
+        conn   (rs/app-conn store app-id)]
+    ;; Advance the tx counter past tx0 and create a few entities.
+    (rs/transact! "test" conn [{:db/id -1
+                                :datalog-query/app-id app-id
+                                :datalog-query/query [[:ea 1]]}])
+    (rs/transact! "test" conn [{:db/id -2
+                                :datalog-query/app-id app-id
+                                :datalog-query/query [[:ea 2]]}])
+    (let [db-before     @conn
+          datoms-before (set (map (juxt :e :a :v) (d/datoms db-before :eavt)))]
+      (is (> (:max-tx db-before) rs/ds-tx0))
+
+      (rs/reset-conn-tx! conn)
+
+      (let [db-after @conn]
+        (testing "tx counter is reset to tx0"
+          (is (= rs/ds-tx0 (:max-tx db-after))))
+        (testing "datoms (eids, attrs, values) are preserved"
+          (is (= datoms-before
+                 (set (map (juxt :e :a :v) (d/datoms db-after :eavt))))))
+        (testing "max-eid is preserved so new entities don't collide"
+          (is (= (:max-eid db-before) (:max-eid db-after))))
+        (testing "lookups still resolve after reset"
+          (is (some? (d/entity db-after [:tx-meta/app-id app-id])))
+          (is (some? (d/entity db-after [:datalog-query/app-id+query
+                                         [app-id [[:ea 1]]]]))))))))
+
+(deftest reset-conn-tx!-preserves-max-eid
+  ;; Regression: a retracted highest eid must not be reused after a reset, so the
+  ;; reset carries :max-eid forward instead of letting init-db recompute it.
+  (let [store   (rs/init)
+        app-id  (random-uuid)
+        conn    (rs/app-conn store app-id)
+        report  (rs/transact! "test" conn [{:db/id -1
+                                            :datalog-query/app-id app-id
+                                            :datalog-query/query [[:ea 1]]}])
+        top-eid (get (:tempids report) -1)]
+    ;; fully retract the entity holding the highest eid
+    (rs/transact! "test" conn [[:db/retractEntity top-eid]])
+    (let [max-eid-before (:max-eid @conn)]
+      (is (= top-eid max-eid-before)
+          "the retracted entity should have held the highest eid")
+
+      (rs/reset-conn-tx! conn)
+
+      (testing "max-eid is carried forward, not recomputed from live datoms"
+        (is (= max-eid-before (:max-eid @conn))))
+      (testing "a new entity gets a fresh eid above the retracted one (no reuse)"
+        (let [report' (rs/transact! "test" conn [{:db/id -1
+                                                  :datalog-query/app-id app-id
+                                                  :datalog-query/query [[:ea 2]]}])]
+          (is (> (get (:tempids report') -1) top-eid)))))))
+
 (comment
   (test/run-tests *ns*))

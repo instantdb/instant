@@ -38,7 +38,7 @@ npx instant-cli@latest auth client add \
 
 Use Firebase's `getIdToken` helper to get a JWT for your signed-in user. Then call Instant's `db.auth.signInWithIdToken` with the JWT and the client name you set on the Instant dashboard.
 
-When you call `db.auth.signInWithIdToken`, Instant will verify that the JWT was signed by your Firebase app. If verified, Instant use the email in the JWT's claims to lookup your user or create a new one and create a long-lived session. Be sure to call Instant's `db.auth.signOut` when you want to sign the user out.
+When you call `db.auth.signInWithIdToken`, Instant will verify that the JWT was signed by your Firebase app. If verified, Instant will use the email in the JWT's claims to lookup your user or create a new one and create a long-lived session. Be sure to call Instant's `db.auth.signOut` when you want to sign the user out.
 
 Here is a full example:
 

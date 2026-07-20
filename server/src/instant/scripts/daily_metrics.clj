@@ -90,32 +90,35 @@
                       CURRENT_DATE AS max_date
                     FROM daily_app_transactions
                   ),
-                  earliest_transaction_per_app AS (
-                    SELECT
-                      app_id,
-                      MIN(created_at) AS earliest_date,
-                      MIN(created_at) + INTERVAL '7 days' AS earliest_date_plus_7
-                    FROM
-                      transactions
-                    GROUP BY
-                      app_id
+                  window_txns AS (
+                    SELECT t.app_id, t.created_at
+                    FROM transactions t, date_range dr
+                    WHERE t.created_at > dr.last_seen_date
+                      AND t.created_at < dr.max_date
                   ),
-                  new_transactions AS (
+                  recorded_active_dates AS (
+                    SELECT app_id, MIN(active_date) AS active_date
+                    FROM daily_app_transactions
+                    GROUP BY app_id
+                  ),
+                  app_active_dates AS (
                     SELECT
-                       DATE(t.created_at) as date,
-                       t.app_id,
-                       eta.earliest_date_plus_7 as active_date,
-                       CASE  WHEN t.created_at > eta.earliest_date_plus_7 THEN true ELSE false END as is_active,
-                       count(*)
-                    FROM transactions t
-                    JOIN earliest_transaction_per_app eta ON t.app_id = eta.app_id
-                    CROSS JOIN date_range dr
-                    WHERE t.created_at > dr.last_seen_date and t.created_at < dr.max_date AND DATE(t.created_at) NOT IN ('2024-10-28')
-                    GROUP BY 1, 2, 3, 4
+                      w.app_id,
+                      COALESCE(r.active_date, MIN(w.created_at) + INTERVAL '7 days') AS active_date
+                    FROM window_txns w
+                    LEFT JOIN recorded_active_dates r ON r.app_id = w.app_id
+                    GROUP BY w.app_id, r.active_date
                   )
                   INSERT INTO daily_app_transactions (date, app_id, active_date, is_active, count)
-                  SELECT date, app_id, active_date, is_active, count
-                  FROM new_transactions;"]))))
+                  SELECT
+                    DATE(w.created_at),
+                    w.app_id,
+                    a.active_date,
+                    w.created_at > a.active_date,
+                    COUNT(*)
+                  FROM window_txns w
+                  JOIN app_active_dates a ON a.app_id = w.app_id
+                  GROUP BY 1, 2, 3, 4;"]))))
 
 (defn daily-job!
   [^Instant date]

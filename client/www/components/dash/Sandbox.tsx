@@ -603,7 +603,7 @@ export function Sandbox({
                 deleteSandbox(selectedSandbox);
               }}
               label="Delete Sandbox"
-              icon={<TrashIcon />}
+              icon={<TrashIcon width={18} />}
             />
 
             <IconButton
@@ -618,7 +618,7 @@ export function Sandbox({
           </>
         )}
         <IconButton
-          icon={<PlusIcon />}
+          icon={<PlusIcon width={18} />}
           label="Save As..."
           onClick={() => {
             saveCurrentDialog.onOpen();
@@ -650,6 +650,7 @@ export function Sandbox({
             label={<div className="pt-2 pb-0 font-normal">Sandbox Name</div>}
             value={newSaveName}
             onChange={setNewSaveName}
+            ignorePasswordManager
           />
           <div className="flex justify-end pt-2">
             <Button type="submit">Save</Button>

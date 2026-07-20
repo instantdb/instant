@@ -350,6 +350,9 @@
 (defn hard-deletion-sweeper-disabled? []
   (toggled? :hard-deletion-sweeper-disabled?))
 
+(defn conn-tx-reset-disabled? []
+  (toggled? :conn-tx-reset-disabled?))
+
 (defn rate-limit-tx-based-on-conn-pool? []
   (toggled? :rate-limit-tx-based-on-conn-pool?))
 

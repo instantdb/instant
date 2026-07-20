@@ -820,6 +820,7 @@ function CreateClientForm({
         label="Unique name"
         placeholder="Unique name"
         required={true}
+        ignorePasswordManager
       />
       <AuthorizedRedirectUrlsInput
         urls={authorizedRedirectUrls}
@@ -1306,6 +1307,7 @@ function CreateAppForm({ onClose }: { onClose: () => void }) {
         label="Unique name"
         placeholder="Unique name"
         required={true}
+        ignorePasswordManager
       />
       <TextInput
         value={homepageUrl}
