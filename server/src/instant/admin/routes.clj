@@ -144,7 +144,6 @@
   (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
         inference? (-> req :body :inference? boolean)
         {:keys [app-id] :as perms} (get-perms! req :data/read)
-        _ (app-model/assert-read-allowed! app-id)
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool (aurora/conn-pool :read)}
                     :app-id app-id

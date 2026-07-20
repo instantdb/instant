@@ -228,7 +228,6 @@
 (defn- handle-add-query! [store sess-id {:keys [q client-event-id return-type] :as _event}]
   (let [{:keys [app user admin?]} (get-auth! store sess-id)
         {app-id :id} app
-        _ (app-model/assert-read-allowed! app-id)
         instaql-queries (rs/session-instaql-queries store app-id sess-id)]
     (cond
       (contains? instaql-queries q)
@@ -466,9 +465,6 @@
                                           :attributes {:session-id sess-id}})
   (let [auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
-        ;; While disabled we refuse to recompute or send data. Queries stay
-        ;; registered and marked stale, so they recover on re-enable.
-        _ (app-model/assert-read-allowed! app-id)
         current-user (-> auth :user)
         admin? (-> auth :admin?)
         {:keys [attrs table-info]} (get-attrs (:app auth))

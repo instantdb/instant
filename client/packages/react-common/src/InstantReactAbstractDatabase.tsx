@@ -379,15 +379,13 @@ export default abstract class InstantReactAbstractDatabase<
 
   /**
    * Observe the app's maintenance-mode state. While read-only, reads and
-   * live queries keep working but writes are rejected. Returns a loading
-   * state until the first connection handshake completes.
+   * live queries keep working but writes are rejected.
    *
    * @example
    *  function App() {
    *    const { isLoading, isReadOnly } = db.useAppStatus()
-   *    if (!isLoading && isReadOnly) {
-   *      return <MaintenanceBanner />
-   *    }
+   *    if (isLoading) return null
+   *    if (isReadOnly) return <MaintenanceBanner />
    *    // ...
    *  }
    */

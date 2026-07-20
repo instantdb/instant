@@ -169,7 +169,8 @@
   (let [iql-res (i/query {:app-id app-id
                           :attrs attrs
                           :datalog-query-fn d/query
-                          :db {:conn-pool conn}}
+                          :db {:conn-pool conn}
+                          :skip-app-status-check? true}
                          {etype {:$ {:where where}}})
         {:keys [symbol-values triples]} (collect-iql-result iql-res)
         eid (-> symbol-values
@@ -185,7 +186,8 @@
   (let [iql-res (i/query {:app-id app-id
                           :attrs attrs
                           :datalog-query-fn d/query
-                          :db {:conn-pool conn}}
+                          :db {:conn-pool conn}
+                          :skip-app-status-check? true}
                          {etype {:$ {:where where}}})
         {:keys [symbol-values triples]} (collect-iql-result iql-res)
         eids (-> symbol-values
@@ -202,7 +204,8 @@
              :datalog-query-fn d/query
              :db {:conn-pool conn}
              :inference? true
-             :include-server-created-at? true}
+             :include-server-created-at? true
+             :skip-app-status-check? true}
         nodes (i/query ctx q)]
     (instaql-nodes->object-tree ctx
                                 nodes)))
