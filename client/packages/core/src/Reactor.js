@@ -895,6 +895,18 @@ export default class Reactor {
       case 'app-status-changed': {
         const prevStatus = this._appStatus;
         this._setAppStatus(msg.status);
+        if (msg.status === 'disabled' && prevStatus !== 'disabled') {
+          // The server has stopped serving reads; surface the typed error on
+          // every registered query immediately instead of waiting for the
+          // next round trip.
+          const error = {
+            message: 'This app is currently disabled.',
+            hint: { status: 'disabled' },
+          };
+          Object.keys(this.queryCbs).forEach((hash) =>
+            this.notifyQueryError(hash, error),
+          );
+        }
         if (prevStatus === 'disabled' && msg.status !== 'disabled') {
           // Leaving `disabled`: refreshes were paused server-side, so restart
           // the socket to re-add every query and get fresh results.
