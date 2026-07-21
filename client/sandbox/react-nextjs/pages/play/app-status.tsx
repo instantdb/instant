@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { i, id, InstantReactAbstractDatabase } from '@instantdb/react';
 import EphemeralAppPage from '../../components/EphemeralAppPage';
 import config from '../../config';
@@ -67,15 +67,22 @@ function App({
   const { isLoading: statusLoading, isReadOnly } = db.useAppStatus();
   const connectionStatus = db.useConnectionStatus();
   const { isLoading, error, data } = db.useQuery({ docs: {} });
-  const [serverStatus, setServerStatus] = useState<AppStatus>('active');
+  // The public API collapses `disabled` away, so the operator toggle reads
+  // the reactor's raw status directly
+  const [serverStatus, setServerStatus] = useState<AppStatus | undefined>();
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [lastTransact, setLastTransact] = useState<string | null>(null);
+
+  useEffect(() => {
+    const reactor = (db as any).core._reactor;
+    setServerStatus(reactor._appStatus);
+    return reactor.subscribeAppStatus(setServerStatus);
+  }, [db]);
 
   const toggle = async (status: AppStatus) => {
     setToggleError(null);
     try {
       await setAppStatus(appId, status);
-      setServerStatus(status);
     } catch (e) {
       setToggleError((e as Error).message);
     }
