@@ -87,6 +87,28 @@
                                           props)]
     (.unwrap conn PgConnection)))
 
+(defn- get-pg-copy-ready-conn
+  "Given a db-spec, return a PGConnection that is suitable for running a
+   long-running COPY command."
+  ^PgConnection [db-spec]
+  (let [db-spec (if-let [secret-arn (:secret-arn db-spec)]
+                  (-> db-spec
+                      (dissoc db-spec :secret-arn)
+                      (merge (aurora-config/secret-arn->db-creds secret-arn)))
+                  db-spec)
+        props (Properties.)
+        _ (do (.set PGProperty/USER props (jdbc-username db-spec))
+              (.set PGProperty/PASSWORD props (jdbc-password db-spec))
+              (.set PGProperty/ASSUME_MIN_SERVER_VERSION props "9.4")
+              ;; Make sure we use tls 1.2 for this connection so that it doesn't get
+              ;; stuck on a key update message with tls 1.3
+              ;; More details: https://bugs.openjdk.org/browse/JDK-8329548
+              (.set PGProperty/SSL_FACTORY props "instant.jdbc.Tls12SocketFactory"))
+        conn (DriverManager/getConnection (jdbc-url (-> db-spec
+                                                        (dissoc :user :password)))
+                                          props)]
+    (.unwrap conn PgConnection)))
+
 (comment
   (def pg-conn (get-pg-replication-conn (config/get-aurora-config)))
   (.close pg-conn))
@@ -161,7 +183,7 @@
       ;; set the connection snapshot to the snapshot that was created with our slot
       (let [slot-info ^ReplicationSlotInfo slot-info
             snapshot-name (.getSnapshotName slot-info)
-            c2 (get-pg-replication-conn db-config)]
+            c2 (get-pg-copy-ready-conn db-config)]
         (.setAutoCommit c2 false)
         ;; It's generally a bad idea to construct sql strings like this, but we do it here
         ;; because you can't pass the snapshot name as a parameter and the input comes from
