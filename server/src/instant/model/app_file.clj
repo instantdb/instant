@@ -2,7 +2,6 @@
   (:require
    [instant.jdbc.aurora :as aurora]
    [instant.db.model.attr :as attr-model]
-   [instant.flags :as flags]
    [instant.system-catalog :refer [all-attrs] :rename {all-attrs $system-attrs}]
    [instant.system-catalog-ops :refer [update-op query-op]]
    [instant.jdbc.sql :as sql]
