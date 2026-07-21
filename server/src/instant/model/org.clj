@@ -1,7 +1,6 @@
 (ns instant.model.org
   (:require
    [instant.config :as config]
-   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
