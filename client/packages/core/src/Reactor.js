@@ -241,7 +241,11 @@ export default class Reactor {
   mutationErrorCbs = [];
   connectionStatusCbs = [];
   appStatusCbs = [];
-  /** @type {import('./clientTypes.ts').AppStatusState} */
+  /**
+   * Carries the raw server status off the public type: `disabled` is an
+   * operator-level state we don't surface to apps.
+   * @type {import('./clientTypes.ts').AppStatusState & { status?: 'active' | 'read-only' | 'disabled' }}
+   */
   _appStatusState = { isLoading: true, isReadOnly: undefined };
   config;
   mutationDeferredStore = new Map();
@@ -893,7 +897,7 @@ export default class Reactor {
         break;
       }
       case 'app-status-changed': {
-        const prevStatus = this._appStatus;
+        const prevStatus = this._appStatusState.status;
         this._setAppStatus(msg.status);
         if (msg.status === 'disabled' && prevStatus !== 'disabled') {
           // The server has stopped serving reads; surface the typed error on
@@ -2114,14 +2118,12 @@ export default class Reactor {
    * @param {'active' | 'read-only' | 'disabled' | undefined} status
    */
   _setAppStatus(status) {
-    if (!status || status === this._appStatus) return;
-    // Raw server status, kept off the typed state: `disabled` is an
-    // operator-level state we don't surface to apps
-    this._appStatus = status;
-    const isReadOnly = status !== 'active';
-    if (this._appStatusState.isReadOnly !== isReadOnly) {
-      this._appStatusState = { isLoading: false, isReadOnly };
-    }
+    if (!status || status === this._appStatusState.status) return;
+    this._appStatusState = {
+      isLoading: false,
+      isReadOnly: status !== 'active',
+      status,
+    };
     this.notifyAppStatusSubs(this._appStatusState);
   }
 

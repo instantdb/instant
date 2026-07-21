@@ -501,7 +501,7 @@ export function Admin({
           <div className="flex flex-col gap-3 pb-4">
             <SectionHeader
               title="Danger zone"
-              description="Pause writes, or permanently delete data."
+              description="These actions can disrupt your app or permanently destroy data."
             />
             <div className="overflow-hidden rounded-sm border border-dashed border-red-200 dark:border-red-900/50">
               <ReadOnlyModeRow app={app} />

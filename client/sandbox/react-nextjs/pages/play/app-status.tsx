@@ -75,9 +75,10 @@ function App({
 
   useEffect(() => {
     const reactor = (db as any).core._reactor;
-    const update = () => setServerStatus(reactor._appStatus);
-    update();
-    return reactor.subscribeAppStatus(update);
+    setServerStatus(reactor._appStatusState.status);
+    return reactor.subscribeAppStatus((state: any) =>
+      setServerStatus(state.status),
+    );
   }, [db]);
 
   const toggle = async (status: AppStatus) => {
