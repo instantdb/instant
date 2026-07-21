@@ -42,6 +42,11 @@
     "react-native": ">=0.56",
     "react-native-get-random-values": ">=1.5"
   },
+  "peerDependenciesMeta": {
+    "@react-native-async-storage/async-storage": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "@instantdb/core": "workspace:*",
     "@instantdb/react-common": "workspace:*",

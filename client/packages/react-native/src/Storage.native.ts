@@ -1,9 +1,22 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StoreInterface, StoreInterfaceStoreName } from '@instantdb/core';
 
 const version = 5;
 
-export default class Store extends StoreInterface {
+// AsyncStorage is an optional peer dependency. The `require` must sit
+// directly inside a `try` block: that's what makes Metro treat it as an
+// optional dependency (`transformer.allowOptionalDependencies`, enabled by
+// default in the Expo and React Native metro configs), so bundling doesn't
+// fail when it isn't installed. When it can't be loaded, `init` surfaces a
+// helpful error unless a custom `Store` is passed.
+let AsyncStorage: any = null;
+let asyncStorageLoadError: unknown = null;
+try {
+  AsyncStorage = require('@react-native-async-storage/async-storage').default;
+} catch (e) {
+  asyncStorageLoadError = e;
+}
+
+export class AsyncStorageStore extends StoreInterface {
   private appId: string;
   private dbName: StoreInterfaceStoreName;
   constructor(appId: string, dbName: StoreInterfaceStoreName) {
@@ -48,3 +61,31 @@ export default class Store extends StoreInterface {
     );
   }
 }
+
+class MissingStore extends StoreInterface {
+  constructor(appId: string, dbName: StoreInterfaceStoreName) {
+    super(appId, dbName);
+    throw new Error(
+      'Instant needs a store to persist data on device. ' +
+        'Install `@react-native-async-storage/async-storage`, ' +
+        'or pass a `Store` to `init` (e.g. from `@instantdb/react-native-mmkv` or `@instantdb/expo-sqlite`).' +
+        (asyncStorageLoadError
+          ? `\n\nLoading async-storage failed with: ${asyncStorageLoadError}`
+          : ''),
+    );
+  }
+
+  async getItem(_k: string): Promise<any> {
+    return null;
+  }
+
+  async removeItem(_k: string): Promise<void> {}
+
+  async multiSet(_keyValuePairs: Array<[string, any]>): Promise<void> {}
+
+  async getAllKeys(): Promise<string[]> {
+    return [];
+  }
+}
+
+export default AsyncStorage ? AsyncStorageStore : MissingStore;
