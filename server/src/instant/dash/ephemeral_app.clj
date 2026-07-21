@@ -93,8 +93,7 @@
   (http-get-handler {:params {:app_id (-> res :body :app :id str)}}))
 
 (defn http-status-post-handler
-  "Lets sandboxes toggle maintenance mode on an ephemeral app. Auth is the
-   app's admin token since ephemeral apps have no dashboard user."
+  "Lets sandboxes toggle maintenance mode on an ephemeral app."
   [req]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
         {app-creator-id :creator_id} (app-model/get-by-id! {:id app-id})
