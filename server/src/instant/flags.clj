@@ -466,7 +466,3 @@
   ;; Defaults to disabled so that we can bootstrap before
   ;; we start the process.
   (flag :disable-triples-size-collection true))
-
-;; TODO(dww): Remove after deploying triples-size-updates
-(defn new-db-size? []
-  (toggled? :use-new-db-size false))
