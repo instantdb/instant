@@ -6,12 +6,13 @@ import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { AppsSubscriptionResponse, InstantIssue } from '@/lib/types';
 import { loadStripe } from '@stripe/stripe-js';
-import { useContext, useRef } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { Loading, ErrorMessage } from '@/components/dash/shared';
 import { errorToast } from '@/lib/toast';
 import confetti from 'canvas-confetti';
 import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
 import Link from 'next/link';
+import { useFetchedDash } from './MainDashLayout';
 
 export const GB_1 = 1024 * 1024 * 1024;
 export const GB_10 = 10 * GB_1;
@@ -106,6 +107,7 @@ export function ProgressBar({ width }: { width: number }) {
 export default function Billing({ appId }: { appId: string }) {
   const token = useContext(TokenContext);
   const confettiRef = useRef<HTMLDivElement>(null);
+  const [isActivating, setIsActivating] = useState(false);
 
   const onUpgrade = async (
     e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
@@ -122,10 +124,38 @@ export default function Billing({ appId }: { appId: string }) {
   };
 
   const orgIsPaid = useOrgPaid();
+  const fetchedDash = useFetchedDash();
 
   const authResponse = useAuthedFetch<AppsSubscriptionResponse>(
     `${config.apiURI}/dash/apps/${appId}/billing`,
   );
+
+  const onActivate = async () => {
+    setIsActivating(true);
+    try {
+      await jsonFetch(
+        `${config.apiURI}/dash/apps/${appId}/self_hosted_subscription`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      await Promise.all([
+        authResponse.mutate(undefined, { revalidate: true }),
+        fetchedDash.refetch(),
+      ]);
+    } catch (err) {
+      const message =
+        messageFromInstantError(err as InstantIssue) ||
+        'Failed to activate the included Pro plan.';
+      errorToast(friendlyErrorMessage('dash-billing', message));
+    } finally {
+      setIsActivating(false);
+    }
+  };
 
   if (authResponse.isLoading) {
     return <Loading />;
@@ -169,6 +199,10 @@ export default function Billing({ appId }: { appId: string }) {
 
   const subscriptionName = data['subscription-name'];
   const isFreeTier = subscriptionName === 'Free';
+  const isSelfHostedSubscription =
+    data['subscription-source'] === 'self-hosted';
+  const canActivateSelfHostedPlan =
+    isFreeTier && data['self-hosted-plan-enabled'];
   const totalAppBytes = data['total-app-bytes'] || 0;
   const totalStorageBytes = data['total-storage-bytes'] || 0;
   const totalUsageBytes = totalAppBytes + totalStorageBytes;
@@ -228,7 +262,22 @@ export default function Billing({ appId }: { appId: string }) {
           </span>
         </div>
       </div>
-      {isFreeTier ? (
+      {isSelfHostedSubscription ? (
+        <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-2 text-sm text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
+          <span className="font-bold">Self-hosted Pro mode</span>
+          <br />
+          The Pro plan is included with this self-hosted instance.
+        </Content>
+      ) : canActivateSelfHostedPlan ? (
+        <div className="flex flex-col space-y-4">
+          <Button variant="primary" loading={isActivating} onClick={onActivate}>
+            Activate Pro for free
+          </Button>
+          <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-2 text-sm text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
+            The Pro plan is included with this self-hosted instance.
+          </Content>
+        </div>
+      ) : isFreeTier ? (
         <div className="flex flex-col space-y-4">
           <Button variant="primary" onClick={onUpgrade}>
             Upgrade to Pro

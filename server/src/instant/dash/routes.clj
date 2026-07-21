@@ -930,6 +930,11 @@
 
 (def default-subscription "Free")
 
+(defn assert-self-hosted-subscriptions-enabled! []
+  (ex/assert-permitted! :self-hosted-subscriptions-enabled
+                        nil
+                        (config/default-paid-app?)))
+
 (defn checkout-session-post [req]
   (let [{{app-id :id app-title :title} :app
          {user-id :id user-email :email :as user} :user} (req->app-and-user! req)
@@ -1008,14 +1013,33 @@
         session (com.stripe.model.billingportal.Session/create ^Map session-params)]
     (response/ok {:url (.getUrl session)})))
 
+(defn activate-self-hosted-app-subscription-post [req]
+  (let [{{app-id :id} :app {user-id :id} :user} (req->app-and-user! req)]
+    (assert-self-hosted-subscriptions-enabled!)
+    (instant-subscription-model/activate-self-hosted-app! {:app-id app-id
+                                                           :user-id user-id})
+    (response/ok {:ok true})))
+
+(defn activate-self-hosted-org-subscription-post [req]
+  (let [{{org-id :id} :org {user-id :id} :user}
+        (req->org-and-user! :collaborator req)]
+    (assert-self-hosted-subscriptions-enabled!)
+    (instant-subscription-model/activate-self-hosted-org! {:org-id org-id
+                                                           :user-id user-id})
+    (response/ok {:ok true})))
+
 (defn get-billing [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        {subscription-name :name stripe-subscription-id :stripe_subscription_id}
+        {subscription-name :name
+         subscription-source :source
+         stripe-subscription-id :stripe_subscription_id}
         (instant-subscription-model/get-by-app-id {:app-id app-id})
         {total-app-bytes :num_bytes} (app-model/app-usage {:app-id app-id})
         total-storage-bytes (:total_byte_size (app-file-model/get-app-usage app-id))]
     (response/ok {:subscription-name (or subscription-name default-subscription)
+                  :subscription-source subscription-source
                   :stripe-subscription-id stripe-subscription-id
+                  :self-hosted-plan-enabled (config/default-paid-app?)
                   :total-app-bytes total-app-bytes
                   :total-storage-bytes total-storage-bytes})))
 
@@ -1055,14 +1079,18 @@
 
 (defn org-get-billing [req]
   (let [{{org-id :id} :org} (req->org-and-user! :collaborator req)
-        {subscription-name :name stripe-subscription-id :stripe_subscription_id}
+        {subscription-name :name
+         subscription-source :source
+         stripe-subscription-id :stripe_subscription_id}
         (instant-subscription-model/get-by-org-id {:org-id org-id})
         {total-app-bytes :num_bytes} (org-model/org-usage {:org-id org-id})
         total-storage-bytes (:total_byte_size (app-file-model/get-org-usage org-id))
         customer-balance (when stripe-subscription-id
                            (stripe/customer-balance-by-subscription stripe-subscription-id))]
     (response/ok {:subscription-name (or subscription-name default-subscription)
+                  :subscription-source subscription-source
                   :stripe-subscription-id stripe-subscription-id
+                  :self-hosted-plan-enabled (config/default-paid-app?)
                   :total-app-bytes total-app-bytes
                   :total-storage-bytes total-storage-bytes
                   :customer-balance customer-balance})))
@@ -2323,6 +2351,7 @@
 
   (POST "/dash/apps/:app_id/checkout_session" [] checkout-session-post)
   (POST "/dash/apps/:app_id/portal_session" [] create-portal)
+  (POST "/dash/apps/:app_id/self_hosted_subscription" [] activate-self-hosted-app-subscription-post)
   (GET "/dash/apps/:app_id/billing" [] get-billing)
 
   (POST "/dash/apps/:app_id/invite/send" [] team-member-invite-send-post)
@@ -2392,6 +2421,7 @@
   (POST "/dash/orgs/:org_id/members/update" [] team-member-update-post)
   (POST "/dash/orgs/:org_id/checkout_session" [] org-checkout-session-post)
   (POST "/dash/orgs/:org_id/portal_session" [] org-create-portal)
+  (POST "/dash/orgs/:org_id/self_hosted_subscription" [] activate-self-hosted-org-subscription-post)
   (GET "/dash/orgs/:org_id/billing" [] org-get-billing)
   (POST "/dash/orgs/:org_id/rename" [] org-rename-post)
 

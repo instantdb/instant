@@ -72,8 +72,8 @@
         (throw e)))))
 
 (defn cancel-subscription-and-credit-customer
-  "Cancels the app's subscription and gives a credit to the org
-   for the remaining prorated balance of the app subscription."
+  "Cancels the app's subscription and, when the org has a Stripe customer,
+   gives it the remaining prorated balance of the app subscription."
   [{:keys [app-customer-id
            app-subscription-id
            org-id
@@ -99,7 +99,8 @@
                                          (-> (SubscriptionCancelParams/builder)
                                              (.setProrate false)
                                              (.build))))
-        credit (when (and credit-amount
+        credit (when (and org-customer-id
+                          credit-amount
                           (neg? (:amount credit-amount)))
                  (credit-customer {:customer-id org-customer-id
                                    :amount (:amount credit-amount)

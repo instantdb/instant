@@ -71,7 +71,7 @@
              :values [{:id :?subscription-id
                        :user-id [:cast :?user-id :uuid]
                        :app-id [:cast :?app-id :uuid]
-                       :subscription-type-id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]
+                       :subscription-type-id [:inline plans/PRO_SUBSCRIPTION_TYPE]
                        :source [:inline "self-hosted"]}]
              :returning :*}]
            [:app-update
@@ -279,9 +279,7 @@
                       [:inline "title"] :org.title]]
               :org]
              [[:coalesce
-               [:or
-                [:= [:inline plans/PRO_SUBSCRIPTION_TYPE] :sub.subscription_type_id]
-                [:= [:inline plans/STARTUP_SUBSCRIPTION_TYPE] :sub.subscription_type_id]]
+               [:= [:inline plans/PRO_SUBSCRIPTION_TYPE] :sub.subscription_type_id]
                :false]
               :pro]
              [[:case [:= :a.creator-id :?user-id] [:inline "owner"]
@@ -332,7 +330,6 @@
                                  [:= nil :a.org_id]
                                  [:or
                                   [:= [:inline plans/PRO_SUBSCRIPTION_TYPE] :sub.subscription_type_id]
-                                  [:= [:inline plans/STARTUP_SUBSCRIPTION_TYPE] :sub.subscription_type_id]
                                   [:< :m.created_at :?free-teams-cutoff]]]}]}))
 
 (defn get-all-for-user

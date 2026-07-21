@@ -18,5 +18,9 @@ ADD CONSTRAINT valid_subscription_source CHECK (
     AND stripe_customer_id IS NULL
     AND stripe_subscription_id IS NULL
     AND stripe_event_id IS NULL
+    AND (
+      (app_id IS NOT NULL AND subscription_type_id = 2)
+      OR (org_id IS NOT NULL AND subscription_type_id = 3)
+    )
   )
 );
