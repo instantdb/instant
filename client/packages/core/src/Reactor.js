@@ -1512,6 +1512,19 @@ export default class Reactor {
 
   /** Applies transactions locally and sends transact message to server */
   pushTx = (chunks) => {
+    // The server rejects every write while read-only or disabled, so reject
+    // locally instead of applying an optimistic update
+    if (this._appStatusState.isReadOnly) {
+      return Promise.reject(
+        this._appStatusState.status === 'disabled'
+          ? new InstantError('This app is currently disabled.', {
+              status: 'disabled',
+            })
+          : new InstantError('This app is in read-only mode.', {
+              status: 'read-only',
+            }),
+      );
+    }
     // Throws if transactions are invalid
     if (!this.config.disableValidation) {
       validateTransactions(chunks, this.config.schema);
