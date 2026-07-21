@@ -113,10 +113,10 @@
                                                          [:*
                                                           [:sum :agg.pg_size]
                                                           [:case
-                                                           [:= [:pg_relation_size "triples"] 0] 1
+                                                           [:= [:pg_relation_size [:inline "triples"]] 0] 1
                                                            :else [:/
-                                                                  [:cast [:pg_total_relation_size "triples"] :numeric]
-                                                                  [:pg_relation_size "triples"]]]]
+                                                                  [:cast [:pg_total_relation_size [:inline "triples"]] :numeric]
+                                                                  [:pg_relation_size [:inline "triples"]]]]]
                                                          0]]]
                                               :from [[:triples-size-aggregate :agg]]
                                               :join [[:attrs :a] [:= :a.id :agg.attr_id]]
@@ -142,10 +142,10 @@
                                                          [:*
                                                           [:sum :agg.pg_size]
                                                           [:case
-                                                           [:= [:pg_relation_size "triples"] 0] 1
+                                                           [:= [:pg_relation_size [:inline "triples"]] 0] 1
                                                            :else [:/
-                                                                  [:cast [:pg_total_relation_size "triples"] :numeric]
-                                                                  [:pg_relation_size "triples"]]]]
+                                                                  [:cast [:pg_total_relation_size [:inline "triples"]] :numeric]
+                                                                  [:pg_relation_size [:inline "triples"]]]]]
                                                          0]]]
                                               :from [[:triples-size-aggregate :agg]]
                                               :join [[:attrs :a] [:= :a.id :agg.attr_id]]
