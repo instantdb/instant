@@ -363,7 +363,6 @@
     (ex/throw-app-disabled!)))
 
 (defn set-status!
-  "Plain UPDATE on apps; the WAL evicts the app cache on every other machine."
   ([params] (set-status! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id status]}]
    (let [status (or (coerce-status status)
