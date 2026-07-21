@@ -186,7 +186,8 @@
                                           :session-id      sess-id
                                           :client-event-id client-event-id
                                           :auth            auth
-                                          :attrs           attrs})))
+                                          :attrs           attrs
+                                          :app-status      {:status (name (app-model/get-status app-id))}})))
 
 (defn- get-auth! [store sess-id]
   (let [{:session/keys [auth]} (rs/session store sess-id)]
@@ -636,6 +637,7 @@
 (defn- handle-join-room! [store sess-id {:keys [client-event-id data] :as event}]
   (let [auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
+        _ (app-model/assert-read-allowed! app-id)
         current-user (-> auth :user)
         room-id (validate-room-id event)]
     (eph/join-room! store app-id sess-id current-user room-id data)
@@ -1035,6 +1037,9 @@
 
          ::ex/permission-denied
          ::ex/permission-evaluation-failed
+
+         ::ex/app-read-only
+         ::ex/app-disabled
 
          ::ex/param-missing
          ::ex/param-malformed

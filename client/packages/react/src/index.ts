@@ -27,6 +27,7 @@ import {
   type Config,
   type InstaQLParams,
   type ConnectionStatus,
+  type AppStatusState,
   type ValidQuery,
 
   // presence types
@@ -138,6 +139,7 @@ export {
   type User,
   type AuthState,
   type ConnectionStatus,
+  type AppStatusState,
   type InstantQuery,
   type InstantQueryResult,
   type InstantSchema,

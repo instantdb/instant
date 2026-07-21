@@ -7,6 +7,7 @@ import {
   type AuthState,
   type User,
   type ConnectionStatus,
+  type AppStatusState,
   type TransactionChunk,
   type RoomSchemaShape,
   type InstaQLOptions,
@@ -42,6 +43,11 @@ const defaultAuthState = {
   isLoading: true,
   user: undefined,
   error: undefined,
+};
+
+const defaultAppStatusState: AppStatusState = {
+  isLoading: true,
+  isReadOnly: undefined,
 };
 
 export default abstract class InstantReactAbstractDatabase<
@@ -369,6 +375,42 @@ export default abstract class InstantReactAbstractDatabase<
     );
 
     return status;
+  };
+
+  /**
+   * Observe the app's maintenance-mode state. While read-only, reads and
+   * live queries keep working but writes are rejected.
+   *
+   * @example
+   *  function App() {
+   *    const { isLoading, isReadOnly } = db.useAppStatus()
+   *    if (isLoading) return null
+   *    if (isReadOnly) return <MaintenanceBanner />
+   *    // ...
+   *  }
+   */
+  useAppStatus = (): AppStatusState => {
+    const stateRef = useRef<AppStatusState>(this.core._reactor._appStatusState);
+
+    const subscribe = useCallback((cb: () => void) => {
+      return this.core.subscribeAppStatus((state) => {
+        if (
+          state.isLoading !== stateRef.current.isLoading ||
+          state.isReadOnly !== stateRef.current.isReadOnly
+        ) {
+          stateRef.current = state;
+          cb();
+        }
+      });
+    }, []);
+
+    const state = useSyncExternalStore<AppStatusState>(
+      subscribe,
+      () => stateRef.current,
+      () => defaultAppStatusState,
+    );
+
+    return state;
   };
 
   /**

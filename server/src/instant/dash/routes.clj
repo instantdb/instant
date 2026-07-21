@@ -25,6 +25,7 @@
             [instant.machine-summaries :as machine-summaries]
             [instant.model.app :as app-model]
             [instant.model.app-admin-token :as app-admin-token-model]
+            [instant.model.app-auth-data :as app-auth-data-model]
             [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
             [instant.model.app-email-sender :as app-email-sender-model]
             [instant.model.app-email-template :as app-email-template-model]
@@ -564,7 +565,7 @@
 
 (defn dash-apps-auth-get [req]
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator :apps/read req)
-        {:keys [data]} (app-model/get-dash-auth-data {:app-id app-id})]
+        {:keys [data]} (app-auth-data-model/get-dash-auth-data {:app-id app-id})]
     (response/ok data)))
 
 (defn authorized-redirect-origins-post [req]
@@ -1479,6 +1480,13 @@
                                  :sender-name sender-name})
     (response/ok {:sent-to to})))
 
+(defn app-status-post [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :admin req)
+        status (ex/get-param! req [:body :status] app-model/coerce-status)]
+    (app-model/set-status! {:app-id app-id
+                                   :status status})
+    (response/ok {:status (name status)})))
+
 (defn app-rename-post [req]
   (let
    [{{app-id :id} :app} (req->app-and-user! :owner req)
@@ -2270,6 +2278,7 @@
 
   (GET "/dash/apps/ephemeral/:app_id" [] ephemeral-app/http-get-handler)
   (POST "/dash/apps/ephemeral" [] ephemeral-app/http-post-handler)
+  (POST "/dash/apps/ephemeral/:app_id/status" [] ephemeral-app/http-status-post-handler)
 
   (POST "/dash/apps/ephemeral/:app_id/claim" [] claim-app-post)
   (POST "/dash/apps/:app_id/claim" [] claim-app-post)
@@ -2329,6 +2338,7 @@
   (DELETE "/dash/personal_access_tokens/:id" [] personal-access-tokens-delete)
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
+  (POST "/dash/apps/:app_id/status" [] app-status-post)
   (POST "/dash/apps/:app_id/transfer_to_org/:org_id" [] app-transfer-to-org)
 
   (POST "/dash/apps/:app_id/set-magic-code-expiry" [] app-set-magic-code-expiry)

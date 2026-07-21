@@ -1,11 +1,14 @@
 import { InstantIssue } from '@instantdb/core';
 
+export type AppStatus = 'active' | 'read-only' | 'disabled';
+
 export type InstantApp = {
   id: string;
   pro: boolean;
   title: string;
   created_at: string;
   admin_token: string;
+  status?: AppStatus;
   rules: object | null;
   rules_version: number | null;
   user_app_role: 'owner' | 'admin' | 'collaborator';

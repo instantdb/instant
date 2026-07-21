@@ -240,6 +240,13 @@ export default class Reactor {
   attrsCbs = [];
   mutationErrorCbs = [];
   connectionStatusCbs = [];
+  appStatusCbs = [];
+  /**
+   * Carries the raw server status off the public type: `disabled` is an
+   * operator-level state we don't surface to apps.
+   * @type {import('./clientTypes.ts').AppStatusState & { status?: 'active' | 'read-only' | 'disabled' }}
+   */
+  _appStatusState = { isLoading: true, isReadOnly: undefined };
   config;
   mutationDeferredStore = new Map();
   _reconnectTimeoutId = null;
@@ -637,6 +644,7 @@ export default class Reactor {
       case 'init-ok': {
         this._setStatus(STATUS.AUTHENTICATED);
         this._reconnectTimeoutMs = 0;
+        this._setAppStatus(msg['app-status']?.status ?? 'active');
         this._setAttrs(msg.attrs);
         this._flushPendingMessages();
         // (EPH): set session-id, so we know
@@ -886,6 +894,28 @@ export default class Reactor {
       case 'leave-room-ok': {
         const roomId = msg['room-id'];
         this._trySetRoomConnected(roomId, false);
+        break;
+      }
+      case 'app-status-changed': {
+        const prevStatus = this._appStatusState.status;
+        this._setAppStatus(msg.status);
+        if (msg.status === 'disabled' && prevStatus !== 'disabled') {
+          // The server has stopped serving reads; surface the typed error on
+          // every registered query immediately instead of waiting for the
+          // next round trip.
+          const error = {
+            message: 'This app is currently disabled.',
+            hint: { status: 'disabled' },
+          };
+          Object.keys(this.queryCbs).forEach((hash) =>
+            this.notifyQueryError(hash, error),
+          );
+        }
+        if (prevStatus === 'disabled' && msg.status !== 'disabled') {
+          // Leaving `disabled`: refreshes were paused server-side, so restart
+          // the socket to re-add every query and get fresh results.
+          this._startSocket();
+        }
         break;
       }
       case 'join-room-error':
@@ -1456,6 +1486,9 @@ export default class Reactor {
   };
 
   notifyQueryError = (hash, error) => {
+    // Clear the dedupe cache so the next successful result re-notifies
+    // subscribers even if the data is unchanged from before the error
+    delete this._dataForQueryCache[hash];
     const cbs = this.queryCbs[hash] || [];
     cbs.forEach((r) => r.cb({ error }));
   };
@@ -1479,6 +1512,19 @@ export default class Reactor {
 
   /** Applies transactions locally and sends transact message to server */
   pushTx = (chunks) => {
+    // The server rejects every write while read-only or disabled, so reject
+    // locally instead of applying an optimistic update
+    if (this._appStatusState.isReadOnly) {
+      return Promise.reject(
+        this._appStatusState.status === 'disabled'
+          ? new InstantError('This app is currently disabled.', {
+              status: 'disabled',
+            })
+          : new InstantError('This app is in read-only mode.', {
+              status: 'read-only',
+            }),
+      );
+    }
     // Throws if transactions are invalid
     if (!this.config.disableValidation) {
       validateTransactions(chunks, this.config.schema);
@@ -2081,6 +2127,28 @@ export default class Reactor {
     };
   }
 
+  /**
+   * @param {'active' | 'read-only' | 'disabled' | undefined} status
+   */
+  _setAppStatus(status) {
+    if (!status || status === this._appStatusState.status) return;
+    this._appStatusState = {
+      isLoading: false,
+      isReadOnly: status !== 'active',
+      status,
+    };
+    this.notifyAppStatusSubs(this._appStatusState);
+  }
+
+  subscribeAppStatus(cb) {
+    this.appStatusCbs.push(cb);
+    cb(this._appStatusState);
+
+    return () => {
+      this.appStatusCbs = this.appStatusCbs.filter((x) => x !== cb);
+    };
+  }
+
   subscribeAttrs(cb) {
     this.attrsCbs.push(cb);
 
@@ -2109,6 +2177,10 @@ export default class Reactor {
 
   notifyConnectionStatusSubs(status) {
     this.connectionStatusCbs.forEach((cb) => cb(status));
+  }
+
+  notifyAppStatusSubs(state) {
+    this.appStatusCbs.forEach((cb) => cb(state));
   }
 
   async setCurrentUser(user) {

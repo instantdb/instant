@@ -11,7 +11,6 @@
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
    [instant.system-catalog :as system-catalog]
-   [instant.system-catalog-ops :refer [query-op]]
    [instant.util.cache :as cache]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
@@ -302,62 +301,6 @@
          query (uhsql/formatp all-for-user-q params)]
      (sql/select ::get-all-for-user conn query))))
 
-(defn get-dash-auth-data
-  ([params] (get-dash-auth-data (aurora/conn-pool :read) params))
-  ([conn {:keys [app-id]}]
-   (query-op
-    conn
-    {:app-id app-id}
-    (fn [{:keys [admin-query]}]
-      (let [redirect-origins
-            (-> (sql/select-one
-                 ::get-dash-auth-data
-                 conn
-                 ["SELECT json_build_object(
-                      'authorized_redirect_origins', (
-                        SELECT json_agg(json_build_object(
-                          'id', ro.id,
-                          'service', ro.service,
-                          'params', ro.params,
-                          'created_at', ro.created_at
-                        ))
-                        FROM (SELECT * from app_authorized_redirect_origins ro
-                               WHERE ro.app_id = a.id
-                               ORDER BY ro.created_at desc)
-                        AS ro
-                      )
-                    ) AS data
-                    FROM apps a
-                    WHERE a.id = ?::uuid AND a.deletion_marked_at IS NULL"
-                  app-id])
-                (get-in [:data "authorized_redirect_origins"]))
-
-            {:strs [$oauthProviders
-                    $oauthClients]}
-            (admin-query {:$oauthProviders {}
-                          :$oauthClients {}})
-
-            providers (map (fn [provider]
-                             {"id" (get provider "id")
-                              "provider_name" (get provider "name")
-                              "created_at" (get provider "$serverCreatedAt")})
-                           $oauthProviders)
-
-            clients (map (fn [client]
-                           {"id" (get client "id")
-                            "client_name" (get client "name")
-                            "client_id" (get client "clientId")
-                            "provider_id" (get client "$oauthProvider")
-                            "meta" (get client "meta")
-                            "discovery_endpoint" (get client "discoveryEndpoint")
-                            "created_at" (get client "$serverCreatedAt")
-                            "redirect_to" (get client "redirectTo")
-                            "use_shared_credentials" (boolean (get client "useSharedCredentials"))})
-                         $oauthClients)]
-        {:data {"oauth_service_providers" providers
-                "oauth_clients" clients
-                "authorized_redirect_origins" redirect-origins}})))))
-
 (defn mark-for-deletion!
   ([params] (mark-for-deletion! (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
@@ -387,6 +330,51 @@
    (with-cache-invalidation id
      (sql/execute-one! ::rename-by-id!
                        conn ["UPDATE apps SET title = ? WHERE id = ?::uuid " title id]))))
+
+;; ----------
+;; App status
+
+(def statuses #{:active :read-only :disabled})
+
+(defn coerce-status [x]
+  (when (or (string? x) (keyword? x))
+    (statuses (keyword x))))
+
+(defn get-status
+  "Cached app record -> status keyword; no SQL on hot paths."
+  [app-id]
+  (or (some-> (get-by-id {:id app-id})
+              :status
+              keyword)
+      :active))
+
+(defn assert-write-allowed!
+  "Authoritative write check, called from the base transaction layer."
+  [app-id]
+  (case (get-status app-id)
+    :active nil
+    :read-only (ex/throw-app-read-only!)
+    :disabled (ex/throw-app-disabled!)))
+
+(defn assert-read-allowed!
+  "Rejects data reads while the app is disabled."
+  [app-id]
+  (when (= :disabled (get-status app-id))
+    (ex/throw-app-disabled!)))
+
+(defn set-status!
+  ([params] (set-status! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id status]}]
+   (let [status (or (coerce-status status)
+                    (ex/throw-validation-err!
+                     :app-status
+                     status
+                     [{:message "Status must be one of: active, read-only, disabled."}]))]
+     (with-cache-invalidation app-id
+       (sql/execute-one! ::set-status!
+                         conn
+                         ["UPDATE apps SET status = ? WHERE id = ?::uuid RETURNING *"
+                          (name status) app-id])))))
 
 (defn change-creator!
   ([params] (change-creator! (aurora/conn-pool :write) params))
@@ -454,7 +442,6 @@
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def a (create! {:title "TestingRepl!" :id (UUID/randomUUID) :creator-id (:id u)}))
   (get-all-for-user {:user-id (:id u)})
-  (get-dash-auth-data {:app-id "3cc5c5c8-07df-42b2-afdc-6a04cbf0c40a"})
   (delete-immediately-by-id! (select-keys a [:id])))
 
 (defn app-usage

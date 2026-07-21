@@ -30,6 +30,9 @@
                 ::permission-denied
                 ::permission-evaluation-failed
 
+                ::app-read-only
+                ::app-disabled
+
                 ::param-missing
                 ::param-malformed
 
@@ -60,6 +63,9 @@
                          ::permission-denied
                          ::permission-evaluation-failed
                          ::parameter-limit-exceeded
+
+                         ::app-read-only
+                         ::app-disabled
 
                          ::param-missing
                          ::param-malformed
@@ -310,6 +316,19 @@
   (throw+ {::type ::permission-denied
            ::message (format "The plan for your app or organization does not support %s."
                              capability)}))
+
+;; ----------
+;; App status
+
+(defn throw-app-read-only! []
+  (throw+ {::type ::app-read-only
+           ::message "This app is in read-only mode."
+           ::hint {:status "read-only"}}))
+
+(defn throw-app-disabled! []
+  (throw+ {::type ::app-disabled
+           ::message "This app is currently disabled."
+           ::hint {:status "disabled"}}))
 
 ;; -----------
 ;; Validations

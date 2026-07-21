@@ -7,6 +7,7 @@
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
    [instant.model.webhook :as webhook-model]
+   [instant.reactive.store :as rs]
    [instant.system-catalog :as system-catalog]))
 
 (defn get-column [columns col-name]
@@ -70,6 +71,17 @@
                               parse-json-uuid)]
       (app-stream-model/notify-machine-id-changed stream-id machine-id))))
 
+(defn notify-app-status-changed
+  "Pushes the app's status to this machine's sessions when it changes."
+  [wal-record app-id]
+  (when (and app-id (= :update (:action wal-record)))
+    (let [new-status (get-column (:columns wal-record) "status")
+          old-status (get-column (:identity wal-record) "status")]
+      (when (and new-status (not= new-status old-status))
+        (doseq [{:keys [id]} (rs/all-sockets-for-app rs/store app-id)]
+          (rs/try-send-event! rs/store app-id id {:op :app-status-changed
+                                                  :status new-status}))))))
+
 (defn evict-cache! [wal-record]
   (case (:action wal-record)
     (:insert :update :delete)
@@ -82,7 +94,8 @@
       "rules" (rule-model/evict-app-id-from-cache (get-app-id wal-record))
       "apps" (let [app-id (get-id wal-record)]
                (app-model/evict-app-id-from-cache app-id)
-               (instant-user-model/evict-app-id-from-cache app-id))
+               (instant-user-model/evict-app-id-from-cache app-id)
+               (notify-app-status-changed wal-record app-id))
       "instant_users" (instant-user-model/evict-user-id-from-cache (get-id wal-record))
       "transactions" (when (= :insert (:action wal-record))
                        (tx-model/set-max-seen-tx-id (get-column (:columns wal-record) "id")))

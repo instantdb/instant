@@ -29,6 +29,7 @@ import {
   SectionHeading,
   Select,
   SubsectionHeading,
+  Switch,
   TextInput,
   useDialog,
 } from '@/components/ui';
@@ -501,9 +502,10 @@ export function Admin({
           <div className="flex flex-col gap-3 pb-4">
             <SectionHeader
               title="Danger zone"
-              description="These actions are irreversible and permanently delete data."
+              description="These actions can disrupt your app or permanently destroy data."
             />
             <div className="overflow-hidden rounded-sm border border-dashed border-red-200 dark:border-red-900/50">
+              <ReadOnlyModeRow app={app} />
               {isMinRole('owner', role) && (
                 <DangerRow
                   title="Clear app"
@@ -801,6 +803,103 @@ function InviteTeamMemberDialog({
         onClick={onSubmit}
       />
     </ActionForm>
+  );
+}
+
+function ReadOnlyModeRow({ app }: { app: InstantApp }) {
+  const dashResponse = useFetchedDash();
+  const token = useContext(TokenContext);
+  const confirmDialog = useDialog();
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const status = app.status ?? 'active';
+  const isReadOnly = status === 'read-only';
+  const isAppDisabled = status === 'disabled';
+
+  async function setStatus(newStatus: 'active' | 'read-only') {
+    setIsUpdating(true);
+    try {
+      const promise = jsonMutate(
+        `${config.apiURI}/dash/apps/${app.id}/status`,
+        {
+          method: 'POST',
+          token,
+          body: { status: newStatus },
+        },
+      );
+      const update = (d: { apps?: InstantApp[] } | undefined) => {
+        const _app = d?.apps?.find((a) => a.id === app.id);
+        if (!_app) return;
+
+        _app.status = newStatus;
+      };
+      if (dashResponse.data.workspace.type === 'personal') {
+        await dashResponse.optimisticUpdate(promise, update);
+      } else {
+        await dashResponse.optimisticUpdateWorkspace(promise, update);
+      }
+      confirmDialog.onClose();
+      successToast(
+        newStatus === 'read-only' ? 'Writes paused.' : 'Writes resumed.',
+      );
+    } catch (e) {
+      errorToast('Failed to update the app status.');
+    } finally {
+      setIsUpdating(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-4 p-4">
+      <div className="flex min-w-0 flex-col">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">Read-only mode</span>
+          {isReadOnly ? (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
+              read-only
+            </span>
+          ) : isAppDisabled ? (
+            <Pill>disabled</Pill>
+          ) : null}
+        </div>
+        <span className="text-sm text-gray-500 dark:text-neutral-400">
+          {isAppDisabled
+            ? 'Reads and writes are paused. Contact the Instant team to re-enable this app.'
+            : 'Pause all writes while you migrate data or debug an issue.'}
+        </span>
+      </div>
+      {!isAppDisabled && (
+        <Switch
+          aria-label="Read-only mode"
+          checked={isReadOnly}
+          disabled={isUpdating}
+          onCheckedChange={(checked) => {
+            if (checked) {
+              confirmDialog.onOpen();
+            } else {
+              setStatus('active');
+            }
+          }}
+        />
+      )}
+      <Dialog title="Pause writes" {...confirmDialog}>
+        <div className="flex flex-col gap-2">
+          <SubsectionHeading>Pause writes</SubsectionHeading>
+          <Content>
+            Writes from your users will be rejected while paused, including
+            offline writes queued on their devices. Reads, live queries, and
+            presence keep working.
+          </Content>
+          <Button
+            variant="destructive"
+            loading={isUpdating}
+            onClick={() => setStatus('read-only')}
+          >
+            Pause writes
+          </Button>
+        </div>
+      </Dialog>
+    </div>
   );
 }
 

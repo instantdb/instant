@@ -16,6 +16,7 @@
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.model.app :as app-model]
    [instant.model.rule :as rule-model]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
@@ -1813,6 +1814,8 @@
     result))
 
 (defn query [ctx o]
+  (when-not (:skip-app-status-read-check? ctx)
+    (app-model/assert-read-allowed! (:app-id ctx)))
   (if (:table-info ctx)
     (query-byop ctx o)
     (query-normal ctx o)))
