@@ -29,6 +29,7 @@ import {
   SectionHeading,
   Select,
   SubsectionHeading,
+  Switch,
   TextInput,
   useDialog,
 } from '@/components/ui';
@@ -857,9 +858,9 @@ function ReadOnlyModeRow({ app }: { app: InstantApp }) {
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
               read-only
             </span>
-          ) : (
-            <Pill>{isAppDisabled ? 'disabled' : 'off'}</Pill>
-          )}
+          ) : isAppDisabled ? (
+            <Pill>disabled</Pill>
+          ) : null}
         </div>
         <span className="text-sm text-gray-500 dark:text-neutral-400">
           {isAppDisabled
@@ -867,26 +868,20 @@ function ReadOnlyModeRow({ app }: { app: InstantApp }) {
             : 'Pause all writes while you migrate data or debug an issue.'}
         </span>
       </div>
-      {!isAppDisabled &&
-        (isReadOnly ? (
-          <button
-            type="button"
-            disabled={isUpdating}
-            onClick={() => setStatus('active')}
-            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-          >
-            Resume writes
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={isUpdating}
-            onClick={confirmDialog.onOpen}
-            className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-red-300 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
-          >
-            Pause writes
-          </button>
-        ))}
+      {!isAppDisabled && (
+        <Switch
+          aria-label="Read-only mode"
+          checked={isReadOnly}
+          disabled={isUpdating}
+          onCheckedChange={(checked) => {
+            if (checked) {
+              confirmDialog.onOpen();
+            } else {
+              setStatus('active');
+            }
+          }}
+        />
+      )}
       <Dialog title="Pause writes" {...confirmDialog}>
         <div className="flex flex-col gap-2">
           <SubsectionHeading>Pause writes</SubsectionHeading>
