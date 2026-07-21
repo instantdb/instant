@@ -72,16 +72,15 @@
       (app-stream-model/notify-machine-id-changed stream-id machine-id))))
 
 (defn notify-app-status-changed
-  "Pushes the app's status to this machine's sessions when an apps row
-   changes. We can't diff old vs. new: apps uses the default replica
-   identity, so the update record only carries the new row. Sends are rare
-   (any apps-row update) and clients no-op on an unchanged status."
+  "Pushes the app's status to this machine's sessions when it changes."
   [wal-record app-id]
   (when (and app-id (= :update (:action wal-record)))
-    (when-let [status (get-column (:columns wal-record) "status")]
-      (doseq [{:keys [id]} (rs/all-sockets-for-app rs/store app-id)]
-        (rs/try-send-event! rs/store app-id id {:op :app-status-changed
-                                                :status status})))))
+    (let [new-status (get-column (:columns wal-record) "status")
+          old-status (get-column (:identity wal-record) "status")]
+      (when (and new-status (not= new-status old-status))
+        (doseq [{:keys [id]} (rs/all-sockets-for-app rs/store app-id)]
+          (rs/try-send-event! rs/store app-id id {:op :app-status-changed
+                                                  :status new-status}))))))
 
 (defn evict-cache! [wal-record]
   (case (:action wal-record)
