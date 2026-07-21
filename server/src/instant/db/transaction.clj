@@ -570,8 +570,6 @@
                                        :num-tx-steps (count tx-step-vecs)
                                        :detailed-tx-steps (pr-str tx-step-vecs)}}
         (prevent-system-catalog-updates! app-id opts)
-        ;; Sign-out passes :skip-app-status-write-check? -- it must work in
-        ;; every status
         (when-not (:skip-app-status-write-check? opts)
           (app-model/assert-write-allowed! app-id))
         (validate-mode conn app-id tx-step-maps)
