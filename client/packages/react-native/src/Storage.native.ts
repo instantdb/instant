@@ -2,9 +2,12 @@ import { StoreInterface, StoreInterfaceStoreName } from '@instantdb/core';
 
 const version = 5;
 
-// AsyncStorage is an optional peer dependency. When it's not installed we
-// fall back to one of the alternative store packages below, or surface a
-// helpful error from `init` if no store is available at all.
+// AsyncStorage is an optional peer dependency. The `require` must sit
+// directly inside a `try` block: that's what makes Metro treat it as an
+// optional dependency (`transformer.allowOptionalDependencies`, enabled by
+// default in the Expo and React Native metro configs), so bundling doesn't
+// fail when it isn't installed. When it's missing, `init` surfaces a helpful
+// error unless a custom `Store` is passed.
 let AsyncStorage: any = null;
 try {
   AsyncStorage = require('@react-native-async-storage/async-storage').default;
@@ -62,8 +65,7 @@ class MissingStore extends StoreInterface {
     throw new Error(
       'Instant needs a store to persist data on device. ' +
         'Install `@react-native-async-storage/async-storage`, ' +
-        'or one of the alternative stores (`@instantdb/react-native-mmkv`, `@instantdb/expo-sqlite`), ' +
-        'or pass a custom `Store` to `init`.',
+        'or pass a `Store` to `init` (e.g. from `@instantdb/react-native-mmkv` or `@instantdb/expo-sqlite`).',
     );
   }
 
@@ -80,24 +82,4 @@ class MissingStore extends StoreInterface {
   }
 }
 
-// Each `require` below must sit directly inside a `try` block: that's what
-// makes Metro treat it as an optional dependency
-// (`transformer.allowOptionalDependencies`, enabled by default in the Expo
-// and React Native metro configs), so bundling doesn't fail when one of
-// these packages isn't installed.
-function resolveDefaultStore() {
-  if (AsyncStorage) {
-    return AsyncStorageStore;
-  }
-  try {
-    const mod = require('@instantdb/react-native-mmkv');
-    return mod.default ?? mod;
-  } catch {}
-  try {
-    const mod = require('@instantdb/expo-sqlite');
-    return mod.default ?? mod;
-  } catch {}
-  return MissingStore;
-}
-
-export default resolveDefaultStore();
+export default AsyncStorage ? AsyncStorageStore : MissingStore;
