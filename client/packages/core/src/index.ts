@@ -840,15 +840,9 @@ class InstantCoreDatabase<
    *   });
    */
   subscribeAppStatus(cb: (state: AppStatusState) => void): UnsubscribeFn {
-    const toState = (
-      status: 'active' | 'read-only' | 'disabled' | undefined,
-    ): AppStatusState =>
-      status === undefined
-        ? { isLoading: true, isReadOnly: undefined }
-        : { isLoading: false, isReadOnly: status !== 'active' };
-    cb(toState(this._reactor._appStatus));
-    return this._reactor.subscribeAppStatus(
-      (status: 'active' | 'read-only' | 'disabled') => cb(toState(status)),
+    cb(this._reactor.getAppStatusState());
+    return this._reactor.subscribeAppStatus(() =>
+      cb(this._reactor.getAppStatusState()),
     );
   }
 

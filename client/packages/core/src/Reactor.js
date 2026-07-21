@@ -2119,6 +2119,17 @@ export default class Reactor {
     this.notifyAppStatusSubs(status);
   }
 
+  /**
+   * `disabled` is an operator-level state we don't surface to apps;
+   * clients only see whether writes are paused.
+   * @returns {import('./clientTypes.ts').AppStatusState}
+   */
+  getAppStatusState() {
+    return this._appStatus === undefined
+      ? { isLoading: true, isReadOnly: undefined }
+      : { isLoading: false, isReadOnly: this._appStatus !== 'active' };
+  }
+
   subscribeAppStatus(cb) {
     this.appStatusCbs.push(cb);
 
