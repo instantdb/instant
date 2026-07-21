@@ -390,9 +390,7 @@ export default abstract class InstantReactAbstractDatabase<
    *  }
    */
   useAppStatus = (): AppStatusState => {
-    const stateRef = useRef<AppStatusState>(
-      this.core._reactor._appStatusState,
-    );
+    const stateRef = useRef<AppStatusState>(this.core._reactor._appStatusState);
 
     const subscribe = useCallback((cb: () => void) => {
       return this.core.subscribeAppStatus((state) => {
