@@ -393,7 +393,7 @@ export default abstract class InstantReactAbstractDatabase<
     // Seed from the reactor so a re-mounted component doesn't flash a
     // loading state
     const stateRef = useRef<AppStatusState>(
-      this.core._reactor.getAppStatusState(),
+      this.core._reactor._appStatusState,
     );
 
     const subscribe = useCallback((cb: () => void) => {

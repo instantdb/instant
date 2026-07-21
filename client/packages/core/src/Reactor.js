@@ -241,8 +241,8 @@ export default class Reactor {
   mutationErrorCbs = [];
   connectionStatusCbs = [];
   appStatusCbs = [];
-  /** @type {'active' | 'read-only' | 'disabled' | undefined} */
-  _appStatus = undefined;
+  /** @type {import('./clientTypes.ts').AppStatusState} */
+  _appStatusState = { isLoading: true, isReadOnly: undefined };
   config;
   mutationDeferredStore = new Map();
   _reconnectTimeoutId = null;
@@ -2115,23 +2115,19 @@ export default class Reactor {
    */
   _setAppStatus(status) {
     if (!status || status === this._appStatus) return;
+    // Raw server status, kept off the typed state: `disabled` is an
+    // operator-level state we don't surface to apps
     this._appStatus = status;
-    this.notifyAppStatusSubs(status);
-  }
-
-  /**
-   * `disabled` is an operator-level state we don't surface to apps;
-   * clients only see whether writes are paused.
-   * @returns {import('./clientTypes.ts').AppStatusState}
-   */
-  getAppStatusState() {
-    return this._appStatus === undefined
-      ? { isLoading: true, isReadOnly: undefined }
-      : { isLoading: false, isReadOnly: this._appStatus !== 'active' };
+    const isReadOnly = status !== 'active';
+    if (this._appStatusState.isReadOnly !== isReadOnly) {
+      this._appStatusState = { isLoading: false, isReadOnly };
+    }
+    this.notifyAppStatusSubs(this._appStatusState);
   }
 
   subscribeAppStatus(cb) {
     this.appStatusCbs.push(cb);
+    cb(this._appStatusState);
 
     return () => {
       this.appStatusCbs = this.appStatusCbs.filter((x) => x !== cb);
@@ -2168,8 +2164,8 @@ export default class Reactor {
     this.connectionStatusCbs.forEach((cb) => cb(status));
   }
 
-  notifyAppStatusSubs(status) {
-    this.appStatusCbs.forEach((cb) => cb(status));
+  notifyAppStatusSubs(state) {
+    this.appStatusCbs.forEach((cb) => cb(state));
   }
 
   async setCurrentUser(user) {

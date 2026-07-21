@@ -840,10 +840,7 @@ class InstantCoreDatabase<
    *   });
    */
   subscribeAppStatus(cb: (state: AppStatusState) => void): UnsubscribeFn {
-    cb(this._reactor.getAppStatusState());
-    return this._reactor.subscribeAppStatus(() =>
-      cb(this._reactor.getAppStatusState()),
-    );
+    return this._reactor.subscribeAppStatus(cb);
   }
 
   /**
