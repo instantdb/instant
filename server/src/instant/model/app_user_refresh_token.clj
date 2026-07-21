@@ -61,7 +61,7 @@
           (transact! (mapv (fn [{:keys [id]}]
                              [:delete-entity id etype])
                            ents)
-                     {:skip-app-status-check? true})))))))
+                     {:skip-app-status-write-check? true})))))))
 
 (defn delete-by-id!
   ([params] (delete-by-id! (aurora/conn-pool :write) params))
@@ -73,7 +73,7 @@
     (fn [{:keys [transact! resolve-id]}]
       ;; Sign-out must work even while the app is read-only or disabled
       (transact! [[:delete-entity [(resolve-id :hashedToken) (hash-token id)] etype]]
-                 {:skip-app-status-check? true})))))
+                 {:skip-app-status-write-check? true})))))
 
 (comment
   (require '[instant.model.instant-user :as instant-user-model])

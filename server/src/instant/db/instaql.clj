@@ -1815,8 +1815,8 @@
 
 (defn query [ctx o]
   ;; System-catalog reads (auth flows, control plane) set
-  ;; :skip-app-status-check? -- they must work in every status.
-  (when-not (:skip-app-status-check? ctx)
+  ;; :skip-app-status-read-check? -- they must work in every status.
+  (when-not (:skip-app-status-read-check? ctx)
     (app-model/assert-read-allowed! (:app-id ctx)))
   (if (:table-info ctx)
     (query-byop ctx o)

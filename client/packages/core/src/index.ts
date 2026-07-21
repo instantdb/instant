@@ -829,10 +829,9 @@ class InstantCoreDatabase<
   }
 
   /**
-   * Listen for changes to the app's maintenance-mode state. While
-   * `isReadOnly` is true, writes are rejected server-side but reads and
-   * live queries keep working. The callback fires immediately with the
-   * current state and again on every change.
+   * Observe the app's maintenance-mode state. While read-only, reads and
+   * live queries keep working but writes are rejected. The callback fires
+   * immediately with the current state and again on every change.
    *
    * @example
    *   const unsub = db.subscribeAppStatus(({ isLoading, isReadOnly }) => {

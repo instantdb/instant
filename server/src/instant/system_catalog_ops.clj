@@ -170,7 +170,7 @@
                           :attrs attrs
                           :datalog-query-fn d/query
                           :db {:conn-pool conn}
-                          :skip-app-status-check? true}
+                          :skip-app-status-read-check? true}
                          {etype {:$ {:where where}}})
         {:keys [symbol-values triples]} (collect-iql-result iql-res)
         eid (-> symbol-values
@@ -187,7 +187,7 @@
                           :attrs attrs
                           :datalog-query-fn d/query
                           :db {:conn-pool conn}
-                          :skip-app-status-check? true}
+                          :skip-app-status-read-check? true}
                          {etype {:$ {:where where}}})
         {:keys [symbol-values triples]} (collect-iql-result iql-res)
         eids (-> symbol-values
@@ -205,7 +205,7 @@
              :db {:conn-pool conn}
              :inference? true
              :include-server-created-at? true
-             :skip-app-status-check? true}
+             :skip-app-status-read-check? true}
         nodes (i/query ctx q)]
     (instaql-nodes->object-tree ctx
                                 nodes)))
