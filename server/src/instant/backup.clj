@@ -80,7 +80,7 @@
 (defn mark-backup-completed!
   ([params] (mark-backup-completed! (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
-   (sql/do-execute! ::update-backup-progress!
+   (sql/do-execute! ::mark-backup-completed!
                     conn
                     ["update backup_jobs set completed_at = now() where id = ?", id])))
 
