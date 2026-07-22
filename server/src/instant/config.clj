@@ -320,8 +320,24 @@
 (defn posthog-enabled? []
   (not (string/blank? (get-posthog-api-key))))
 
-(defn get-google-oauth-client []
-  (-> @config-map :google-oauth-client))
+(defn get-google-oauth-client
+  ([]
+   (get-google-oauth-client
+    (System/getenv "INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_ID")
+    (System/getenv "INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_SECRET")))
+  ([client-id client-secret]
+   (cond
+     (every? string/blank? [client-id client-secret])
+     (-> @config-map :google-oauth-client)
+
+     (some string/blank? [client-id client-secret])
+     (throw (ex-info (str "INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_ID and "
+                          "INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_SECRET must be set together")
+                     {}))
+
+     :else
+     {:client-id client-id
+      :client-secret (crypt-util/obfuscate client-secret)})))
 
 (defn shared-oauth-clients []
   (-> @config-map :shared-oauth-clients))
@@ -434,6 +450,8 @@
 (defn init []
   ;; instantiate the config-map so we can fail early if it's not
   ;; valid
-  @config-map)
+  (let [config @config-map]
+    (get-google-oauth-client)
+    config))
 
 (defonce fewer-vfutures? true)
