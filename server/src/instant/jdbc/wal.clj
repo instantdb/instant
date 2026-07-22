@@ -73,7 +73,7 @@
   ^PgConnection [db-spec]
   (let [db-spec (if-let [secret-arn (:secret-arn db-spec)]
                   (-> db-spec
-                      (dissoc db-spec :secret-arn)
+                      (dissoc :secret-arn)
                       (merge (aurora-config/secret-arn->db-creds secret-arn)))
                   db-spec)
         props (Properties.)
@@ -93,7 +93,7 @@
   ^PgConnection [db-spec]
   (let [db-spec (if-let [secret-arn (:secret-arn db-spec)]
                   (-> db-spec
-                      (dissoc db-spec :secret-arn)
+                      (dissoc :secret-arn)
                       (merge (aurora-config/secret-arn->db-creds secret-arn)))
                   db-spec)
         props (Properties.)
