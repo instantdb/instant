@@ -178,7 +178,7 @@ export const OrgBilling = () => {
       </div>
       <SectionHeading className="pt-8 pb-2">Billing</SectionHeading>
       {isSelfHostedSubscription ? (
-        <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-2 text-sm text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
+        <Content className="w-full max-w-none rounded-sm border border-purple-400 bg-purple-100 px-2 py-2 text-sm text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
           <span className="font-bold">Self-hosted Startup mode</span>
           <br />
           The Startup plan is included with this self-hosted instance.
