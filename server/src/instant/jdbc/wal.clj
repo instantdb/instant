@@ -52,8 +52,7 @@
    (org.postgresql PGProperty)
    (org.postgresql.jdbc PgConnection)
    (org.postgresql.replication LogSequenceNumber PGReplicationStream ReplicationSlotInfo)
-   (org.postgresql.replication.fluent ChainedCommonCreateSlotBuilder)
-   (org.postgresql.replication.fluent.logical ChainedLogicalCreateSlotBuilder ChainedLogicalStreamBuilder)
+   (org.postgresql.replication.fluent.logical ChainedLogicalStreamBuilder)
    (org.postgresql.util PSQLException)))
 
 ;; ----
