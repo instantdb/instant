@@ -183,7 +183,6 @@
                                      [:= nil :app.deletion-marked-at]
                                      (when start-app-id
                                        [:>= :t.app_id [:inline (uuid-util/coerce start-app-id)]])]
-                             :limit [:inline 1]
                              :order-by [[:t.app_id] [:t.entity_id] [:t.attr_id]]})
         _ (assert (= 1 (count select)) "The select query cannot have parameters")
         q (format "COPY (%s) to stdout with (format binary)"
