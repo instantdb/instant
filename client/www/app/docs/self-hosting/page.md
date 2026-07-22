@@ -108,6 +108,25 @@ The `_DOMAIN` variables are only used by the Caddy reverse proxy, so if you are 
 
 The MinIO bucket is private by default. Files are accessed through Instant-generated signed URLs.
 
+### Configure Google Dashboard Login (Optional)
+
+To let users log in to the Instant dashboard with Google, create an OAuth client in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) with the application type **Web application**.
+
+Add this authorized redirect URI, using your public backend URL:
+
+```text {% showCopy=true %}
+https://api.myinstant.com/dash/oauth/callback
+```
+
+Then set both credentials in `.env`:
+
+```shell
+INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
+INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
+```
+
+The redirect URI must exactly match `${INSTANT_BACKEND_URL}/dash/oauth/callback`. This configures login to the Instant dashboard; OAuth for users of your Instant apps is configured separately.
+
 ### DNS
 
 Before running Instant, make sure that you have pointed the subdomain DNS records to the IP address of the server so that when the Caddy reverse proxy starts, it is able to set up TLS certificates automatically.
@@ -232,6 +251,8 @@ SSH_HOST=root@ip
 DASHBOARD_URL="https://dashboard.example.com"
 SERVER_URL="https://backend.example.com"
 S3_PUBLIC_ENDPOINT="https://files.example.com"
+INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_SECRET="your-client-secret"
 
 stack_config() {
   env -i \
@@ -239,6 +260,8 @@ stack_config() {
     DASHBOARD_URL="$DASHBOARD_URL" \
     SERVER_URL="$SERVER_URL" \
     S3_PUBLIC_ENDPOINT="$S3_PUBLIC_ENDPOINT" \
+    INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_ID="$INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_ID" \
+    INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_SECRET="$INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_SECRET" \
     docker stack config --compose-file swarm.yml
 }
 
