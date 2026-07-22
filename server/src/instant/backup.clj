@@ -185,11 +185,10 @@
                                        [:>= :t.app_id [:inline (uuid-util/coerce start-app-id)]])]
                              :order-by [[:t.app_id] [:t.entity_id] [:t.attr_id]]})
         _ (assert (= 1 (count select)) "The select query cannot have parameters")
-        q (format "COPY (%s) to stdout with (format binary)"
+        q (format "/*+ IndexScan(t triples_pkey) */ COPY (%s) to stdout with (format binary)"
                   (first select))
         copy-seq (copy/copy-seq conn
                                 q
-
                                 columns
                                 {:row-fn ->Triple})]
     copy-seq))
