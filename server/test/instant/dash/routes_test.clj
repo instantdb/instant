@@ -914,23 +914,15 @@
                            ["SELECT count(*)::int AS count FROM instant_subscriptions WHERE app_id = ?::uuid AND source = 'self-hosted'"
                             (:id app)])))))))))))))
 
-(deftest new-apps-default-to-self-hosted-pro
+(deftest new-apps-require-self-hosted-pro-activation
   (with-redefs [config/default-paid-app? (constantly true)]
     (with-user
       (fn [user]
         (with-empty-app
           (:id user)
           (fn [app]
-            (let [subscription (sql/select-one
-                                (aurora/conn-pool :read)
-                                ["SELECT s.source, t.name
-                                  FROM apps a
-                                  JOIN instant_subscriptions s ON s.id = a.subscription_id
-                                  JOIN instant_subscription_types t ON t.id = s.subscription_type_id
-                                  WHERE a.id = ?::uuid"
-                                 (:id app)])]
-              (is (= "Pro" (:name subscription)))
-              (is (= "self-hosted" (:source subscription))))))))))
+            (is (nil? (:subscription_id
+                       (app-model/get-by-id! {:id (:id app)}))))))))))
 
 (deftest activate-self-hosted-org-subscription
   (with-redefs [config/default-paid-app? (constantly false)]
