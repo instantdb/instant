@@ -226,6 +226,8 @@ export type SubscriptionName = 'Free' | 'Pro';
 
 export type AppsSubscriptionResponse = {
   'subscription-name': SubscriptionName;
+  'subscription-source': 'stripe' | 'self-hosted' | null;
+  'self-hosted-plan-enabled': boolean;
   'total-app-bytes': number;
   'total-storage-bytes': number;
 };

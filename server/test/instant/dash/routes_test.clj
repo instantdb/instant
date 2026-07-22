@@ -877,6 +877,90 @@
             (fn [app]
               (f {:org org :user u :app app}))))))))
 
+(deftest activate-self-hosted-app-subscription
+  (with-redefs [config/default-paid-app? (constantly false)]
+    (with-user
+      (fn [user]
+        (with-empty-app
+          (:id user)
+          (fn [app]
+            (let [url (format "%s/dash/apps/%s/self_hosted_subscription"
+                              config/server-origin
+                              (:id app))
+                  request {:throw-exceptions false
+                           :headers {:Authorization (str "Bearer " (:refresh-token user))
+                                     :Content-Type "application/json"}
+                           :as :json}]
+              (testing "activation is unavailable when Stripe is configured"
+                (is (= 400 (:status (http/post url request)))))
+
+              (with-redefs [config/default-paid-app? (constantly true)]
+                (testing "owners can activate the included Pro plan"
+                  (is (= 200 (:status (http/post url request))))
+                  (let [billing (:body (http/get (format "%s/dash/apps/%s/billing"
+                                                         config/server-origin
+                                                         (:id app))
+                                                request))]
+                    (is (= "Pro" (:subscription-name billing)))
+                    (is (= "self-hosted" (:subscription-source billing)))
+                    (is (true? (:self-hosted-plan-enabled billing)))))
+
+                (testing "activation is idempotent"
+                  (is (= 200 (:status (http/post url request))))
+                  (is (= 1
+                         (:count
+                          (sql/select-one
+                           (aurora/conn-pool :read)
+                           ["SELECT count(*)::int AS count FROM instant_subscriptions WHERE app_id = ?::uuid AND source = 'self-hosted'"
+                            (:id app)])))))))))))))
+
+(deftest new-apps-require-self-hosted-pro-activation
+  (with-redefs [config/default-paid-app? (constantly true)]
+    (with-user
+      (fn [user]
+        (with-empty-app
+          (:id user)
+          (fn [app]
+            (is (nil? (:subscription_id
+                       (app-model/get-by-id! {:id (:id app)}))))))))))
+
+(deftest activate-self-hosted-org-subscription
+  (with-redefs [config/default-paid-app? (constantly false)]
+    (with-user
+      (fn [owner]
+        (with-user
+          (fn [collaborator]
+            (with-org
+              (:id owner)
+              (fn [org]
+                (org-members/create! {:org-id (:id org)
+                                      :user-id (:id collaborator)
+                                      :role "collaborator"})
+                (let [url (format "%s/dash/orgs/%s/self_hosted_subscription"
+                                  config/server-origin
+                                  (:id org))
+                      request {:headers {:Authorization (str "Bearer " (:refresh-token collaborator))
+                                         :Content-Type "application/json"}
+                               :as :json}]
+                  (with-redefs [config/default-paid-app? (constantly true)]
+                    (testing "collaborators can activate the included Startup plan"
+                      (is (= 200 (:status (http/post url request))))
+                      (let [billing (:body (http/get (format "%s/dash/orgs/%s/billing"
+                                                             config/server-origin
+                                                             (:id org))
+                                                    request))]
+                        (is (= "Startup" (:subscription-name billing)))
+                        (is (= "self-hosted" (:subscription-source billing)))))
+
+                    (testing "activation is idempotent"
+                      (is (= 200 (:status (http/post url request))))
+                      (is (= 1
+                             (:count
+                              (sql/select-one
+                               (aurora/conn-pool :read)
+                               ["SELECT count(*)::int AS count FROM instant_subscriptions WHERE org_id = ?::uuid AND source = 'self-hosted'"
+                                (:id org)])))))))))))))))
+
 (deftest transfer-app-to-org
   (with-org-user-and-app
     (fn [{:keys [org user app]}]

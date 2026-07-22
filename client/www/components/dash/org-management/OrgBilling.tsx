@@ -2,7 +2,7 @@ import { useAuthedFetch, friendlyErrorMessage } from '@/lib/auth';
 import config, { stripeKey } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantIssue } from '@instantdb/core';
@@ -85,6 +85,7 @@ export function formatCredit(credit: number) {
 
 export const OrgBilling = () => {
   const token = useContext(TokenContext);
+  const [isActivating, setIsActivating] = useState(false);
   const fetchedDash = useFetchedDash();
   const orgId = fetchedDash.data.currentWorkspaceId;
 
@@ -100,9 +101,38 @@ export const OrgBilling = () => {
     'total-app-bytes': number;
     'total-storage-bytes': number;
     'subscription-name': string;
+    'subscription-source': 'stripe' | 'self-hosted' | null;
     'stripe-subscription-id': string | null;
+    'self-hosted-plan-enabled': boolean;
     'customer-balance': number | null;
   }>(`${config.apiURI}/dash/orgs/${orgId}/billing`);
+
+  const onActivateSelfHostedSub = async () => {
+    setIsActivating(true);
+    try {
+      await jsonFetch(
+        `${config.apiURI}/dash/orgs/${orgId}/self_hosted_subscription`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      await Promise.all([
+        fetchResult.mutate(undefined, { revalidate: true }),
+        fetchedDash.refetch(),
+      ]);
+    } catch (err) {
+      const message =
+        messageFromInstantError(err as InstantIssue) ||
+        'Failed to activate the included Startup plan.';
+      errorToast(friendlyErrorMessage('dash-billing', message));
+    } finally {
+      setIsActivating(false);
+    }
+  };
   if (fetchResult.error) {
     return <div>Error fetching data</div>;
   }
@@ -119,6 +149,10 @@ export const OrgBilling = () => {
   const totalStorageBytes = data['total-storage-bytes'] || 0;
   const totalUsageBytes = totalAppBytes + totalStorageBytes;
   const isFreeTier = data['subscription-name'] === 'Free';
+  const isSelfHostedSubscription =
+    data['subscription-source'] === 'self-hosted';
+  const canActivateSelfHostedPlan =
+    isFreeTier && data['self-hosted-plan-enabled'];
   const credit = data['customer-balance'] || 0;
   const progressDen = isFreeTier ? GB_1 : GB_250;
   const progress = Math.round((totalUsageBytes / progressDen) * 100);
@@ -147,7 +181,26 @@ export const OrgBilling = () => {
         </div>
       </div>
       <SectionHeading className="pt-8 pb-2">Billing</SectionHeading>
-      {isFreeTier ? (
+      {isSelfHostedSubscription ? (
+        <Content className="w-full max-w-none rounded-sm border border-purple-400 bg-purple-100 px-2 py-2 text-sm text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
+          <span className="font-bold">Self-hosted Startup mode</span>
+          <br />
+          The Startup plan is included with this self-hosted instance.
+        </Content>
+      ) : canActivateSelfHostedPlan ? (
+        <div className="flex flex-col gap-2">
+          <Button
+            variant="primary"
+            loading={isActivating}
+            onClick={onActivateSelfHostedSub}
+          >
+            Activate Startup for free
+          </Button>
+          <Content className="w-full max-w-none rounded-sm border border-purple-400 bg-purple-100 px-2 py-2 text-sm text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
+            The Startup plan is included with this self-hosted instance.
+          </Content>
+        </div>
+      ) : isFreeTier ? (
         <div className="flex flex-col gap-2">
           <Button variant="primary" onClick={onUpgrade}>
             Upgrade to Startup

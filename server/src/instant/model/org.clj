@@ -387,7 +387,7 @@
                            conn
                            (uhsql/formatp transfer-q {:org-id org-id
                                                       :app-id app-id})))
-         credit (when (and paid_org paid_app)
+         credit (when (and paid_org paid_app app_stripe_subscription_id)
                   (tracer/with-span! {:name "transfer-app/cancel-subscription-and-credit-customer"}
                     (stripe/cancel-subscription-and-credit-customer {:app-customer-id app_stripe_customer_id
                                                                      :app-subscription-id app_stripe_subscription_id
