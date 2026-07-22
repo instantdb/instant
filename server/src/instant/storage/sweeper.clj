@@ -35,7 +35,7 @@
 ;; before we delete the files.
 (def storage-sweeper-grace-period-interval "32 days")
 
-(def files-available-wheres
+(defn files-available-wheres []
   [:and
    [:< :created-at [:- :%now [:interval [:inline storage-sweeper-grace-period-interval]]]]
    [:or
@@ -58,8 +58,8 @@
                             :where (if app-id
                                      [:and
                                       [:= :app-id app-id]
-                                      files-available-wheres]
-                                     files-available-wheres)
+                                      (files-available-wheres)]
+                                     (files-available-wheres))
                             :order-by :created-at
                             :for [:update :skip-locked]
                             :limit limit}]]
