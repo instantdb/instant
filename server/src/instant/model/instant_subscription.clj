@@ -66,10 +66,11 @@
    (sql/select-one ::get-by-app-id
                    conn
                    ["SELECT s.id, s.app_id, s.stripe_subscription_id, s.source, t.name, s.subscription_type_id
-                    FROM apps a
-                    JOIN instant_subscriptions s ON s.id = a.subscription_id
+                    FROM instant_subscriptions s
                     JOIN instant_subscription_types t on s.subscription_type_id = t.id
-                    WHERE a.id = ?::uuid"
+                    WHERE s.app_id = ?::uuid
+                    ORDER BY s.created_at DESC
+                    LIMIT 1"
                     app-id])))
 
 (def get-by-org-id-q

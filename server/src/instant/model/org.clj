@@ -57,11 +57,11 @@
                                                                              :org-s.subscription_type_id]
                                                                   false]
                                                                  :paid]]
-                                            :from [[:orgs :o]]
-                                            :join [[:apps :a] [:= :a.org_id :o.id]
-                                                   [:app_members :m] [:= :m.app-id :a.id]]
-                                            :left-join [[:instant-subscriptions :org-s] [:= :o.subscription-id :org-s.id]
-                                                        [:instant-subscriptions :app-s] [:= :app-s.id :a.subscription-id]]
+                                           :from [[:orgs :o]]
+                                           :join [[:apps :a] [:= :a.org_id :o.id]
+                                                  [:app_members :m] [:= :m.app-id :a.id]]
+                                           :left-join [[:instant-subscriptions :org-s] [:= :o.subscription-id :org-s.id]
+                                                       [:instant-subscriptions :app-s] [:= :app-s.app_id :a.id]]
                                            :where [:and
                                                    [:= :m.user-id :?user-id]
                                                    [:= nil :a.deletion-marked-at]
@@ -98,7 +98,7 @@
                                    :join [[:orgs :o] [:= :a.org_id :o.id]
                                           [:app_members :m] [:= :m.app-id :a.id]]
                                    :left-join [[:instant-subscriptions :org-s] [:= :o.subscription-id :org-s.id]
-                                               [:instant-subscriptions :app-s] [:= :app-s.id :a.subscription-id]]
+                                               [:instant-subscriptions :app-s] [:= :app-s.app_id :a.id]]
                                    :where [:and
                                            [:= :m.user-id :?user-id]
                                            [:= :o.id :?org-id]
@@ -193,11 +193,11 @@
                                                                  :org-s.subscription_type_id]
                                                       false]
                                                      :paid]]
-                                            :from [[:orgs :o]]
-                                            :join [[:apps :a] [:= :a.org_id :o.id]
-                                                   [:app_members :m] [:= :m.app-id :a.id]]
-                                            :left-join [[:instant-subscriptions :org-s] [:= :o.subscription-id :org-s.id]
-                                                        [:instant-subscriptions :app-s] [:= :app-s.id :a.subscription-id]]
+                                           :from [[:orgs :o]]
+                                           :join [[:apps :a] [:= :a.org_id :o.id]
+                                                  [:app_members :m] [:= :m.app-id :a.id]]
+                                           :left-join [[:instant-subscriptions :org-s] [:= :o.subscription-id :org-s.id]
+                                                       [:instant-subscriptions :app-s] [:= :app-s.app_id :a.id]]
                                            :where [:and
                                                    [:= :o.id :?org-id]
                                                    [:= :m.user-id :?user-id]
@@ -387,8 +387,8 @@
                            conn
                            (uhsql/formatp transfer-q {:org-id org-id
                                                       :app-id app-id})))
-          credit (when (and paid_org paid_app app_stripe_subscription_id)
-                   (tracer/with-span! {:name "transfer-app/cancel-subscription-and-credit-customer"}
+         credit (when (and paid_org paid_app app_stripe_subscription_id)
+                  (tracer/with-span! {:name "transfer-app/cancel-subscription-and-credit-customer"}
                     (stripe/cancel-subscription-and-credit-customer {:app-customer-id app_stripe_customer_id
                                                                      :app-subscription-id app_stripe_subscription_id
                                                                      :org-id org-id
@@ -405,9 +405,7 @@
            [:orgs :o] [:= :a.org_id :o.id]]
     :where [:and
             [:= :o.id :?org-id]
-            [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]
-            [:= :app-s.source [:inline "stripe"]]
-            [:not= nil :app-s.stripe-subscription-id]]}))
+            [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]}))
 
 (defn pro-app-subscriptions
   "Gets the apps on the org that have a pro plan."

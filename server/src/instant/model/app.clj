@@ -10,7 +10,6 @@
    [instant.jdbc.sql :as sql]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
-   [instant.plans :as plans]
    [instant.system-catalog :as system-catalog]
    [instant.util.cache :as cache]
    [instant.util.crypt :as crypt-util]
@@ -243,10 +242,7 @@
                       [:inline "id"] :org.id
                       [:inline "title"] :org.title]]
               :org]
-             [[:coalesce
-               [:= [:inline plans/PRO_SUBSCRIPTION_TYPE] :sub.subscription_type_id]
-               :false]
-              :pro]
+             [[:coalesce [:= :2 :sub.subscription_type_id] :false] :pro]
              [[:case [:= :a.creator-id :?user-id] [:inline "owner"]
                :else {:select :m.member_role
                       :from [[:app-members :m]]
@@ -294,7 +290,7 @@
                                  [:= nil :a.deletion-marked-at]
                                  [:= nil :a.org_id]
                                  [:or
-                                  [:= [:inline plans/PRO_SUBSCRIPTION_TYPE] :sub.subscription_type_id]
+                                  [:= :2 :sub.subscription_type_id]
                                   [:< :m.created_at :?free-teams-cutoff]]]}]}))
 
 (defn get-all-for-user

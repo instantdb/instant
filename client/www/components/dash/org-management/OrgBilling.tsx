@@ -7,7 +7,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantIssue } from '@instantdb/core';
 import { errorToast } from '@/lib/toast';
-import { friendlyUsage, GB_1, GB_250, ProgressBar } from '../Billing';
+import { friendlyUsage, GB_1, GB_10, GB_250, ProgressBar } from '../Billing';
 import { useFetchedDash } from '../MainDashLayout';
 import {
   Button,
@@ -16,6 +16,7 @@ import {
   SectionHeading,
   SubsectionHeading,
 } from '@/components/ui';
+import { OrgWorkspace } from '@/lib/hooks/useWorkspace';
 
 async function createPortalSession(orgId: string, token: string) {
   const sessionPromise = jsonFetch(
@@ -99,7 +100,7 @@ export const OrgBilling = () => {
   const fetchResult = useAuthedFetch<{
     'total-app-bytes': number;
     'total-storage-bytes': number;
-    'subscription-name': 'Free' | 'Startup';
+    'subscription-name': string;
     'subscription-source': 'stripe' | 'self-hosted' | null;
     'stripe-subscription-id': string | null;
     'self-hosted-plan-enabled': boolean;
@@ -135,6 +136,10 @@ export const OrgBilling = () => {
   if (fetchResult.error) {
     return <div>Error fetching data</div>;
   }
+  const org = fetchedDash.data.workspace as OrgWorkspace;
+
+  const isPaid = org.org.paid;
+
   if (!fetchResult.data) {
     return <div>Loading...</div>;
   }
@@ -144,7 +149,6 @@ export const OrgBilling = () => {
   const totalStorageBytes = data['total-storage-bytes'] || 0;
   const totalUsageBytes = totalAppBytes + totalStorageBytes;
   const isFreeTier = data['subscription-name'] === 'Free';
-  const isPaid = !isFreeTier;
   const isSelfHostedSubscription =
     data['subscription-source'] === 'self-hosted';
   const canActivateSelfHostedPlan =
