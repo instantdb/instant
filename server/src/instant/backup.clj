@@ -515,13 +515,13 @@
          streams (HashMap.)
          ;; Map of etype -> Ent
          entities (HashMap.)
-         triple-count 1]
+         triple-count 0]
     (cond (= triple done-signal)
           (when current-app-id
             (let [finished-promise (promise)]
               (flush-entities process-id current-app-id streams entities)
               (.put record-progress-queue {:app-id current-app-id
-                                           :triple-count (dec triple-count)
+                                           :triple-count triple-count
                                            :finished-promise finished-promise})
               (.put flush-streams-queue
                     {:streams streams
@@ -581,6 +581,18 @@
         flush-streams-queue (LinkedBlockingQueue. 100)
         flush-stream-process-count 100
         done-signal ::done
+        process-state (atom nil)
+        abort (fn []
+                (when-let [{:keys [copy-process
+                                   upload-process
+                                   flush-streams-processes
+                                   update-progress-process]} @process-state]
+                  (future-cancel copy-process)
+                  (future-cancel upload-process)
+                  (doseq [p flush-streams-processes]
+                    (future-cancel p))
+                  (future-cancel update-progress-process))
+                (.close query-conn*))
         copy-process (ua/vfuture
                       (with-open [conn copy-conn]
                         (doseq [triple (triples-seq conn nil)]
@@ -600,12 +612,17 @@
                                         (ua/vfuture
                                          (loop [item (.take flush-streams-queue)]
                                            (when (not= done-signal item)
-                                             (complete-streams query-conn
-                                                               {:backup-id process-id
-                                                                :isn isn
-                                                                :backup-at before-ts}
-                                                               item)
-                                             (deliver (:finished-promise item) true)
+                                             (try
+                                               (complete-streams query-conn
+                                                                 {:backup-id process-id
+                                                                  :isn isn
+                                                                  :backup-at before-ts}
+                                                                 item)
+                                               (deliver (:finished-promise item) true)
+                                               (catch Throwable t
+                                                 (deliver (:finished-promise item) t)
+                                                 (abort)
+                                                 (throw t)))
                                              (recur (.take flush-streams-queue))))))
                                       (range flush-stream-process-count))
         update-limiter (RateLimiter/create 0.2) ;; every 5 seconds
@@ -623,7 +640,9 @@
                                        (recur (.take record-progress-queue)
                                               (inc app-count))
                                        (let [{:keys [app-id triple-count finished-promise]} item]
-                                         @finished-promise
+                                         (let [result @finished-promise]
+                                           (when (instance? Throwable result)
+                                             (throw result)))
                                          (update-backup-progress! {:id process-id
                                                                    :max-app-id app-id
                                                                    :triple-count triple-count
@@ -632,22 +651,24 @@
                                            (.acquire update-limiter))
                                          (recur (.take record-progress-queue)
                                                 (inc app-count)))))))]
+    (reset! process-state {:copy-process copy-process
+                           :upload-process upload-process
+                           :flush-streams-processes flush-streams-processes
+                           :update-progress-process update-progress-process})
     {:copy-process copy-process
      :upload-process upload-process
      :flush-streams-processes flush-streams-processes
      :triples-queue triples-queue
      :flush-streams-queue flush-streams-queue
      :wait-for-finish (fn []
-                        @copy-process
-                        @upload-process
-                        (doseq [p flush-streams-processes]
-                          @p)
-                        @update-progress-process
-                        (.close query-conn*))
-     :abort (fn []
-              (future-cancel copy-process)
-              (future-cancel upload-process)
-              (doseq [p flush-streams-processes]
-                (future-cancel p))
-              (future-cancel update-progress-process)
-              (.close query-conn*))}))
+                        (try
+                          @copy-process
+                          @upload-process
+                          (doseq [p flush-streams-processes]
+                            @p)
+                          @update-progress-process
+                          (.close query-conn*)
+                          (catch Throwable t
+                            (abort)
+                            (throw t))))
+     :abort abort}))
