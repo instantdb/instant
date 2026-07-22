@@ -196,7 +196,7 @@ export const OrgBilling = () => {
           >
             Activate Startup for free
           </Button>
-          <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-2 text-sm text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
+          <Content className="w-full max-w-none rounded-sm border border-purple-400 bg-purple-100 px-2 py-2 text-sm text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
             The Startup plan is included with this self-hosted instance.
           </Content>
         </div>
