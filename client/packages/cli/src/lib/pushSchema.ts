@@ -20,7 +20,7 @@ import {
   resolveRenames,
   waitForIndexingJobsToFinish,
 } from '../old.js';
-import { InstantHttpAuthed, withCommand } from './http.ts';
+import { getBaseUrl, InstantHttpAuthed, withCommand } from './http.ts';
 
 import boxen from 'boxen';
 import { GlobalOpts } from '../context/globalOpts.ts';
@@ -179,12 +179,14 @@ export const pushSchema = (
 
     if (pushRes?.['indexing-jobs']) {
       // TODO: rewrite in effect
+      const apiURI = yield* getBaseUrl;
       yield* Effect.tryPromise({
         try: () =>
           waitForIndexingJobsToFinish(
             appId,
             pushRes?.['indexing-jobs'] || [],
             authToken,
+            apiURI,
           ),
         catch: (e: any) =>
           WaitForJobsError.make({

@@ -32,10 +32,6 @@ const instantDashOrigin = dev
   ? 'http://localhost:3000'
   : 'https://instantdb.com';
 
-const instantBackendOrigin =
-  process.env.INSTANT_CLI_API_URI ||
-  (dev ? 'http://localhost:8888' : 'https://api.instantdb.com');
-
 function indexingJobCompletedActionMessage(job) {
   if (job.job_type === 'check-data-type') {
     return `setting type of ${job.attr_name} to ${job.checked_data_type}`;
@@ -185,7 +181,12 @@ function jobGroupDescription(jobs) {
 }
 
 // TODO: rewrite in effect
-export async function waitForIndexingJobsToFinish(appId, data, authToken) {
+export async function waitForIndexingJobsToFinish(
+  appId,
+  data,
+  authToken,
+  apiURI,
+) {
   const spinnerDefferedPromise = deferred();
   const spinner = new UI.Spinner({
     promise: spinnerDefferedPromise.promise,
@@ -248,6 +249,7 @@ export async function waitForIndexingJobsToFinish(appId, data, authToken) {
       debugName: 'Check indexing status',
       method: 'GET',
       authToken,
+      apiURI,
       path: `/dash/apps/${appId}/indexing-jobs/group/${groupId}`,
       errorMessage: 'Failed to check indexing status.',
       command: 'push',
@@ -307,6 +309,7 @@ export const resolveRenames = async (created, promptData, extraInfo) => {
  * @param {boolean} [options.noLogError]
  * @param {string} [options.command] - The CLI command being executed (e.g., 'push', 'pull', 'login')
  * @param {string} [options.authToken] - Optional auth token to use instead of reading from config
+ * @param {string} options.apiURI - Backend API origin
  * @param {Record<string, string>} [options.headers] - Extra headers to include in the request
  * @returns {Promise<{ ok: boolean; data: any }>}
  */
@@ -320,6 +323,7 @@ async function fetchJson({
   noLogError,
   command,
   authToken: providedAuthToken,
+  apiURI,
   headers: extraHeaders,
 }) {
   const withAuth = !noAuth;
@@ -335,7 +339,7 @@ async function fetchJson({
   const timeoutMs = 1000 * 60 * 5; // 5 minutes
 
   try {
-    const res = await fetch(`${instantBackendOrigin}${path}`, {
+    const res = await fetch(`${apiURI}${path}`, {
       method: method ?? 'GET',
       headers: {
         ...(withAuth ? { Authorization: `Bearer ${authToken}` } : {}),
@@ -430,23 +434,6 @@ export async function readLocalEmailFile(emailPath) {
   if (!res.config) return;
   const relativePath = path.relative(process.cwd(), res.sources[0]);
   return { path: relativePath, email: res.config };
-}
-
-export async function readInstantConfigFile() {
-  return (
-    await loadConfig({
-      sources: [
-        // load from `instant.config.xx`
-        {
-          files: 'instant.config',
-          extensions: ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs', 'json'],
-        },
-      ],
-      // if false, the only the first matched will be loaded
-      // if true, all matched will be loaded and deep merged
-      merge: false,
-    })
-  ).config;
 }
 
 async function readConfigAuthToken(allowAdminToken = true) {
