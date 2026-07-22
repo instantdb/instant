@@ -361,7 +361,8 @@
     :dev {"instantdb-test-bucket" "https://files-dev.instantdb.com"
           "app-backups-dev-597134865416-us-east-1-an" "https://app-backups-dev.instantdb.com"}
     :staging {"instant-storage-staging" "https://files-staging.instantdb.com"
-              "app-backups-staging-597134865416-us-east-1-an" "https://app-backups-staging.instantdb.com"}))
+              "app-backups-staging-597134865416-us-east-1-an" "https://app-backups-staging.instantdb.com"}
+    {}))
 
 (def cloudfront-signing-key
   (delay (when-let [{:keys [key-id private-key]} (-> @config-map
