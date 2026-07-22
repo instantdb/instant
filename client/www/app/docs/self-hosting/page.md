@@ -180,6 +180,15 @@ INSTANT_CLI_API_URI=http://localhost:8888 npx instant-cli@latest init
 INSTANT_CLI_API_URI=https://api.myinstant.com npx instant-cli@latest init
 ```
 
+You can also set it in the `instant.config.ts` file.
+
+```typescript
+// instant.config.ts
+export default {
+  apiURI: 'http://127.0.0.1:18987',
+};
+```
+
 ## Horizontal Scaling With Docker Swarm
 
 Docker Swarm allows one or more machines to distribute Docker containers between them.
