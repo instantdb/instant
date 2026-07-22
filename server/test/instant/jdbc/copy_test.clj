@@ -148,3 +148,104 @@
                      :integer 1
                      :bigint 99999999999999999
                      :checked_data_type :date})))))
+
+(def copy-in-columns
+  [{:name :uuid
+    :pgtype "uuid"}
+   {:name :text
+    :pgtype "text"}
+   {:name :json
+    :pgtype "json"}
+   {:name :jsonb
+    :pgtype "jsonb"}
+   {:name :timestamptz
+    :pgtype "timestamptz"}
+   {:name :boolean
+    :pgtype "boolean"}
+   {:name :integer
+    :pgtype "integer"}
+   {:name :bigint
+    :pgtype "bigint"}])
+
+(defn create-copy-in-test-table! [conn]
+  (sql/do-execute!
+   conn
+   ["create temp table copy_in_test (
+       uuid uuid,
+       text text,
+       json json,
+       jsonb jsonb,
+       timestamptz timestamptz,
+       boolean boolean,
+       integer integer,
+       bigint bigint
+     )"]))
+
+(deftest copy-in-rows-round-trips-supported-types
+  (with-open [conn (get-copy-conn)]
+    (create-copy-in-test-table! conn)
+    (let [rows [{:uuid #uuid "ab3f1923-f604-49c2-bfa0-b30e062db84c"
+                 :text "first"
+                 :json {"json" [nil 1 true 5.0]}
+                 :jsonb {"jsonb" {"nested" ["value"]}}
+                 :timestamptz (Instant/parse "2024-01-02T03:04:05.123456Z")
+                 :boolean true
+                 :integer 123
+                 :bigint 99999999999999999}
+                {:uuid #uuid "52844a42-82d5-4a77-99ca-68038a2c1e77"
+                 :text "second"
+                 :json [1 2 3]
+                 :jsonb {"k" "v"}
+                 :timestamptz (Instant/parse "1970-01-01T00:00:00Z")
+                 :boolean false
+                 :integer -456
+                 :bigint -99999999999999999}]
+          inserted (copy/copy-in-rows
+                    conn
+                    "copy copy_in_test (uuid, text, json, jsonb, timestamptz, boolean, integer, bigint) from stdin with (format binary)"
+                    copy-in-columns
+                    rows)
+          copied-back (vec
+                       (copy/copy-seq
+                        conn
+                        "copy (select uuid, text, json, jsonb, timestamptz, boolean, integer, bigint from copy_in_test order by text) to stdout with (format binary)"
+                        copy-in-columns))]
+      (is (= 2 inserted))
+      (is (= rows copied-back)))))
+
+(deftest copy-in-rows-distinguishes-sql-null-from-json-null
+  (with-open [conn (get-copy-conn)]
+    (create-copy-in-test-table! conn)
+    (is (= 1
+           (copy/copy-in-rows
+            conn
+            "copy copy_in_test (uuid, text, json, jsonb, timestamptz, boolean, integer, bigint) from stdin with (format binary)"
+            copy-in-columns
+            [{:uuid #uuid "ab3f1923-f604-49c2-bfa0-b30e062db84c"
+              :text nil
+              :json nil
+              :jsonb nil
+              :timestamptz nil
+              :boolean nil
+              :integer nil
+              :bigint nil}])))
+    (is (= [{:text_is_null true
+             :json_is_sql_null false
+             :jsonb_is_sql_null false
+             :json_type "null"
+             :jsonb_type "null"
+             :timestamptz_is_null true
+             :boolean_is_null true
+             :integer_is_null true
+             :bigint_is_null true}]
+           (sql/select conn
+                       ["select text is null as text_is_null,
+                                json is null as json_is_sql_null,
+                                jsonb is null as jsonb_is_sql_null,
+                                json_typeof(json) as json_type,
+                                jsonb_typeof(jsonb) as jsonb_type,
+                                timestamptz is null as timestamptz_is_null,
+                                boolean is null as boolean_is_null,
+                                integer is null as integer_is_null,
+                                bigint is null as bigint_is_null
+                           from copy_in_test"])))))
