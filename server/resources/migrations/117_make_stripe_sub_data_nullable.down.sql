@@ -5,6 +5,12 @@ WHERE subscription_id IN (
   SELECT id FROM instant_subscriptions WHERE source = 'self-hosted'
 );
 
+UPDATE apps
+SET subscription_id = NULL
+WHERE subscription_id IN (
+  SELECT id FROM instant_subscriptions WHERE source = 'self-hosted'
+);
+
 DELETE FROM instant_subscriptions
 WHERE source = 'self-hosted';
 
