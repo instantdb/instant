@@ -23,4 +23,4 @@ ADD CONSTRAINT valid_subscription_source CHECK (
       OR (org_id IS NOT NULL AND subscription_type_id = 3)
     )
   )
-);
+) NOT VALID;
