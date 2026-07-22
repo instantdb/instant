@@ -7,7 +7,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantIssue } from '@instantdb/core';
 import { errorToast } from '@/lib/toast';
-import { friendlyUsage, GB_1, GB_10, GB_250, ProgressBar } from '../Billing';
+import { friendlyUsage, GB_1, GB_250, ProgressBar } from '../Billing';
 import { useFetchedDash } from '../MainDashLayout';
 import {
   Button,
