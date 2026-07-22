@@ -10,7 +10,7 @@ import { v4 } from 'uuid';
 
 import { Button, Content, ScreenHeading, TextInput } from '@/components/ui';
 import { signOut } from '@/lib/auth';
-import config from '@/lib/config';
+import config, { isSelfHosted } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { useRouter } from 'next/router';
@@ -291,11 +291,11 @@ export function OnboardingScreen(props: {
   const { profile, appCreateState, onAppCreate, onAppNameChange } = props;
   const [showWelcome, setShowWelcome] = useState(true);
 
-  if (showWelcome) {
+  if (showWelcome && !isSelfHosted) {
     return <WelcomeScreen onClick={() => setShowWelcome(false)} />;
   }
 
-  if (!profile) {
+  if (!profile && !isSelfHosted) {
     return (
       <ProfileScreen
         profileCreateState={props.profileCreateState}
