@@ -331,9 +331,7 @@
      :id (:id record)
      :app-id (:app_id record)
      :attr-id (:attr_id record)
-     :max-lsn (:max_lsn record)
-     ;; TODO(dww): Remove after deploying triples-size-updates
-     :triples-pg-size (:triples_pg_size record)}))
+     :max-lsn (:max_lsn record)}))
 
 (defn- find-sketch-rows
   "Takes a set of {:app-id :attr-id} maps and returns a list of sketch
@@ -493,7 +491,7 @@
                 lsn
                 process-id
                 slot-name]}]
-  (let [params (reduce (fn [acc {:keys [id sketch reverse-sketch triples-pg-size]}]
+  (let [params (reduce (fn [acc {:keys [id sketch reverse-sketch]}]
                          (let [{:keys [width depth total total-not-binned]} sketch]
                            (-> acc
                                (update :id conj id)
@@ -506,9 +504,7 @@
                                (update :reverse-depth conj (:depth reverse-sketch))
                                (update :reverse-total conj (:total reverse-sketch))
                                (update :reverse-bins conj (when reverse-sketch
-                                                            (compress-bins reverse-sketch)))
-                               ;; TODO(dww): Remove after deploying triples-size-updates
-                               (update :triples-pg-size conj triples-pg-size))))
+                                                            (compress-bins reverse-sketch))))))
                        {:id (with-meta [] {:pgtype "uuid[]"})
                         :width (with-meta [] {:pgtype "integer[]"})
                         :depth (with-meta [] {:pgtype "integer[]"})
@@ -519,8 +515,6 @@
                         :reverse-depth (with-meta [] {:pgtype "integer[]"})
                         :reverse-total (with-meta [] {:pgtype "bigint[]"})
                         :reverse-bins (with-meta [] {:pgtype "bytea[]"})
-                        ;; TODO(dww): Remove after deploying triples-size-updates
-                        :triples-pg-size (with-meta [] {:pgtype "bigint[]"})
                         :lsn lsn
                         :previous-lsn previous-lsn
                         :slot-name slot-name
@@ -539,8 +533,6 @@
                                    [[:unnest :?reverse-depth] :reverse-depth]
                                    [[:unnest :?reverse-total] :reverse-total]
                                    [[:unnest :?reverse-bins] :reverse-bins]
-                                   ;; TODO(dww): Remove after deploying triples-size-updates
-                                   [[:unnest :?triples-pg-size] :triples-pg-size]
                                    [:?lsn :max-lsn]]}]
                   [:update-sketches
                    {:update :attr_sketches
@@ -554,9 +546,7 @@
                           :reverse-width :data.reverse-width
                           :reverse-depth :data.reverse-depth
                           :reverse-total :data.reverse-total
-                          :reverse-bins :data.reverse-bins
-                          ;; TODO(dww): Remove after deploying triples-size-updates
-                          :triples-pg-size :data.triples-pg-size}
+                          :reverse-bins :data.reverse-bins}
                     :where [:= :attr_sketches.id :data.id]}]
                   [:update-wal-aggregator-status
                    {:update :wal-aggregator-status
@@ -588,7 +578,7 @@
    add attr sketches to the database."
   [conn {:keys [sketches
                 lsn]}]
-  (let [params (reduce (fn [acc {:keys [app-id attr-id sketch reverse-sketch triples-pg-size]}]
+  (let [params (reduce (fn [acc {:keys [app-id attr-id sketch reverse-sketch]}]
                          (let [{:keys [width depth total total-not-binned]} sketch]
                            (-> acc
                                (update :app-id conj app-id)
@@ -602,9 +592,7 @@
                                (update :reverse-depth conj (:depth reverse-sketch))
                                (update :reverse-total conj (:total reverse-sketch))
                                (update :reverse-bins conj (when reverse-sketch
-                                                            (compress-bins reverse-sketch)))
-                               ;; TODO(dww): Remove after deploying triples-size-updates
-                               (update :triples-pg-size conj triples-pg-size))))
+                                                            (compress-bins reverse-sketch))))))
                        {:app-id (with-meta [] {:pgtype "uuid[]"})
                         :attr-id (with-meta [] {:pgtype "uuid[]"})
                         :width (with-meta [] {:pgtype "integer[]"})
@@ -615,13 +603,11 @@
                         :reverse-width (with-meta [] {:pgtype "integer[]"})
                         :reverse-depth (with-meta [] {:pgtype "integer[]"})
                         :reverse-total (with-meta [] {:pgtype "bigint[]"})
-                        :reverse-bins (with-meta [] {:pgtype "bytea[]"})
-                        ;; TODO(dww): Remove after deploying triples-size-updates
-                        :triples-pg-size (with-meta [] {:pgtype "bigint[]"})}
+                        :reverse-bins (with-meta [] {:pgtype "bytea[]"})}
                        sketches)
         cols [:id :max-lsn :app-id :attr-id
               :width :depth :total :total-not-binned :bins
-              :reverse-width :reverse-depth :reverse-total :reverse-bins :triples-pg-size]
+              :reverse-width :reverse-depth :reverse-total :reverse-bins]
         q (hsql/format {:with [[:setting
                                 {:select [[[:set_config [:inline "auto_explain.log_min_duration"] [:inline "-1"] :true] :config]]}
                                 :materialized]
@@ -637,9 +623,7 @@
                                                 [[:unnest :?reverse-width] :reverse-width]
                                                 [[:unnest :?reverse-depth] :reverse-depth]
                                                 [[:unnest :?reverse-total] :reverse-total]
-                                                [[:unnest :?reverse-bins] :reverse-bins]
-                                                ;; TODO(dww): Remove after deploying triples-size-updates
-                                                [[:unnest :?triples-pg-size] :triples-pg-size]]}]
+                                                [[:unnest :?reverse-bins] :reverse-bins]]}]
                                [:changes {:insert-into [[:attr-sketches cols]
                                                         {:select (qualify-cols :data cols)
                                                          :from :data

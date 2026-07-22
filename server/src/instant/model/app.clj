@@ -461,23 +461,14 @@
    (sql/select-one
     ::app-usage
     conn
-    (if (flags/new-db-size?) ;; TODO(dww): Remove after deploying triples-size-updates
-      ["SELECT
+    ["SELECT
         (sum(agg.pg_size) *
            CASE
                WHEN pg_relation_size('triples') = 0 THEN 1
                ELSE pg_total_relation_size('triples')::numeric / pg_relation_size('triples')
            END) as num_bytes
         FROM triples_size_aggregate agg join attrs a on agg.attr_id = a.id
-        WHERE a.deletion_marked_at is null and agg.app_id = ?::uuid" app-id]
-      ["SELECT
-        (sum(s.triples_pg_size) *
-           CASE
-               WHEN pg_relation_size('triples') = 0 THEN 1
-               ELSE pg_total_relation_size('triples')::numeric / pg_relation_size('triples')
-           END) as num_bytes
-        FROM attr_sketches s join attrs a on s.attr_id = a.id
-        WHERE a.deletion_marked_at is null and s.app_id = ?::uuid" app-id]))))
+        WHERE a.deletion_marked_at is null and agg.app_id = ?::uuid" app-id])))
 
 (defn decrypt-connection-string [app-id encrypted-connection-string]
   (-> (crypt-util/aead-decrypt {:ciphertext encrypted-connection-string

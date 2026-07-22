@@ -1,7 +1,6 @@
 (ns instant.model.org
   (:require
    [instant.config :as config]
-   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
@@ -263,7 +262,7 @@
          query (uhsql/formatp delete-org-q params)]
      (sql/execute-one! ::delete! conn query))))
 
-(def usage-q-new
+(def usage-q
   (uhsql/preformat {:select [[[:coalesce
                                [:*
                                 [:sum :agg.pg_size]
@@ -277,26 +276,6 @@
                     :from [[:triples-size-aggregate :agg]]
                     :join [[:apps :app] [:= :agg.app_id :app.id]
                            [:attrs :attr] [:= :agg.attr_id :attr.id]]
-                    :where [:and
-                            [:= :app.org_id :?org-id]
-                            [:= nil :app.deletion-marked-at]
-                            [:= nil :attr.deletion-marked-at]]}))
-
-;; TODO(dww): Remove after deploying triples-size-updates
-(def usage-q-old
-  (uhsql/preformat {:select [[[:coalesce
-                               [:*
-                                [:sum :s.triples_pg_size]
-                                [:case
-                                 [:= :0 [:pg_relation_size [:inline "triples"]]] :1
-                                 :else [:/
-                                        [:cast [:pg_total_relation_size [:inline "triples"]] :numeric]
-                                        [:pg_relation_size [:inline "triples"]]]]]
-                               :0]
-                              :num_bytes]]
-                    :from [[:attr-sketches :s]]
-                    :join [[:apps :app] [:= :s.app_id :app.id]
-                           [:attrs :attr] [:= :s.attr_id :attr.id]]
                     :where [:and
                             [:= :app.org_id :?org-id]
                             [:= nil :app.deletion-marked-at]
@@ -319,10 +298,7 @@
    (sql/select-one
     ::org-usage
     conn
-    (uhsql/formatp (if (flags/new-db-size?)
-                     usage-q-new
-                     usage-q-old)
-                   {:org-id org-id}))))
+    (uhsql/formatp usage-q {:org-id org-id}))))
 
 (def rename-q (uhsql/preformat {:update :orgs
                                 :set {:title :?title}
