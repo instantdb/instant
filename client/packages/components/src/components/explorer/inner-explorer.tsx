@@ -515,7 +515,7 @@ export const InnerExplorer: React.FC<{
             if (attr.name === 'url') {
               return (
                 <a
-                  className="h-full w-full pl-2 align-middle text-xs font-bold underline hover:text-black dark:hover:text-white"
+                  className="flex h-full w-full items-center pl-2 text-xs font-bold underline hover:text-black dark:hover:text-white"
                   href={info.row.original['url'] as string}
                   target="_blank"
                 >

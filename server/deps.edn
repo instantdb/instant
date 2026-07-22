@@ -30,6 +30,7 @@
         software.amazon.awssdk/secretsmanager {:mvn/version "2.46.2"}
         software.amazon.awssdk/s3 {:mvn/version "2.46.2"}
         software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.46.2"}
+        software.amazon.awssdk/netty-nio-client {:mvn/version "2.46.2"}
         software.amazon.awssdk/bedrockruntime {:mvn/version "2.46.2"}
         software.amazon.awssdk/cloudwatch {:mvn/version "2.46.2"}
         software.amazon.awssdk/sqs {:mvn/version "2.46.2"}

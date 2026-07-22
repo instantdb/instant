@@ -7,6 +7,7 @@
            (com.fasterxml.jackson.core JsonGenerator JsonFactory)
            (com.fasterxml.jackson.databind ObjectMapper)
            (com.google.protobuf.util JsonFormat)
+           (java.io ByteArrayOutputStream OutputStream)
            (java.time Instant)
            (java.util Map List)))
 
@@ -39,12 +40,30 @@
   "Converts a Clojure data structure to a JSON string."
   cheshire/generate-string)
 
+(defn ->json-bytes
+  "Converts a Clojure data structure to UTF-8 encoded JSON bytes."
+  ^bytes [obj]
+  (let [baos (ByteArrayOutputStream.)
+        gen (.createGenerator ^JsonFactory (or factory/*json-factory*
+                                                factory/json-factory)
+                              ^OutputStream baos)]
+    (cheshire.generate/generate gen
+                                obj
+                                factory/default-date-format
+                                nil
+                                nil)
+    (.flush gen)
+    (.close gen)
+    (.toByteArray baos)))
+
 (def <-json
   "Converts a JSON string to a Clojure data structure."
   cheshire/parse-string)
 
 (def <-json-stream
   cheshire/parse-stream)
+
+(def parsed-seq cheshire/parsed-seq)
 
 (def big-factory (factory/make-json-factory
                                ;; default is 20000000

@@ -41,16 +41,18 @@
    [instant.util.tracer :as tracer]
    [honey.sql :as hsql]
    [lambdaisland.uri :as uri]
+   [next.jdbc]
    [next.jdbc.connection :refer [jdbc-url]])
   (:import
    (java.nio ByteBuffer)
-   (java.sql Connection DriverManager)
+   (java.sql Connection DriverManager Timestamp)
    (java.time Duration Instant)
    (java.util Properties)
    (java.util.concurrent TimeUnit)
    (org.postgresql PGProperty)
    (org.postgresql.jdbc PgConnection)
    (org.postgresql.replication LogSequenceNumber PGReplicationStream ReplicationSlotInfo)
+   (org.postgresql.replication.fluent ChainedCommonCreateSlotBuilder)
    (org.postgresql.replication.fluent.logical ChainedLogicalCreateSlotBuilder ChainedLogicalStreamBuilder)
    (org.postgresql.util PSQLException)))
 
@@ -153,16 +155,22 @@
                      slot-name output-plugin]))
 
 (defn create-slot-with-snapshot!
-  "Creates a permanent logical replication slot that exports a snapshot
+  "Creates a logical replication slot that exports a snapshot
   you can use to sync the database."
-  ^ReplicationSlotInfo [^PgConnection replication-conn ^String slot-name output-plugin]
-  (-> replication-conn
-      (.getReplicationAPI)
-      (.createReplicationSlot)
-      (.logical)
-      ^ChainedLogicalCreateSlotBuilder (.withSlotName slot-name)
-      (.withOutputPlugin output-plugin)
-      (.make)))
+  ^ReplicationSlotInfo
+  ([^PgConnection replication-conn ^String slot-name output-plugin]
+   (create-slot-with-snapshot! replication-conn slot-name output-plugin false))
+  ([^PgConnection replication-conn ^String slot-name output-plugin temporary?]
+   (let [builder (-> replication-conn
+                     (.getReplicationAPI)
+                     (.createReplicationSlot)
+                     (.logical)
+                     (.withOutputPlugin output-plugin)
+                     (.withSlotName slot-name))
+         builder (if temporary?
+                   (.withTemporaryOption builder)
+                   builder)]
+     (.make builder))))
 
 (defn create-sync-db-replication-slot-and-connection
   "Creates the replication slot and returns a connection that can be used to
@@ -192,6 +200,36 @@
                                  set transaction snapshot '%s'" snapshot-name)])
         {:connection c2
          :lsn (.getConsistentPoint slot-info)}))))
+
+(defn create-consistent-point
+  "Creates the replication slot and returns n-conns connections that can be used to
+   fetch all data up to the time that the slot was created.
+   Returns a map with:
+     :connections - n-conns repeatable read connections that snapshot from the transaction
+     :lsn - The lsn of the snapshot
+     :before-ts - A timestamp that is before the start of the snapshot"
+  [db-config slot-name n-conns]
+  ;; First create the slot
+  (with-open [c1 (get-pg-replication-conn db-config)]
+    (let [before-ts (Timestamp/.toInstant (:now (sql/select-one c1 ["select now()"])))
+          ;; Create temporary slot, will auto-drop when the with-open closes the connection
+          slot-info ^ReplicationSlotInfo (create-slot-with-snapshot! c1 slot-name "pgoutput" true)
+          snapshot-name (.getSnapshotName slot-info)
+          ;; Then in another connection (has to be a new connection), we can
+          ;; set the connection snapshot to the snapshot that was created with our slot
+          connections (mapv (fn [_]
+                              (let [c (get-pg-copy-ready-conn db-config)]
+                                (.setAutoCommit c false)
+                                ;; It's generally a bad idea to construct sql strings like this, but we do it here
+                                ;; because you can't pass the snapshot name as a parameter and the input comes from
+                                ;; the create_replication_slot postgres command.
+                                (sql/select c [(format "set transaction isolation level repeatable read, read only;
+                                                        set transaction snapshot '%s'" snapshot-name)])
+                                c))
+                            (range n-conns))]
+      {:connections connections
+       :lsn (.getConsistentPoint slot-info)
+       :before-ts before-ts})))
 
 (defn get-logical-replication-slot
   [conn slot-name]
@@ -852,7 +890,8 @@
                                              :escaping? false}))))))
 
   (let [replication-latency-bytes (atom nil)
-        aggregate-latency-bytes (atom nil)]
+        aggregate-latency-bytes (atom nil)
+        invalidator-latency-bytes (atom nil)]
     (def latency-schedule
       (chime-core/chime-at
        (rest (chime-core/periodic-seq (Instant/now) (Duration/ofMinutes 1)))
@@ -864,6 +903,9 @@
            (let [latency (get-replication-latency-bytes (aurora/conn-pool :read)
                                                         (full-slot-name :aggregator nil))]
              (reset! aggregate-latency-bytes latency))
+           (let [latency (get-replication-latency-bytes (aurora/conn-pool :read)
+                                                        (full-slot-name :invalidator nil))]
+             (reset! invalidator-latency-bytes latency))
            (catch Exception e
              (tracer/record-exception-span! e {:name "wal/check-latency-error"
                                                :escaping? false}))))))
@@ -876,6 +918,9 @@
                      :value latency}])
                  (when-let [latency @aggregate-latency-bytes]
                    [{:path "instant.jdb.wal.aggregate-latency-bytes"
+                     :value latency}])
+                 (when-let [latency @invalidator-latency-bytes]
+                   [{:path "instant.jdb.wal.invalidator-latency-bytes"
                      :value latency}])))))))
 
 (defn stop []
