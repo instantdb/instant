@@ -185,7 +185,7 @@ You can also set it in the `instant.config.ts` file.
 ```typescript
 // instant.config.ts
 export default {
-  apiURI: 'http://127.0.0.1:18987',
+  apiURI: 'http://127.0.0.1:8888',
 };
 ```
 
