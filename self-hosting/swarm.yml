@@ -86,7 +86,7 @@ services:
         max_attempts: 20
 
   server:
-    image: "ghcr.io/instantdb/server:swarm-test"
+    image: "ghcr.io/instantdb/server:latest"
     networks:
       - caddy
       - default
