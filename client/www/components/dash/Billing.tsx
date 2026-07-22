@@ -130,7 +130,7 @@ export default function Billing({ appId }: { appId: string }) {
     `${config.apiURI}/dash/apps/${appId}/billing`,
   );
 
-  const onActivate = async () => {
+  const onActivateSelfHostedSub = async () => {
     setIsActivating(true);
     try {
       await jsonFetch(
@@ -270,7 +270,11 @@ export default function Billing({ appId }: { appId: string }) {
         </Content>
       ) : canActivateSelfHostedPlan ? (
         <div className="flex flex-col space-y-4">
-          <Button variant="primary" loading={isActivating} onClick={onActivate}>
+          <Button
+            variant="primary"
+            loading={isActivating}
+            onClick={onActivateSelfHostedSub}
+          >
             Activate Pro for free
           </Button>
           <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-2 text-sm text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">

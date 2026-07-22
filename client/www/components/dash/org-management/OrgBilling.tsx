@@ -106,7 +106,7 @@ export const OrgBilling = () => {
     'customer-balance': number | null;
   }>(`${config.apiURI}/dash/orgs/${orgId}/billing`);
 
-  const onActivate = async () => {
+  const onActivateSelfHostedSub = async () => {
     setIsActivating(true);
     try {
       await jsonFetch(
@@ -185,7 +185,11 @@ export const OrgBilling = () => {
         </Content>
       ) : canActivateSelfHostedPlan ? (
         <div className="flex flex-col gap-2">
-          <Button variant="primary" loading={isActivating} onClick={onActivate}>
+          <Button
+            variant="primary"
+            loading={isActivating}
+            onClick={onActivateSelfHostedSub}
+          >
             Activate Startup for free
           </Button>
           <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-2 text-sm text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
