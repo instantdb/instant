@@ -8,7 +8,7 @@ import { runUIEffect } from '../lib/ui.ts';
 import { AuthToken } from './authToken.ts';
 import { GlobalOpts } from './globalOpts.ts';
 import { PlatformApi } from './platformApi.ts';
-import { readInstantConfigFile } from '../old.js';
+import { readInstantConfigFile } from '../util/instantConfig.ts';
 import { BadArgsError } from '../errors.ts';
 
 export type CurrentAppInfo = {

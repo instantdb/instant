@@ -4,6 +4,8 @@ import { Config, Context, Data, Effect, Layer, Option, Schema } from 'effect';
 import { AuthToken } from '../context/authToken.ts';
 import { TimeoutException } from 'effect/Cause';
 import { RequestError } from '@effect/platform/HttpClientError';
+import { readInstantConfigFile } from '../util/instantConfig.ts';
+import { BadArgsError } from '../errors.ts';
 
 export class InstantHttp extends Context.Tag(
   'instant-cli/new/lib/http/InstantHttp',
@@ -46,6 +48,15 @@ class InstantTypicalHttpErrorResponse extends Schema.Struct({
     Schema.optional,
   ),
 }) {}
+
+const HttpUrl = Schema.URL.pipe(
+  Schema.filter(
+    (url) =>
+      url.protocol === 'http:' ||
+      url.protocol === 'https:' ||
+      'Expected an HTTP(S) URL',
+  ),
+);
 
 export const InstantHttpLive = Layer.effect(
   InstantHttp,
@@ -132,12 +143,24 @@ export const getBaseUrl = Effect.gen(function* () {
     Config.withDefault(false),
   );
 
-  return Option.match(setEnv, {
-    onSome: (url) => url,
-    onNone: () => {
-      return dev ? 'http://localhost:8888' : 'https://api.instantdb.com';
-    },
-  });
+  if (Option.isSome(setEnv)) {
+    return setEnv.value;
+  }
+
+  const instantConfig = yield* Effect.tryPromise(readInstantConfigFile);
+  if (instantConfig?.apiURI !== undefined) {
+    yield* Schema.decodeUnknown(HttpUrl)(instantConfig.apiURI).pipe(
+      Effect.mapError(() =>
+        BadArgsError.make({
+          message:
+            'Invalid apiURI in instant.config.ts. Expected a valid HTTP(S) URL.',
+        }),
+      ),
+    );
+    return instantConfig.apiURI;
+  }
+
+  return dev ? 'http://localhost:8888' : 'https://api.instantdb.com';
 });
 
 export const getDashUrl = Effect.gen(function* () {
