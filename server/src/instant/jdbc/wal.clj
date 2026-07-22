@@ -155,7 +155,9 @@
 
 (defn create-slot-with-snapshot!
   "Creates a logical replication slot that exports a snapshot
-  you can use to sync the database."
+   you can use to sync the database.
+   Creates a permanent slot by default. Pass `true` as the last argument
+   to get a temporary slot that will drop when the connection is closed."
   ^ReplicationSlotInfo
   ([^PgConnection replication-conn ^String slot-name output-plugin]
    (create-slot-with-snapshot! replication-conn slot-name output-plugin false))
@@ -179,7 +181,6 @@
 
    The caller is resposible for closing the connection if one was returned."
   [db-config slot-name]
-  ;; First create the slot
   (with-open [c1 (get-pg-replication-conn db-config)]
     (when-let [slot-info (try
                            (create-slot-with-snapshot! c1 slot-name "wal2json")
