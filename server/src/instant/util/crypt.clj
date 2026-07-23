@@ -46,6 +46,11 @@
   ^bytes [^String s]
   (.digest (MessageDigest/getInstance "MD5") (.getBytes s)))
 
+(defn bytes->md5
+  "Returns the md5 of a string as a byte array"
+  ^bytes [^bytes ba]
+  (.digest (MessageDigest/getInstance "MD5") ba))
+
 (defn str->utf-8-bytes
   "Converts a string to a byte array using UTF-8 encoding"
   ^bytes [^String s]

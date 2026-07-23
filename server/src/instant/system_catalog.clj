@@ -390,6 +390,10 @@
                        $files-attrs
                        $streams-attrs))
 
+(def location-id-attr-id (:id (first (filter (fn [a]
+                                               (= "location-id" (last (:forward-identity a))))
+                                             $files-attrs))))
+
 (defn- ^:private reserved-ident-names
   "Want to add a new system catalog attribute?
 

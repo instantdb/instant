@@ -2,10 +2,10 @@
   (:require
    [instant.config :as config]
    [instant.flags :as flags]
-   [instant.util.async :refer [default-virtual-thread-executor]]
    [instant.util.aws-signature :as aws-sig]
    [instant.util.cloudfront :as cloudfront-util]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [lambdaisland.uri :as uri])
   (:import
    (java.io InputStream)
    (java.time Instant Duration)
@@ -25,7 +25,9 @@
                                              ListObjectsV2Response
                                              ObjectIdentifier
                                              PutObjectRequest
-                                             S3Object)))
+                                             S3Object)
+   (software.amazon.awssdk.transfer.s3 S3TransferManager)
+   (software.amazon.awssdk.transfer.s3.model UploadRequest)))
 
 (set! *warn-on-reflection* true)
 
@@ -167,7 +169,7 @@
 
 (defn delete-objects-paginated
   [^S3Client s3-client bucket-name object-keys]
-   ;; Limited to 1000 keys per request
+  ;; Limited to 1000 keys per request
   (let [chunks (partition-all 1000 object-keys)]
     (->> chunks
          (mapcat #(delete-objects s3-client bucket-name (vec %))))))
@@ -183,11 +185,10 @@
   (assert (= :get method)
           "get presigned urls are only implemented for :get requests")
 
-  (if (and (= bucket-name config/s3-bucket-name)
-           @config/cloudfront-signing-key
+  (if (and @config/cloudfront-signing-key
            (flags/use-cloudfront-signed-url? app-id)
-           config/cloudfront-s3-bucket-url)
-    (let [base-url config/cloudfront-s3-bucket-url]
+           (get config/cloudfront-s3-url bucket-name))
+    (let [base-url (get config/cloudfront-s3-url bucket-name)]
       (cloudfront-util/sign-cloudfront-url {:url (str base-url "/" key)
                                             :key-id (:key-id @config/cloudfront-signing-key)
                                             :private-key (:private-key @config/cloudfront-signing-key)
@@ -231,10 +232,14 @@
     (throw (ex-info "Unsupported method for presigned url" {:method method}))))
 
 (defn- make-s3-put-opts
-  [bucket-name {:keys [object-key content-type content-disposition content-length content-encoding]} file-opts]
+  [bucket-name
+   {:keys [object-key content-type content-disposition
+           content-length content-encoding tags]}
+   file-opts]
   (merge
    {:bucket-name bucket-name
     :key object-key
+    :tags (some-> tags uri/map->query-string)
     :metadata {:content-type (or content-type default-content-type)
                :content-disposition (or content-disposition default-content-disposition)
                :content-length content-length
@@ -243,7 +248,7 @@
 
 (defn upload-body-to-s3
   [^S3AsyncClient async-client bucket-name ctx ^AsyncRequestBody body]
-  (let [{:keys [key metadata] :as _opts} (make-s3-put-opts bucket-name ctx {})
+  (let [{:keys [key metadata tags] :as _opts} (make-s3-put-opts bucket-name ctx {})
         {:keys [content-disposition content-type content-length content-encoding]} metadata]
     (tracer/with-span! {:name "s3/upload-body-to-s3"
                         :attributes {:bucket-name bucket-name
@@ -258,6 +263,7 @@
                                     true (.contentDisposition content-disposition)
                                     content-length (.contentLength content-length)
                                     content-encoding (.contentEncoding content-encoding)
+                                    tags (.tagging ^String tags)
                                     true (.build))]
         (-> (.putObject async-client req body)
             deref)))))
@@ -266,6 +272,41 @@
   [^S3AsyncClient async-client bucket-name ctx stream]
   (let [content-length (:content-length ctx)
         body (AsyncRequestBody/fromInputStream stream
-                                               (when content-length (long content-length))
-                                               default-virtual-thread-executor)]
+                                               (when content-length (long content-length)))]
     (upload-body-to-s3 async-client bucket-name ctx body)))
+
+(defn transfer-manager-upload
+  [^S3TransferManager transfer-manager bucket-name ctx body]
+  (let [{:keys [key metadata tags] :as _opts} (make-s3-put-opts bucket-name ctx {})
+        {:keys [content-disposition content-type content-length content-encoding]} metadata]
+
+    (tracer/with-span! {:name "s3/transfer-manager-upload"
+                        :attributes {:bucket-name bucket-name
+                                     :key key
+                                     :content-type content-type
+                                     :content-disposition content-disposition
+                                     :content-length content-length}}
+      (let [^PutObjectRequest put-req (cond-> (PutObjectRequest/builder)
+                                        true (.bucket bucket-name)
+                                        true (.key key)
+                                        true (.contentType content-type)
+                                        true (.contentDisposition content-disposition)
+                                        content-length (.contentLength content-length)
+                                        content-encoding (.contentEncoding content-encoding)
+                                        tags (.tagging ^String tags)
+                                        true (.build))
+            ^UploadRequest upload-req (-> (UploadRequest/builder)
+                                          (.putObjectRequest put-req)
+                                          (.requestBody body)
+                                          (.build))
+            upload (.upload transfer-manager upload-req)]
+        (-> upload
+            (.completionFuture)
+            deref)))))
+
+(defn transfer-manager-upload-stream
+  [^S3TransferManager transfer-manager bucket-name ctx ^InputStream stream]
+  (let [content-length (:content-length ctx)
+        body (AsyncRequestBody/fromInputStream stream (when content-length
+                                                        (long content-length)))]
+    (transfer-manager-upload transfer-manager bucket-name ctx body)))

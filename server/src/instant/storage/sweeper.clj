@@ -31,13 +31,19 @@
    :end-at (str (Instant/now))
    :run-time-ms (ms-between start-ms (Instant/now))})
 
+;; This should be long enough for the backups to expire
+;; before we delete the files.
+(def storage-sweeper-grace-period-interval "32 days")
+
 (defn files-available-wheres []
-  [:or
-   [:is :process-id nil]
-   [:and
-    [:is-not :process-id nil]
-    [:< :updated-at
-     [:- :%now [:raw "interval '5 minutes'"]]]]])
+  [:and
+   [:< :created-at [:- :%now [:interval [:inline storage-sweeper-grace-period-interval]]]]
+   [:or
+    [:is :process-id nil]
+    [:and
+     [:is-not :process-id nil]
+     [:< :updated-at
+      [:- :%now [:interval [:inline "5 minutes"]]]]]]])
 
 (defn claim-files!
   ([params]
@@ -55,14 +61,14 @@
                                       (files-available-wheres)]
                                      (files-available-wheres))
                             :order-by :created-at
-                            :for "UPDATE SKIP LOCKED"
+                            :for [:update :skip-locked]
                             :limit limit}]]
                    :update :app-files-to-sweep
                    :set {:process-id @config/process-id
                          :updated-at :%now}
-                   :where [:in :id {:select [:id]
-                                    :from :to-update}]
-                   :returning [:*]}))))
+                   :from :to-update
+                   :where [:= :app-files-to-sweep.id :to-update.id]
+                   :returning [:app-files-to-sweep.*]}))))
 
 (defn delete-files!
   ([params]
@@ -118,19 +124,19 @@
                                                           :limit limit}))]
                (if (or (< n-deleted limit) (zero? n-deleted))
                  (tracer/record-info!
-                   {:name "storage-sweeper/finsh-sweep!"
-                    :attributes (span-attrs {:loops current-loop
-                                             :max-loops max-loops
-                                             :start-ms start-ms
-                                             :limit limit
-                                             :app-id app-id})})
+                  {:name "storage-sweeper/finsh-sweep!"
+                   :attributes (span-attrs {:loops current-loop
+                                            :max-loops max-loops
+                                            :start-ms start-ms
+                                            :limit limit
+                                            :app-id app-id})})
 
                  (recur (inc current-loop))))
              (warn-too-many-loops!
-               {:current-loop current-loop
-                :max-loops max-loops
-                :start-ms start-ms
-                :app-id app-id}))))))))
+              {:current-loop current-loop
+               :max-loops max-loops
+               :start-ms start-ms
+               :app-id app-id}))))))))
 
 (defonce schedule (atom nil))
 

@@ -1,5 +1,6 @@
 (ns instant.model.schema
-  (:require [instant.db.model.attr :as attr-model]
+  (:require [clojure.string]
+            [instant.db.model.attr :as attr-model]
             [instant.jdbc.aurora :as aurora]
             [instant.db.datalog :as d]
             [instant.db.indexing-jobs :as indexing-jobs]
@@ -221,6 +222,53 @@
                                [coll-name filtered-attrs]))]
     {:refs refs-indexed
      :blobs blobs-filtered}))
+
+(defn schema->defs [schema]
+  (let [{:keys [refs blobs]} schema
+        entities (reduce-kv
+                  (fn [acc ns-name attr-map]
+                    (assoc acc ns-name
+                           {:attrs (reduce-kv
+                                    (fn [attrs attr-name attr]
+                                      (if (= "id" (name attr-name))
+                                        attrs
+                                        (assoc attrs attr-name
+                                               (cond-> {:valueType (if-let [t (:checked-data-type attr)]
+                                                                     (name t)
+                                                                     "any")
+                                                        :config {:unique (boolean (:unique? attr))
+                                                                 :indexed (boolean (:index? attr))}}
+                                                 (:required? attr) (assoc :required true)))))
+                                    {}
+                                    attr-map)}))
+                  {}
+                  blobs)
+        links (reduce-kv
+               (fn [acc _ ref]
+                 (let [[_ fwd-etype fwd-label] (:forward-identity ref)
+                       [_ rev-etype rev-label] (:reverse-identity ref)
+                       link-name (str fwd-etype
+                                      (clojure.string/upper-case (subs fwd-label 0 1))
+                                      (subs fwd-label 1))
+                       forward (cond-> {:on fwd-etype
+                                        :label fwd-label
+                                        :has (name (:cardinality ref))}
+                                 (:required? ref)
+                                 (assoc :required true)
+
+                                 (= :cascade (:on-delete ref))
+                                 (assoc :onDelete "cascade"))
+                       reverse-link (cond-> {:on rev-etype
+                                             :label rev-label
+                                             :has (if (:unique? ref) "one" "many")}
+                                      (= :cascade (:on-delete-reverse ref))
+                                      (assoc :onDelete "cascade"))]
+                   (assoc acc link-name {:forward forward
+                                         :reverse reverse-link})))
+               {}
+               refs)]
+    {:entities entities
+     :links links}))
 
 (defn dup-message [[etype label]]
   (str etype "->" label ": "
@@ -444,12 +492,8 @@
       (update :entities remove-system-entity-attrs)
       (update :links remove-system-links)))
 
-(defn plan!
-  [{:keys [app-id check-types? background-updates?]} client-defs]
-  (let [new-schema (-> client-defs
-                       remove-system-namespaces
-                       defs->schema)
-        current-attrs (attr-model/get-by-app-id app-id)
+(defn plan-with-schema! [{:keys [app-id check-types? background-updates?]} new-schema]
+  (let [current-attrs (attr-model/get-by-app-id app-id)
         current-schema (attrs->schema current-attrs)
         steps (schemas->ops {:check-types? check-types?
                              :background-updates? background-updates?}
@@ -460,6 +504,13 @@
      :current-schema current-schema
      :current-attrs current-attrs
      :steps steps}))
+
+(defn plan!
+  [opts client-defs]
+  (let [new-schema (-> client-defs
+                       remove-system-namespaces
+                       defs->schema)]
+    (plan-with-schema! opts new-schema)))
 
 (comment
   (attr-ident-names {:id "",

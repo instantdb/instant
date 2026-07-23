@@ -128,8 +128,9 @@
         ;; 100 files should be marked for sweep
         (is (= 100 (count-files-to-sweep conn app-id)))
 
-        (sweeper/handle-sweep! conn {:app-id app-id
-                                     :limit 1000})
+        (with-redefs [sweeper/storage-sweeper-grace-period-interval "0 days"]
+          (sweeper/handle-sweep! conn {:app-id app-id
+                                       :limit 1000}))
 
         ;; All files should now be swept
         (is (= 0 (count-files-to-sweep conn app-id)))))))
@@ -159,8 +160,9 @@
         ;; 250 files should be marked for sweep
         (is (= 250 (count-files-to-sweep conn app-id)))
 
-        (sweeper/handle-sweep! conn {:app-id app-id
-                                     :limit 100})
+        (with-redefs [sweeper/storage-sweeper-grace-period-interval "0 days"]
+          (sweeper/handle-sweep! conn {:app-id app-id
+                                       :limit 100}))
 
         ;; All files should now be swept
         (is (= 0 (count-files-to-sweep conn app-id)))))))
@@ -187,17 +189,19 @@
         (is (= 5 (count-files-to-sweep conn app-id)))
 
         ;; Warn should be triggered
-        (is (:warn (sweeper/handle-sweep! conn {:app-id app-id
-                                                :limit 1
-                                                :max-loops 3})))
+        (is (:warn (with-redefs [sweeper/storage-sweeper-grace-period-interval "0 days"]
+                     (sweeper/handle-sweep! conn {:app-id app-id
+                                                  :limit 1
+                                                  :max-loops 3}))))
 
         ;; 2 files should remain
         (is (= 2 (count-files-to-sweep conn app-id)))
 
         ;; Should be able to run again without issue
-        (sweeper/handle-sweep! conn {:app-id app-id
-                                     :limit 1
-                                     :max-loops 2})
+        (with-redefs [sweeper/storage-sweeper-grace-period-interval "0 days"]
+          (sweeper/handle-sweep! conn {:app-id app-id
+                                       :limit 1
+                                       :max-loops 2}))
 
         ;; All files should now be swept
         (is (= 0 (count-files-to-sweep conn app-id)))))))

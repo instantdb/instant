@@ -358,16 +358,27 @@
           :dev "instant-wal-logs-dev--use1-az4--x-s3"
           nil))))
 
+(def s3-app-backups-bucket-name
+  (or (System/getenv "S3_APP_BACKUPS_BUCKET")
+      (case (get-env)
+        :prod "app-backups-prod-597134865416-us-east-1-an"
+        :staging "app-backups-staging-597134865416-us-east-1-an"
+        :dev "app-backups-dev-597134865416-us-east-1-an"
+        nil)))
+
 (def wal-history-prefix
   (when (= :dev (get-env))
     @hostname))
 
-(def cloudfront-s3-bucket-url
-  (case [(get-env) s3-bucket-name]
-    [:dev "instantdb-test-bucket"] "https://files-dev.instantdb.com"
-    [:staging "instant-storage-staging"] "https://files-staging.instantdb.com"
-    [:prod "instant-storage"] "https://files.instantdb.com"
-    nil))
+(def cloudfront-s3-url
+  (case (get-env)
+    :prod {"instant-storage" "https://files.instantdb.com"
+           "app-backups-prod-597134865416-us-east-1-an" "https://backups.instantdb.com"}
+    :dev {"instantdb-test-bucket" "https://files-dev.instantdb.com"
+          "app-backups-dev-597134865416-us-east-1-an" "https://app-backups-dev.instantdb.com"}
+    :staging {"instant-storage-staging" "https://files-staging.instantdb.com"
+              "app-backups-staging-597134865416-us-east-1-an" "https://app-backups-staging.instantdb.com"}
+    {}))
 
 (def cloudfront-signing-key
   (delay (when-let [{:keys [key-id private-key]} (-> @config-map

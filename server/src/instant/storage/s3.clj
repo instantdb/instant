@@ -1,20 +1,23 @@
 (ns instant.storage.s3
-  (:require [clojure.string :as string]
-            [instant.config :as config]
-            [instant.flags :as flags]
-            [instant.util.s3 :as s3-util]
-            [instant.util.date :as date-util]
-            [instant.util.tracer :as tracer])
+  (:require
+   [clojure.string :as string]
+   [instant.config :as config]
+   [instant.flags :as flags]
+   [instant.util.date :as date-util]
+   [instant.util.s3 :as s3-util]
+   [instant.util.tracer :as tracer])
   (:import
-   [software.amazon.awssdk.auth.credentials DefaultCredentialsProvider]
-   [software.amazon.awssdk.regions Region]
-   [software.amazon.awssdk.services.s3 S3AsyncClient S3Client S3ClientBuilder S3CrtAsyncClientBuilder]
-   [java.net URI]
-   [java.time Duration Instant]
-   [org.apache.tika Tika]
-   [org.apache.tika.io TikaInputStream]
-   [java.io InputStream]
-   [java.time.temporal ChronoUnit]))
+   (java.net URI)
+   (java.io InputStream)
+   (java.time Duration Instant)
+   (java.time.temporal ChronoUnit)
+   (org.apache.tika Tika)
+   (org.apache.tika.io TikaInputStream)
+   (software.amazon.awssdk.auth.credentials DefaultCredentialsProvider)
+   (software.amazon.awssdk.http.nio.netty NettyNioAsyncHttpClient)
+   (software.amazon.awssdk.regions Region)
+   (software.amazon.awssdk.services.s3 S3AsyncClient S3Client S3ClientBuilder S3CrtAsyncClientBuilder)
+   (software.amazon.awssdk.transfer.s3 S3TransferManager)))
 
 (set! *warn-on-reflection* true)
 
@@ -27,7 +30,11 @@
       (.endpointOverride (URI/create endpoint))
       (.region (Region/of (config/s3-region)))
       (.forcePathStyle Boolean/TRUE))
-    builder))
+    (let [credentials-provider (-> (DefaultCredentialsProvider/builder)
+                                   ;; Keeps credentials fresh in the background
+                                   (.asyncCredentialUpdateEnabled true)
+                                   (.build))]
+      (.credentialsProvider builder credentials-provider))))
 
 (defn- configure-s3-endpoint-async-client ^S3CrtAsyncClientBuilder [^S3CrtAsyncClientBuilder builder]
   (if-let [endpoint (config/s3-endpoint)]
@@ -35,18 +42,28 @@
       (.endpointOverride (URI/create endpoint))
       (.region (Region/of (config/s3-region)))
       (.forcePathStyle Boolean/TRUE))
-    builder))
+    (let [credentials-provider (-> (DefaultCredentialsProvider/builder)
+                                   ;; Keeps credentials fresh in the background
+                                   (.asyncCredentialUpdateEnabled true)
+                                   (.build))]
+      (.credentialsProvider builder credentials-provider))))
 
-(def ^:private s3-client* (delay (-> (S3Client/builder)
-                                     (configure-s3-endpoint-client)
-                                     (.build))))
+(def ^:private s3-client*
+  (delay
+    (-> (S3Client/builder)
+        (configure-s3-endpoint-client)
+        (.build))))
 
 (defn s3-client
   "Standard blocking S3 client. We use this for most operations."
   ^S3Client []
   @s3-client*)
 
+(declare s3-async-client*)
 (def ^:private s3-async-client* (delay
+                                  (when (and (bound? #'s3-async-client*)
+                                             (realized? s3-async-client*))
+                                    (.close ^S3AsyncClient @s3-async-client*))
                                   (-> (S3AsyncClient/crtBuilder)
                                       (configure-s3-endpoint-async-client)
                                       (.targetThroughputInGbps 20.0)
@@ -56,6 +73,47 @@
   "Async S3 Client. Useful when you want to asynchronously upload streams to S3"
   ^S3AsyncClient []
   @s3-async-client*)
+
+(declare s3-async-export-client*)
+(def ^:private s3-async-export-client*
+  (delay
+    (when (and (bound? #'s3-async-export-client*)
+               (realized? s3-async-export-client*))
+      (.close ^S3AsyncClient @s3-async-export-client*))
+    (-> (S3AsyncClient/builder)
+        (.multipartEnabled true)
+        ;; Backups can keep an upload stream open for long
+        ;; stretches of time without producing bytes, do
+        ;; what we can to prevent the connection from closing
+        (.httpClientBuilder
+         (doto (NettyNioAsyncHttpClient/builder)
+           (.readTimeout Duration/ZERO)
+           (.writeTimeout Duration/ZERO)
+           (.tcpKeepAlive Boolean/TRUE)))
+        (configure-s3-endpoint-client)
+        (.build))))
+
+(defn s3-async-export-client
+  "Client used for running backups to s3.
+   Deliberately does not use the crt client because we've seen it hang and spike
+   cpu usage in development."
+  ^S3AsyncClient []
+  @s3-async-export-client*)
+
+(declare s3-transfer-manager*)
+(def ^:private s3-transfer-manager*
+  (delay
+    (when (and (bound? #'s3-transfer-manager*)
+               (realized? s3-transfer-manager*))
+      (.close ^S3TransferManager s3-transfer-manager*))
+    (.. (S3TransferManager/builder)
+        (s3Client (s3-async-export-client))
+        (build))))
+
+(defn s3-transfer-manager
+  "S3 Transfer Manager for multipart uploads"
+  ^S3TransferManager []
+  @s3-transfer-manager*)
 
 (def ^:private presign-creds*
   (delay
@@ -264,3 +322,8 @@
   (count (list-all-app-objects))
   (list-objects-by-app)
   (calculate-app-metrics))
+
+(when (config/aws-env?)
+  ;; Initialize clients eagerly
+  (s3-client)
+  (s3-async-client))
