@@ -152,7 +152,10 @@
         aws-config           (.getAwsConfig join-config)
         serialization-config (.getSerializationConfig config)
         metrics-config       (.getMetricsConfig config)
-        instance-id          (or @config/instance-id "dev")
+        instance-id          (or @config/instance-id
+                                 (when (config/using-swarm?)
+                                   (str config/machine-id))
+                                 "dev")
         member-attribute-config (doto (com.hazelcast.config.MemberAttributeConfig.)
                                   (.setAttribute "instance-id" instance-id)
                                   (.setAttribute "machine-id" (str config/machine-id)))]
