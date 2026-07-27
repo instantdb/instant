@@ -205,8 +205,7 @@
                                       :a.label
                                       [[:= :a.cardinality [:inline "many"]] :many]]
                              :from [[:triples :t]]
-                             :join [[:attrs :a] [:= :a.id :t.attr_id]
-                                    [:apps :app] [:= :app.id :t.app_id]]
+                             :join [[:attrs :a] [:= :a.id :t.attr_id]]
                              :where [:and
                                      [:= nil :a.deletion-marked-at]
                                      [:= :t.app-id [:inline (uuid-util/coerce app-id)]]]
