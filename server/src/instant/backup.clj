@@ -715,9 +715,7 @@
                                      :where [:and
                                              [:not= :creator-id (:id @ephemeral-creator)]
                                              [:= nil :deletion-marked-at]]
-                                     :order-by [[:id :asc]]
-                                     ;;; XXX
-                                     :limit 400}))))
+                                     :order-by [[:id :asc]]}))))
 
 (defn handle-app
   "Processes a single app. Delivers the result to `finished-promise` (either
@@ -880,15 +878,16 @@
     (try
       (let [process-count 200
             clone-pool (clone/start-clone-pool (* 2 process-count)
-                                               (:cluster-id clone-config))
-            clone-lsn (get-clone-lsn clone-pool)
-            backup-at (:snapshot-time clone-config)
-            process (process-with-clone-pool {:clone-pool clone-pool
-                                              :process-count process-count
-                                              :clone-lsn clone-lsn
-                                              :backup-at backup-at})]
+                                               (:cluster-id clone-config))]
         (try
-          ((:wait-for-finish process))
+          (let [clone-lsn (get-clone-lsn clone-pool)
+                backup-at (:snapshot-time clone-config)
+                process (process-with-clone-pool {:clone-pool clone-pool
+                                                  :process-count process-count
+                                                  :clone-lsn clone-lsn
+                                                  :backup-at backup-at})]
+            ((:wait-for-finish process)))
+
           (finally
             (clone/stop-clone-pool clone-pool))))
 
