@@ -6,6 +6,7 @@
    [instant.dash.ephemeral-app :refer [ephemeral-creator]]
    [instant.db.model.attr :as attr-model]
    [instant.isn]
+   [instant.clone :as clone]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.copy :as copy]
    [instant.jdbc.sql :as sql]
@@ -183,6 +184,31 @@
                                      [:= nil :app.deletion-marked-at]
                                      (when start-app-id
                                        [:>= :t.app_id [:inline (uuid-util/coerce start-app-id)]])]
+                             :order-by [[:t.app_id] [:t.entity_id] [:t.attr_id]]})
+        _ (assert (= 1 (count select)) "The select query cannot have parameters")
+        q (format "/*+ IndexScan(t triples_pkey) */ COPY (%s) to stdout with (format binary)"
+                  (first select))
+        copy-seq (copy/copy-seq conn
+                                q
+                                columns
+                                {:row-fn ->Triple})]
+    copy-seq))
+
+(defn app-triples-seq
+  "Returns a seq of triples for an app, ordered by app-id, entity-id, then attr-id"
+  [^PgConnection conn app-id]
+  (let [select (hsql/format {:select [:t.app_id
+                                      :t.entity_id
+                                      [[:cast :t.value :text] :value]
+                                      :t.created_at
+                                      :a.etype
+                                      :a.label
+                                      [[:= :a.cardinality [:inline "many"]] :many]]
+                             :from [[:triples :t]]
+                             :join [[:attrs :a] [:= :a.id :t.attr_id]]
+                             :where [:and
+                                     [:= nil :a.deletion-marked-at]
+                                     [:= :t.app-id [:inline (uuid-util/coerce app-id)]]]
                              :order-by [[:t.app_id] [:t.entity_id] [:t.attr_id]]})
         _ (assert (= 1 (count select)) "The select query cannot have parameters")
         q (format "/*+ IndexScan(t triples_pkey) */ COPY (%s) to stdout with (format binary)"
@@ -564,7 +590,7 @@
                      (inc triple-count)))))
   (on-done))
 
-(defn process []
+(defn process-with-snapshot []
   (let [db-config (config/get-aurora-config)
         process-id (random-uuid)
         slot-name (str "backup_" (.replace (str process-id) "-" "_"))
@@ -672,3 +698,204 @@
                             (abort)
                             (throw t))))
      :abort abort}))
+
+(defn get-clone-lsn [clone-pool]
+  (:lsn (sql/select-one ::clone-lsn
+                        clone-pool
+                        ["select aurora_volume_logical_start_lsn() as lsn"])))
+
+(defn get-eligible-app-ids
+  "Returns non-ephemeral/non-deleted app ids ordered by id."
+  [clone-pool]
+  (map :id (sql/select ::get-eligible
+                       clone-pool
+                       (hsql/format {:select :id
+                                     :from :apps
+                                     :where [:and
+                                             [:not= :creator-id (:id @ephemeral-creator)]
+                                             [:= nil :deletion-marked-at]]
+                                     :order-by [[:id :asc]]}))))
+
+(defn handle-app
+  "Processes a single app. Delivers the result to `finished-promise` (either
+   a throwable or the {:triple-count <long>} with the number of triples)."
+  [{:keys [clone-pool
+           process-id
+           isn
+           backup-at
+           app-id
+           finished-promise]}]
+  (try
+    (let [triples-queue (LinkedBlockingQueue. 50000)
+          upload-progress-queue (LinkedBlockingQueue.)
+          flush-streams-queue (LinkedBlockingQueue.)
+          done-signal ::done
+          _copy-process (ua/vfuture
+                         (try
+                           (with-open [conn (next.jdbc/get-connection clone-pool)]
+                             (doseq [triple (app-triples-seq (.unwrap conn PgConnection) app-id)]
+                               (.put triples-queue triple))
+                             (.put triples-queue done-signal))
+                           (catch Throwable t
+                             (deliver finished-promise t)
+                             (.put triples-queue done-signal)
+                             (.put flush-streams-queue done-signal)
+                             (throw t))))
+          _upload-process (ua/vfuture
+                           (try
+                             (start-upload-process {:process-id process-id
+                                                    :triples-queue triples-queue
+                                                    :record-progress-queue upload-progress-queue
+                                                    :flush-streams-queue flush-streams-queue
+                                                    :on-done (fn []
+                                                               (.put flush-streams-queue done-signal))
+                                                    :done-signal done-signal})
+                             (catch Throwable t
+                               (deliver finished-promise t)
+                               (.put flush-streams-queue done-signal)
+                               (throw t))))
+          ;; This is a little awkward, since we'll only ever take 1 thing out of the queue,
+          ;; but it allows us to use the same code as `process-with-copy`
+          item (.take flush-streams-queue)]
+      (if (= done-signal item)
+        (when-not (realized? finished-promise)
+          (deliver finished-promise {:triple-count 0}))
+        (with-open [conn (next.jdbc/get-connection clone-pool)]
+          (complete-streams conn
+                            {:backup-id process-id
+                             :isn isn
+                             :backup-at backup-at}
+                            item)
+          (deliver finished-promise
+                   {:triple-count (:triple-count (.take upload-progress-queue))}))))
+    (catch Throwable t
+      (deliver finished-promise t))))
+
+(defn process-with-clone-pool
+  "Similar to process-with-copy, but creates a separate copy command per app.
+   Only works on a clone, since we know that the data in the database will
+   never change."
+  [{:keys [clone-pool
+           clone-lsn
+           ^long process-count
+           backup-at]}]
+  (let [process-id (random-uuid)
+        isn (instant.isn/->ISN config/invalidator-slot-num clone-lsn)
+        _ (insert-backup-job! {:id process-id
+                               :isn isn
+                               :backup-at backup-at
+                               :machine-id config/machine-id})
+        app-ids (get-eligible-app-ids clone-pool)
+        app-queue (LinkedBlockingQueue. process-count)
+        record-progress-queue (LinkedBlockingQueue.)
+        done-signal ::done
+        process-state (atom nil)
+        abort (fn []
+                (when-let [{:keys [distribute-apps-process
+                                   update-progress-process
+                                   handle-app-processes]} @process-state]
+                  (future-cancel distribute-apps-process)
+                  (doseq [p handle-app-processes]
+                    (future-cancel p))
+                  (future-cancel update-progress-process)))
+        ;; Puts app-ids on the app queue and the record-progress-queue
+        ;; when the app-queue is done, it will fulfill its promise with
+        ;; the data the record-progress-queue needs. This allows the
+        ;; queue to move forward so that we can restart from a failed app.
+        distribute-apps-process (ua/vfuture
+                                 (doseq [app-id app-ids]
+                                   (let [item {:app-id app-id
+                                               :finished-promise (promise)}]
+                                     (.put app-queue item)
+                                     (.put record-progress-queue item)))
+                                 (dotimes [_ process-count]
+                                   (.put app-queue done-signal))
+                                 (.put record-progress-queue done-signal))
+        handle-app-processes (mapv (fn [_]
+                                     (ua/vfuture
+                                      (loop [item (.take app-queue)]
+                                        (when (not= done-signal item)
+                                          (try
+                                            (handle-app {:clone-pool clone-pool
+                                                         :process-id process-id
+                                                         :isn isn
+                                                         :backup-at backup-at
+                                                         :app-id (:app-id item)
+                                                         :finished-promise (:finished-promise item)})
+                                            (catch Throwable t
+                                              (deliver (:finished-promise item) t)
+                                              (abort)
+                                              (throw t)))
+                                          (recur (.take app-queue))))))
+                                   (range process-count))
+
+        update-limiter (RateLimiter/create 0.2) ;; every 5 seconds
+        update-progress-process (ua/vfuture
+                                 (loop [item (.take record-progress-queue)
+                                        app-count 1
+                                        triple-count 0]
+                                   (if (= item done-signal)
+                                     (mark-backup-completed! {:id process-id})
+                                     (let [{:keys [app-id finished-promise]} item
+                                           result @finished-promise]
+                                       (when (instance? Throwable result)
+                                         (throw result))
+                                       (let [triple-count (+ triple-count
+                                                             (long (:triple-count result)))]
+                                         (when (or (= (.peek record-progress-queue) done-signal)
+                                                   (.tryAcquire update-limiter))
+                                           (update-backup-progress! {:id process-id
+                                                                     :max-app-id app-id
+                                                                     :triple-count triple-count
+                                                                     :app-count app-count}))
+                                         (recur (.take record-progress-queue)
+                                                (inc app-count)
+                                                triple-count))))))]
+    (reset! process-state {:distribute-apps-process distribute-apps-process
+                           :update-progress-process update-progress-process
+                           :handle-app-processes handle-app-processes})
+    {:distribute-apps-process distribute-apps-process
+     :update-progress-process update-progress-process
+     :handle-app-processes handle-app-processes
+     :abort abort
+     :wait-for-finish (fn []
+                        (try
+                          @distribute-apps-process
+                          (doseq [p handle-app-processes]
+                            @p)
+                          @update-progress-process
+                          (catch Throwable t
+                            (abort)
+                            (throw t))))}))
+
+(defn process-with-clone
+  "Similar to process-with-copy, but creates a clone of the production database.
+   Allows us to process multiple apps concurrently"
+  [{:keys [source-cluster-id]}]
+  (let [clone-config (clone/create-clone! {:instance-class "db.r8gd.xlarge"
+                                           :source-cluster-id source-cluster-id})]
+    (try
+      (let [process-count 200
+            clone-pool (clone/start-clone-pool (* 2 process-count)
+                                               (:cluster-id clone-config))]
+        (try
+          (let [clone-lsn (get-clone-lsn clone-pool)
+                backup-at (:snapshot-time clone-config)
+                process (process-with-clone-pool {:clone-pool clone-pool
+                                                  :process-count process-count
+                                                  :clone-lsn clone-lsn
+                                                  :backup-at backup-at})]
+            ((:wait-for-finish process)))
+
+          (finally
+            (clone/stop-clone-pool clone-pool))))
+
+      (finally
+        (clone/delete-clone! (:cluster-id clone-config))))))
+
+(comment
+  ;; To test clone version locally against local db
+  (def -process (process-with-clone-pool {:clone-pool (aurora/conn-pool :write)
+                                          :clone-lsn (:lsn (sql/select-one (aurora/conn-pool :read) ["select pg_current_wal_lsn() as lsn"]))
+                                          :backup-at (Instant/now)
+                                          :process-count 10})))

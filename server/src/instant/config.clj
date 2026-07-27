@@ -218,10 +218,13 @@
                             (some-> @config-map :database-cluster-id))]
     (aurora-config/rds-cluster-id->db-config cluster-id application-name)))
 
+(defn db-application-name []
+  (uri/query-encode (format "%s, %s"
+                            @hostname
+                            @process-id)))
+
 (defn get-aurora-config []
-  (let [application-name (uri/query-encode (format "%s, %s"
-                                                   @hostname
-                                                   @process-id))
+  (let [application-name (db-application-name)
         config (or (aurora-config-from-cluster-id application-name)
                    (aurora-config-from-database-url))]
     (assoc config
@@ -238,9 +241,7 @@
     (db-url->config url)))
 
 (defn get-next-aurora-config []
-  (let [application-name (uri/query-encode (format "%s, %s"
-                                                   @hostname
-                                                   @process-id))]
+  (let [application-name (db-application-name)]
     (when-let [config (or (next-aurora-config-from-cluster-id application-name)
                           (next-aurora-config-from-database-url))]
       (assoc config
