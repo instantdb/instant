@@ -356,13 +356,15 @@
             (tracer/add-exception! t {:escaping? false})))))
     nil))
 
+(defn close-pool [^HikariDataSource d]
+  (.close d)
+  (.shutdown ^HikariPool (.getHikariPoolMXBean d)))
+
 (defn stop []
   (lang/clear-var! -conn-pool (fn [^HikariDataSource d]
-                                (.close d)
-                                (.shutdown ^HikariPool (.getHikariPoolMXBean d))))
+                                (close-pool d)))
   (lang/clear-var! -replica-conn-pool (fn [^HikariDataSource d]
-                                        (.close d)
-                                        (.shutdown ^HikariPool (.getHikariPoolMXBean d)))))
+                                        (close-pool d))))
 
 (defn restart []
   (stop)
