@@ -485,7 +485,9 @@ export class PersistedObject<K extends string, T, SerializedT> {
       () => {
         safeIdleCallback(() => {
           this._nextGc = null;
-          this._gc();
+          this._gc().catch((e) =>
+            this._log.error('Persisted Object GC Failed:', e),
+          );
         }, 30 * 1000);
       },
       // 1 minute + some jitter to keep multiple tabs from running at same time
