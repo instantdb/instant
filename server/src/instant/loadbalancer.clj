@@ -1,6 +1,7 @@
 (ns instant.loadbalancer
   (:require
    [clojure.string]
+   [instant.app-proxy :as app-proxy]
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.reactive.store :as rs]
@@ -141,12 +142,15 @@
                                  (assoc futs drain-id {:started-at now
                                                        :process (promise)})))))]
     (when-let [process-promise (-> conn-drains (get drain-id) :process)]
-      (let [total-ms (flags/deregister-targets-drain-ms)]
+      (let [drain-opts {:total-ms (flags/deregister-targets-drain-ms)
+                        :max-gap-ms 1000}]
         (deliver process-promise (ua/vfut-bg
                                   (try
                                     (tracer/with-span! {:name "loadbalancer/close-connections"}
-                                      (rs/close-connections rs/store {:total-ms total-ms
-                                                                      :max-gap-ms 1000}))
+                                      (let [proxied-drain (ua/vfut-bg
+                                                           (app-proxy/drain-proxied-connections! drain-opts))]
+                                        (rs/close-connections rs/store drain-opts)
+                                        @proxied-drain))
                                     (finally
                                       (swap! conn-drain-futs dissoc drain-id)))))))))
 

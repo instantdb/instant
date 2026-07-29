@@ -14,7 +14,6 @@
   (:require
    [clojure.string :as string]
    [clojure.tools.logging :as log]
-   [instant.config :as config]
    [instant.flags :as flags]
    [instant.lib.ring.undertow :as undertow]
    [instant.reactive.store :as rs]
@@ -145,15 +144,11 @@
           connection (get @proxied-websockets app-id)]
     (IoUtils/safeClose ^ServerConnection connection)))
 
-(defn- connection-drain-opts []
-  ;; Production uses the same gradual window as load balancer deregistration.
-  ;; Keep development short so routing changes remain quick to exercise.
-  {:total-ms (if (config/dev?)
-               1000
-               (flags/deregister-targets-drain-ms))
-   :max-gap-ms (if (config/dev?)
-                 100
-                 1000)})
+;; Clients reconnect as soon as they are closed, so the drain only needs to be
+;; long enough to spread the reconnect herd.
+(def ^:private connection-drain-opts
+  {:total-ms (* 60 1000)
+   :max-gap-ms 10})
 
 (defn- connection-channels-for-app [app-id]
   (into (vec (get @proxied-websockets app-id))
@@ -164,7 +159,17 @@
   ;; immediately while clients move to the new backend over the drain window.
   (when (seq channels)
     (ua/vfut-bg
-     (rs/close-connections-for-app app-id channels (connection-drain-opts)))))
+     (rs/close-connections-for-app app-id channels connection-drain-opts))))
+
+(defn drain-proxied-connections!
+  "Closes every proxied WebSocket at a steady rate. Proxied connections never
+   enter the local session store, so the deploy-time drains must close them
+   through this alongside rs/close-connections."
+  [opts]
+  (rs/close-channels "app-proxy/drain-proxied-connections"
+                     {}
+                     (into [] cat (vals @proxied-websockets))
+                     opts))
 
 (defn- changed-app-ids [old-targets new-targets]
   ;; Includes apps that were added or removed as well as apps whose target

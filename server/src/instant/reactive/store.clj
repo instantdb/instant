@@ -1634,7 +1634,9 @@
   [store app-id]
   (vec (keep socket->channel (all-sockets-for-app store app-id))))
 
-(defn- close-channels
+(defn close-channels
+  "Closes channels at a steady rate, aiming to complete within `total-ms`,
+   while never leaving a gap longer than `max-gap-ms` between closes."
   [span-name attributes channels {:keys [total-ms
                                          max-gap-ms]}]
   (let [channels (vec channels)

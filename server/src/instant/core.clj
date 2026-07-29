@@ -304,12 +304,18 @@
              server)
     (Server/.shutdownGracefully server))
 
-  (rs/close-connections rs/store {:total-ms (if (config/dev?)
-                                              1000
-                                              (* 1000 60 4))
-                                  :max-gap-ms (if (config/dev?)
-                                                100
-                                                1000)})
+  (let [drain-opts {:total-ms (if (config/dev?)
+                                1000
+                                (* 1000 60 4))
+                    :max-gap-ms (if (config/dev?)
+                                  100
+                                  1000)}
+        ;; Proxied WebSockets never enter the session store, so they need
+        ;; their own drain. Run it alongside the local one so both finish
+        ;; within the drain window.
+        proxied-drain (future (app-proxy/drain-proxied-connections! drain-opts))]
+    (rs/close-connections rs/store drain-opts)
+    @proxied-drain)
   (when (and (bound? #'server)
              server)
     ;; Wait another 20 seconds for the server to shut down
