@@ -342,11 +342,14 @@ jobs:
           bb --version
 
       - name: Set branch name
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BRANCH_NAME="${{ github.head_ref }}"
+            BRANCH_NAME="$HEAD_REF"
           else
-            BRANCH_NAME="${{ github.ref_name }}"
+            BRANCH_NAME="$REF_NAME"
           fi
           # Sanitize branch name for npm version compatibility
           # Replace / and other invalid characters with -
@@ -490,11 +493,14 @@ jobs:
     - name: Pull Vercel Environment Information
       run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
     - name: Set branch name
+      env:
+        HEAD_REF: ${{ github.head_ref }}
+        REF_NAME: ${{ github.ref_name }}
       run: |
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          branch="${{ github.head_ref }}"
+          branch="$HEAD_REF"
         else
-          branch="${{ github.ref_name }}"
+          branch="$REF_NAME"
         fi
         echo "BRANCH_NAME=$branch" >> $GITHUB_ENV
         safeBranch=$(echo "$branch" | sed 's/[^a-zA-Z0-9-]/-/g')
