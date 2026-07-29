@@ -36,17 +36,6 @@
   {:status 418
    :body "local"})
 
-(deftest target-config-validation
-  (let [app-id (random-uuid)]
-    (is (= {app-id (URI. "https://selfhostedinstant.example.com")}
-           (app-proxy/parse-targets
-            {(str app-id) "https://selfhostedinstant.example.com/"})))
-    (testing "invalid app ids and non-origin targets are ignored"
-      (is (= {}
-             (app-proxy/parse-targets
-              {"not-an-app" "https://selfhostedinstant.example.com"
-               (str app-id) "https://user@selfhostedinstant.example.com/path?query=yes"}))))))
-
 (deftest extracts-app-id-from-body
   (let [app-id (random-uuid)
         json-body (.getBytes (json/->json {:app-id app-id}) "UTF-8")

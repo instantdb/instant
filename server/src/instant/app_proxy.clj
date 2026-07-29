@@ -51,54 +51,12 @@
 (defonce ^:private ssl-provider
   (delay (UndertowXnioSsl. (Xnio/getInstance) OptionMap/EMPTY)))
 
-;; ----------
-;; Target config
-
 (defn- state->app-id [state]
   ;; Runtime OAuth state is the app UUID followed by a random UUID. The
   ;; callback has no other app identifier available before we route it.
   (when (and (string? state)
              (<= 36 (count state)))
     (uuid-util/coerce (subs state 0 36))))
-
-(defn- normalize-target [target]
-  ;; Targets are origins rather than base URLs. Keeping paths and query strings
-  ;; out of config means the incoming request path can be forwarded unchanged.
-  (when (string? target)
-    (try
-      (let [uri (URI. target)
-            scheme (some-> (.getScheme uri) string/lower-case)
-            path (.getPath uri)]
-        (when (and (#{"http" "https"} scheme)
-                   (.getHost uri)
-                   (nil? (.getUserInfo uri))
-                   (nil? (.getQuery uri))
-                   (nil? (.getFragment uri))
-                   (or (string/blank? path)
-                       (= "/" path)))
-          (URI. scheme nil (.getHost uri) (.getPort uri) nil nil nil)))
-      (catch Exception _
-        nil))))
-
-(defn parse-targets
-  "Converts the config map to app UUIDs and origin URIs. Invalid entries are
-   skipped so one bad target cannot disable routing for every configured app."
-  [config]
-  (if-not (map? config)
-    {}
-    (reduce-kv
-     (fn [acc app-id-value target-value]
-       (if-let [app-id (uuid-util/coerce app-id-value)]
-         (if-let [target (normalize-target target-value)]
-           (assoc acc app-id target)
-           (do
-             (log/error "Ignoring invalid app proxy target" {:app-id app-id-value})
-             acc))
-         (do
-           (log/error "Ignoring invalid app proxy app id" {:app-id app-id-value})
-           acc)))
-     {}
-     config)))
 
 ;; ----------
 ;; App id extraction
@@ -209,13 +167,12 @@
         (into (set (keys old-targets))
               (keys new-targets))))
 
-(defn- update-targets! [new-config]
+(defn- update-targets! [new-targets]
   ;; Snapshot connections before swapping the routing table so the drain only
   ;; closes connections established under the old table. The table is swapped
   ;; first, then the snapshot is closed gradually so reconnects reach the new
   ;; backend without arriving as a single herd.
   (let [old-targets @targets
-        new-targets (parse-targets new-config)
         changed (changed-app-ids old-targets new-targets)
         channels-by-app (into {}
                               (map (juxt identity connection-channels-for-app))
@@ -229,7 +186,7 @@
   ;; listener rather than registering duplicate config watches.
   (when-let [clear-listener @clear-target-listener]
     (clear-listener))
-  (update-targets! (flags/flag :app-proxy-targets {}))
+  (update-targets! (flags/app-proxy-targets))
   (reset! clear-target-listener
           (flags/add-flag-listener
            :app-proxy-targets
