@@ -9,7 +9,7 @@
   (:import
    (instant.lib.ring.undertow Server)
    (io.undertow Undertow$ListenerInfo)
-   (java.net InetSocketAddress URI)
+   (java.net InetSocketAddress ServerSocket URI)
    (java.net.http HttpClient WebSocket WebSocket$Listener)
    (java.util.concurrent CompletableFuture TimeUnit)))
 
@@ -52,15 +52,14 @@
 (deftest proxies-http-and-websocket-requests
   (let [app-id (random-uuid)
         upstream (undertow/run-undertow upstream-handler
-                                         {:host "127.0.0.1"
-                                          :port 0})
+                                        {:host "127.0.0.1"
+                                         :port 0})
         upstream-uri (URI. (str "http://127.0.0.1:" (listener-port upstream)))
-        target-fn #(when (= app-id %) upstream-uri)
         proxy (undertow/run-undertow
                local-handler
                {:host "127.0.0.1"
                 :port 0
-                :handler-proxy #(app-proxy/handler-proxy % target-fn)})
+                :handler-proxy #(app-proxy/handler-proxy % (constantly {app-id upstream-uri}))})
         proxy-origin (str "http://127.0.0.1:" (listener-port proxy))]
     (try
       (testing "admin requests are selected from the app-id header"
@@ -101,6 +100,12 @@
           (is (= 200 (:status response)))
           (is (= body (get-in response [:body :body])))))
 
+      (testing "an unrelated UUID earlier in the path does not shadow the app id"
+        (let [path (str "/runtime/" (random-uuid) "/" app-id "/config")
+              response (http/get (str proxy-origin path) {:as :json})]
+          (is (= 200 (:status response)))
+          (is (= path (get-in response [:body :uri])))))
+
       (testing "unmapped apps stay on the local handler"
         (let [response (http/get
                         (str proxy-origin "/runtime/session?app_id=" (random-uuid))
@@ -136,3 +141,75 @@
       (finally
         (Server/.stop proxy)
         (Server/.stop upstream)))))
+
+(deftest leaves-requests-alone-without-configured-targets
+  ;; Body inspection buffers and caps request bodies, so it must not run when
+  ;; nothing is being proxied.
+  (let [proxy (undertow/run-undertow
+               local-handler
+               {:host "127.0.0.1"
+                :port 0
+                :handler-proxy #(app-proxy/handler-proxy % (constantly {}))})
+        oversized-body (apply str (repeat (* 280 1024) "x"))]
+    (try
+      (let [response (http/post
+                      (str "http://127.0.0.1:" (listener-port proxy)
+                           "/runtime/auth/send_magic_code")
+                      {:content-type :json
+                       :body oversized-body
+                       :throw-exceptions false})]
+        (is (= 418 (:status response)))
+        (is (= "local" (:body response))))
+      (finally
+        (Server/.stop proxy)))))
+
+(deftest bounds-body-inspection-when-routing-is-active
+  (let [proxy (undertow/run-undertow
+               local-handler
+               {:host "127.0.0.1"
+                :port 0
+                :handler-proxy #(app-proxy/handler-proxy
+                                 %
+                                 (constantly {(random-uuid)
+                                              (URI. "http://127.0.0.1:1")}))})
+        oversized-body (apply str (repeat (* 280 1024) "x"))]
+    (try
+      (let [response (http/post
+                      (str "http://127.0.0.1:" (listener-port proxy)
+                           "/runtime/auth/send_magic_code")
+                      {:content-type :json
+                       :body oversized-body
+                       :throw-exceptions false})]
+        (is (= 413 (:status response))))
+      (finally
+        (Server/.stop proxy)))))
+
+(deftest fails-closed-when-target-is-down
+  ;; Serving a proxied app from the local handler while its target is down
+  ;; would silently write to the wrong backend.
+  (let [app-id (random-uuid)
+        dead-port (with-open [socket (ServerSocket. 0)]
+                    (.getLocalPort socket))
+        proxy (undertow/run-undertow
+               local-handler
+               {:host "127.0.0.1"
+                :port 0
+                :handler-proxy #(app-proxy/handler-proxy
+                                 %
+                                 (constantly {app-id (URI. (str "http://127.0.0.1:" dead-port))}))})
+        proxy-origin (str "http://127.0.0.1:" (listener-port proxy))]
+    (try
+      (testing "both the connection failure and the problem-host window return 503"
+        (dotimes [_ 2]
+          (let [response (http/get
+                          (str proxy-origin "/runtime/session?app_id=" app-id)
+                          {:throw-exceptions false})]
+            (is (= 503 (:status response))))))
+      (testing "other apps still reach the local handler"
+        (let [response (http/get
+                        (str proxy-origin "/runtime/session?app_id=" (random-uuid))
+                        {:throw-exceptions false})]
+          (is (= 418 (:status response)))
+          (is (= "local" (:body response)))))
+      (finally
+        (Server/.stop proxy)))))

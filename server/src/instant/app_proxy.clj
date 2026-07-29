@@ -4,7 +4,13 @@
    This handler runs directly on Undertow, before Ring and Compojure, so it can
    proxy WebSocket upgrades and stream HTTP request bodies without first
    converting them to Ring requests. Targets come from the app-proxy-targets
-   config flag and can change while the server is running."
+   config flag and can change while the server is running.
+
+   Routing keys off client-supplied request data: headers, query params, the
+   path, and small bodies. That is safe because both backends authenticate
+   every request themselves. A client that omits its app id lands on the local
+   handler, so migration correctness ultimately depends on the old backend no
+   longer serving a migrated app's data."
   (:require
    [clojure.string :as string]
    [clojure.tools.logging :as log]
@@ -18,7 +24,7 @@
    [ring.util.codec :as codec])
   (:import
    (io.undertow.connector PooledByteBuffer)
-   (io.undertow.io Receiver$ErrorCallback Receiver$FullBytesCallback)
+   (io.undertow.io Receiver$ErrorCallback Receiver$FullBytesCallback Receiver$RequestToLargeException)
    (io.undertow.protocols.ssl UndertowXnioSsl)
    (io.undertow.server Connectors HttpHandler HttpServerExchange ServerConnection ServerConnection$CloseListener)
    (io.undertow.server.handlers BlockingHandler)
@@ -36,8 +42,6 @@
 
 (def ^:private uuid-pattern
   #"(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
-
-(def ^:private max-proxy-request-time-ms 30000)
 
 ;; The current routing table is shared by every request handler. WebSocket
 ;; connections are tracked separately so a config change can make clients
@@ -66,25 +70,29 @@
     (.peekFirst values)))
 
 (defn request-app-id
-  "Returns the app id encoded in request metadata that is available without
-   consuming the body."
-  [^HttpServerExchange exchange]
+  "Returns the app id to route by from request metadata that is available
+   without consuming the body. When a request carries several candidate UUIDs,
+   the first one with a configured target wins so an unrelated id earlier in
+   the path cannot shadow the app id."
+  [^HttpServerExchange exchange table]
   (let [headers (.getRequestHeaders exchange)
         ;; Client generations and endpoints use both hyphenated and underscored
-        ;; spellings, in either a header or query parameter.
-        direct-candidates [(.getFirst headers "app-id")
+        ;; spellings, in either a header or query parameter. Runtime OAuth
+        ;; callbacks only identify the app in state, and routes such as
+        ;; /runtime/:app_id/.well-known/openid-configuration encode the app id
+        ;; in the path.
+        candidates (concat
+                    (keep uuid-util/coerce
+                          [(.getFirst headers "app-id")
                            (.getFirst headers "app_id")
                            (first-query-param exchange "app_id")
-                           (first-query-param exchange "app-id")]
-        state-app-id (state->app-id (first-query-param exchange "state"))
-        ;; Supports routes that encode the app id in the path, such as
-        ;; /runtime/:app_id/.well-known/openid-configuration. UUIDs found here
-        ;; are only used when they match an app id with a configured target.
-        path-app-ids (map uuid-util/coerce
-                          (re-seq uuid-pattern (.getRequestPath exchange)))]
-    (or (some uuid-util/coerce direct-candidates)
-        state-app-id
-        (some identity path-app-ids))))
+                           (first-query-param exchange "app-id")])
+                    (when-let [app-id (state->app-id (first-query-param exchange "state"))]
+                      [app-id])
+                    (keep uuid-util/coerce
+                          (re-seq uuid-pattern (.getRequestPath exchange))))]
+    (or (some #(when (contains? table %) %) candidates)
+        (first candidates))))
 
 (defn body-app-id
   "Extracts the app id from the small JSON and form bodies used by auth, OAuth,
@@ -204,39 +212,41 @@
 ;; ----------
 ;; Request routing
 
-(defn- make-proxy-handler [^HttpHandler local-handler ^URI target]
+(def ^:private target-unavailable-handler
+  ;; ProxyHandler falls through to this handler when its target has no
+  ;; connectable host. Failing closed matters here: falling back to the local
+  ;; handler would silently serve a migrated app from this backend's data.
+  (reify HttpHandler
+    (handleRequest [_ exchange]
+      (.setStatusCode exchange StatusCodes/SERVICE_UNAVAILABLE)
+      (.endExchange exchange))))
+
+(defn- make-proxy-handler [^URI target]
   (let [client (LoadBalancingProxyClient.)]
     ;; A single-host proxy client handles regular HTTP requests and WebSocket
     ;; upgrades. HTTPS targets need an XNIO SSL provider for the upstream side.
     (if (= "https" (.getScheme target))
       (.addHost client target ^XnioSsl @ssl-provider)
       (.addHost client target))
-    (doto (ProxyHandler. client max-proxy-request-time-ms local-handler)
+    ;; No max request time: proxied uploads and WebSockets outlive any
+    ;; reasonable fixed deadline.
+    (doto (ProxyHandler. client -1 target-unavailable-handler)
       ;; Send the target's Host header rather than api.instantdb.com.
       (.setRewriteHostHeader true))))
 
-(defn- proxy-handler-for [cache local-handler target]
-  ;; Proxy handlers own the upstream connection machinery, so reuse one for
-  ;; each target rather than rebuilding it for every request.
+(defn- proxy-handler-for
+  ;; Proxy handlers own the upstream connection machinery, so reuse one per
+  ;; target. Creation only happens after a config change, so that is also when
+  ;; handlers for dropped targets are evicted.
+  [cache table target]
   (or (get @cache target)
       (get (swap! cache
-                  #(if (contains? % target)
-                     %
-                     (assoc % target (make-proxy-handler local-handler target))))
+                  (fn [handlers]
+                    (let [handlers (select-keys handlers (vals table))]
+                      (if (contains? handlers target)
+                        handlers
+                        (assoc handlers target (make-proxy-handler target))))))
            target)))
-
-(defn- route-request!
-  [target-fn cache ^HttpHandler local-handler ^HttpServerExchange exchange app-id]
-  ;; Extracted UUIDs are only routing candidates. Requests stay local unless
-  ;; the UUID has an explicit target in the current config.
-  (if-let [target (target-fn app-id)]
-    (do
-      (when (websocket-upgrade? exchange)
-        (register-proxied-websocket! app-id (.getConnection exchange)))
-      (.handleRequest ^HttpHandler
-                      (proxy-handler-for cache local-handler target)
-                      exchange))
-    (.handleRequest local-handler exchange)))
 
 (defn- restore-request-body! [^HttpServerExchange exchange ^bytes body]
   ;; receiveFullBytes consumes Undertow's request channel. Push the bytes back
@@ -264,53 +274,57 @@
     "/runtime/signout"
     "/storage/signed-upload-url"})
 
-(defn- inspect-body-and-route!
-  "Buffers requests on body-inspection-paths when their app id is only encoded
-   in the body, restores the body, then routes them to the configured target.
-   The size limit keeps this fallback from making an unbounded allocation."
-  [target-fn cache ^HttpHandler local-handler ^HttpServerExchange exchange]
-  (let [content-type (or (.getFirst (.getRequestHeaders exchange) "content-type")
-                         "")]
-    (.setMaxBufferSize (.getRequestReceiver exchange) max-inspected-body-size)
-    (.receiveFullBytes
-     (.getRequestReceiver exchange)
-     (reify Receiver$FullBytesCallback
-       (handle [_ callback-exchange body]
-         (restore-request-body! callback-exchange body)
-         (route-request! target-fn
-                         cache
-                         local-handler
-                         callback-exchange
-                         (body-app-id content-type body))))
-     (reify Receiver$ErrorCallback
-       (error [_ callback-exchange error]
-         (log/warn ^IOException error "Unable to inspect request body for app proxy routing")
-         (.setStatusCode callback-exchange StatusCodes/REQUEST_ENTITY_TOO_LARGE)
-         (.endExchange callback-exchange))))))
-
-(defn routing-handler
-  "Routes from request metadata when possible so the body remains streaming.
-   Only known body-inspection-paths take the bounded buffering fallback."
-  ([local-handler]
-   (routing-handler local-handler #(get @targets %)))
-  ([^HttpHandler local-handler target-fn]
-   (let [proxy-handlers (atom {})]
-     (reify HttpHandler
-       (handleRequest [_ exchange]
-         (if-let [app-id (request-app-id exchange)]
-           (route-request! target-fn proxy-handlers local-handler exchange app-id)
-           (if (contains? body-inspection-paths (.getRequestPath exchange))
-             (inspect-body-and-route! target-fn proxy-handlers local-handler exchange)
-             (.handleRequest local-handler exchange))))))))
-
 (defn handler-proxy
-  "Wraps the Ring handler with the Undertow-level app router. The Ring adapter
-   remains the fallback for requests without a configured proxy target."
+  "Wraps the Ring handler with the Undertow-level app router. Requests route
+   from metadata when possible so the body remains streaming; only known
+   body-inspection-paths take the bounded buffering fallback. The Ring adapter
+   handles every request without a configured proxy target."
   ([ring-handler]
-   (handler-proxy ring-handler #(get @targets %)))
-  ([ring-handler target-fn]
+   (handler-proxy ring-handler (fn [] @targets)))
+  ([ring-handler current-targets]
    (let [local-handler (BlockingHandler.
                         ((undertow/undertow-handler {:dispatch? true
-                                                    :websocket? true})
-                         ring-handler))]
-     (routing-handler local-handler target-fn))))
+                                                     :websocket? true})
+                         ring-handler))
+         proxy-handlers (atom {})
+         route! (fn [^HttpServerExchange exchange table app-id]
+                  (if-let [target (get table app-id)]
+                    (do
+                      (when (websocket-upgrade? exchange)
+                        (register-proxied-websocket! app-id (.getConnection exchange)))
+                      (.handleRequest ^HttpHandler (proxy-handler-for proxy-handlers table target)
+                                      exchange))
+                    (.handleRequest local-handler exchange)))
+         ;; Buffers a request whose app id is only encoded in the body,
+         ;; restores the body, then routes it. The size limit keeps this
+         ;; fallback from making an unbounded allocation.
+         inspect-body! (fn [^HttpServerExchange exchange table]
+                         (let [content-type (or (.getFirst (.getRequestHeaders exchange) "content-type")
+                                                "")]
+                           (.setMaxBufferSize (.getRequestReceiver exchange) max-inspected-body-size)
+                           (.receiveFullBytes
+                            (.getRequestReceiver exchange)
+                            (reify Receiver$FullBytesCallback
+                              (handle [_ callback-exchange body]
+                                (restore-request-body! callback-exchange body)
+                                (route! callback-exchange table (body-app-id content-type body))))
+                            (reify Receiver$ErrorCallback
+                              (error [_ callback-exchange error]
+                                (log/warn ^IOException error "Unable to inspect request body for app proxy routing")
+                                (.setStatusCode callback-exchange
+                                                (if (instance? Receiver$RequestToLargeException error)
+                                                  StatusCodes/REQUEST_ENTITY_TOO_LARGE
+                                                  StatusCodes/INTERNAL_SERVER_ERROR))
+                                (.endExchange callback-exchange))))))]
+     (reify HttpHandler
+       (handleRequest [_ exchange]
+         (let [table (current-targets)]
+           (if (empty? table)
+             ;; Nothing is being proxied, which is the common case: stay out
+             ;; of the request entirely.
+             (.handleRequest local-handler exchange)
+             (if-let [app-id (request-app-id exchange table)]
+               (route! exchange table app-id)
+               (if (contains? body-inspection-paths (.getRequestPath exchange))
+                 (inspect-body! exchange table)
+                 (.handleRequest local-handler exchange))))))))))
