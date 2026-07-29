@@ -222,6 +222,8 @@
     (.handleRequest local-handler exchange)))
 
 (defn- restore-request-body! [^HttpServerExchange exchange ^bytes body]
+  ;; receiveFullBytes consumes Undertow's request channel. Push the bytes back
+  ;; and reset the channel so the proxy or Ring handler can read the body.
   (Connectors/ungetRequestBytes
    exchange
    (into-array
