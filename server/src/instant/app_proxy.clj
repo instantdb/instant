@@ -1,4 +1,10 @@
 (ns instant.app-proxy
+  "Routes requests for selected apps to alternate Instant backends.
+
+   This handler runs directly on Undertow, before Ring and Compojure, so it can
+   proxy WebSocket upgrades and stream HTTP request bodies without first
+   converting them to Ring requests. Targets come from the app-proxy-targets
+   config flag and can change while the server is running."
   (:require
    [clojure.string :as string]
    [clojure.tools.logging :as log]
@@ -28,14 +34,22 @@
 (def ^:private uuid-pattern
   #"(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
-(def ^:private max-inspected-body-size (* 256 1024))
 (def ^:private max-proxy-request-time-ms 30000)
 
+;; The current routing table is shared by every request handler. WebSocket
+;; connections are tracked separately so a config change can make clients
+;; reconnect and pick up their app's new target.
 (defonce ^:private targets (atom {}))
 (defonce ^:private proxied-websockets (atom {}))
 (defonce ^:private clear-target-listener (atom nil))
+
+;; HTTP targets do not need an SSL provider, so avoid creating one unless an
+;; HTTPS target is actually configured.
 (defonce ^:private ssl-provider
   (delay (UndertowXnioSsl. (Xnio/getInstance) OptionMap/EMPTY)))
+
+;; ----------
+;; Target config
 
 (defn- parse-app-id [v]
   (try
@@ -47,11 +61,15 @@
       nil)))
 
 (defn- state->app-id [state]
+  ;; Runtime OAuth state is the app UUID followed by a random UUID. The
+  ;; callback has no other app identifier available before we route it.
   (when (and (string? state)
              (<= 36 (count state)))
     (parse-app-id (subs state 0 36))))
 
 (defn- normalize-target [target]
+  ;; Targets are origins rather than base URLs. Keeping paths and query strings
+  ;; out of config means the incoming request path can be forwarded unchanged.
   (when (string? target)
     (try
       (let [uri (URI. target)
@@ -68,7 +86,10 @@
       (catch Exception _
         nil))))
 
-(defn parse-targets [config]
+(defn parse-targets
+  "Converts the config map to app UUIDs and origin URIs. Invalid entries are
+   skipped so one bad target cannot disable routing for every configured app."
+  [config]
   (if-not (map? config)
     {}
     (reduce-kv
@@ -85,6 +106,9 @@
      {}
      config)))
 
+;; ----------
+;; App id extraction
+
 (defn- first-query-param [^HttpServerExchange exchange name]
   (when-let [^Deque values (.get (.getQueryParameters exchange) name)]
     (.peekFirst values)))
@@ -94,6 +118,8 @@
    consuming the body."
   [^HttpServerExchange exchange]
   (let [headers (.getRequestHeaders exchange)
+        ;; Client generations and endpoints use both hyphenated and underscored
+        ;; spellings, in either a header or query parameter.
         direct-candidates [(.getFirst headers "app-id")
                            (.getFirst headers "app_id")
                            (first-query-param exchange "app_id")
@@ -108,7 +134,10 @@
         state-app-id
         (some identity path-app-ids))))
 
-(defn body-app-id [content-type ^bytes body]
+(defn body-app-id
+  "Extracts the app id from the small JSON and form bodies used by auth, OAuth,
+   sign-out, and the deprecated signed upload URL endpoint."
+  [content-type ^bytes body]
   (try
     (let [params (cond
                    (string/starts-with? content-type "application/json")
@@ -122,7 +151,12 @@
           (parse-app-id (get params "app_id"))
           (state->app-id (get params "state"))))
     (catch Exception _
+      ;; App id extraction is best effort. The normal request handler remains
+      ;; responsible for reporting malformed input.
       nil)))
+
+;; ----------
+;; Connection draining
 
 (defn- websocket-upgrade? [^HttpServerExchange exchange]
   (some-> (.getFirst (.getRequestHeaders exchange) "upgrade")
@@ -137,6 +171,8 @@
                (dissoc connections-by-app app-id))))))
 
 (defn- register-proxied-websocket! [app-id ^ServerConnection connection]
+  ;; This is the client-facing connection. Closing it also tears down the
+  ;; WebSocket that ProxyHandler opened to the target.
   (swap! proxied-websockets update app-id (fnil conj #{}) connection)
   (.addCloseListener
    connection
@@ -150,6 +186,8 @@
     (IoUtils/safeClose ^ServerConnection connection)))
 
 (defn- changed-app-ids [old-targets new-targets]
+  ;; Includes apps that were added or removed as well as apps whose target
+  ;; origin changed.
   (into #{}
         (filter #(not= (get old-targets %)
                        (get new-targets %)))
@@ -157,6 +195,8 @@
               (keys new-targets))))
 
 (defn- update-targets! [new-config]
+  ;; Existing local and proxied connections were routed using the old table.
+  ;; Closing them makes the clients reconnect through the new table.
   (let [old-targets @targets
         new-targets (parse-targets new-config)
         changed (changed-app-ids old-targets new-targets)]
@@ -166,6 +206,8 @@
       (rs/close-connections-for-app rs/store app-id))))
 
 (defn start []
+  ;; start may run more than once during development, so replace the old
+  ;; listener rather than registering duplicate config watches.
   (when-let [clear-listener @clear-target-listener]
     (clear-listener))
   (update-targets! (flags/flag :app-proxy-targets {}))
@@ -183,15 +225,23 @@
   (reset! proxied-websockets {})
   (reset! targets {}))
 
+;; ----------
+;; Request routing
+
 (defn- make-proxy-handler [^HttpHandler local-handler ^URI target]
   (let [client (LoadBalancingProxyClient.)]
+    ;; A single-host proxy client handles regular HTTP requests and WebSocket
+    ;; upgrades. HTTPS targets need an XNIO SSL provider for the upstream side.
     (if (= "https" (.getScheme target))
       (.addHost client target ^XnioSsl @ssl-provider)
       (.addHost client target))
     (doto (ProxyHandler. client max-proxy-request-time-ms local-handler)
+      ;; Send the target's Host header rather than api.instantdb.com.
       (.setRewriteHostHeader true))))
 
 (defn- proxy-handler-for [cache local-handler target]
+  ;; Proxy handlers own the upstream connection machinery, so reuse one for
+  ;; each target rather than rebuilding it for every request.
   (or (get @cache target)
       (get (swap! cache
                   #(if (contains? % target)
@@ -201,6 +251,8 @@
 
 (defn- route-request!
   [target-fn cache ^HttpHandler local-handler ^HttpServerExchange exchange app-id]
+  ;; Extracted UUIDs are only routing candidates. Requests stay local unless
+  ;; the UUID has an explicit target in the current config.
   (if-let [target (target-fn app-id)]
     (do
       (when (websocket-upgrade? exchange)
@@ -220,6 +272,11 @@
     [(ImmediatePooledByteBuffer. (ByteBuffer/wrap body))]))
   (Connectors/resetRequestChannel exchange))
 
+(def ^:private max-inspected-body-size (* 256 1024))
+
+;; These endpoints can carry the app id only in a JSON or form body. They are
+;; expected to be small; uploads identify the app in a header and never take
+;; this buffering path.
 (def ^:private body-inspection-paths
   #{"/runtime/auth/send_magic_code"
     "/runtime/auth/verify_magic_code"
@@ -233,7 +290,8 @@
 
 (defn- inspect-body-and-route!
   "Buffers requests on body-inspection-paths when their app id is only encoded
-   in the body, restores the body, then routes them to the configured target."
+   in the body, restores the body, then routes them to the configured target.
+   The size limit keeps this fallback from making an unbounded allocation."
   [target-fn cache ^HttpHandler local-handler ^HttpServerExchange exchange]
   (let [content-type (or (.getFirst (.getRequestHeaders exchange) "content-type")
                          "")]
@@ -255,6 +313,8 @@
          (.endExchange callback-exchange))))))
 
 (defn routing-handler
+  "Routes from request metadata when possible so the body remains streaming.
+   Only known body-inspection-paths take the bounded buffering fallback."
   ([local-handler]
    (routing-handler local-handler #(get @targets %)))
   ([^HttpHandler local-handler target-fn]
@@ -268,6 +328,8 @@
              (.handleRequest local-handler exchange))))))))
 
 (defn handler-proxy
+  "Wraps the Ring handler with the Undertow-level app router. The Ring adapter
+   remains the fallback for requests without a configured proxy target."
   ([ring-handler]
    (handler-proxy ring-handler #(get @targets %)))
   ([ring-handler target-fn]
