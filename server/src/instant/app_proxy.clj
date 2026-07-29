@@ -110,6 +110,9 @@
                            (first-query-param exchange "app_id")
                            (first-query-param exchange "app-id")]
         state-app-id (state->app-id (first-query-param exchange "state"))
+        ;; Supports routes that encode the app id in the path, such as
+        ;; /runtime/:app_id/.well-known/openid-configuration. UUIDs found here
+        ;; are only used when they match an app id with a configured target.
         path-app-ids (map parse-app-id
                           (re-seq uuid-pattern (.getRequestPath exchange)))]
     (or (some parse-app-id direct-candidates)
