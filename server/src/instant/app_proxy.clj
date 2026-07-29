@@ -14,6 +14,7 @@
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.json :as json]
+   [instant.util.uuid :as uuid-util]
    [ring.util.codec :as codec])
   (:import
    (io.undertow.connector PooledByteBuffer)
@@ -27,7 +28,7 @@
    (java.net URI)
    (java.nio ByteBuffer)
    (java.nio.charset StandardCharsets)
-   (java.util Deque UUID)
+   (java.util Deque)
    (org.xnio IoUtils OptionMap Xnio)
    (org.xnio.ssl XnioSsl)))
 
@@ -53,21 +54,12 @@
 ;; ----------
 ;; Target config
 
-(defn- parse-app-id [v]
-  (try
-    (cond
-      (uuid? v) v
-      (string? v) (UUID/fromString v)
-      :else nil)
-    (catch IllegalArgumentException _
-      nil)))
-
 (defn- state->app-id [state]
   ;; Runtime OAuth state is the app UUID followed by a random UUID. The
   ;; callback has no other app identifier available before we route it.
   (when (and (string? state)
              (<= 36 (count state)))
-    (parse-app-id (subs state 0 36))))
+    (uuid-util/coerce (subs state 0 36))))
 
 (defn- normalize-target [target]
   ;; Targets are origins rather than base URLs. Keeping paths and query strings
@@ -96,7 +88,7 @@
     {}
     (reduce-kv
      (fn [acc app-id-value target-value]
-       (if-let [app-id (parse-app-id app-id-value)]
+       (if-let [app-id (uuid-util/coerce app-id-value)]
          (if-let [target (normalize-target target-value)]
            (assoc acc app-id target)
            (do
@@ -130,9 +122,9 @@
         ;; Supports routes that encode the app id in the path, such as
         ;; /runtime/:app_id/.well-known/openid-configuration. UUIDs found here
         ;; are only used when they match an app id with a configured target.
-        path-app-ids (map parse-app-id
+        path-app-ids (map uuid-util/coerce
                           (re-seq uuid-pattern (.getRequestPath exchange)))]
-    (or (some parse-app-id direct-candidates)
+    (or (some uuid-util/coerce direct-candidates)
         state-app-id
         (some identity path-app-ids))))
 
@@ -149,8 +141,8 @@
                    (codec/form-decode (String. body StandardCharsets/UTF_8))
 
                    :else nil)]
-      (or (parse-app-id (get params "app-id"))
-          (parse-app-id (get params "app_id"))
+      (or (uuid-util/coerce (get params "app-id"))
+          (uuid-util/coerce (get params "app_id"))
           (state->app-id (get params "state"))))
     (catch Exception _
       ;; App id extraction is best effort. The normal request handler remains
