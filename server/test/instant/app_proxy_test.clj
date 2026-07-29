@@ -47,7 +47,7 @@
               {"not-an-app" "https://selfhostedinstant.example.com"
                (str app-id) "https://user@selfhostedinstant.example.com/path?query=yes"}))))))
 
-(deftest body-app-id-extraction
+(deftest extracts-app-id-from-body
   (let [app-id (random-uuid)
         json-body (.getBytes (json/->json {:app-id app-id}) "UTF-8")
         form-body (.getBytes (str "app_id=" app-id) "UTF-8")
