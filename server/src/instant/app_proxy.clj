@@ -28,17 +28,6 @@
 (def ^:private uuid-pattern
   #"(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
-(def ^:private body-inspection-paths
-  #{"/runtime/auth/send_magic_code"
-    "/runtime/auth/verify_magic_code"
-    "/runtime/auth/verify_refresh_token"
-    "/runtime/auth/sign_in_guest"
-    "/runtime/oauth/callback"
-    "/runtime/oauth/id_token"
-    "/runtime/oauth/token"
-    "/runtime/signout"
-    "/storage/signed-upload-url"})
-
 (def ^:private max-inspected-body-size (* 256 1024))
 (def ^:private max-proxy-request-time-ms 30000)
 
@@ -231,7 +220,20 @@
     [(ImmediatePooledByteBuffer. (ByteBuffer/wrap body))]))
   (Connectors/resetRequestChannel exchange))
 
+(def ^:private body-inspection-paths
+  #{"/runtime/auth/send_magic_code"
+    "/runtime/auth/verify_magic_code"
+    "/runtime/auth/verify_refresh_token"
+    "/runtime/auth/sign_in_guest"
+    "/runtime/oauth/callback"
+    "/runtime/oauth/id_token"
+    "/runtime/oauth/token"
+    "/runtime/signout"
+    "/storage/signed-upload-url"})
+
 (defn- inspect-body-and-route!
+  "Buffers requests on body-inspection-paths when their app id is only encoded
+   in the body, restores the body, then routes them to the configured target."
   [target-fn cache ^HttpHandler local-handler ^HttpServerExchange exchange]
   (let [content-type (or (.getFirst (.getRequestHeaders exchange) "content-type")
                          "")]
