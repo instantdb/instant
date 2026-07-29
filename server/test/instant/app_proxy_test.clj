@@ -38,13 +38,14 @@
 
 (deftest target-config-validation
   (let [app-id (random-uuid)]
-    (is (= {app-id (URI. "https://example.com")}
-           (app-proxy/parse-targets {(str app-id) "https://example.com/"})))
+    (is (= {app-id (URI. "https://selfhostedinstant.example.com")}
+           (app-proxy/parse-targets
+            {(str app-id) "https://selfhostedinstant.example.com/"})))
     (testing "invalid app ids and non-origin targets are ignored"
       (is (= {}
              (app-proxy/parse-targets
-              {"not-an-app" "https://example.com"
-               (str app-id) "https://user@example.com/path?query=yes"}))))))
+              {"not-an-app" "https://selfhostedinstant.example.com"
+               (str app-id) "https://user@selfhostedinstant.example.com/path?query=yes"}))))))
 
 (deftest body-app-id-extraction
   (let [app-id (random-uuid)
