@@ -564,6 +564,17 @@
              (:session/socket (d/entity db (:e datom))))
            (d/datoms db :avet :session/app-id app-id)))))
 
+(defn close-connections-for-app [store app-id]
+  (let [channels (keep (fn [socket]
+                         (or (:sse-conn socket)
+                             (-> socket :ws-conn :undertow-websocket)))
+                       (all-sockets-for-app store app-id))]
+    (tracer/with-span! {:name "store/close-connections-for-app"
+                        :attributes {:app-id app-id
+                                     :connection-count (count channels)}}
+      (doseq [channel channels]
+        (IoUtils/safeClose ^Channel channel)))))
+
 ;; -----
 ;; tx-id
 

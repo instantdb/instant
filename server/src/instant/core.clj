@@ -8,6 +8,7 @@
    [compojure.core :refer [defroutes GET POST routes wrap-routes]]
    [instant.admin.routes :as admin-routes]
    [instant.admin.transact-queue :as admin-tx-queue]
+   [instant.app-proxy :as app-proxy]
    [instant.auth.jwt :as jwt]
    [instant.auth.oauth :as oauth]
    [instant.config :as config]
@@ -168,6 +169,15 @@
     (let [response (handler request)]
       (add-security-headers response))))
 
+(defn wrap-dev-server-port [handler]
+  (if-not (config/dev?)
+    handler
+    (fn [request]
+      (update (handler request)
+              :headers merge
+              {"X-Instant-Server-Port" (str (config/get-server-port))
+               "Access-Control-Expose-Headers" "X-Instant-Server-Port"}))))
+
 (defn not-found [_req]
   (response/not-found {:message "Oops! We couldn't match this route."}))
 
@@ -205,6 +215,7 @@
               (wrap-cors :access-control-allow-origin allow-cors-origin?
                          :access-control-allow-methods [:get :put :post :delete])
               wrap-options-cache-control
+              wrap-dev-server-port
               wrap-security-headers
               (http-util/tracer-wrap-span))
           (wrap-json-response not-found)))
@@ -265,6 +276,7 @@
                  ;; 8 per io-thread
                  :worker-threads (* 16 (delay/cpu-count))
                  :graceful-shutdown? true
+                 :handler-proxy app-proxy/handler-proxy
                  :configurator (fn [^Undertow$Builder builder]
                                  (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
                 (when (.exists (io/file "dev-resources/certs/dev.jks"))
@@ -348,6 +360,9 @@
         (tracer/with-span! {:name "stop-loadbalancer-listener"}
           (loadbalancer-listener/stop)))
       (future
+        (tracer/with-span! {:name "stop-app-proxy"}
+          (app-proxy/stop)))
+      (future
         (tracer/with-span! {:name "stop-triples-size-updates"}
           (triples-size-updates/stop-global)))))
   (tracer/shutdown))
@@ -424,6 +439,9 @@
           (flags-impl/init config-app-id
                            flags/queries
                            flags/query-results)))
+
+      (with-log-init :app-proxy
+        (app-proxy/start))
 
       (with-log-init :aggregator
         (agg/start-global))
