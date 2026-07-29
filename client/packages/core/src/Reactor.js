@@ -650,7 +650,6 @@ export default class Reactor {
         // (EPH): set session-id, so we know
         // which item is us
         this._sessionId = msg['session-id'];
-        this._serverPort = msg['server-port'];
 
         for (const roomId of Object.keys(this._rooms)) {
           const enqueuedUserPresence = this._presence[roomId]?.result?.user;

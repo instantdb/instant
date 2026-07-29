@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { id, i, init } from '@instantdb/react';
+import { id, i, init, type Logger } from '@instantdb/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import config from '../../config';
@@ -54,6 +54,22 @@ function ProxyChecks({
   adminToken: string;
   onReset?: () => void;
 }) {
+  const [serverPort, setServerPort] = useState<number | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [events, setEvents] = useState<Event[]>([]);
+  const logger = useMemo<Logger>(
+    () => ({
+      info: (event, _connectionId, op, message) => {
+        if (event === '[receive]' && op === 'init-ok') {
+          const port = message?.['server-port'];
+          setServerPort(typeof port === 'number' ? port : null);
+        }
+      },
+      debug: () => {},
+      error: () => {},
+    }),
+    [],
+  );
   const db = useMemo(
     () =>
       init({
@@ -61,14 +77,13 @@ function ProxyChecks({
         appId,
         schema,
         devtool: false,
+        verbose: true,
+        logger,
       }),
-    [appId],
+    [appId, logger],
   );
   const connectionStatus = db.useConnectionStatus();
   const query = db.useQuery({ proxyChecks: {} });
-  const [serverPort, setServerPort] = useState<number | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [events, setEvents] = useState<Event[]>([]);
 
   const addEvent = useCallback(
     (message: string, type: Event['type'] = 'info') => {
@@ -88,18 +103,13 @@ function ProxyChecks({
 
   useEffect(() => {
     if (connectionStatus === 'authenticated') {
-      const port = db.core._reactor._serverPort ?? null;
-      setServerPort(port);
-      addEvent(
-        port
-          ? `WebSocket authenticated on backend ${port}`
-          : 'WebSocket authenticated',
-        'success',
-      );
+      if (serverPort) {
+        addEvent(`WebSocket authenticated on backend ${serverPort}`, 'success');
+      }
       return;
     }
     addEvent(`WebSocket is ${connectionStatus}`);
-  }, [addEvent, connectionStatus, db]);
+  }, [addEvent, connectionStatus, serverPort]);
 
   useEffect(() => {
     return () => db.core.shutdown();
@@ -129,12 +139,11 @@ function ProxyChecks({
     while (Date.now() < deadline) {
       const result = await db.queryOnce({ proxyChecks: {} });
       if (result.data.proxyChecks.some((check) => check.id === checkId)) {
-        const port = db.core._reactor._serverPort;
-        if (!port) {
+        if (!serverPort) {
           throw new Error('init-ok did not identify its backend');
         }
         addEvent(
-          `Transaction and query passed through backend ${port}`,
+          `Transaction and query passed through backend ${serverPort}`,
           'success',
         );
         return;
@@ -209,6 +218,9 @@ function ProxyChecks({
       if (connectionStatus !== 'authenticated') {
         throw new Error(`WebSocket is ${connectionStatus}`);
       }
+      if (!serverPort) {
+        throw new Error('init-ok did not identify its backend');
+      }
       await transactionCheck();
       await adminQueryCheck();
       await uploadCheck();
@@ -218,6 +230,7 @@ function ProxyChecks({
   const buttonClass =
     'rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40';
   const connected = connectionStatus === 'authenticated';
+  const connectionIdentified = connected && serverPort !== null;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 px-6 py-12 text-zinc-900">
@@ -259,7 +272,7 @@ function ProxyChecks({
         <div className="flex flex-wrap gap-2">
           <button
             className={buttonClass}
-            disabled={Boolean(busy) || !connected}
+            disabled={Boolean(busy) || !connectionIdentified}
             onClick={() => run('Transaction', transactionCheck)}
           >
             Transaction + query
@@ -280,7 +293,7 @@ function ProxyChecks({
           </button>
           <button
             className="rounded bg-zinc-900 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={Boolean(busy) || !connected}
+            disabled={Boolean(busy) || !connectionIdentified}
             onClick={runAll}
           >
             {busy === 'Full check' ? 'Running…' : 'Run all'}
