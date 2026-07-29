@@ -14,17 +14,6 @@ const schema = i.schema({
   },
 });
 
-const perms = {
-  proxyChecks: {
-    allow: {
-      view: 'true',
-      create: 'true',
-      update: 'true',
-      delete: 'true',
-    },
-  },
-};
-
 type Event = {
   at: string;
   message: string;
@@ -359,7 +348,6 @@ function EphemeralProxyChecks() {
   const { appId, adminToken, error, isLoading, resetApp } = useEphemeralApp({
     storageKey: 'app-proxy-playground-app',
     schema,
-    perms,
   });
 
   return (

@@ -23,11 +23,9 @@ async function verifyEphemeralApp({ appId }: { appId: string }) {
 export function useEphemeralApp({
   storageKey,
   schema = i.schema({ entities: {} }),
-  perms,
 }: {
   storageKey: string;
   schema?: ReturnType<typeof i.schema>;
-  perms?: any;
 }) {
   const [app, setApp] = useState<EphemeralApp | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -35,7 +33,7 @@ export function useEphemeralApp({
 
   const provisionNewApp = useCallback(async () => {
     try {
-      const res = await provisionEphemeralApp({ schema, perms });
+      const res = await provisionEphemeralApp({ schema });
       if (res.app) {
         localStorage.setItem(storageKey, JSON.stringify(res.app));
         setApp(res.app);
@@ -46,7 +44,7 @@ export function useEphemeralApp({
       console.error('Error creating app', e);
       setError(e as Error);
     }
-  }, [storageKey, schema, perms]);
+  }, [storageKey, schema]);
 
   const resetApp = useCallback(() => {
     if (

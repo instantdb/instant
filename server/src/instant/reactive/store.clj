@@ -564,17 +564,6 @@
              (:session/socket (d/entity db (:e datom))))
            (d/datoms db :avet :session/app-id app-id)))))
 
-(defn close-connections-for-app [store app-id]
-  (let [channels (keep (fn [socket]
-                         (or (:sse-conn socket)
-                             (-> socket :ws-conn :undertow-websocket)))
-                       (all-sockets-for-app store app-id))]
-    (tracer/with-span! {:name "store/close-connections-for-app"
-                        :attributes {:app-id app-id
-                                     :connection-count (count channels)}}
-      (doseq [channel channels]
-        (IoUtils/safeClose ^Channel channel)))))
-
 ;; -----
 ;; tx-id
 
@@ -1636,6 +1625,18 @@
           :attributes {:event (str event)
                        :escaping? false}})))))
 
+(defn- socket->channel [socket]
+  (or (:sse-conn socket)
+      (-> socket :ws-conn :undertow-websocket)))
+
+(defn close-connections-for-app [store app-id]
+  (let [channels (keep socket->channel (all-sockets-for-app store app-id))]
+    (tracer/with-span! {:name "store/close-connections-for-app"
+                        :attributes {:app-id app-id
+                                     :connection-count (count channels)}}
+      (doseq [channel channels]
+        (IoUtils/safeClose ^Channel channel)))))
+
 (defn close-connections
   "Closes connections at a steady rate, aiming to complete within `total-ms`,
    while never leaving a gap longer than max-gap-ms between subsequent closes."
@@ -1643,8 +1644,7 @@
                  max-gap-ms]}]
   (when-let [sessions-conn (:sessions store)]
     (let [channels (vec (keep (fn [{:keys [v]}]
-                                (or (:sse-conn v)
-                                    (-> v :ws-conn :undertow-websocket)))
+                                (socket->channel v))
                               (d/datoms @sessions-conn :aevt :session/socket)))
           start (Instant/now)
           gap-ms (int (min (/ total-ms (max 1 (count channels)))
