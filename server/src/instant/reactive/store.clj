@@ -1629,37 +1629,54 @@
   (or (:sse-conn socket)
       (-> socket :ws-conn :undertow-websocket)))
 
-(defn close-connections-for-app [store app-id]
-  (let [channels (keep socket->channel (all-sockets-for-app store app-id))]
-    (tracer/with-span! {:name "store/close-connections-for-app"
-                        :attributes {:app-id app-id
-                                     :connection-count (count channels)}}
-      (doseq [channel channels]
-        (IoUtils/safeClose ^Channel channel)))))
+(defn local-connection-channels-for-app
+  "Returns a snapshot of the locally handled connection channels for an app."
+  [store app-id]
+  (vec (keep socket->channel (all-sockets-for-app store app-id))))
+
+(defn- close-channels
+  [span-name attributes channels {:keys [total-ms
+                                         max-gap-ms]}]
+  (let [channels (vec channels)
+        start (Instant/now)
+        gap-ms (int (min (/ total-ms (max 1 (count channels)))
+                         max-gap-ms))]
+    (tracer/with-span! {:name span-name
+                        :attributes (merge attributes
+                                           {:connection-count (count channels)
+                                            :gap-ms gap-ms
+                                            :total-ms total-ms})}
+      (dorun (map-indexed (fn [i channel]
+                            (let [sleep-ms (.toMillis
+                                            (Duration/between
+                                             (Instant/now)
+                                             (.plusMillis start (* gap-ms i))))]
+                              (when (pos? sleep-ms)
+                                (Thread/sleep sleep-ms))
+                              (IoUtils/safeClose ^Channel channel)))
+                          channels)))))
+
+(defn close-connections-for-app
+  "Closes a snapshot of an app's connections at a steady rate. Spreading the
+   resulting reconnects keeps a routing change from creating a thundering herd."
+  [app-id channels opts]
+  (close-channels "store/close-connections-for-app"
+                  {:app-id app-id}
+                  channels
+                  opts))
 
 (defn close-connections
   "Closes connections at a steady rate, aiming to complete within `total-ms`,
    while never leaving a gap longer than max-gap-ms between subsequent closes."
-  [store {:keys [total-ms
-                 max-gap-ms]}]
+  [store opts]
   (when-let [sessions-conn (:sessions store)]
     (let [channels (vec (keep (fn [{:keys [v]}]
                                 (socket->channel v))
-                              (d/datoms @sessions-conn :aevt :session/socket)))
-          start (Instant/now)
-          gap-ms (int (min (/ total-ms (max 1 (count channels)))
-                           max-gap-ms))]
-      (tracer/with-span! {:name "store/close-connections"
-                          :attributes {:connection-count (count channels)
-                                       :gap-ms gap-ms
-                                       :total-ms total-ms}}
-        (dorun (map-indexed (fn [i ch]
-                              (let [sleep-ms (.toMillis (Duration/between (Instant/now)
-                                                                          (.plusMillis start (* gap-ms i))))]
-                                (when (pos? sleep-ms)
-                                  (Thread/sleep sleep-ms))
-                                (IoUtils/safeClose ^Channel ch)))
-                            channels))))))
+                              (d/datoms @sessions-conn :aevt :session/socket)))]
+      (close-channels "store/close-connections"
+                      {}
+                      channels
+                      opts))))
 
 ;; -----
 ;; start

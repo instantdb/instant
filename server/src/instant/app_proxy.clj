@@ -8,9 +8,11 @@
   (:require
    [clojure.string :as string]
    [clojure.tools.logging :as log]
+   [instant.config :as config]
    [instant.flags :as flags]
    [instant.lib.ring.undertow :as undertow]
    [instant.reactive.store :as rs]
+   [instant.util.async :as ua]
    [instant.util.json :as json]
    [ring.util.codec :as codec])
   (:import
@@ -185,6 +187,27 @@
           connection (get @proxied-websockets app-id)]
     (IoUtils/safeClose ^ServerConnection connection)))
 
+(defn- connection-drain-opts []
+  ;; Production uses the same gradual window as load balancer deregistration.
+  ;; Keep development short so routing changes remain quick to exercise.
+  {:total-ms (if (config/dev?)
+               1000
+               (flags/deregister-targets-drain-ms))
+   :max-gap-ms (if (config/dev?)
+                 100
+                 1000)})
+
+(defn- connection-channels-for-app [app-id]
+  (into (vec (get @proxied-websockets app-id))
+        (rs/local-connection-channels-for-app rs/store app-id)))
+
+(defn- drain-connections-for-app! [app-id channels]
+  ;; Sleeping on a background virtual thread lets the config listener return
+  ;; immediately while clients move to the new backend over the drain window.
+  (when (seq channels)
+    (ua/vfut-bg
+     (rs/close-connections-for-app app-id channels (connection-drain-opts)))))
+
 (defn- changed-app-ids [old-targets new-targets]
   ;; Includes apps that were added or removed as well as apps whose target
   ;; origin changed.
@@ -195,15 +218,19 @@
               (keys new-targets))))
 
 (defn- update-targets! [new-config]
-  ;; Existing local and proxied connections were routed using the old table.
-  ;; Closing them makes the clients reconnect through the new table.
+  ;; Snapshot connections before swapping the routing table so the drain only
+  ;; closes connections established under the old table. The table is swapped
+  ;; first, then the snapshot is closed gradually so reconnects reach the new
+  ;; backend without arriving as a single herd.
   (let [old-targets @targets
         new-targets (parse-targets new-config)
-        changed (changed-app-ids old-targets new-targets)]
+        changed (changed-app-ids old-targets new-targets)
+        channels-by-app (into {}
+                              (map (juxt identity connection-channels-for-app))
+                              changed)]
     (reset! targets new-targets)
-    (close-proxied-websockets! changed)
-    (doseq [app-id changed]
-      (rs/close-connections-for-app rs/store app-id))))
+    (doseq [[app-id channels] channels-by-app]
+      (drain-connections-for-app! app-id channels))))
 
 (defn start []
   ;; start may run more than once during development, so replace the old
