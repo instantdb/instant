@@ -26,12 +26,13 @@ function responseError(response: Response, body: string) {
   );
 }
 
-function responseServerPort(response: Response) {
-  const value = response.headers.get('x-instant-server-port');
-  if (!value) {
+function responseBackend(response: Response) {
+  const hostname = response.headers.get('x-instant-server-hostname');
+  const port = response.headers.get('x-instant-server-port');
+  if (!hostname || !port) {
     throw new Error('response did not identify its backend');
   }
-  return Number(value);
+  return `${hostname}:${port}`;
 }
 
 function ProxyChecks({
@@ -43,15 +44,20 @@ function ProxyChecks({
   adminToken: string;
   onReset?: () => void;
 }) {
-  const [serverPort, setServerPort] = useState<number | null>(null);
+  const [backend, setBackend] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const logger = useMemo<Logger>(
     () => ({
       info: (event, _connectionId, op, message) => {
         if (event === '[receive]' && op === 'init-ok') {
+          const hostname = message?.['server-hostname'];
           const port = message?.['server-port'];
-          setServerPort(typeof port === 'number' ? port : null);
+          setBackend(
+            typeof hostname === 'string' && typeof port === 'number'
+              ? `${hostname}:${port}`
+              : null,
+          );
         }
       },
       debug: () => {},
@@ -92,13 +98,13 @@ function ProxyChecks({
 
   useEffect(() => {
     if (connectionStatus === 'authenticated') {
-      if (serverPort) {
-        addEvent(`WebSocket authenticated on backend ${serverPort}`, 'success');
+      if (backend) {
+        addEvent(`WebSocket authenticated on backend ${backend}`, 'success');
       }
       return;
     }
     addEvent(`WebSocket is ${connectionStatus}`);
-  }, [addEvent, connectionStatus, serverPort]);
+  }, [addEvent, backend, connectionStatus]);
 
   useEffect(() => {
     return () => db.core.shutdown();
@@ -128,11 +134,11 @@ function ProxyChecks({
     while (Date.now() < deadline) {
       const result = await db.queryOnce({ proxyChecks: {} });
       if (result.data.proxyChecks.some((check) => check.id === checkId)) {
-        if (!serverPort) {
+        if (!backend) {
           throw new Error('init-ok did not identify its backend');
         }
         addEvent(
-          `Transaction and query passed through backend ${serverPort}`,
+          `Transaction and query passed through backend ${backend}`,
           'success',
         );
         return;
@@ -156,8 +162,11 @@ function ProxyChecks({
     if (!response.ok) {
       throw responseError(response, body);
     }
-    const port = responseServerPort(response);
-    addEvent(`Admin query passed through backend ${port}`, 'success');
+    const responseBackendName = responseBackend(response);
+    addEvent(
+      `Admin query passed through backend ${responseBackendName}`,
+      'success',
+    );
   };
 
   const uploadCheck = async () => {
@@ -182,7 +191,7 @@ function ProxyChecks({
     if (!uploadResponse.ok) {
       throw responseError(uploadResponse, uploadBody);
     }
-    const uploadPort = responseServerPort(uploadResponse);
+    const uploadBackend = responseBackend(uploadResponse);
 
     const deleteResponse = await fetch(
       `${config.apiURI}/admin/storage/files?filename=${encodeURIComponent(path)}`,
@@ -195,9 +204,9 @@ function ProxyChecks({
     if (!deleteResponse.ok) {
       throw responseError(deleteResponse, deleteBody);
     }
-    const deletePort = responseServerPort(deleteResponse);
+    const deleteBackend = responseBackend(deleteResponse);
     addEvent(
-      `Upload passed through backend ${uploadPort}; cleanup used ${deletePort}`,
+      `Upload passed through backend ${uploadBackend}; cleanup used ${deleteBackend}`,
       'success',
     );
   };
@@ -207,7 +216,7 @@ function ProxyChecks({
       if (connectionStatus !== 'authenticated') {
         throw new Error(`WebSocket is ${connectionStatus}`);
       }
-      if (!serverPort) {
+      if (!backend) {
         throw new Error('init-ok did not identify its backend');
       }
       await transactionCheck();
@@ -219,7 +228,7 @@ function ProxyChecks({
   const buttonClass =
     'rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40';
   const connected = connectionStatus === 'authenticated';
-  const connectionIdentified = connected && serverPort !== null;
+  const connectionIdentified = connected && backend !== null;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 px-6 py-12 text-zinc-900">
@@ -237,7 +246,7 @@ function ProxyChecks({
             Init backend
           </div>
           <div className="mt-1 text-2xl font-semibold">
-            {serverPort ?? 'unknown'}
+            {backend ?? 'unknown'}
           </div>
         </div>
         <div>
