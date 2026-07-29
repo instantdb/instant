@@ -333,3 +333,46 @@
                (if (contains? body-inspection-paths (.getRequestPath exchange))
                  (inspect-body! exchange table)
                  (.handleRequest local-handler exchange))))))))))
+
+;; ----------
+;; Local fail-closed guard
+
+(defn- params-app-id [params]
+  (when (map? params)
+    (or (uuid-util/coerce (:app-id params))
+        (uuid-util/coerce (:app_id params))
+        (state->app-id (:state params)))))
+
+(defn- ring-app-id-candidates
+  "App ids a locally executing Ring request carries: the metadata the
+   Undertow router reads plus the parsed params and body it cannot see."
+  [{:keys [headers params body uri]}]
+  (concat
+   (keep uuid-util/coerce
+         [(get headers "app-id")
+          (get headers "app_id")])
+   (keep params-app-id [params body])
+   (keep uuid-util/coerce (re-seq uuid-pattern (or uri "")))))
+
+(defn wrap-proxied-app-guard
+  "Fails closed if a request for a proxied app reaches the local Ring
+   handler. The Undertow router runs first, so this only fires when routing
+   missed the request, such as an endpoint carrying its app id somewhere the
+   router does not look. Refusing loudly beats silently serving a migrated
+   app from this backend's data."
+  ([handler]
+   (wrap-proxied-app-guard handler (fn [] @targets)))
+  ([handler current-targets]
+   (fn [request]
+     (let [table (current-targets)
+           app-id (when (seq table)
+                    (some #(when (contains? table %) %)
+                          (ring-app-id-candidates request)))]
+       (if-not app-id
+         (handler request)
+         (do
+           (log/error "App proxy routing missed a request for a proxied app"
+                      {:app-id app-id
+                       :uri (:uri request)})
+           {:status 503
+            :body {:message "This app is served by a different backend."}}))))))

@@ -184,6 +184,26 @@
       (finally
         (Server/.stop proxy)))))
 
+(deftest guard-fails-closed-when-routing-misses
+  (let [app-id (random-uuid)
+        handler (app-proxy/wrap-proxied-app-guard
+                 (constantly {:status 200 :body "ok"})
+                 (constantly {app-id (URI. "http://127.0.0.1:1")}))]
+    (testing "a proxied app id in the parsed body means routing missed it"
+      (is (= 503 (:status (handler {:uri "/runtime/auth/send_magic_code"
+                                    :headers {}
+                                    :body {:app-id (str app-id)}})))))
+    (testing "a proxied app id in form params is caught"
+      (is (= 503 (:status (handler {:uri "/runtime/oauth/callback"
+                                    :headers {}
+                                    :params {:state (str app-id (random-uuid))}})))))
+    (testing "unproxied apps and app-less requests pass through"
+      (is (= 200 (:status (handler {:uri "/runtime/auth/send_magic_code"
+                                    :headers {}
+                                    :body {:app-id (str (random-uuid))}}))))
+      (is (= 200 (:status (handler {:uri "/runtime/health"
+                                    :headers {}})))))))
+
 (deftest fails-closed-when-target-is-down
   ;; Serving a proxied app from the local handler while its target is down
   ;; would silently write to the wrong backend.

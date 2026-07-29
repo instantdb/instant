@@ -206,6 +206,7 @@
                       webhook-routes/routes)
               (wrap-routes http-util/tracer-record-route)
               http-util/tracer-record-attrs
+              app-proxy/wrap-proxied-app-guard
               wrap-keyword-params
               wrap-params
               wrap-multipart-params
