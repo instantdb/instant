@@ -52,7 +52,7 @@ function ProxyChecks({
 }: {
   appId: string;
   adminToken: string;
-  onReset: () => void;
+  onReset?: () => void;
 }) {
   const db = useMemo(
     () =>
@@ -125,15 +125,23 @@ function ProxyChecks({
         createdAt: Date.now(),
       }),
     );
-    const result = await db.queryOnce({ proxyChecks: {} });
-    if (!result.data.proxyChecks.some((check) => check.id === checkId)) {
-      throw new Error('transaction completed but the record was not queried');
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      const result = await db.queryOnce({ proxyChecks: {} });
+      if (result.data.proxyChecks.some((check) => check.id === checkId)) {
+        const port = db.core._reactor._serverPort;
+        if (!port) {
+          throw new Error('init-ok did not identify its backend');
+        }
+        addEvent(
+          `Transaction and query passed through backend ${port}`,
+          'success',
+        );
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    const port = db.core._reactor._serverPort;
-    if (!port) {
-      throw new Error('init-ok did not identify its backend');
-    }
-    addEvent(`Transaction and query passed through backend ${port}`, 'success');
+    throw new Error('transaction committed but the record was not queried');
   };
 
   const adminQueryCheck = async () => {
@@ -286,13 +294,25 @@ function ProxyChecks({
             <div className="text-sm font-semibold">Disposable app</div>
             <code className="text-xs text-zinc-500">{appId}</code>
           </div>
-          <button
-            className={buttonClass}
-            disabled={Boolean(busy)}
-            onClick={onReset}
-          >
-            Reset app
-          </button>
+          <div className="flex gap-2">
+            {onReset && (
+              <>
+                <a
+                  className={buttonClass}
+                  href={`/play/app-proxy?app_id=${encodeURIComponent(appId)}#admin_token=${encodeURIComponent(adminToken)}`}
+                >
+                  Open pinned app
+                </a>
+                <button
+                  className={buttonClass}
+                  disabled={Boolean(busy)}
+                  onClick={onReset}
+                >
+                  Reset app
+                </button>
+              </>
+            )}
+          </div>
         </div>
         {query.error && (
           <div className="text-sm text-red-700">{query.error.message}</div>
@@ -322,7 +342,7 @@ function ProxyChecks({
   );
 }
 
-export default function AppProxyPage() {
+function EphemeralProxyChecks() {
   const { appId, adminToken, error, isLoading, resetApp } = useEphemeralApp({
     storageKey: 'app-proxy-playground-app',
     schema,
@@ -330,10 +350,7 @@ export default function AppProxyPage() {
   });
 
   return (
-    <>
-      <Head>
-        <title>App proxy playground</title>
-      </Head>
+    <div>
       {isLoading && <div className="p-8">Creating a disposable app…</div>}
       {error && <div className="p-8 text-red-700">{error.message}</div>}
       {appId && adminToken && (
@@ -344,6 +361,55 @@ export default function AppProxyPage() {
           onReset={resetApp}
         />
       )}
+    </div>
+  );
+}
+
+export default function AppProxyPage() {
+  const [configuredApp, setConfiguredApp] = useState<{
+    appId: string;
+    adminToken: string;
+  } | null>(null);
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const [urlReady, setUrlReady] = useState(false);
+
+  useEffect(() => {
+    const appId = new URLSearchParams(window.location.search).get('app_id');
+    const adminToken = new URLSearchParams(window.location.hash.slice(1)).get(
+      'admin_token',
+    );
+
+    if (appId || adminToken) {
+      if (appId && adminToken) {
+        setConfiguredApp({ appId, adminToken });
+      } else {
+        setUrlError(
+          'A pinned app URL requires app_id and an admin_token fragment.',
+        );
+      }
+    }
+    setUrlReady(true);
+  }, []);
+
+  return (
+    <>
+      <Head>
+        <title>App proxy playground</title>
+      </Head>
+      {!urlReady && <div className="p-8">Loading app…</div>}
+      {urlReady && urlError && (
+        <div className="p-8 text-red-700">{urlError}</div>
+      )}
+      {urlReady &&
+        !urlError &&
+        (configuredApp ? (
+          <ProxyChecks
+            appId={configuredApp.appId}
+            adminToken={configuredApp.adminToken}
+          />
+        ) : (
+          <EphemeralProxyChecks />
+        ))}
     </>
   );
 }
