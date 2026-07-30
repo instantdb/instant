@@ -4,13 +4,15 @@
 (ns instant.flags
   (:require
    ;; Can't depend on tracer in this file
+   [clojure.string :as string]
    [clojure.tools.logging :as log]
    [clojure.walk :as w]
    [instant.config :as config]
-   [instant.util.json :as json])
+   [instant.util.json :as json]
+   [instant.util.uuid :as uuid-util])
   (:import
    (inet.ipaddr IPAddressString)
-   (java.net InetAddress)))
+   (java.net InetAddress URI)))
 
 ;; Map of query to {:result {result-tree}
 ;;                  :tx-id int}
@@ -76,6 +78,41 @@
                  (catch Exception e
                    (log/error e "Error parsing IP" v))))
              vs)))
+
+(defn- normalize-app-proxy-target [target]
+  ;; Targets are origins so the proxy can forward the incoming path unchanged.
+  (when (string? target)
+    (try
+      (let [uri (URI. target)
+            scheme (some-> (.getScheme uri) string/lower-case)
+            path (.getPath uri)]
+        (when (and (#{"http" "https"} scheme)
+                   (.getHost uri)
+                   (nil? (.getUserInfo uri))
+                   (nil? (.getQuery uri))
+                   (nil? (.getFragment uri))
+                   (or (string/blank? path)
+                       (= "/" path)))
+          (URI. scheme nil (.getHost uri) (.getPort uri) nil nil nil)))
+      (catch Exception _
+        nil))))
+
+(defn- parse-app-proxy-targets-flag [targets]
+  (if-not (map? targets)
+    {}
+    (reduce-kv
+     (fn [acc app-id-value target-value]
+       (if-let [app-id (uuid-util/coerce app-id-value)]
+         (if-let [target (normalize-app-proxy-target target-value)]
+           (assoc acc app-id target)
+           (do
+             (log/error "Ignoring invalid app proxy target" {:app-id app-id-value})
+             acc))
+         (do
+           (log/error "Ignoring invalid app proxy app id" {:app-id app-id-value})
+           acc)))
+     {}
+     targets)))
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -145,6 +182,7 @@
                             (assoc acc (keyword setting) value))
                           {}
                           (get result "flags"))
+                  (update :app-proxy-targets parse-app-proxy-targets-flag)
                   (update :always-materialize-attr-ids parse-uuids-flag)
                   (update :tika-enabled-apps parse-uuids-flag)
 
@@ -335,6 +373,12 @@
          (merge *flag-overrides*)
          (get key not-found))
      (get-in (query-result) [:flags key] not-found))))
+
+(defn app-proxy-targets
+  "The app proxy routing table. Emptying the flag turns off all routing
+   without a deploy."
+  []
+  (flag :app-proxy-targets {}))
 
 (defn handle-receive-timeout [app-id]
   (get-in (query-result) [:handle-receive-timeout app-id]))

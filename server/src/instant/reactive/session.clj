@@ -182,12 +182,18 @@
               [:session/versions versions])
             (when (supports-skip-attrs? features)
               [:session/attrs-hash (hash attrs)])))
-    (rs/send-event! store app-id sess-id {:op              :init-ok
-                                          :session-id      sess-id
-                                          :client-event-id client-event-id
-                                          :auth            auth
-                                          :attrs           attrs
-                                          :app-status      {:status (name (app-model/get-status app-id))}})))
+    (rs/send-event! store app-id sess-id
+                    (cond-> {:op              :init-ok
+                             :session-id      sess-id
+                             :client-event-id client-event-id
+                             :auth            auth
+                             :attrs           attrs
+                             :app-status      {:status (name (app-model/get-status app-id))}}
+                      (config/dev?)
+                      ;; Lets development tools verify which backend accepted
+                      ;; the WebSocket when multiple local servers are running.
+                      (assoc :server-hostname @config/hostname
+                             :server-port (config/get-server-port))))))
 
 (defn- get-auth! [store sess-id]
   (let [{:session/keys [auth]} (rs/session store sess-id)]
