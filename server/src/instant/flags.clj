@@ -507,10 +507,12 @@
   (flag :stream-flush-byte-limit 1048576))
 
 (defn magic-code-rate-limit-per-hour
-  "Max number of magic code emails per email address per app per hour.
-   Set to 0 to disable."
+  "Max number of magic code emails per email address per app per hour."
   []
-  (flag :magic-code-rate-limit-per-hour 20))
+  (let [limit (flag :magic-code-rate-limit-per-hour 20)]
+    (if (pos-int? limit)
+      limit
+      20)))
 
 (defn default-magic-code-expiry-minutes
   []

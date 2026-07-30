@@ -56,6 +56,7 @@ const flagSettings = {
   },
 } as const;
 
+// Keep these in sync with the fallback values in server/src/instant/flags.clj.
 const defaults = {
   magicCodeRateLimit: 20,
   magicCodeExpiry: 1440,
@@ -88,8 +89,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function numberValue(value: unknown, fallback: number) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+function integerValue(value: unknown, fallback: number, minimum: number) {
+  return typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= minimum
+    ? value
+    : fallback;
 }
 
 function stringListValue(value: unknown) {
@@ -313,13 +318,15 @@ function InstantConfigSettingsContent({
     ? (storedMode as SignupMode)
     : 'open';
   const allowedEmails = stringListValue(dashboardSignupsValue.allowedEmails);
-  const magicCodeRateLimit = numberValue(
+  const magicCodeRateLimit = integerValue(
     flagBySetting.get(flagSettings.magicCodeRateLimit.setting)?.value,
     defaults.magicCodeRateLimit,
+    1,
   );
-  const magicCodeExpiry = numberValue(
+  const magicCodeExpiry = integerValue(
     flagBySetting.get(flagSettings.magicCodeExpiry.setting)?.value,
     defaults.magicCodeExpiry,
+    1,
   );
   const webhookPrivateIps = stringListValue(
     flagBySetting.get(flagSettings.webhookPrivateIps.setting)?.value,
@@ -327,9 +334,10 @@ function InstantConfigSettingsContent({
   const refreshThrottledApps = stringListValue(
     flagBySetting.get(flagSettings.refreshThrottledApps.setting)?.value,
   );
-  const refreshThrottleMs = numberValue(
+  const refreshThrottleMs = integerValue(
     flagBySetting.get(flagSettings.refreshThrottleMs.setting)?.value,
     defaults.refreshThrottleMs,
+    0,
   );
   const selectedMode = signupModeOptions.find(
     (option) => option.value === mode,
@@ -392,9 +400,9 @@ function InstantConfigSettingsContent({
   };
 
   const saveAuthenticationSettings = async () => {
-    const nextRateLimit = parseInteger(magicCodeRateLimitInput, 0);
+    const nextRateLimit = parseInteger(magicCodeRateLimitInput, 1);
     if (nextRateLimit === undefined) {
-      errorToast('Magic-code requests must be a non-negative integer.');
+      errorToast('Magic-code requests must be a positive integer.');
       return;
     }
 
@@ -653,7 +661,6 @@ function InstantConfigSettingsContent({
               value={magicCodeRateLimitInput}
               unit="requests per hour"
               inputClassName="w-28"
-              helper="Set to 0 to disable magic-code authentication."
               disabled={saving}
               onChange={(value) => {
                 setMagicCodeRateLimitInput(value);

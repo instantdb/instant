@@ -160,7 +160,9 @@
                        (tracer/with-span! {:name "rate-limit/change-magic-code-rate-limit-per-hour"
                                            :attributes {:old-value old-value
                                                         :new-value new-value}}
-                         (let [new-config (create-rate-limit-config new-value)]
+                         (let [new-config
+                               (create-rate-limit-config
+                                (flags/magic-code-rate-limit-per-hour))]
                            (reset! bucket-config new-config)))))]
     {:shutdown (fn []
                  (clear-watch))

@@ -49,3 +49,13 @@
                    {:dashboard-signup-mode :closed
                     :dashboard-allowed-emails #{"person@example.com"}})]
       (is (not (flags/dashboard-signup-allowed? "person@example.com"))))))
+
+(deftest magic-code-rate-limit
+  (testing "positive integers are accepted"
+    (with-redefs [flags/flag (constantly 10)]
+      (is (= 10 (flags/magic-code-rate-limit-per-hour)))))
+
+  (testing "invalid values use the safe default"
+    (doseq [value [nil 0 -1 1.5 "10"]]
+      (with-redefs [flags/flag (constantly value)]
+        (is (= 20 (flags/magic-code-rate-limit-per-hour)))))))
