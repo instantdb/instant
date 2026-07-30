@@ -110,13 +110,13 @@ The MinIO bucket is private by default. Files are accessed through Instant-gener
 
 ### Configure the Deployment Superuser
 
-The deployment superuser can manage settings for your entire self-hosted deployment. Set `INSTANT_BOOTSTRAP_SUPERUSER_EMAIL` to the email address of the person who should administer it:
+The deployment superuser can manage settings for your entire self-hosted deployment. Set `INSTANT_SUPERUSER_EMAIL` to the email address of the person who should administer it:
 
 ```shell
-INSTANT_BOOTSTRAP_SUPERUSER_EMAIL=admin@example.com
+INSTANT_SUPERUSER_EMAIL=admin@example.com
 ```
 
-Instant creates this dashboard user on the first startup. Log in with this email and open **Deployment Settings** from the account menu to manage your deployment.
+Instant creates this dashboard user when the server starts. Log in with this email and open **Deployment Settings** from the account menu to manage your deployment. If you change the email, restart the server to transfer superuser access.
 
 #### Restrict Dashboard Signups (Optional)
 

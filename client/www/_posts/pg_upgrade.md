@@ -372,11 +372,11 @@ So we went forward and translated our zero-downtime algorithm into code. Here’
 
     ;; 3. Wait for 16 to catch up
     (let [tx (transaction-model/create! aurora/-conn-pool
-                                        {:app-id (config/instant-config-app-id)})]
+                                        {:app-id config/instant-config-app-id})]
       (loop [i 0]
         (if-let [row (sql/select-one next-pool
                                       ["select * from transactions where app_id = ?::uuid and id = ?::bigint"
-                                      (config/instant-config-app-id) (:id tx)])]
+                                      config/instant-config-app-id (:id tx)])]
           (println "we are caught up!")
           ;; Still waiting...
           (do (Thread/sleep 50)

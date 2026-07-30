@@ -244,9 +244,8 @@
   (let [email (ex/get-param! req [:body :email] email/coerce)
         ;; Use the config app for the rate limit so that we can share the
         ;; same rate-limiting infra as the app's magic codes
-        _ (when-let [app-id (config/instant-config-app-id)]
-            (check-send-rate-limit! {:app-id app-id
-                                     :email email}))
+        _ (check-send-rate-limit! {:app-id config/instant-config-app-id
+                                   :email email})
         existing-user (instant-user-model/get-by-email {:email email})
         _ (when-not existing-user
             (assert-dashboard-signup-allowed! email))
@@ -282,9 +281,8 @@
   (let [email (ex/get-param! req [:body :email] email/coerce)
         ;; Use the config app for the rate limit so that we can share the
         ;; same rate-limiting infra as the app's magic codes
-        _ (when-let [app-id (config/instant-config-app-id)]
-            (check-verify-rate-limit! {:app-id app-id
-                                       :email email}))
+        _ (check-verify-rate-limit! {:app-id config/instant-config-app-id
+                                     :email email})
         code (ex/get-param! req [:body :code] string-util/safe-trim)
         {user-id :user_id} (instant-user-magic-code-model/consume!
                             {:code code :email email})
@@ -418,10 +416,9 @@
 (defn dash-get [req]
   (let [{:keys [id email]} (req->auth-user! req)
         apps (app-model/get-all-for-user {:user-id id})
-        instant-config-app-id (config/instant-config-app-id)
-        instant-config-app (when instant-config-app-id
-                             (app-model/get-by-id
-                              {:id instant-config-app-id}))
+        instant-config-app-id config/instant-config-app-id
+        instant-config-app (app-model/get-by-id
+                            {:id instant-config-app-id})
         superuser (boolean
                    (and instant-config-app
                         (= id (:creator_id instant-config-app))))

@@ -134,7 +134,7 @@ const nextConfig = {
         {
           permanent: false,
           source:
-            '/((?!api(?:/.*)?|dash(?:/.*)?|docs(?:/.*)?|intern(?:/.*)?|logout(?:/.*)?|.*\\.[^/]+$).*)',
+            '/((?!api(?:/.*)?$|dash(?:/.*)?$|docs(?:/.*)?$|intern(?:/.*)?$|logout(?:/.*)?$|.*\\.[^/]+$).*)',
           destination: '/dash',
         },
       ];

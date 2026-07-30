@@ -445,11 +445,10 @@
       (with-log-init :wal
         (wal/start))
 
-      (when-let [config-app-id (config/instant-config-app-id)]
-        (with-log-init :flags
-          (flags-impl/init config-app-id
-                           flags/queries
-                           flags/query-results)))
+      (with-log-init :flags
+        (flags-impl/init config/instant-config-app-id
+                         flags/queries
+                         flags/query-results))
 
       (with-log-init :app-proxy
         (app-proxy/start))

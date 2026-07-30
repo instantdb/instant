@@ -1,6 +1,5 @@
 (ns tasks
   (:require [tool]
-            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.java.process :as process]
             [clojure.string :as string]
@@ -9,6 +8,7 @@
             [instant.config-edn :as config-edn]
             [instant.config :as config]
             [instant.config-app :as config-app]
+            [instant.data.constants :refer [test-user-id]]
             [instant.jdbc.sql :as sql]
             [instant.model.app :as app-model]
             [instant.model.instant-user :as instant-user-model]
@@ -74,9 +74,6 @@
 
 ;; OSS bootstrap
 
-(def instant-config-app-id
-  #uuid "24a4d71b-7bb2-4630-9aee-01146af26239")
-
 (def override-config-path
   "resources/config/override.edn")
 
@@ -104,23 +101,15 @@
     (println "Writing config file to" path)
     (spit path
           (pr-str
-           {:instant-config-app-id instant-config-app-id
-            :aead-keyset {:encrypted? false
+           {:aead-keyset {:encrypted? false
                           :json (crypt-util/generate-unencrypted-aead-keyset)}
             :webhook-keyset {:encrypted? false
                              :json (crypt-util/generate-webhook-signing-key)}}))))
 
 (defn ensure-override-config
-  "Creates the OSS override config and adds required defaults to older configs."
+  "Creates an OSS override config when one does not exist."
   []
-  (if-let [resource (io/resource "config/override.edn")]
-    (let [override-config (edn/read-string (slurp resource))]
-      (when-not (:instant-config-app-id override-config)
-        (spit override-config-path
-              (pr-str
-               (assoc override-config
-                      :instant-config-app-id
-                      instant-config-app-id)))))
+  (when-not (io/resource "config/override.edn")
     (generate-override-config nil)))
 
 (defn migrate-database []
@@ -133,42 +122,48 @@
                   "-path" "resources/migrations"
                   "up")))
 
-(defn bootstrap-superuser-email []
-  (when-let [value (some-> (System/getenv "INSTANT_BOOTSTRAP_SUPERUSER_EMAIL")
+(defn superuser-email []
+  (when-let [value (some-> (System/getenv "INSTANT_SUPERUSER_EMAIL")
                            string/trim
                            not-empty)]
     (or (email/coerce value)
         (throw (ex-info
-                "INSTANT_BOOTSTRAP_SUPERUSER_EMAIL must be a valid email address."
+                "INSTANT_SUPERUSER_EMAIL must be a valid email address."
                 {:value value})))))
 
 (defn bootstrap-config-app! []
-  (if-let [superuser-email (bootstrap-superuser-email)]
-    (next-jdbc/with-transaction [conn (config/get-aurora-config)]
-      (sql/execute-one!
-       ::bootstrap-config-app-lock
-       conn
-       ["SELECT pg_advisory_xact_lock(hashtext(?))"
-        "instant-config-bootstrap"])
-      (let [app-id (config/instant-config-app-id)
-            user (or (instant-user-model/get-by-email
-                      conn
-                      {:email superuser-email})
+  (next-jdbc/with-transaction [conn (config/get-aurora-config)]
+    (sql/execute-one!
+     ::bootstrap-config-app-lock
+     conn
+     ["SELECT pg_advisory_xact_lock(hashtext(?))"
+      "instant-config-bootstrap"])
+    (let [email (superuser-email)
+          user (if email
+                 (or (instant-user-model/get-by-email conn {:email email})
                      (instant-user-model/create!
                       conn
                       {:id (random-uuid)
-                       :email superuser-email}))]
-        (if (app-model/get-by-id conn {:id app-id})
-          (println "Skipping Instant Config bootstrap. The app already exists.")
-          (do
-            (config-app/create! conn {:id app-id
-                                      :creator-id (:id user)})
-            (println
-             "Created Instant Config for bootstrap superuser"
-             superuser-email)))))
-    (println
-     "Skipping Instant Config bootstrap."
-     "Set INSTANT_BOOTSTRAP_SUPERUSER_EMAIL to create it.")))
+                       :email email}))
+                 (instant-user-model/get-by-id! conn {:id test-user-id}))
+          app (app-model/get-by-id conn {:id config/instant-config-app-id})]
+      (cond
+        (nil? app)
+        (do
+          (config-app/create! conn {:id config/instant-config-app-id
+                                    :creator-id (:id user)})
+          (println "Created Instant Config for" (:email user)))
+
+        (not= (:creator_id app) (:id user))
+        (do
+          (app-model/change-creator!
+           conn
+           {:id config/instant-config-app-id
+            :new-creator-id (:id user)})
+          (println "Changed Instant Config owner to" (:email user)))
+
+        :else
+        (println "Instant Config is owned by" (:email user))))))
 
 (defn bootstrap-for-oss
   "Helper to setup everything the server needs for its initial run."
