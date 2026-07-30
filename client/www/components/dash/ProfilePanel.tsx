@@ -97,6 +97,16 @@ export const ProfilePanel = () => {
                   <TooltipContent side="right">User Settings</TooltipContent>
                 </Tooltip>
               </div>
+              {dashResponse.data.superuser && (
+                <Link
+                  href="/dash/instance-settings"
+                  onClick={() => close()}
+                  className="flex w-full items-center gap-2 border-t border-gray-200 px-3 py-2 text-sm hover:bg-gray-100 dark:border-neutral-700 dark:hover:bg-neutral-700"
+                >
+                  <Cog6ToothIcon className="h-4 w-4" />
+                  Instance Settings
+                </Link>
+              )}
               {dashResponse.data.orgs?.map((org) => (
                 <div
                   className={cn(

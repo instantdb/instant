@@ -230,6 +230,16 @@
   (def m {:code (string-util/rand-num-str 6)})
   (email-router/send-structured! (magic-code-email {:user user :magic-code m})))
 
+(def dashboard-signup-denied-message
+  "This email is not allowed to sign up for this Instant instance.")
+
+(defn assert-dashboard-signup-allowed! [email]
+  (when-not (flags/dashboard-signup-allowed? email)
+    (ex/throw-validation-err!
+     :email
+     email
+     [{:message dashboard-signup-denied-message}])))
+
 (defn send-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
         ;; Use the config app for the rate limit so that we can share the
@@ -237,9 +247,12 @@
         _ (when-let [app-id (config/instant-config-app-id)]
             (check-send-rate-limit! {:app-id app-id
                                      :email email}))
-        {user-id :id :as u} (or  (instant-user-model/get-by-email {:email email})
-                                 (instant-user-model/create!
-                                  {:id (UUID/randomUUID) :email email}))
+        existing-user (instant-user-model/get-by-email {:email email})
+        _ (when-not existing-user
+            (assert-dashboard-signup-allowed! email))
+        {user-id :id :as u} (or existing-user
+                                (instant-user-model/create!
+                                 {:id (UUID/randomUUID) :email email}))
         magic-code (instant-user-magic-code-model/create!
                     {:id (UUID/randomUUID)
                      :code (instant-user-magic-code-model/rand-code)
@@ -405,10 +418,19 @@
 (defn dash-get [req]
   (let [{:keys [id email]} (req->auth-user! req)
         apps (app-model/get-all-for-user {:user-id id})
+        instant-config-app-id (config/instant-config-app-id)
+        instant-config-app (when instant-config-app-id
+                             (app-model/get-by-id
+                              {:id instant-config-app-id}))
+        superuser (boolean
+                   (and instant-config-app
+                        (= id (:creator_id instant-config-app))))
         orgs (org-model/get-all-for-user {:user-id id})
         profile (instant-profile-model/get-by-user-id {:user-id id})
         invites (member-invites-model/get-pending-for-invitee {:email email})]
     (response/ok {:apps apps
+                  :instant_config_app_id instant-config-app-id
+                  :superuser superuser
                   :orgs orgs
                   :profile profile
                   :invites invites
@@ -878,6 +900,14 @@
                      nil))
         google-sub (when (:email_verified id-token) (:sub id-token))
         email (email/coerce (:email id-token))
+        new-user-signup-blocked?
+        (and email
+             google-sub
+             (empty?
+              (instant-user-model/get-by-email-or-google-sub
+               {:email email
+                :google-sub google-sub}))
+             (not (flags/dashboard-signup-allowed? email)))
         user-info-error (when (and user-info (not (clj-http/success? user-info)))
                           (str "Error fetching user data from Google: "
                                (get-in user-info [:body :error_description] "Unknown error") "."))
@@ -898,6 +928,7 @@
                     (not email) "Could not determine email."
                     (not google-sub) "Could not determine user info."
                     (instant-oauth-redirect-model/expired? oauth-redirect) "Request is expired."
+                    new-user-signup-blocked? dashboard-signup-denied-message
                     :else nil)]
     (if error
       (oauth-callback-response {:error error})

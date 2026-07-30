@@ -4,6 +4,7 @@
             [instant.config-edn :as config-edn]
             [instant.util.crypt :as crypt-util]
             [instant.util.aws :as aws-util]
+            [instant.util.uuid :as uuid-util]
             [instant.aurora-config :as aurora-config]
             [lambdaisland.uri :as uri]
             [lambdaisland.uri.normalize :as normalize])
@@ -90,7 +91,11 @@
                          "HmacSHA256")))
 
 (defn instant-config-app-id []
-  (-> @config-map :instant-config-app-id))
+  (if-let [env-value (System/getenv "INSTANT_CONFIG_APP_ID")]
+    (or (uuid-util/coerce env-value)
+        (throw (ex-info "INSTANT_CONFIG_APP_ID must be a UUID."
+                        {:value env-value})))
+    (-> @config-map :instant-config-app-id)))
 
 (defn s3-storage-access-key []
   (some-> @config-map :s3-storage-access-key crypt-util/secret-value))

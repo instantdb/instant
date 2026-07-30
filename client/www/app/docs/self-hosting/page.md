@@ -108,6 +108,24 @@ The `_DOMAIN` variables are only used by the Caddy reverse proxy, so if you are 
 
 The MinIO bucket is private by default. Files are accessed through Instant-generated signed URLs.
 
+### Configure the Instance Superuser
+
+Set `INSTANT_BOOTSTRAP_SUPERUSER_EMAIL` to the email address that should own your Instant instance:
+
+```shell
+INSTANT_BOOTSTRAP_SUPERUSER_EMAIL=admin@example.com
+```
+
+On the first startup, Instant creates this dashboard user and an Instant Config app owned by that user. The environment variable is only used to bootstrap a new instance. Changing it later does not transfer ownership.
+
+Log in with this email to open **Instance Settings** from the account menu. You can choose who may create dashboard accounts:
+
+- **Open**: Anyone can sign up.
+- **Restricted**: Only email addresses you add can sign up.
+- **Closed**: No new dashboard accounts can sign up.
+
+Existing dashboard users can always sign in. Instance Settings also links to the Instant Config Explorer for feature flags and advanced configuration.
+
 ### Configure Google Dashboard Login (Optional)
 
 To let users log in to the Instant dashboard with Google, create an OAuth client in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) with the application type **Web application**.

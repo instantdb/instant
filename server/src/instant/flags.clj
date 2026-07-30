@@ -8,6 +8,7 @@
    [clojure.tools.logging :as log]
    [clojure.walk :as w]
    [instant.config :as config]
+   [instant.config-app :as config-app]
    [instant.util.json :as json]
    [instant.util.uuid :as uuid-util])
   (:import
@@ -19,6 +20,9 @@
 (defonce query-results (atom {}))
 
 (def query {:friend-emails {}
+            :dashboard-allowed-emails {}
+            :dashboard-signup-settings
+            {:$ {:where {:id (str config-app/dashboard-signup-settings-id)}}}
             :power-user-emails {}
             :storage-whitelist {}
             :storage-block-list {}
@@ -232,8 +236,24 @@
                                                           (json/<-json true))}))
 
                                 {}
-                                (get result "query-modifiers"))]
+                                (get result "query-modifiers"))
+        dashboard-signup-mode
+        (let [mode (-> result
+                       (get "dashboard-signup-settings")
+                       first
+                       (get "mode"))]
+          (if (contains? config-app/dashboard-signup-modes mode)
+            (keyword mode)
+            :open))
+        dashboard-allowed-emails
+        (set (keep (fn [item]
+                     (some-> (get item "email")
+                             string/lower-case
+                             string/trim))
+                   (get result "dashboard-allowed-emails")))]
     {:emails emails
+     :dashboard-allowed-emails dashboard-allowed-emails
+     :dashboard-signup-mode dashboard-signup-mode
      :storage-enabled-whitelist storage-enabled-whitelist
      :storage-block-list storage-block-list
      :promo-code-emails promo-code-emails
@@ -280,6 +300,22 @@
 (defn admin-email? [email]
   (contains? (:team (get-emails))
              email))
+
+(defn dashboard-signup-mode []
+  (or (:dashboard-signup-mode (query-result))
+      :open))
+
+(defn dashboard-allowed-emails []
+  (or (:dashboard-allowed-emails (query-result))
+      #{}))
+
+(defn dashboard-signup-allowed? [email]
+  (case (dashboard-signup-mode)
+    :open true
+    :restricted (contains? (dashboard-allowed-emails)
+                           (some-> email string/lower-case string/trim))
+    :closed false
+    true))
 
 ;; (TODO) After storage is public for awhile we can remove this
 (defn storage-enabled-whitelist []

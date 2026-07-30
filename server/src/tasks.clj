@@ -2,12 +2,25 @@
   (:require [tool]
             [clojure.java.io :as io]
             [clojure.java.process :as process]
+            [clojure.string :as string]
             [instant.util.crypt :as crypt-util]
+            [instant.util.email :as email]
             [instant.config-edn :as config-edn]
             [instant.config :as config]
+            [instant.config-app :as config-app]
+            [instant.db.model.attr :as attr-model]
+            [instant.db.transaction :as tx]
+            [instant.jdbc.sql :as sql]
+            [instant.model.app :as app-model]
+            [instant.model.instant-user :as instant-user-model]
+            [instant.model.rule :as rule-model]
+            [instant.model.schema :as schema-model]
+            [instant.util.tracer :as tracer]
             [lambdaisland.uri :as uri]
+            [next.jdbc :as next-jdbc]
             [next.jdbc.connection :refer [jdbc-url]])
   (:import (java.io BufferedReader InputStreamReader)
+           (java.util UUID)
            (sun.misc Signal SignalHandler)))
 
 (defn read-input ^String []
@@ -111,9 +124,112 @@
                   "-path" "resources/migrations"
                   "up")))
 
+(defn bootstrap-superuser-email []
+  (when-let [value (some-> (System/getenv "INSTANT_BOOTSTRAP_SUPERUSER_EMAIL")
+                           string/trim
+                           not-empty)]
+    (or (email/coerce value)
+        (throw (ex-info
+                "INSTANT_BOOTSTRAP_SUPERUSER_EMAIL must be a valid email address."
+                {:value value})))))
+
+(defn ensure-config-app-schema! [conn app-id]
+  (let [current-attrs (attr-model/get-by-app-id conn app-id)
+        current-schema (schema-model/attrs->schema current-attrs)
+        new-schema (schema-model/defs->schema config-app/schema)
+        steps (schema-model/schemas->ops
+               {:check-types? true
+                :background-updates? false}
+               current-schema
+               new-schema)]
+    (when (seq steps)
+      (tx/transact-without-tx-conn!
+       conn
+       current-attrs
+       app-id
+       steps
+       {:skip-app-status-write-check? true}))
+    (when-not (rule-model/get-by-app-id conn {:app-id app-id})
+      (rule-model/put! conn {:app-id app-id
+                             :code config-app/rules}))
+    (when-not
+     (sql/select-one
+      ::get-dashboard-signup-settings
+      conn
+      ["SELECT 1
+          FROM triples
+         WHERE app_id = ?::uuid
+           AND entity_id = ?::uuid
+         LIMIT 1"
+       app-id
+       config-app/dashboard-signup-settings-id])
+      (let [attrs (attr-model/get-by-app-id conn app-id)]
+        (tx/transact-without-tx-conn!
+         conn
+         attrs
+         app-id
+         [{:id config-app/dashboard-signup-settings-id
+           :etype "dashboard-signup-settings"
+           :name "default"
+           :mode "open"}]
+         {:skip-app-status-write-check? true})))))
+
+(defn bootstrap-config-app! []
+  (let [app-id (config/instant-config-app-id)
+        superuser-email (bootstrap-superuser-email)]
+    (when-not app-id
+      (throw (ex-info
+              "INSTANT_CONFIG_APP_ID is required to bootstrap Instant Config."
+              {})))
+    (next-jdbc/with-transaction [conn (config/get-aurora-config)]
+      (sql/execute-one!
+       ::bootstrap-config-app-lock
+       conn
+       ["SELECT pg_advisory_xact_lock(hashtext(?))"
+        "instant-config-bootstrap"])
+      (if-let [app (app-model/get-by-id conn {:id app-id})]
+        (do
+          (when (and superuser-email
+                     (not= superuser-email
+                           (:email
+                            (instant-user-model/get-by-id
+                             conn
+                             {:id (:creator_id app)}))))
+            (println
+             "Instant Config already has a different owner."
+             "INSTANT_BOOTSTRAP_SUPERUSER_EMAIL only applies when the app is created."))
+          (ensure-config-app-schema! conn app-id)
+          (println "Instant Config is ready."))
+        (if-not superuser-email
+          (println
+           "Skipping Instant Config bootstrap."
+           "Set INSTANT_BOOTSTRAP_SUPERUSER_EMAIL to create it.")
+          (let [user (or (instant-user-model/get-by-email
+                          conn
+                          {:email superuser-email})
+                         (instant-user-model/create!
+                          conn
+                          {:id (UUID/randomUUID)
+                           :email superuser-email}))]
+            (app-model/create!
+             conn
+             {:id app-id
+              :title "Instant Config"
+              :creator-id (:id user)
+              :admin-token (UUID/randomUUID)})
+            (ensure-config-app-schema! conn app-id)
+            (println
+             "Created Instant Config for bootstrap superuser"
+             superuser-email)))))))
+
 (defn bootstrap-for-oss
   "Helper to setup everything the server needs for its initial run."
   [_args]
   (ensure-override-config)
   (println "Migrating database")
-  (migrate-database))
+  (migrate-database)
+  (tracer/init)
+  (try
+    (bootstrap-config-app!)
+    (finally
+      (tracer/shutdown))))

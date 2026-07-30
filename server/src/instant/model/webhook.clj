@@ -335,11 +335,12 @@
           id-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "id"] attrs))
           setting-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "setting"] attrs))
           value-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "value"] attrs))]
-      (tx/transact! (aurora/conn-pool :write)
-                    attrs
-                    config-app-id
-                    [[:add-triple [setting-aid "enable-wal-entity-log-apps-map"] id-aid [setting-aid "enable-wal-entity-log-apps-map"]]
-                     [:deep-merge-triple [setting-aid "enable-wal-entity-log-apps-map"] value-aid {(str app-id) true}]]))))
+      (when (every? some? [id-aid setting-aid value-aid])
+        (tx/transact! (aurora/conn-pool :write)
+                      attrs
+                      config-app-id
+                      [[:add-triple [setting-aid "enable-wal-entity-log-apps-map"] id-aid [setting-aid "enable-wal-entity-log-apps-map"]]
+                       [:deep-merge-triple [setting-aid "enable-wal-entity-log-apps-map"] value-aid {(str app-id) true}]])))))
 
 (defn create!
   "Creates a new webhook, validating that the namespaces are valid, the webhook url is valid,

@@ -20,6 +20,13 @@ const _schema = i.schema({
     "app-deletion-sweeper": i.entity({
       "disabled?": i.boolean(),
     }),
+    "dashboard-allowed-emails": i.entity({
+      email: i.string().unique().indexed(),
+    }),
+    "dashboard-signup-settings": i.entity({
+      mode: i.string(),
+      name: i.string().unique().indexed(),
+    }),
     "e2e-logging": i.entity({
       "invalidator-rate": i.number(),
     }),
