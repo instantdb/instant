@@ -1,6 +1,6 @@
 (ns instant.model.webhook-test
   (:require
-   [clojure.test :refer [deftest is testing]]
+   [clojure.test :refer [deftest is testing use-fixtures]]
    [instant.db.model.attr :as attr-model]
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-empty-app]]
@@ -20,6 +20,12 @@
   (:import
    (instant.jdbc WalColumn WalEntry)
    (java.time Instant)))
+
+(defn with-disabled-webhooks-config-flag [f]
+  (with-redefs [webhook/enable-webhooks-config-flag (constantly nil)]
+    (f)))
+
+(use-fixtures :each with-disabled-webhooks-config-flag)
 
 (def insert-webhook-q
   (uhsql/preformat
