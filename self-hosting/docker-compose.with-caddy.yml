@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: ghcr.io/instantdb/postgresql:postgresql-16-pg-hint-plan
+    image: ghcr.io/instantdb/postgresql:postgresql-17-pg-hint-plan
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pass}
       POSTGRES_USER: ${POSTGRES_USER:-instant}

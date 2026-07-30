@@ -6,4 +6,4 @@ github-login:
 
 build-and-push-image:
 	docker buildx build --platform linux/amd64,linux/arm64 --push \
-		-t ghcr.io/instantdb/postgresql:postgresql-16-pg-hint-plan .
+		-t ghcr.io/instantdb/postgresql:postgresql-17-pg-hint-plan .
