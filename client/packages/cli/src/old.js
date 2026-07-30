@@ -1,8 +1,8 @@
 import boxen from 'boxen';
 import chalk from 'chalk';
 import { program } from '@commander-js/extra-typings';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { readConfigAuthToken as readStoredAuthToken } from './auth.ts';
 import { UI } from './ui/index.ts';
 import { deferred, renderUnwrap } from './ui/lib.ts';
 import {
@@ -10,6 +10,7 @@ import {
   getPermsReadCandidates,
   getSchemaReadCandidates,
 } from './util/findConfigCandidates.ts';
+import { getAuthPaths } from './util/getAuthPaths.ts';
 import { loadConfig } from './util/loadConfig.ts';
 import { ResolveRenamePrompt } from './util/renamePrompt.ts';
 import version from './version.js';
@@ -330,7 +331,7 @@ async function fetchJson({
   let authToken = null;
   if (withAuth) {
     authToken =
-      providedAuthToken ?? (await readConfigAuthTokenWithErrorLogging(apiURI));
+      providedAuthToken ?? (await readConfigAuthTokenWithErrorLogging());
     if (!authToken) {
       return { ok: false, data: undefined };
     }
@@ -435,7 +436,7 @@ export async function readLocalEmailFile(emailPath) {
   return { path: relativePath, email: res.config };
 }
 
-async function readConfigAuthToken(apiURI, allowAdminToken = true) {
+async function readConfigAuthToken(allowAdminToken = true) {
   const options = program.opts();
   // @ts-expect-error command opts type is unknown
   if (typeof options.token === 'string') {
@@ -457,7 +458,10 @@ async function readConfigAuthToken(apiURI, allowAdminToken = true) {
     }
   }
 
-  const authToken = await readStoredAuthToken(apiURI).catch(() => null);
+  const authToken = await readFile(
+    getAuthPaths().authConfigFilePath,
+    'utf-8',
+  ).catch(() => null);
 
   if (authToken) {
     return authToken;
@@ -466,8 +470,8 @@ async function readConfigAuthToken(apiURI, allowAdminToken = true) {
   return null;
 }
 
-export async function readConfigAuthTokenWithErrorLogging(apiURI) {
-  const token = await readConfigAuthToken(apiURI);
+export async function readConfigAuthTokenWithErrorLogging() {
+  const token = await readConfigAuthToken();
   if (!token) {
     error(
       `Looks like you are not logged in. Please log in with ${chalk.green('`instant-cli login`')}`,

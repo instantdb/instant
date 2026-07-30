@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { getAuthPaths } from './util/getAuthPaths.ts';
 
-export type AuthTokens = Record<string, string>;
+type AuthTokens = Record<string, string>;
 
 const productionApiUrl = 'https://api.instantdb.com';
 
@@ -10,9 +10,9 @@ type AuthConfig =
   | { type: 'legacy'; token: string }
   | { type: 'invalid' };
 
-export type AuthPaths = ReturnType<typeof getAuthPaths>;
+type AuthPaths = ReturnType<typeof getAuthPaths>;
 
-export function normalizeApiUrl(apiUrl: string): string {
+function normalizeApiUrl(apiUrl: string): string {
   return apiUrl.replace(/\/+$/, '');
 }
 
@@ -84,10 +84,21 @@ async function tokenBelongsToApiUrl(apiUrl: string, authToken: string) {
   }
 }
 
+async function getLegacyTokenApiUrl(apiUrl: string, authToken: string) {
+  if (await tokenBelongsToApiUrl(apiUrl, authToken)) return apiUrl;
+  if (
+    apiUrl !== productionApiUrl &&
+    (await tokenBelongsToApiUrl(productionApiUrl, authToken))
+  ) {
+    return productionApiUrl;
+  }
+  return null;
+}
+
 export async function readConfigAuthToken(
   apiUrl: string,
-  paths: AuthPaths = getAuthPaths(),
 ): Promise<string | null> {
+  const paths = getAuthPaths();
   const contents = await readAuthConfigFile(paths);
   if (contents === null) return null;
 
@@ -96,52 +107,64 @@ export async function readConfigAuthToken(
   if (config.type === 'map') return config.tokens[key] || null;
   if (config.type === 'invalid') return null;
 
-  // Verify a legacy token before associating it with a backend. Legacy tokens
-  // usually came from production, so check there if a custom backend rejects
-  // it, but never make the duplicate request when production is current.
-  let migrationKey: string | null = null;
-  if (await tokenBelongsToApiUrl(key, config.token)) {
-    migrationKey = key;
-  } else if (
-    key !== productionApiUrl &&
-    (await tokenBelongsToApiUrl(productionApiUrl, config.token))
-  ) {
-    migrationKey = productionApiUrl;
-  }
+  const migrationKey = await getLegacyTokenApiUrl(key, config.token);
 
-  // Validation and migration remain best-effort so existing commands can
-  // still attempt authentication with the legacy token.
   if (migrationKey) {
     await writeAuthConfigFile(paths, {
       [migrationKey]: config.token,
     }).catch(() => {});
   }
-  return config.token;
+
+  // If production accepted the token while another backend is selected, do
+  // not send a known production credential to that backend.
+  return migrationKey && migrationKey !== key ? null : config.token;
 }
 
 export async function saveConfigAuthToken(
   apiUrl: string,
   authToken: string,
-  paths: AuthPaths = getAuthPaths(),
 ): Promise<void> {
+  const paths = getAuthPaths();
   const contents = await readAuthConfigFile(paths);
   const config = contents === null ? null : parseAuthConfig(contents);
-  const tokens = config?.type === 'map' ? config.tokens : {};
-  tokens[normalizeApiUrl(apiUrl)] = authToken;
+  const key = normalizeApiUrl(apiUrl);
+  let tokens: AuthTokens = {};
+  if (config?.type === 'map') {
+    tokens = config.tokens;
+  } else if (config?.type === 'legacy') {
+    const legacyKey = await getLegacyTokenApiUrl(key, config.token);
+    if (legacyKey && legacyKey !== key) {
+      tokens[legacyKey] = config.token;
+    }
+  }
+  tokens[key] = authToken;
   await writeAuthConfigFile(paths, tokens);
 }
 
 export async function removeConfigAuthToken(
   apiUrl: string,
-  paths: AuthPaths = getAuthPaths(),
 ): Promise<'removed' | 'not-found'> {
+  const paths = getAuthPaths();
   const contents = await readAuthConfigFile(paths);
   if (contents === null) return 'not-found';
 
   const config = parseAuthConfig(contents);
   if (config.type === 'legacy') {
-    await rm(paths.authConfigFilePath);
-    return 'removed';
+    const key = normalizeApiUrl(apiUrl);
+    if (key === productionApiUrl) {
+      await rm(paths.authConfigFilePath);
+      return 'removed';
+    }
+
+    const legacyKey = await getLegacyTokenApiUrl(key, config.token);
+    if (legacyKey === key) {
+      await rm(paths.authConfigFilePath);
+      return 'removed';
+    }
+    if (legacyKey) {
+      await writeAuthConfigFile(paths, { [legacyKey]: config.token });
+    }
+    return 'not-found';
   }
   if (config.type === 'invalid') return 'not-found';
 
