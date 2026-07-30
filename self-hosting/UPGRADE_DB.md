@@ -19,8 +19,11 @@ DETAIL: The data directory was initialized by PostgreSQL version 16, which is no
 
 Run this migration **once**, using dump/restore. The commands below assume the
 default `docker-compose.yml`, the user `instant`, and the database `instant`.
-Pass `-f <file>` if you use a different compose file, and wherever you see
-`instant` substitute the `POSTGRES_USER` / `POSTGRES_DB` values you configured.
+If your deployment uses a different compose file or project name, add the same
+`-f`/`-p` options to **every** `docker compose` command below, including the one
+nested inside the volume-lookup in step 2 and the ones in the rollback notes.
+Wherever you see `instant`, substitute the `POSTGRES_USER` / `POSTGRES_DB`
+values you configured.
 
 ### 1. Dump the database while still on PostgreSQL 16
 
@@ -58,11 +61,15 @@ instead of deleting anything.
 
 ```bash
 docker compose down
-# only after you have verified $PG_VOLUME above:
+
+# Check out and validate the PostgreSQL 17 config before deleting the old volume,
+# so a failed checkout or bad compose file can't leave you with no database. Stop
+# here if either command fails (you may have checked out PG16 for the dump above):
+git checkout <pg17-revision>       # e.g. main
+docker compose config >/dev/null   # validates the compose file; errors are fatal
+
+# Only now that the PG17 config is confirmed, and $PG_VOLUME is verified above:
 docker volume rm "$PG_VOLUME"
-# return to the revision that ships PostgreSQL 17 before starting again, so the
-# fresh database comes up on 17 (you may have checked out PG16 for the dump):
-git checkout <pg17-revision>   # e.g. main
 docker compose up -d postgres
 # wait until it reports healthy (this creates a fresh, empty `instant` database)
 ```
