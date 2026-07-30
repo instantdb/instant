@@ -99,7 +99,7 @@ export const ProfilePanel = () => {
               </div>
               {dashResponse.data.superuser && (
                 <Link
-                  href="/dash/deployment-settings"
+                  href="/intern/deployment-settings"
                   onClick={() => close()}
                   className="flex w-full items-center gap-2 border-t border-gray-200 px-3 py-2 text-sm hover:bg-gray-100 dark:border-neutral-700 dark:hover:bg-neutral-700"
                 >

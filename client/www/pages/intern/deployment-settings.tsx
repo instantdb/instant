@@ -1,20 +1,18 @@
-import {
-  MainDashLayout,
-  useFetchedDash,
-} from '@/components/dash/MainDashLayout';
-import { BackToAppsButton } from '@/components/dash/BackToAppsButton';
-import { ClientOnly } from '@/components/clientOnlyPage';
 import { Button, FullscreenLoading, Select, TextInput } from '@/components/ui';
+import { useAuthToken } from '@/lib/auth';
 import config from '@/lib/config';
+import { TokenContext } from '@/lib/contexts';
+import { useDashFetch } from '@/lib/hooks/useDashFetch';
+import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { errorToast, successToast } from '@/lib/toast';
 import { InstantApp } from '@/lib/types';
 import { ChevronRightIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { id, init } from '@instantdb/react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { ReactNode, useEffect, useState } from 'react';
 import { validate as isUuid } from 'uuid';
-import { NextPageWithLayout } from '../_app';
 
 type SignupMode = 'open' | 'restricted' | 'closed';
 
@@ -813,63 +811,82 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
   return <InstantConfigSettingsContent app={app} db={db} />;
 }
 
-const DeploymentSettingsPage: NextPageWithLayout = () => {
-  const dashResponse = useFetchedDash();
+function DeploymentSettingsContent() {
+  const dashResponse = useDashFetch();
+
+  if (!dashResponse.data) {
+    if (dashResponse.error) {
+      return (
+        <p className="text-sm text-red-600">
+          Could not load deployment settings: {dashResponse.error.message}
+        </p>
+      );
+    }
+    return <FullscreenLoading />;
+  }
+
   const configApp = dashResponse.data.apps.find(
     (app) => app.id === dashResponse.data.instant_config_app_id,
   );
 
   if (!dashResponse.data.superuser) {
     return (
-      <>
-        <BackToAppsButton />
-        <div className="mx-auto w-full px-8 pt-8 md:max-w-4xl">
-          <h1 className="text-xl font-semibold">Deployment Settings</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Only the superuser can manage these deployment settings.
-          </p>
-        </div>
-      </>
+      <p className="text-sm text-gray-600">
+        Only the superuser can manage these deployment settings.
+      </p>
     );
   }
 
   if (!configApp) {
     return (
-      <>
-        <BackToAppsButton />
-        <div className="mx-auto w-full px-8 pt-8 md:max-w-4xl">
-          <h1 className="text-xl font-semibold">Deployment Settings</h1>
-          <p className="mt-2 text-sm text-red-600">
-            Instant Config is not available for this account.
-          </p>
-        </div>
-      </>
+      <p className="text-sm text-red-600">
+        Instant Config is not available for this account.
+      </p>
     );
   }
 
-  return (
-    <>
-      <BackToAppsButton />
-      <main className="mx-auto w-full max-w-2xl overflow-y-auto p-4">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold">Deployment Settings</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-neutral-400">
-            Manage access and configuration for this self-hosted deployment.
-          </p>
-        </div>
-        <InstantConfigSettings key={configApp.id} app={configApp} />
-      </main>
-    </>
-  );
-};
+  return <InstantConfigSettings key={configApp.id} app={configApp} />;
+}
 
-DeploymentSettingsPage.getLayout = (page) => (
-  <ClientOnly>
-    <Head>
-      <title>Deployment Settings</title>
-    </Head>
-    <MainDashLayout className="bg-gray-100">{page}</MainDashLayout>
-  </ClientOnly>
-);
+function DeploymentSettingsPage() {
+  const isHydrated = useIsHydrated();
+  const token = useAuthToken();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isHydrated && router.isReady && !token) {
+      void router.replace('/dash?return-to=/intern/deployment-settings');
+    }
+  }, [isHydrated, router, token]);
+
+  if (!isHydrated || !router.isReady || !token) {
+    return null;
+  }
+
+  return (
+    <TokenContext.Provider value={token}>
+      <Head>
+        <title>Deployment Settings</title>
+      </Head>
+      <div className="min-h-screen bg-gray-100 px-4 py-8">
+        <main className="mx-auto w-full max-w-2xl">
+          <Link
+            href="/dash"
+            className="mb-6 inline-block text-sm text-gray-500 hover:text-gray-900"
+          >
+            Back to dashboard
+          </Link>
+          <div className="mb-6">
+            <h1 className="text-xl font-semibold">Deployment Settings</h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-neutral-400">
+              Manage access and configuration for this self-hosted deployment.
+            </p>
+          </div>
+          <DeploymentSettingsContent />
+        </main>
+      </div>
+    </TokenContext.Provider>
+  );
+}
 
 export default DeploymentSettingsPage;
