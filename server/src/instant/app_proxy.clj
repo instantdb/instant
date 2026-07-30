@@ -42,9 +42,10 @@
 (def ^:private uuid-pattern
   #"(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
-;; The current routing table is shared by every request handler. WebSocket
-;; connections are tracked separately so a config change can make clients
-;; reconnect and pick up their app's new target.
+;; Requests read the routing table straight from the flag; this atom only
+;; remembers the last table the connection drainer acted on so a config change
+;; can diff the two and drain the affected connections. WebSocket connections
+;; are tracked separately so that drain can reach proxied sockets.
 (defonce ^:private targets (atom {}))
 (defonce ^:private proxied-websockets (atom {}))
 (defonce ^:private clear-target-listener (atom nil))
@@ -285,7 +286,7 @@
    body-inspection-paths take the bounded buffering fallback. The Ring adapter
    handles every request without a configured proxy target."
   ([ring-handler]
-   (handler-proxy ring-handler (fn [] @targets)))
+   (handler-proxy ring-handler flags/app-proxy-targets))
   ([ring-handler current-targets]
    (let [local-handler (BlockingHandler.
                         ((undertow/undertow-handler {:dispatch? true
@@ -361,7 +362,7 @@
    router does not look. Refusing loudly beats silently serving a migrated
    app from this backend's data."
   ([handler]
-   (wrap-proxied-app-guard handler (fn [] @targets)))
+   (wrap-proxied-app-guard handler flags/app-proxy-targets))
   ([handler current-targets]
    (fn [request]
      (let [table (current-targets)

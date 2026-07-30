@@ -374,7 +374,10 @@
          (get key not-found))
      (get-in (query-result) [:flags key] not-found))))
 
-(defn app-proxy-targets []
+(defn app-proxy-targets
+  "The app proxy routing table. Emptying the flag turns off all routing
+   without a deploy."
+  []
   (flag :app-proxy-targets {}))
 
 (defn handle-receive-timeout [app-id]
