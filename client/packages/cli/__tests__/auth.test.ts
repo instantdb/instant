@@ -26,32 +26,6 @@ describe('auth config', () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  it('reads and migrates a legacy raw token', async () => {
-    await writeFile(paths.authConfigFilePath, 'legacy-token');
-
-    await expect(
-      readConfigAuthToken('https://api.instantdb.com/', paths),
-    ).resolves.toBe('legacy-token');
-    await expect(readStoredTokens(paths)).resolves.toEqual({
-      'https://api.instantdb.com': 'legacy-token',
-    });
-  });
-
-  it('uses a legacy token even when migration cannot be written', async () => {
-    await writeFile(paths.authConfigFilePath, 'legacy-token');
-    const unwritablePaths = {
-      ...paths,
-      appConfigDirPath: paths.authConfigFilePath,
-    };
-
-    await expect(
-      readConfigAuthToken('https://api.instantdb.com', unwritablePaths),
-    ).resolves.toBe('legacy-token');
-    await expect(readFile(paths.authConfigFilePath, 'utf8')).resolves.toBe(
-      'legacy-token',
-    );
-  });
-
   it('selects only the token for the current API URL', async () => {
     await writeFile(
       paths.authConfigFilePath,

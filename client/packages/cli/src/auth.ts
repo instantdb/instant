@@ -70,6 +70,18 @@ function isNotFoundError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
 
+async function tokenBelongsToApiUrl(apiUrl: string, authToken: string) {
+  try {
+    const response = await fetch(`${apiUrl}/dash/me`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+      signal: AbortSignal.timeout(5_000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function readConfigAuthToken(
   apiUrl: string,
   paths: AuthPaths = getAuthPaths(),
@@ -82,9 +94,12 @@ export async function readConfigAuthToken(
   if (config.type === 'map') return config.tokens[key] || null;
   if (config.type === 'invalid') return null;
 
-  // A raw token is the legacy format. Associate it with the API URL that is
-  // currently using it, but do not block authentication if migration fails.
-  await writeAuthConfigFile(paths, { [key]: config.token }).catch(() => {});
+  // Verify a legacy token against this backend before associating the two.
+  // Validation and migration remain best-effort so existing commands can
+  // still attempt authentication with the legacy token.
+  if (await tokenBelongsToApiUrl(key, config.token)) {
+    await writeAuthConfigFile(paths, { [key]: config.token }).catch(() => {});
+  }
   return config.token;
 }
 
