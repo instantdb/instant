@@ -8,8 +8,10 @@ import { Button, FullscreenLoading, Select, TextInput } from '@/components/ui';
 import config from '@/lib/config';
 import { errorToast, successToast } from '@/lib/toast';
 import { InstantApp } from '@/lib/types';
+import { ChevronRightIcon } from '@heroicons/react/24/outline';
 import { id, init } from '@instantdb/react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { ReactNode, useEffect, useState } from 'react';
 import { validate as isUuid } from 'uuid';
 import { NextPageWithLayout } from '../_app';
@@ -135,7 +137,7 @@ function isLiteralIpAddress(value: string) {
   }
 }
 
-function SettingsCard({
+function SettingsSection({
   title,
   description,
   children,
@@ -145,10 +147,10 @@ function SettingsCard({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-sm border border-gray-300 bg-white p-5 dark:border-neutral-700 dark:bg-neutral-800">
-      <div className="mb-4">
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
         <h2 className="font-semibold">{title}</h2>
-        <p className="mt-1 text-sm text-gray-600 dark:text-neutral-400">
+        <p className="text-sm text-gray-500 dark:text-neutral-400">
           {description}
         </p>
       </div>
@@ -179,7 +181,7 @@ function StringListEditor({
   return (
     <>
       <form
-        className="flex max-w-xl gap-2"
+        className="flex max-w-xl items-center gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           onAdd();
@@ -191,11 +193,11 @@ function StringListEditor({
           value={value}
           onChange={onChange}
         />
-        <Button type="submit" disabled={disabled || !value.trim()}>
+        <Button type="submit" size="mini" disabled={disabled || !value.trim()}>
           Add
         </Button>
       </form>
-      <div className="mt-4 divide-y divide-gray-200 rounded-sm border border-gray-200 dark:divide-neutral-700 dark:border-neutral-700">
+      <div className="mt-3 divide-y divide-gray-200 overflow-hidden rounded-sm border border-gray-200 bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
         {items.length ? (
           items.map((item) => (
             <div
@@ -214,7 +216,7 @@ function StringListEditor({
             </div>
           ))
         ) : (
-          <div className="px-3 py-4 text-sm text-gray-500">{emptyMessage}</div>
+          <div className="px-3 py-3 text-sm text-gray-500">{emptyMessage}</div>
         )}
       </div>
     </>
@@ -536,33 +538,37 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
   };
 
   return (
-    <div className="space-y-6">
-      <SettingsCard
+    <div className="flex flex-col gap-6">
+      <SettingsSection
         title="Dashboard access"
         description="Control who can create dashboard accounts. Existing users can always sign in."
       >
-        <label className="block text-sm font-medium">Who can sign up?</label>
-        <Select
-          className="mt-2 w-full md:w-72"
-          disabled={saving}
-          value={mode}
-          options={signupModeOptions.map(({ label, value }) => ({
-            label,
-            value,
-          }))}
-          onChange={(option) => {
-            if (option) {
-              void updateMode(option.value);
-            }
-          }}
-        />
-        <p className="mt-2 text-sm text-gray-600 dark:text-neutral-400">
-          {selectedMode?.description}
-        </p>
+        <div>
+          <label className="block text-sm font-medium">Who can sign up?</label>
+          <Select
+            className="mt-1.5 w-full md:w-72"
+            disabled={saving}
+            value={mode}
+            options={signupModeOptions.map(({ label, value }) => ({
+              label,
+              value,
+            }))}
+            onChange={(option) => {
+              if (option) {
+                void updateMode(option.value);
+              }
+            }}
+          />
+          <p className="mt-1.5 text-sm text-gray-500 dark:text-neutral-400">
+            {selectedMode?.description}
+          </p>
+        </div>
         {mode === 'restricted' && (
-          <div className="mt-5 border-t border-gray-200 pt-5 dark:border-neutral-700">
-            <h3 className="font-medium">Allowed email addresses</h3>
-            <div className="mt-3">
+          <div className="border-t border-gray-200 pt-4 dark:border-neutral-700">
+            <h3 className="mb-2 text-sm font-medium">
+              Allowed email addresses
+            </h3>
+            <div>
               <StringListEditor
                 items={allowedEmails}
                 value={newEmail}
@@ -576,14 +582,14 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
             </div>
           </div>
         )}
-      </SettingsCard>
+      </SettingsSection>
 
-      <SettingsCard
+      <SettingsSection
         title="App authentication"
-        description="Set defaults for magic-code authentication in every app."
+        description="Set magic-code defaults across every app in this deployment."
       >
         <form
-          className="grid gap-5 md:grid-cols-2"
+          className="grid gap-4 md:grid-cols-2"
           onSubmit={(event) => {
             event.preventDefault();
             void saveAuthenticationSettings();
@@ -615,21 +621,17 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
             </p>
           </div>
           <div className="md:col-span-2">
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" size="mini" disabled={saving}>
               Save authentication settings
             </Button>
           </div>
         </form>
-      </SettingsCard>
+      </SettingsSection>
 
-      <SettingsCard
+      <SettingsSection
         title="Webhook networking"
-        description="Allow webhook requests to reach selected private or internal IP addresses."
+        description="Allow trusted private or internal IP addresses for webhook destinations. Private destinations stay blocked by default."
       >
-        <p className="mb-4 text-sm text-gray-600 dark:text-neutral-400">
-          Private destinations are blocked by default to protect against
-          server-side request forgery. Add only addresses you trust.
-        </p>
         <StringListEditor
           items={webhookPrivateIps}
           value={newWebhookIp}
@@ -640,14 +642,14 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
           onAdd={() => void addWebhookIp()}
           onRemove={(ipAddress) => void removeWebhookIp(ipAddress)}
         />
-      </SettingsCard>
+      </SettingsSection>
 
-      <SettingsCard
+      <SettingsSection
         title="Realtime performance"
-        description="Throttle realtime refreshes for selected apps to reduce burst load."
+        description="Throttle refreshes for selected apps to reduce burst load. Throttling increases realtime latency."
       >
         <form
-          className="flex max-w-xl items-end gap-2"
+          className="flex max-w-md items-end gap-2"
           onSubmit={(event) => {
             event.preventDefault();
             void saveRefreshThrottle();
@@ -661,15 +663,14 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
             disabled={saving}
             onChange={setRefreshThrottleInput}
           />
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" size="mini" disabled={saving}>
             Save interval
           </Button>
         </form>
-        <div className="mt-5 border-t border-gray-200 pt-5 dark:border-neutral-700">
-          <h3 className="font-medium">Throttled app IDs</h3>
-          <p className="mt-1 mb-3 text-sm text-gray-600 dark:text-neutral-400">
-            Find an app ID in its dashboard URL. Throttling increases realtime
-            latency.
+        <div className="border-t border-gray-200 pt-4 dark:border-neutral-700">
+          <h3 className="text-sm font-medium">Throttled app IDs</h3>
+          <p className="mt-1 mb-2 text-sm text-gray-500 dark:text-neutral-400">
+            Find an app ID in its dashboard URL.
           </p>
           <StringListEditor
             items={refreshThrottledApps}
@@ -682,23 +683,23 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
             onRemove={(appId) => void removeThrottledApp(appId)}
           />
         </div>
-      </SettingsCard>
+      </SettingsSection>
 
-      <section className="flex items-center justify-between gap-4 rounded-sm border border-gray-300 bg-white p-5 dark:border-neutral-700 dark:bg-neutral-800">
-        <div>
-          <h2 className="font-semibold">Advanced settings</h2>
-          <p className="mt-1 text-sm text-gray-600 dark:text-neutral-400">
+      <Link
+        href={`/dash?app=${app.id}&t=explorer&s=main`}
+        className="flex items-center justify-between gap-3 rounded-sm border border-gray-200 bg-white px-4 py-3 hover:bg-gray-50 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+      >
+        <div className="min-w-0">
+          <h2 className="text-sm font-medium">Advanced settings</h2>
+          <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-neutral-400">
             Open Instant Config to edit every flag and toggle directly.
           </p>
         </div>
-        <Button
-          type="link"
-          variant="secondary"
-          href={`/dash?app=${app.id}&t=explorer&s=main`}
-        >
-          Open Instant Config
-        </Button>
-      </section>
+        <ChevronRightIcon
+          className="size-4 shrink-0 text-gray-300 dark:text-neutral-600"
+          aria-hidden="true"
+        />
+      </Link>
     </div>
   );
 }
@@ -740,7 +741,7 @@ const DeploymentSettingsPage: NextPageWithLayout = () => {
   return (
     <>
       <BackToAppsButton />
-      <main className="mx-auto w-full overflow-y-auto px-8 py-8 md:max-w-4xl">
+      <main className="mx-auto w-full max-w-2xl overflow-y-auto p-4">
         <div className="mb-6">
           <h1 className="text-lg font-semibold">Deployment Settings</h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-neutral-400">
