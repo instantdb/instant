@@ -116,11 +116,11 @@ The instance superuser can manage settings for your entire Instant instance. Set
 INSTANT_BOOTSTRAP_SUPERUSER_EMAIL=admin@example.com
 ```
 
-Instant creates this dashboard user on the first startup. Log in with this email and open **Instance Settings** from the account menu to manage your instance.
+Instant creates this dashboard user on the first startup. Log in with this email and open **Deployment Settings** from the account menu to manage your installation.
 
 #### Restrict Dashboard Signups (Optional)
 
-By default, anyone can create a dashboard account. To limit access, open **Instance Settings** and set **Who can sign up?**:
+By default, anyone can create a dashboard account. To limit access, open **Deployment Settings** and set **Who can sign up?**:
 
 - **Open**: Anyone can sign up.
 - **Restricted**: Only email addresses you add can sign up.

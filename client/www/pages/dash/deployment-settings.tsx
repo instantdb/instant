@@ -81,7 +81,7 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
   if (error) {
     return (
       <div className="rounded-sm border border-red-300 bg-red-50 p-4 text-sm text-red-700">
-        Could not load instance settings: {error.message}
+        Could not load deployment settings: {error.message}
       </div>
     );
   }
@@ -254,7 +254,7 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
   );
 }
 
-const InstanceSettingsPage: NextPageWithLayout = () => {
+const DeploymentSettingsPage: NextPageWithLayout = () => {
   const dashResponse = useFetchedDash();
   const configApp = dashResponse.data.apps.find(
     (app) => app.id === dashResponse.data.instant_config_app_id,
@@ -265,9 +265,9 @@ const InstanceSettingsPage: NextPageWithLayout = () => {
       <>
         <BackToAppsButton />
         <div className="mx-auto w-full px-8 pt-8 md:max-w-4xl">
-          <h1 className="text-lg font-semibold">Instance Settings</h1>
+          <h1 className="text-lg font-semibold">Deployment Settings</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Only the instance superuser can manage these settings.
+            Only the superuser can manage these deployment settings.
           </p>
         </div>
       </>
@@ -279,7 +279,7 @@ const InstanceSettingsPage: NextPageWithLayout = () => {
       <>
         <BackToAppsButton />
         <div className="mx-auto w-full px-8 pt-8 md:max-w-4xl">
-          <h1 className="text-lg font-semibold">Instance Settings</h1>
+          <h1 className="text-lg font-semibold">Deployment Settings</h1>
           <p className="mt-2 text-sm text-red-600">
             Instant Config is not available for this account.
           </p>
@@ -293,9 +293,9 @@ const InstanceSettingsPage: NextPageWithLayout = () => {
       <BackToAppsButton />
       <main className="mx-auto w-full overflow-y-auto px-8 py-8 md:max-w-4xl">
         <div className="mb-6">
-          <h1 className="text-lg font-semibold">Instance Settings</h1>
+          <h1 className="text-lg font-semibold">Deployment Settings</h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-neutral-400">
-            Manage access and configuration for this Instant instance.
+            Manage access and configuration for this self-hosted deployment.
           </p>
         </div>
         <InstantConfigSettings key={configApp.id} app={configApp} />
@@ -304,13 +304,13 @@ const InstanceSettingsPage: NextPageWithLayout = () => {
   );
 };
 
-InstanceSettingsPage.getLayout = (page) => (
+DeploymentSettingsPage.getLayout = (page) => (
   <ClientOnly>
     <Head>
-      <title>Instance Settings</title>
+      <title>Deployment Settings</title>
     </Head>
     <MainDashLayout className="bg-gray-100">{page}</MainDashLayout>
   </ClientOnly>
 );
 
-export default InstanceSettingsPage;
+export default DeploymentSettingsPage;
