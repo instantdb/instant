@@ -1,5 +1,6 @@
 (ns tasks
   (:require [tool]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.java.process :as process]
             [clojure.string :as string]
@@ -73,6 +74,12 @@
 
 ;; OSS bootstrap
 
+(def instant-config-app-id
+  #uuid "24a4d71b-7bb2-4630-9aee-01146af26239")
+
+(def override-config-path
+  "resources/config/override.edn")
+
 (defn jdbc-url->postgres-url [url & params]
   (let [{:keys [host port path query]} (uri/parse (subs url (count "jdbc:")))
         {:keys [user username password]} (uri/query-string->map query)]
@@ -90,23 +97,30 @@
   resources/config/override.edn, e.g. when creating a Docker Swarm secret."
   [_args]
   (let [path (or (System/getenv "OVERRIDE_CONFIG_PATH")
-                 "resources/config/override.edn")]
+                 override-config-path)]
     (io/make-parents path)
     (crypt-util/register-aead)
     (crypt-util/register-signature)
     (println "Writing config file to" path)
     (spit path
           (pr-str
-           {:aead-keyset {:encrypted? false
+           {:instant-config-app-id instant-config-app-id
+            :aead-keyset {:encrypted? false
                           :json (crypt-util/generate-unencrypted-aead-keyset)}
             :webhook-keyset {:encrypted? false
                              :json (crypt-util/generate-webhook-signing-key)}}))))
 
 (defn ensure-override-config
-  "Creates a config file that will override the default `dev.edn` config,
-  since an oss developer won't be able to decode the dev.edn file."
+  "Creates the OSS override config and adds required defaults to older configs."
   []
-  (when-not (io/resource "config/override.edn")
+  (if-let [resource (io/resource "config/override.edn")]
+    (let [override-config (edn/read-string (slurp resource))]
+      (when-not (:instant-config-app-id override-config)
+        (spit override-config-path
+              (pr-str
+               (assoc override-config
+                      :instant-config-app-id
+                      instant-config-app-id)))))
     (generate-override-config nil)))
 
 (defn migrate-database []
