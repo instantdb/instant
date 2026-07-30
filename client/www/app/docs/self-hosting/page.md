@@ -110,21 +110,23 @@ The MinIO bucket is private by default. Files are accessed through Instant-gener
 
 ### Configure the Instance Superuser
 
-Set `INSTANT_BOOTSTRAP_SUPERUSER_EMAIL` to the email address that should own your Instant instance:
+The instance superuser can manage settings for your entire Instant instance. Set `INSTANT_BOOTSTRAP_SUPERUSER_EMAIL` to the email address of the person who should administer it:
 
 ```shell
 INSTANT_BOOTSTRAP_SUPERUSER_EMAIL=admin@example.com
 ```
 
-On the first startup, Instant creates this dashboard user and an Instant Config app owned by that user. The environment variable is only used to bootstrap a new instance. Changing it later does not transfer ownership.
+Instant creates this dashboard user on the first startup. Log in with this email and open **Instance Settings** from the account menu to manage your instance.
 
-Log in with this email to open **Instance Settings** from the account menu. You can choose who may create dashboard accounts:
+#### Restrict Dashboard Signups (Optional)
+
+By default, anyone can create a dashboard account. To limit access, open **Instance Settings** and set **Who can sign up?**:
 
 - **Open**: Anyone can sign up.
 - **Restricted**: Only email addresses you add can sign up.
 - **Closed**: No new dashboard accounts can sign up.
 
-Existing dashboard users can always sign in. Instance Settings also links to the Instant Config Explorer for feature flags and advanced configuration.
+Existing dashboard users can always sign in.
 
 ### Configure Google Dashboard Login (Optional)
 
