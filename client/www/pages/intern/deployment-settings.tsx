@@ -825,11 +825,12 @@ function DeploymentSettingsContent() {
     return <FullscreenLoading />;
   }
 
-  const configApp = dashResponse.data.apps.find(
-    (app) => app.id === dashResponse.data.instant_config_app_id,
+  const data = dashResponse.data;
+  const configApp = data.apps.find(
+    (app) => app.id === data.instant_config_app_id,
   );
 
-  if (!dashResponse.data.superuser) {
+  if (!data.superuser) {
     return (
       <p className="text-sm text-gray-600">
         Only the superuser can manage these deployment settings.
