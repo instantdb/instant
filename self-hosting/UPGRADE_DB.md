@@ -62,16 +62,25 @@ instead of deleting anything.
 ```bash
 docker compose down
 
-# Check out and validate the PostgreSQL 17 config before deleting the old volume,
-# so a failed checkout or bad compose file can't leave you with no database. Stop
-# here if either command fails (you may have checked out PG16 for the dump above):
-git checkout <pg17-revision>       # e.g. main
-docker compose config >/dev/null   # validates the compose file; errors are fatal
+# Check out the PostgreSQL 17 revision, then validate its compose config and
+# print the resolved postgres image, all before deleting the old volume so a bad
+# checkout can't leave you with no database (you may have checked out PG16 for
+# the dump above). Stop here if either command fails:
+git checkout <pg17-revision>              # e.g. main
+docker compose config >/dev/null          # validates the compose file; errors are fatal
+docker compose config --images postgres   # prints the resolved postgres image
+```
 
-# Only now that the PG17 config is confirmed, and $PG_VOLUME is verified above:
+Confirm that image tag denotes PostgreSQL 17 (e.g. `postgres:17`). If it still
+shows 16, your checkout didn't switch revisions, so fix that before deleting the
+volume.
+
+```bash
+# Only now that the PG17 config and image are confirmed, and $PG_VOLUME is
+# verified above:
 docker volume rm "$PG_VOLUME"
-docker compose up -d postgres
-# wait until it reports healthy (this creates a fresh, empty `instant` database)
+docker compose up -d --wait postgres
+# --wait blocks until the fresh, empty `instant` database is healthy
 ```
 
 ### 3. Restore the dump
