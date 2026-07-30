@@ -130,11 +130,11 @@ const nextConfig = {
     if (process.env.NEXT_PUBLIC_SELF_HOSTED === 'true') {
       return [
         ...standardRedirects,
-        // redirect any page that isn't /api, /dash, /docs, or /logout
+        // redirect any page that isn't /api, /dash, /docs, /intern, or /logout
         {
           permanent: false,
           source:
-            '/((?!api(?:/.*)?|dash(?:/.*)?|docs(?:/.*)?|logout(?:/.*)?|.*\\.[^/]+$).*)',
+            '/((?!api(?:/.*)?|dash(?:/.*)?|docs(?:/.*)?|intern(?:/.*)?|logout(?:/.*)?|.*\\.[^/]+$).*)',
           destination: '/dash',
         },
       ];
