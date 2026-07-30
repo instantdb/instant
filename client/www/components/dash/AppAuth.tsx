@@ -887,7 +887,9 @@ export function AppAuth({
         <Email
           key={emailFormKey}
           app={app}
-          defaultSenderEmail={data.default_sender_email}
+          defaultSenderEmail={
+            data.default_sender_email ?? 'verify@auth-pm.instantdb.com'
+          }
         />
       </AuthDetailLayout>
     );
