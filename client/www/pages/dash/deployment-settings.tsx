@@ -8,25 +8,26 @@ import { Button, FullscreenLoading, Select, TextInput } from '@/components/ui';
 import config from '@/lib/config';
 import { errorToast, successToast } from '@/lib/toast';
 import { InstantApp } from '@/lib/types';
-import { id, init } from '@instantdb/react';
+import { init } from '@instantdb/react';
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { NextPageWithLayout } from '../_app';
 
 type SignupMode = 'open' | 'restricted' | 'closed';
 
-type SignupSettings = {
+type DashboardSignupsFlag = {
   id: string;
-  mode: SignupMode;
-  name: string;
+  setting: string;
+  value?: {
+    mode?: unknown;
+    allowedEmails?: unknown;
+  };
 };
 
-type AllowedEmail = {
-  id: string;
-  email: string;
-};
-
-const dashboardSignupSettingsId = 'fde92a9e-d803-4718-9266-02d8d7a4fdff';
+const dashboardSignupsFlagId = 'fde92a9e-d803-4718-9266-02d8d7a4fdff';
+const dashboardSignupsSetting = 'dashboard-signups';
+const dashboardSignupsDescription =
+  'Controls who can create dashboard accounts for this Instant deployment.';
 
 const signupModeOptions: {
   label: string;
@@ -64,9 +65,8 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
   const [newEmail, setNewEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const { data, error, isLoading } = db.useQuery({
-    'dashboard-allowed-emails': {},
-    'dashboard-signup-settings': {
-      $: { where: { id: dashboardSignupSettingsId } },
+    flags: {
+      $: { where: { setting: dashboardSignupsSetting } },
     },
   });
 
@@ -86,27 +86,48 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
     );
   }
 
-  const settings = data?.['dashboard-signup-settings']?.[0] as
-    | SignupSettings
+  const dashboardSignupsFlag = data?.flags?.[0] as
+    | DashboardSignupsFlag
     | undefined;
-  const mode = settings?.mode ?? 'open';
+  const storedMode = dashboardSignupsFlag?.value?.mode;
+  const mode = signupModeOptions.some((option) => option.value === storedMode)
+    ? (storedMode as SignupMode)
+    : 'open';
+  const storedAllowedEmails = dashboardSignupsFlag?.value?.allowedEmails;
   const allowedEmails = [
-    ...((data?.['dashboard-allowed-emails'] as AllowedEmail[] | undefined) ??
-      []),
-  ].sort((a, b) => a.email.localeCompare(b.email));
+    ...new Set(
+      Array.isArray(storedAllowedEmails)
+        ? storedAllowedEmails
+            .filter((email): email is string => typeof email === 'string')
+            .map((email) => email.trim().toLowerCase())
+            .filter(Boolean)
+        : [],
+    ),
+  ].sort((a, b) => a.localeCompare(b));
   const selectedMode = signupModeOptions.find(
     (option) => option.value === mode,
   );
 
+  const saveSignupSettings = (
+    nextMode: SignupMode,
+    nextAllowedEmails: string[],
+  ) => {
+    return db.transact(
+      db.tx.flags[dashboardSignupsFlag?.id ?? dashboardSignupsFlagId].update({
+        setting: dashboardSignupsSetting,
+        description: dashboardSignupsDescription,
+        value: {
+          mode: nextMode,
+          allowedEmails: nextAllowedEmails,
+        },
+      }),
+    );
+  };
+
   const updateMode = async (nextMode: SignupMode) => {
     setSaving(true);
     try {
-      await db.transact(
-        db.tx['dashboard-signup-settings'][dashboardSignupSettingsId].update({
-          mode: nextMode,
-          name: 'default',
-        }),
-      );
+      await saveSignupSettings(nextMode, allowedEmails);
       successToast('Signup settings updated.');
     } catch {
       errorToast('Could not update signup settings.');
@@ -124,13 +145,16 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
       errorToast('Enter a valid email address.');
       return;
     }
+    if (allowedEmails.includes(normalizedEmail)) {
+      errorToast('This email address is already allowed.');
+      return;
+    }
 
     setSaving(true);
     try {
-      await db.transact(
-        db.tx['dashboard-allowed-emails'][id()].update({
-          email: normalizedEmail,
-        }),
+      await saveSignupSettings(
+        mode,
+        [...allowedEmails, normalizedEmail].sort(),
       );
       setNewEmail('');
       successToast(`${normalizedEmail} can now sign up.`);
@@ -141,13 +165,14 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
     }
   };
 
-  const removeEmail = async (allowedEmail: AllowedEmail) => {
+  const removeEmail = async (allowedEmail: string) => {
     setSaving(true);
     try {
-      await db.transact(
-        db.tx['dashboard-allowed-emails'][allowedEmail.id].delete(),
+      await saveSignupSettings(
+        mode,
+        allowedEmails.filter((email) => email !== allowedEmail),
       );
-      successToast(`${allowedEmail.email} removed.`);
+      successToast(`${allowedEmail} removed.`);
     } catch {
       errorToast('Could not remove this email address.');
     } finally {
@@ -208,12 +233,10 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
               {allowedEmails.length ? (
                 allowedEmails.map((allowedEmail) => (
                   <div
-                    key={allowedEmail.id}
+                    key={allowedEmail}
                     className="flex items-center justify-between gap-4 px-3 py-2"
                   >
-                    <span className="truncate text-sm">
-                      {allowedEmail.email}
-                    </span>
+                    <span className="truncate text-sm">{allowedEmail}</span>
                     <Button
                       variant="subtle"
                       size="mini"
@@ -238,7 +261,7 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
         <div>
           <h2 className="font-semibold">Advanced configuration</h2>
           <p className="mt-1 text-sm text-gray-600 dark:text-neutral-400">
-            Open Instant Config to manage feature flags and other instance
+            Open Instant Config to manage feature flags and other deployment
             configuration.
           </p>
         </div>

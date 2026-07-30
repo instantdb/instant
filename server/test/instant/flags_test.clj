@@ -12,12 +12,23 @@
   (testing "settings and allowed emails are normalized"
     (let [result
           (flags/transform-query-result
-           {"dashboard-signup-settings" [{"mode" "restricted"}]
-            "dashboard-allowed-emails" [{"email" " Admin@Example.com "}
-                                        {"email" "person@example.com"}]})]
+           {"flags" [{"setting" "dashboard-signups"
+                      "value" {"mode" "restricted"
+                               "allowedEmails" [" Admin@Example.com "
+                                                "person@example.com"
+                                                nil]}}]})]
       (is (= :restricted (:dashboard-signup-mode result)))
       (is (= #{"admin@example.com" "person@example.com"}
              (:dashboard-allowed-emails result)))))
+
+  (testing "malformed settings fall back to open"
+    (let [result
+          (flags/transform-query-result
+           {"flags" [{"setting" "dashboard-signups"
+                      "value" {"mode" "invalid"
+                               "allowedEmails" "person@example.com"}}]})]
+      (is (= :open (:dashboard-signup-mode result)))
+      (is (= #{} (:dashboard-allowed-emails result)))))
 
   (testing "the policy matches each mode"
     (with-redefs [flags/query-result

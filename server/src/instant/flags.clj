@@ -8,7 +8,6 @@
    [clojure.tools.logging :as log]
    [clojure.walk :as w]
    [instant.config :as config]
-   [instant.config-app :as config-app]
    [instant.util.json :as json]
    [instant.util.uuid :as uuid-util])
   (:import
@@ -20,9 +19,6 @@
 (defonce query-results (atom {}))
 
 (def query {:friend-emails {}
-            :dashboard-allowed-emails {}
-            :dashboard-signup-settings
-            {:$ {:where {:id (str config-app/dashboard-signup-settings-id)}}}
             :power-user-emails {}
             :storage-whitelist {}
             :storage-block-list {}
@@ -42,6 +38,9 @@
             :flags {}
             :handle-receive-timeout {}
             :query-modifiers {}})
+
+(def dashboard-signup-modes
+  #{"open" "restricted" "closed"})
 
 (def toggle-defaults {:pg-hints-by-default (= :test (config/get-env))})
 
@@ -237,20 +236,25 @@
 
                                 {}
                                 (get result "query-modifiers"))
+        dashboard-signups (some-> (get flags :dashboard-signups)
+                                  w/keywordize-keys)
         dashboard-signup-mode
-        (let [mode (-> result
-                       (get "dashboard-signup-settings")
-                       first
-                       (get "mode"))]
-          (if (contains? config-app/dashboard-signup-modes mode)
-            (keyword mode)
+        (let [mode (get dashboard-signups :mode)
+              mode-name (if (keyword? mode) (name mode) mode)]
+          (if (contains? dashboard-signup-modes mode-name)
+            (keyword mode-name)
             :open))
         dashboard-allowed-emails
-        (set (keep (fn [item]
-                     (some-> (get item "email")
-                             string/lower-case
-                             string/trim))
-                   (get result "dashboard-allowed-emails")))]
+        (let [emails (get dashboard-signups :allowedEmails)]
+          (if-not (sequential? emails)
+            #{}
+            (set (keep (fn [email]
+                         (when (string? email)
+                           (some-> email
+                                   string/lower-case
+                                   string/trim
+                                   not-empty)))
+                       emails))))]
     {:emails emails
      :dashboard-allowed-emails dashboard-allowed-emails
      :dashboard-signup-mode dashboard-signup-mode

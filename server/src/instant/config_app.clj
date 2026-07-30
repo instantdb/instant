@@ -1,11 +1,5 @@
 (ns instant.config-app)
 
-(def dashboard-signup-settings-id
-  #uuid "fde92a9e-d803-4718-9266-02d8d7a4fdff")
-
-(def dashboard-signup-modes
-  #{"open" "restricted" "closed"})
-
 (defn- attr
   ([value-type]
    (attr value-type {}))
@@ -19,13 +13,6 @@
   {:entities
    {:app-deletion-sweeper
     {:attrs {"disabled?" (attr "boolean")}}
-
-    :dashboard-allowed-emails
-    {:attrs {"email" (attr "string" {:indexed true :unique true})}}
-
-    :dashboard-signup-settings
-    {:attrs {"mode" (attr "string")
-             "name" (attr "string" {:indexed true :unique true})}}
 
     :e2e-logging
     {:attrs {"invalidator-rate" (attr "number")}}

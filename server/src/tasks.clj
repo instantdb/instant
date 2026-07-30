@@ -151,28 +151,7 @@
        {:skip-app-status-write-check? true}))
     (when-not (rule-model/get-by-app-id conn {:app-id app-id})
       (rule-model/put! conn {:app-id app-id
-                             :code config-app/rules}))
-    (when-not
-     (sql/select-one
-      ::get-dashboard-signup-settings
-      conn
-      ["SELECT 1
-          FROM triples
-         WHERE app_id = ?::uuid
-           AND entity_id = ?::uuid
-         LIMIT 1"
-       app-id
-       config-app/dashboard-signup-settings-id])
-      (let [attrs (attr-model/get-by-app-id conn app-id)]
-        (tx/transact-without-tx-conn!
-         conn
-         attrs
-         app-id
-         [{:id config-app/dashboard-signup-settings-id
-           :etype "dashboard-signup-settings"
-           :name "default"
-           :mode "open"}]
-         {:skip-app-status-write-check? true})))))
+                             :code config-app/rules}))))
 
 (defn bootstrap-config-app! []
   (let [app-id (config/instant-config-app-id)
