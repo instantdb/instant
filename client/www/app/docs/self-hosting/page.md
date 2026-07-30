@@ -108,15 +108,15 @@ The `_DOMAIN` variables are only used by the Caddy reverse proxy, so if you are 
 
 The MinIO bucket is private by default. Files are accessed through Instant-generated signed URLs.
 
-### Configure the Instance Superuser
+### Configure the Deployment Superuser
 
-The instance superuser can manage settings for your entire Instant instance. Set `INSTANT_BOOTSTRAP_SUPERUSER_EMAIL` to the email address of the person who should administer it:
+The deployment superuser can manage settings for your entire self-hosted deployment. Set `INSTANT_BOOTSTRAP_SUPERUSER_EMAIL` to the email address of the person who should administer it:
 
 ```shell
 INSTANT_BOOTSTRAP_SUPERUSER_EMAIL=admin@example.com
 ```
 
-Instant creates this dashboard user on the first startup. Log in with this email and open **Deployment Settings** from the account menu to manage your installation.
+Instant creates this dashboard user on the first startup. Log in with this email and open **Deployment Settings** from the account menu to manage your deployment.
 
 #### Restrict Dashboard Signups (Optional)
 
@@ -188,7 +188,7 @@ You can use this command to print out recent logs from the server (last 50 lines
 docker compose logs server -n 50
 ```
 
-### Using the self-hosted instance with instant-cli
+### Using your self-hosted deployment with instant-cli
 
 To use the Instant CLI with your local backend, you can set the `INSTANT_CLI_API_URI` environment variable to `http://localhost:8888`. For example:
 
