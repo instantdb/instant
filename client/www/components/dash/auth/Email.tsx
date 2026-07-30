@@ -22,10 +22,6 @@ import { useFetchedDash } from '../MainDashLayout';
 import { useDarkMode } from '../DarkModeToggle';
 import { useCustomSenderVerification } from '@/lib/hooks/useCustomSenderVerification';
 
-// Shown when the app hasn't set up a custom sender. Matches the server default
-// (config/app-email-sender); env overrides won't change what's actually sent.
-const DEFAULT_SENDER_EMAIL = 'verify@auth-pm.instantdb.com';
-
 export type EmailValues = {
   from: string;
   subject: string;
@@ -85,7 +81,13 @@ export function substituteSampleVars(
     );
 }
 
-export function Email({ app }: { app: InstantApp }) {
+export function Email({
+  app,
+  defaultSenderEmail,
+}: {
+  app: InstantApp;
+  defaultSenderEmail: string;
+}) {
   const dashResponse = useFetchedDash();
   const template = app.magic_code_email_template;
   const token = useContext(TokenContext);
@@ -365,7 +367,7 @@ export function Email({ app }: { app: InstantApp }) {
             ) : (
               <div className="flex items-center justify-between gap-2 rounded-sm bg-gray-50 px-3 py-2 text-sm dark:bg-neutral-800">
                 <span className="text-gray-600 dark:text-neutral-300">
-                  {DEFAULT_SENDER_EMAIL}
+                  {defaultSenderEmail}
                 </span>
                 <button
                   type="button"
