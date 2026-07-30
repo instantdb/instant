@@ -8,7 +8,7 @@ import { Button, FullscreenLoading, Select, TextInput } from '@/components/ui';
 import config from '@/lib/config';
 import { errorToast, successToast } from '@/lib/toast';
 import { InstantApp } from '@/lib/types';
-import { ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ChevronRightIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { id, init } from '@instantdb/react';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -164,6 +164,7 @@ function SettingsSection({
 function StringListEditor({
   items,
   value,
+  inputClassName,
   placeholder,
   emptyMessage,
   disabled,
@@ -173,6 +174,7 @@ function StringListEditor({
 }: {
   items: string[];
   value: string;
+  inputClassName: string;
   placeholder: string;
   emptyMessage: string;
   disabled: boolean;
@@ -183,19 +185,24 @@ function StringListEditor({
   return (
     <>
       <form
-        className="flex max-w-xl items-center gap-2"
+        className="flex w-full items-center gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           onAdd();
         }}
       >
-        <TextInput
-          className="grow"
-          placeholder={placeholder}
-          value={value}
-          onChange={onChange}
-        />
-        <Button type="submit" size="mini" disabled={disabled || !value.trim()}>
+        <div className={inputClassName}>
+          <TextInput
+            placeholder={placeholder}
+            value={value}
+            onChange={onChange}
+          />
+        </div>
+        <Button
+          type="submit"
+          variant="secondary"
+          disabled={disabled || !value.trim()}
+        >
           Add
         </Button>
       </form>
@@ -207,14 +214,16 @@ function StringListEditor({
               className="flex items-center justify-between gap-4 px-3 py-2"
             >
               <span className="truncate font-mono text-xs">{item}</span>
-              <Button
-                variant="subtle"
-                size="mini"
+              <button
+                type="button"
+                aria-label={`Remove ${item}`}
+                title={`Remove ${item}`}
                 disabled={disabled}
+                className="cursor-pointer text-gray-400 hover:text-red-500 disabled:cursor-default disabled:text-gray-300 dark:text-neutral-500 dark:hover:text-red-400 dark:disabled:text-neutral-700"
                 onClick={() => onRemove(item)}
               >
-                Remove
-              </Button>
+                <TrashIcon className="size-4" />
+              </button>
             </div>
           ))
         ) : (
@@ -222,6 +231,47 @@ function StringListEditor({
         )}
       </div>
     </>
+  );
+}
+
+function NumericSettingField({
+  label,
+  value,
+  unit,
+  inputClassName,
+  helper,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  inputClassName: string;
+  helper?: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-end gap-2">
+        <TextInput
+          className={inputClassName}
+          label={label}
+          inputMode="numeric"
+          value={value}
+          disabled={disabled}
+          onChange={onChange}
+        />
+        <span className="pb-1 text-sm text-gray-500 dark:text-neutral-400">
+          {unit}
+        </span>
+      </div>
+      {helper ? (
+        <p className="mt-1 text-xs text-gray-500 dark:text-neutral-400">
+          {helper}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -244,6 +294,8 @@ function InstantConfigSettingsContent({
   const [refreshThrottleInput, setRefreshThrottleInput] = useState(
     String(defaults.refreshThrottleMs),
   );
+  const [authenticationSaved, setAuthenticationSaved] = useState(false);
+  const [refreshThrottleSaved, setRefreshThrottleSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const { data, error, isLoading } = db.useQuery({ flags: {} });
 
@@ -283,6 +335,11 @@ function InstantConfigSettingsContent({
   const selectedMode = signupModeOptions.find(
     (option) => option.value === mode,
   );
+  const authenticationDirty =
+    magicCodeRateLimitInput !== String(magicCodeRateLimit) ||
+    magicCodeExpiryInput !== String(magicCodeExpiry);
+  const refreshThrottleDirty =
+    refreshThrottleInput !== String(refreshThrottleMs);
 
   useEffect(() => {
     setMagicCodeRateLimitInput(String(magicCodeRateLimit));
@@ -355,6 +412,7 @@ function InstantConfigSettingsContent({
         flagUpdate(flagSettings.magicCodeRateLimit, nextRateLimit),
         flagUpdate(flagSettings.magicCodeExpiry, nextExpiry),
       ]);
+      setAuthenticationSaved(true);
       successToast('App authentication settings updated.');
     } catch {
       errorToast('Could not update app authentication settings.');
@@ -467,6 +525,7 @@ function InstantConfigSettingsContent({
       await db.transact(
         flagUpdate(flagSettings.refreshThrottleMs, nextThrottleMs),
       );
+      setRefreshThrottleSaved(true);
       successToast('Refresh throttle updated.');
     } catch {
       errorToast('Could not update the refresh throttle.');
@@ -566,6 +625,7 @@ function InstantConfigSettingsContent({
               <StringListEditor
                 items={allowedEmails}
                 value={newEmail}
+                inputClassName="min-w-0 flex-1 sm:w-[26rem] sm:flex-none"
                 placeholder="person@example.com"
                 emptyMessage="No email addresses have been added."
                 disabled={saving}
@@ -583,52 +643,63 @@ function InstantConfigSettingsContent({
         description="Set magic-code defaults across every app in this deployment."
       >
         <form
-          className="grid gap-4 md:grid-cols-2"
+          className="flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault();
             void saveAuthenticationSettings();
           }}
         >
-          <div>
-            <TextInput
-              label="Requests per hour"
-              inputMode="numeric"
+          <div className="flex flex-wrap gap-x-8 gap-y-4">
+            <NumericSettingField
+              label="Requests per email per hour"
               value={magicCodeRateLimitInput}
+              unit="requests per hour"
+              inputClassName="w-28"
+              helper="Set to 0 to disable magic-code authentication."
               disabled={saving}
-              onChange={setMagicCodeRateLimitInput}
+              onChange={(value) => {
+                setMagicCodeRateLimitInput(value);
+                setAuthenticationSaved(false);
+              }}
             />
-            <p className="mt-1 text-xs text-gray-500 dark:text-neutral-400">
-              Per email address in each app. Set to 0 to disable magic-code
-              authentication.
-            </p>
-          </div>
-          <div>
-            <TextInput
-              label="Code expiration (minutes)"
-              inputMode="numeric"
+            <NumericSettingField
+              label="Code expires after"
               value={magicCodeExpiryInput}
+              unit="minutes"
+              inputClassName="w-36"
+              helper="Apps use this value unless they configure their own expiration."
               disabled={saving}
-              onChange={setMagicCodeExpiryInput}
+              onChange={(value) => {
+                setMagicCodeExpiryInput(value);
+                setAuthenticationSaved(false);
+              }}
             />
-            <p className="mt-1 text-xs text-gray-500 dark:text-neutral-400">
-              Apps use this value unless they configure their own expiration.
-            </p>
           </div>
-          <div className="md:col-span-2">
-            <Button type="submit" size="mini" disabled={saving}>
+          <div className="flex items-center gap-2">
+            <Button
+              type="submit"
+              variant={authenticationDirty ? 'primary' : 'secondary'}
+              disabled={saving || !authenticationDirty}
+            >
               Save authentication settings
             </Button>
+            {authenticationSaved && !authenticationDirty ? (
+              <span className="text-xs text-gray-500 dark:text-neutral-400">
+                Saved
+              </span>
+            ) : null}
           </div>
         </form>
       </SettingsSection>
 
       <SettingsSection
-        title="Webhook networking"
+        title="Private webhook destinations"
         description="Allow trusted private or internal IP addresses for webhook destinations. Private destinations stay blocked by default."
       >
         <StringListEditor
           items={webhookPrivateIps}
           value={newWebhookIp}
+          inputClassName="min-w-0 flex-1 sm:w-60 sm:flex-none"
           placeholder="10.0.0.25"
           emptyMessage="No private IP addresses are allowed."
           disabled={saving}
@@ -639,29 +710,10 @@ function InstantConfigSettingsContent({
       </SettingsSection>
 
       <SettingsSection
-        title="Realtime performance"
+        title="Realtime throttling"
         description="Throttle refreshes for selected apps to reduce burst load. Throttling increases realtime latency."
       >
-        <form
-          className="flex max-w-md items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void saveRefreshThrottle();
-          }}
-        >
-          <TextInput
-            className="grow"
-            label="Throttle interval (milliseconds)"
-            inputMode="numeric"
-            value={refreshThrottleInput}
-            disabled={saving}
-            onChange={setRefreshThrottleInput}
-          />
-          <Button type="submit" size="mini" disabled={saving}>
-            Save interval
-          </Button>
-        </form>
-        <div className="border-t border-gray-200 pt-4 dark:border-neutral-700">
+        <div>
           <h3 className="text-sm font-medium">Throttled app IDs</h3>
           <p className="mt-1 mb-2 text-sm text-gray-500 dark:text-neutral-400">
             Find an app ID in its dashboard URL.
@@ -669,6 +721,7 @@ function InstantConfigSettingsContent({
           <StringListEditor
             items={refreshThrottledApps}
             value={newThrottledAppId}
+            inputClassName="min-w-0 flex-1"
             placeholder="00000000-0000-0000-0000-000000000000"
             emptyMessage="No apps are throttled."
             disabled={saving}
@@ -677,6 +730,39 @@ function InstantConfigSettingsContent({
             onRemove={(appId) => void removeThrottledApp(appId)}
           />
         </div>
+        <form
+          className="flex flex-col gap-3 border-t border-gray-200 pt-4 dark:border-neutral-700"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void saveRefreshThrottle();
+          }}
+        >
+          <NumericSettingField
+            label="Throttle interval"
+            value={refreshThrottleInput}
+            unit="ms"
+            inputClassName="w-28"
+            disabled={saving}
+            onChange={(value) => {
+              setRefreshThrottleInput(value);
+              setRefreshThrottleSaved(false);
+            }}
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              type="submit"
+              variant={refreshThrottleDirty ? 'primary' : 'secondary'}
+              disabled={saving || !refreshThrottleDirty}
+            >
+              Save interval
+            </Button>
+            {refreshThrottleSaved && !refreshThrottleDirty ? (
+              <span className="text-xs text-gray-500 dark:text-neutral-400">
+                Saved
+              </span>
+            ) : null}
+          </div>
+        </form>
       </SettingsSection>
 
       <Link
@@ -733,7 +819,7 @@ const DeploymentSettingsPage: NextPageWithLayout = () => {
       <>
         <BackToAppsButton />
         <div className="mx-auto w-full px-8 pt-8 md:max-w-4xl">
-          <h1 className="text-lg font-semibold">Deployment Settings</h1>
+          <h1 className="text-xl font-semibold">Deployment Settings</h1>
           <p className="mt-2 text-sm text-gray-600">
             Only the superuser can manage these deployment settings.
           </p>
@@ -747,7 +833,7 @@ const DeploymentSettingsPage: NextPageWithLayout = () => {
       <>
         <BackToAppsButton />
         <div className="mx-auto w-full px-8 pt-8 md:max-w-4xl">
-          <h1 className="text-lg font-semibold">Deployment Settings</h1>
+          <h1 className="text-xl font-semibold">Deployment Settings</h1>
           <p className="mt-2 text-sm text-red-600">
             Instant Config is not available for this account.
           </p>
@@ -761,7 +847,7 @@ const DeploymentSettingsPage: NextPageWithLayout = () => {
       <BackToAppsButton />
       <main className="mx-auto w-full max-w-2xl overflow-y-auto p-4">
         <div className="mb-6">
-          <h1 className="text-lg font-semibold">Deployment Settings</h1>
+          <h1 className="text-xl font-semibold">Deployment Settings</h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-neutral-400">
             Manage access and configuration for this self-hosted deployment.
           </p>
