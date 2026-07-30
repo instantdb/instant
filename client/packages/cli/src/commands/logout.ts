@@ -1,23 +1,22 @@
 import { Effect } from 'effect';
-import { getAuthPaths } from '../util/getAuthPaths.ts';
-import { FileSystem } from '@effect/platform';
 import chalk from 'chalk';
-import { SystemError } from '@effect/platform/Error';
+import { removeAuthToken } from '../auth/index.ts';
+import { getBaseUrl } from '../lib/config.ts';
 
 export const logoutCommand = Effect.fn(function* () {
-  const { authConfigFilePath } = getAuthPaths();
-  const fs = yield* FileSystem.FileSystem;
-
-  yield* Effect.matchEffect(fs.remove(authConfigFilePath), {
-    onFailure: (e) =>
-      Effect.gen(function* () {
-        if (e instanceof SystemError && e.reason === 'NotFound') {
-          yield* Effect.log(chalk.green('You were already logged out!'));
-        } else {
-          yield* Effect.logError(chalk.red('Failed to logout: ' + e.message));
-        }
-      }),
-    onSuccess: () =>
-      Effect.log(chalk.green('Successfully logged out from Instant!')),
-  });
+  const apiURI = yield* getBaseUrl;
+  yield* Effect.tryPromise(() => removeAuthToken(apiURI)).pipe(
+    Effect.matchEffect({
+      onFailure: (error) =>
+        Effect.logError(chalk.red(`Failed to logout: ${error.message}`)),
+      onSuccess: (removed) =>
+        Effect.log(
+          chalk.green(
+            removed
+              ? 'Successfully logged out from Instant!'
+              : 'You were already logged out!',
+          ),
+        ),
+    }),
+  );
 });

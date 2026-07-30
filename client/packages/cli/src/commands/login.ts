@@ -3,7 +3,7 @@ import { Effect } from 'effect';
 import openInBrowser from 'open';
 import { loginDef } from '../index.ts';
 import type { OptsFromCommand } from '../index.ts';
-import { getDashUrl } from '../lib/http.ts';
+import { getDashUrl } from '../lib/config.ts';
 import {
   getLoginTicketAndSecret,
   saveConfigAuthToken,
@@ -31,7 +31,7 @@ export const loginCommand = Effect.fn(function* (
     const ok = yield* promptOk(
       {
         promptText:
-          'This will open instantdb.com in your browser, OK to proceed?',
+          'This will open your Instant dashboard in your browser, OK to proceed?',
       },
       true,
     );

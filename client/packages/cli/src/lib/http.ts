@@ -1,11 +1,12 @@
 import { HttpClient, HttpClientRequest } from '@effect/platform';
 import { version } from '@instantdb/version';
-import { Config, Context, Data, Effect, Layer, Option, Schema } from 'effect';
+import { Context, Data, Effect, Layer, Schema } from 'effect';
 import { AuthToken } from '../context/authToken.ts';
 import { TimeoutException } from 'effect/Cause';
 import { RequestError } from '@effect/platform/HttpClientError';
-import { readInstantConfigFile } from '../util/instantConfig.ts';
-import { BadArgsError } from '../errors.ts';
+import { getBaseUrl } from './config.ts';
+
+export { getBaseUrl, getDashUrl } from './config.ts';
 
 export class InstantHttp extends Context.Tag(
   'instant-cli/new/lib/http/InstantHttp',
@@ -48,15 +49,6 @@ class InstantTypicalHttpErrorResponse extends Schema.Struct({
     Schema.optional,
   ),
 }) {}
-
-const HttpUrl = Schema.URL.pipe(
-  Schema.filter(
-    (url) =>
-      url.protocol === 'http:' ||
-      url.protocol === 'https:' ||
-      'Expected an HTTP(S) URL',
-  ),
-);
 
 export const InstantHttpLive = Layer.effect(
   InstantHttp,
@@ -134,59 +126,3 @@ export const InstantHttpAuthedLive = Layer.effect(
     );
   }),
 );
-
-export const getBaseUrl = Effect.gen(function* () {
-  const setEnv = yield* Config.string('INSTANT_CLI_API_URI').pipe(
-    Config.option,
-  );
-  const dev = yield* Config.boolean('INSTANT_CLI_DEV').pipe(
-    Config.withDefault(false),
-  );
-
-  if (Option.isSome(setEnv)) {
-    return setEnv.value;
-  }
-
-  const instantConfig = yield* Effect.tryPromise(readInstantConfigFile);
-  if (instantConfig?.apiURI !== undefined) {
-    yield* Schema.decodeUnknown(HttpUrl)(instantConfig.apiURI).pipe(
-      Effect.mapError(() =>
-        BadArgsError.make({
-          message:
-            'Invalid apiURI in instant.config.ts. Expected a valid HTTP(S) URL.',
-        }),
-      ),
-    );
-    return instantConfig.apiURI;
-  }
-
-  return dev ? 'http://localhost:8888' : 'https://api.instantdb.com';
-});
-
-export const getDashUrl = Effect.gen(function* () {
-  const setEnv = yield* Config.string('INSTANT_CLI_DASH_URI').pipe(
-    Config.option,
-  );
-  const dev = yield* Config.boolean('INSTANT_CLI_DEV').pipe(
-    Config.withDefault(false),
-  );
-
-  if (Option.isSome(setEnv)) {
-    return setEnv.value;
-  }
-
-  const instantConfig = yield* Effect.tryPromise(readInstantConfigFile);
-  if (instantConfig?.dashURI !== undefined) {
-    yield* Schema.decodeUnknown(HttpUrl)(instantConfig.dashURI).pipe(
-      Effect.mapError(() =>
-        BadArgsError.make({
-          message:
-            'Invalid dashURI in instant.config.ts. Expected a valid HTTP(S) URL.',
-        }),
-      ),
-    );
-    return instantConfig.dashURI;
-  }
-
-  return dev ? 'http://localhost:3000' : 'https://instantdb.com';
-});
