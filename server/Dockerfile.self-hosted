@@ -25,8 +25,6 @@ FROM amazoncorretto:26
 
 WORKDIR /app
 
-ENV INSTANT_CONFIG_APP_ID=24a4d71b-7bb2-4630-9aee-01146af26239
-
 # Install dependencies and golang-migrate
 RUN yum -y install tar gzip && \
     ARCH=$(uname -m) && \
