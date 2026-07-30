@@ -28,7 +28,6 @@ type InstantConfigDb = ReturnType<typeof init>;
 
 const flagSettings = {
   dashboardSignups: {
-    id: 'fde92a9e-d803-4718-9266-02d8d7a4fdff',
     setting: 'dashboard-signups',
     description:
       'Controls who can create dashboard accounts for this Instant deployment.',
@@ -367,14 +366,13 @@ function InstantConfigSettingsContent({
 
   const flagUpdate = (
     definition: {
-      id?: string;
       setting: string;
       description: string;
     },
     value: unknown,
   ) => {
     const storedFlag = flagBySetting.get(definition.setting);
-    return db.tx.flags[storedFlag?.id ?? definition.id ?? id()].update({
+    return db.tx.flags[storedFlag?.id ?? id()].update({
       setting: definition.setting,
       description: definition.description,
       value,
