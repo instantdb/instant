@@ -1,5 +1,6 @@
 (ns instant.model.app-auth-data
   (:require
+   [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog-ops :refer [query-op]]))
@@ -56,4 +57,5 @@
                         $oauthClients)]
        {:data {"oauth_service_providers" providers
                "oauth_clients" clients
-               "authorized_redirect_origins" redirect-origins}}))))
+               "authorized_redirect_origins" redirect-origins
+               "default_sender_email" (:email (config/app-email-sender))}}))))

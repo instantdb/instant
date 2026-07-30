@@ -220,6 +220,7 @@ export type AppsAuthResponse = {
   authorized_redirect_origins: AuthorizedOrigin[] | null | undefined;
   oauth_service_providers: OAuthServiceProvider[] | null | undefined;
   oauth_clients: OAuthClient[] | null | undefined;
+  default_sender_email: string;
 };
 
 export type SubscriptionName = 'Free' | 'Pro';

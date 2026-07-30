@@ -884,7 +884,13 @@ export function AppAuth({
         title="Magic code email"
         description="The email your users receive with their sign-in code."
       >
-        <Email key={emailFormKey} app={app} />
+        <Email
+          key={emailFormKey}
+          app={app}
+          defaultSenderEmail={
+            data.default_sender_email ?? 'verify@auth-pm.instantdb.com'
+          }
+        />
       </AuthDetailLayout>
     );
   }
