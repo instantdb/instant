@@ -24,6 +24,8 @@ type ConfigFlag = {
   value?: unknown;
 };
 
+type InstantConfigDb = ReturnType<typeof init>;
+
 const flagSettings = {
   dashboardSignups: {
     id: 'fde92a9e-d803-4718-9266-02d8d7a4fdff',
@@ -223,17 +225,13 @@ function StringListEditor({
   );
 }
 
-function InstantConfigSettings({ app }: { app: InstantApp }) {
-  const [db] = useState(() =>
-    init({
-      appId: app.id,
-      apiURI: config.apiURI,
-      websocketURI: config.websocketURI,
-      // @ts-expect-error Instant's dashboard uses the app admin token.
-      __adminToken: app.admin_token,
-      disableValidation: true,
-    }),
-  );
+function InstantConfigSettingsContent({
+  app,
+  db,
+}: {
+  app: InstantApp;
+  db: InstantConfigDb;
+}) {
   const [newEmail, setNewEmail] = useState('');
   const [magicCodeRateLimitInput, setMagicCodeRateLimitInput] = useState(
     String(defaults.magicCodeRateLimit),
@@ -285,10 +283,6 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
   const selectedMode = signupModeOptions.find(
     (option) => option.value === mode,
   );
-
-  useEffect(() => {
-    return () => db.core.shutdown();
-  }, [db]);
 
   useEffect(() => {
     setMagicCodeRateLimitInput(String(magicCodeRateLimit));
@@ -702,6 +696,30 @@ function InstantConfigSettings({ app }: { app: InstantApp }) {
       </Link>
     </div>
   );
+}
+
+function InstantConfigSettings({ app }: { app: InstantApp }) {
+  const [db, setDb] = useState<InstantConfigDb | null>(null);
+
+  useEffect(() => {
+    const db = init({
+      appId: app.id,
+      apiURI: config.apiURI,
+      websocketURI: config.websocketURI,
+      // @ts-expect-error Instant's dashboard uses the app admin token.
+      __adminToken: app.admin_token,
+      disableValidation: true,
+    });
+
+    setDb(db);
+    return () => db.core.shutdown();
+  }, [app.id, app.admin_token]);
+
+  if (!db) {
+    return <FullscreenLoading />;
+  }
+
+  return <InstantConfigSettingsContent app={app} db={db} />;
 }
 
 const DeploymentSettingsPage: NextPageWithLayout = () => {

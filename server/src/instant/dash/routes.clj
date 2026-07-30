@@ -428,13 +428,14 @@
         orgs (org-model/get-all-for-user {:user-id id})
         profile (instant-profile-model/get-by-user-id {:user-id id})
         invites (member-invites-model/get-pending-for-invitee {:email email})]
-    (response/ok {:apps apps
-                  :instant_config_app_id instant-config-app-id
-                  :superuser superuser
-                  :orgs orgs
-                  :profile profile
-                  :invites invites
-                  :user {:id id :email email}})))
+    (response/ok
+     (cond-> {:apps apps
+              :superuser superuser
+              :orgs orgs
+              :profile profile
+              :invites invites
+              :user {:id id :email email}}
+       superuser (assoc :instant_config_app_id instant-config-app-id)))))
 
 (defn me-get [req]
   (let [user (req->auth-user! req)]

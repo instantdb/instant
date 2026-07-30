@@ -31,6 +31,34 @@
 
 (use-fixtures :each silence-routes-exceptions)
 
+(deftest dash-only-exposes-config-app-id-to-superuser
+  (with-user
+    (fn [superuser]
+      (with-user
+        (fn [other-user]
+          (with-empty-app
+            (:id superuser)
+            (fn [config-app]
+              (with-redefs [config/instant-config-app-id
+                            (constantly (:id config-app))]
+                (let [get-dash (fn [user]
+                                 (-> (http/get
+                                      (str config/server-origin "/dash")
+                                      {:headers
+                                       {:Authorization
+                                        (str "Bearer "
+                                             (:refresh-token user))}
+                                       :as :json})
+                                     :body))
+                      superuser-dash (get-dash superuser)
+                      other-user-dash (get-dash other-user)]
+                  (is (:superuser superuser-dash))
+                  (is (= (str (:id config-app))
+                         (:instant_config_app_id superuser-dash)))
+                  (is (false? (:superuser other-user-dash)))
+                  (is (not (contains? other-user-dash
+                                      :instant_config_app_id))))))))))))
+
 (deftest app-invites-work
   (with-redefs [config/postmark-send-enabled? (constantly false)]
     (with-user
