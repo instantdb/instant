@@ -4,22 +4,10 @@ import { findClaudePath } from './claude.js';
 import { version } from '@instantdb/version';
 import { coerceAppName, validateAppName } from './utils/validateAppName.js';
 import { renderUnwrap, UI } from 'instant-cli/ui';
+import { projectBases, type ProjectBase } from './projectBase.js';
 
 export type Project = {
-  base:
-    | 'next-js-app-dir'
-    | 'vite-react'
-    | 'vite-vanilla'
-    | 'expo'
-    | 'tanstack-start'
-    | 'tanstack-start-with-tanstack-query'
-    | 'bun-react'
-    | 'solidjs-vite'
-    | 'sveltekit'
-    | 'vue-vite'
-    | 'vercel-ai-sdk'
-    | 'ai-chat'
-    | 'python-script';
+  base: ProjectBase;
   ruleFiles:
     | 'cursor'
     | 'claude'
@@ -93,21 +81,7 @@ export const runCli = async (): Promise<Project> => {
       new Option(
         '-b --base <template>',
         'The base template to scaffold from',
-      ).choices([
-        'next-js-app-dir',
-        'vite-react',
-        'vite-vanilla',
-        'expo',
-        'bun-react',
-        'tanstack-start',
-        'tanstack-start-with-tanstack-query',
-        'solidjs-vite',
-        'sveltekit',
-        'vue-vite',
-        'vercel-ai-sdk',
-        'ai-chat',
-        'python-script',
-      ]),
+      ).choices(projectBases),
     )
     .addOption(
       new Option('-g --git', 'Create a git repo in the new project').default(
