@@ -231,7 +231,7 @@
   (email-router/send-structured! (magic-code-email {:user user :magic-code m})))
 
 (def dashboard-signup-denied-message
-  "This email is not allowed to sign up for this Instant instance.")
+  "This email is not allowed to sign up for this Instant deployment.")
 
 (defn assert-dashboard-signup-allowed! [email]
   (when-not (flags/dashboard-signup-allowed? email)
