@@ -106,6 +106,21 @@
           (is (= 200 (:status response)))
           (is (= path (get-in response [:body :uri])))))
 
+      (testing "dashboard requests stay on the local handler"
+        (doseq [[path options]
+                [[(str "/dash/apps/" app-id) {}]
+                 ["/dash" {:headers {"app-id" (str app-id)}}]]]
+          (let [response (http/get (str proxy-origin path)
+                                   (assoc options :throw-exceptions false))]
+            (is (= 418 (:status response)))
+            (is (= "local" (:body response))))))
+
+      (testing "dashboard path matching respects the segment boundary"
+        (let [path (str "/dashboard/apps/" app-id)
+              response (http/get (str proxy-origin path) {:as :json})]
+          (is (= 200 (:status response)))
+          (is (= path (get-in response [:body :uri])))))
+
       (testing "unmapped apps stay on the local handler"
         (let [response (http/get
                         (str proxy-origin "/runtime/session?app_id=" (random-uuid))
@@ -197,6 +212,14 @@
       (is (= 503 (:status (handler {:uri "/runtime/oauth/callback"
                                     :headers {}
                                     :params {:state (str app-id (random-uuid))}})))))
+    (testing "dashboard requests for proxied apps pass through"
+      (is (= 200 (:status (handler {:uri (str "/dash/apps/" app-id)
+                                    :headers {}}))))
+      (is (= 200 (:status (handler {:uri "/dash"
+                                    :headers {"app-id" (str app-id)}})))))
+    (testing "dashboard path matching respects the segment boundary"
+      (is (= 503 (:status (handler {:uri (str "/dashboard/apps/" app-id)
+                                    :headers {}})))))
     (testing "unproxied apps and app-less requests pass through"
       (is (= 200 (:status (handler {:uri "/runtime/auth/send_magic_code"
                                     :headers {}

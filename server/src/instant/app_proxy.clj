@@ -218,6 +218,10 @@
 ;; ----------
 ;; Request routing
 
+(defn- dashboard-path? [path]
+  (or (= "/dash" path)
+      (string/starts-with? path "/dash/")))
+
 (def ^:private target-unavailable-handler
   ;; ProxyHandler falls through to this handler when its target has no
   ;; connectable host. Failing closed matters here: falling back to the local
@@ -324,14 +328,16 @@
                                 (.endExchange callback-exchange))))))]
      (reify HttpHandler
        (handleRequest [_ exchange]
-         (let [table (current-targets)]
-           (if (empty? table)
-             ;; Nothing is being proxied, which is the common case: stay out
-             ;; of the request entirely.
+         (let [table (current-targets)
+               path (.getRequestPath exchange)]
+           (if (or (empty? table)
+                   (dashboard-path? path))
+             ;; Empty routing tables and dashboard control-plane requests stay
+             ;; out of the proxy entirely.
              (.handleRequest local-handler exchange)
              (if-let [app-id (request-app-id exchange table)]
                (route! exchange table app-id)
-               (if (contains? body-inspection-paths (.getRequestPath exchange))
+               (if (contains? body-inspection-paths path)
                  (inspect-body! exchange table)
                  (.handleRequest local-handler exchange))))))))))
 
@@ -366,7 +372,8 @@
   ([handler current-targets]
    (fn [request]
      (let [table (current-targets)
-           app-id (when (seq table)
+           app-id (when (and (seq table)
+                             (not (dashboard-path? (:uri request))))
                     (some #(when (contains? table %) %)
                           (ring-app-id-candidates request)))]
        (if-not app-id
