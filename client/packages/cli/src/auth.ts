@@ -23,11 +23,11 @@ function parseAuthConfig(contents: string): AuthConfig {
   try {
     parsed = JSON.parse(contents);
   } catch {
-    const trimmed = contents.trimStart();
+    const trimmed = contents.trim();
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
       return { type: 'invalid' };
     }
-    return { type: 'legacy', token: contents };
+    return { type: 'legacy', token: trimmed };
   }
 
   if (
