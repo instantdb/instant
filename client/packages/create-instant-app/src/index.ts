@@ -24,6 +24,7 @@ import { parseNameAndPath } from './utils/validateAppName.js';
 import { execa } from 'execa';
 import { getRules, getSchema } from './utils/appConfig.js';
 import { printAppCreateResult } from './utils/printAppCreateResult.js';
+import { applyBackendConfig } from './backendConfig.js';
 
 const main = async () => {
   if (
@@ -43,6 +44,14 @@ const main = async () => {
   const pkgManager = getUserPkgManager(project.base);
 
   const projectDir = await scaffoldBase(project, appDir);
+
+  if (process.env.INSTANT_CLI_API_URI) {
+    applyBackendConfig(
+      project.base,
+      projectDir,
+      process.env.INSTANT_CLI_API_URI,
+    );
+  }
 
   addRuleFiles({
     projectDir,
@@ -68,7 +77,7 @@ const main = async () => {
   printAppCreateResult(possibleAppTokenPair);
   if (possibleAppTokenPair) {
     applyEnvFile(
-      project,
+      project.base,
       projectDir,
       possibleAppTokenPair.appId,
       possibleAppTokenPair.adminToken,

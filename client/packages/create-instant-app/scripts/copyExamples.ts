@@ -2,17 +2,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs-extra';
 import { copyRespectingGitignore } from '../src/scaffold.js';
-
-const EXAMPLES_TO_COPY = [
-  'expo',
-  'next-js-app-dir',
-  'sveltekit',
-  'vite-react',
-  'vite-vanilla',
-  'tanstack-start',
-  'vue-vite',
-  'python-script',
-] as const;
+import { bundledProjectBases } from '../src/projectBase.js';
 
 async function main() {
   const __filename = fileURLToPath(import.meta.url);
@@ -23,7 +13,7 @@ async function main() {
   const templateBaseRoot = path.join(__dirname, '../template/base');
 
   const copiedExamples = await Promise.all(
-    EXAMPLES_TO_COPY.map(async (exampleName) => {
+    bundledProjectBases.map(async (exampleName) => {
       const sourceDir = path.join(examplesRoot, exampleName);
       const targetDir = path.join(templateBaseRoot, exampleName);
 

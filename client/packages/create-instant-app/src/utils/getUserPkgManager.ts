@@ -1,8 +1,8 @@
-import { Project } from '~/cli.js';
+import type { ProjectBase } from '~/projectBase.js';
 
 export type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
 
-export const getUserPkgManager: (base: Project['base']) => PackageManager = (
+export const getUserPkgManager: (base: ProjectBase) => PackageManager = (
   base,
 ) => {
   // If bun template selected, use bun for package installation and `run dev` console output
