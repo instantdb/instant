@@ -50,15 +50,19 @@ echo "Resolved PostgreSQL data volume: $PG_VOLUME"
 ```
 
 Confirm the printed name is the PostgreSQL data volume you intend to delete
-before continuing. This step is destructive and irreversible. If you would
-rather leave your PostgreSQL 16 volume untouched, use the alternative at the end
-of this guide instead of deleting anything.
+before continuing. If that line printed a blank name, stop and re-run the
+resolve step while the container is still up, rather than deleting anything.
+This step is destructive and irreversible. If you would rather leave your
+PostgreSQL 16 volume untouched, use the alternative at the end of this guide
+instead of deleting anything.
 
 ```bash
 docker compose down
 # only after you have verified $PG_VOLUME above:
 docker volume rm "$PG_VOLUME"
-# now pull / check out the PostgreSQL 17 compose files
+# return to the revision that ships PostgreSQL 17 before starting again, so the
+# fresh database comes up on 17 (you may have checked out PG16 for the dump):
+git checkout <pg17-revision>   # e.g. main
 docker compose up -d postgres
 # wait until it reports healthy (this creates a fresh, empty `instant` database)
 ```
@@ -86,7 +90,7 @@ Verify the app comes up and your data is present, then you can delete
 > ```bash
 > docker compose down
 > # restore the PostgreSQL 16 compose file and image tag, e.g. by checking out
-> # the previous revision (adjust the ref/path to your setup):
+> # the previous revision (use your own compose file if it isn't the default):
 > git checkout <previous-revision> -- docker-compose.yml
 > # the untouched backend-db volume is still attached by that compose file,
 > # so do NOT run `docker volume rm` against it
