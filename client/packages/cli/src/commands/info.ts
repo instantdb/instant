@@ -1,6 +1,6 @@
 import { HttpClientResponse } from '@effect/platform';
 import { Effect, Schema, Option } from 'effect';
-import { InstantHttpAuthed } from '../lib/http.ts';
+import { getBaseUrl, InstantHttpAuthed } from '../lib/http.ts';
 import { version } from '@instantdb/version';
 import { CurrentApp } from '../context/currentApp.ts';
 
@@ -21,6 +21,7 @@ export const DashAppResponse = Schema.Struct({
 
 export const infoCommand = () =>
   Effect.gen(function* () {
+    const baseUrl = yield* getBaseUrl;
     const authedHttp = yield* Effect.serviceOption(InstantHttpAuthed).pipe(
       Effect.map(Option.getOrNull),
     );
@@ -32,7 +33,10 @@ export const infoCommand = () =>
       const meData = yield* authedHttp.get('/dash/me').pipe(
         Effect.flatMap(HttpClientResponse.schemaBodyJson(DashMeResponse)),
         Effect.mapError(
-          (e) => new Error("Couldn't get user information.", { cause: e }),
+          (e) =>
+            new Error(`Couldn't get user information (${baseUrl}).`, {
+              cause: e,
+            }),
         ),
       );
 
