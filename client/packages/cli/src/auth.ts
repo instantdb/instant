@@ -3,6 +3,8 @@ import { getAuthPaths } from './util/getAuthPaths.ts';
 
 export type AuthTokens = Record<string, string>;
 
+const productionApiUrl = 'https://api.instantdb.com';
+
 type AuthConfig =
   | { type: 'map'; tokens: AuthTokens }
   | { type: 'legacy'; token: string }
@@ -94,11 +96,25 @@ export async function readConfigAuthToken(
   if (config.type === 'map') return config.tokens[key] || null;
   if (config.type === 'invalid') return null;
 
-  // Verify a legacy token against this backend before associating the two.
+  // Verify a legacy token before associating it with a backend. Legacy tokens
+  // usually came from production, so check there if a custom backend rejects
+  // it, but never make the duplicate request when production is current.
+  let migrationKey: string | null = null;
+  if (await tokenBelongsToApiUrl(key, config.token)) {
+    migrationKey = key;
+  } else if (
+    key !== productionApiUrl &&
+    (await tokenBelongsToApiUrl(productionApiUrl, config.token))
+  ) {
+    migrationKey = productionApiUrl;
+  }
+
   // Validation and migration remain best-effort so existing commands can
   // still attempt authentication with the legacy token.
-  if (await tokenBelongsToApiUrl(key, config.token)) {
-    await writeAuthConfigFile(paths, { [key]: config.token }).catch(() => {});
+  if (migrationKey) {
+    await writeAuthConfigFile(paths, {
+      [migrationKey]: config.token,
+    }).catch(() => {});
   }
   return config.token;
 }
