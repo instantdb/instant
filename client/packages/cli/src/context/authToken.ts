@@ -1,9 +1,8 @@
-import { FileSystem } from '@effect/platform';
 import { Config, Context, Effect, Layer, Option, Ref, Schema } from 'effect';
-import envPaths from 'env-paths';
-import { join } from 'node:path';
+import { readConfigAuthToken } from '../auth.ts';
 import { loginCommand } from '../commands/login.ts';
 import { program } from '../program.ts';
+import { getBaseUrl } from '../util/apiUrl.ts';
 
 type AuthTokenSource = 'admin' | 'env' | 'opt' | 'file';
 
@@ -64,17 +63,13 @@ export const authTokenGetEffect = (allowAdminToken: boolean = true) =>
       };
     }
 
-    const authPaths = yield* getAuthPaths;
-    const fs = yield* FileSystem.FileSystem;
-    const file = yield* fs
-      .readFileString(authPaths.authConfigFilePath, 'utf8')
-      .pipe(
-        // will usually fail if file not found, return null instead
-        Effect.orElseSucceed(() => null),
-      );
-    if (file) {
+    const apiUrl = yield* getBaseUrl;
+    const fileToken = yield* Effect.tryPromise(() =>
+      readConfigAuthToken(apiUrl),
+    ).pipe(Effect.orElseSucceed(() => null));
+    if (fileToken) {
       return {
-        authToken: file,
+        authToken: fileToken,
         source: 'file' as 'env' | 'opt' | 'file',
       };
     }
@@ -137,13 +132,3 @@ export const AuthTokenLive = ({
       ),
     ),
   );
-
-const getAuthPaths = Effect.gen(function* () {
-  const dev = yield* Config.boolean('INSTANT_CLI_DEV').pipe(
-    Config.withDefault(false),
-  );
-  const key = `instantdb-${dev ? 'dev' : 'prod'}`;
-  const { config: appConfigDirPath } = envPaths(key);
-  const authConfigFilePath = join(appConfigDirPath, 'a');
-  return { authConfigFilePath, appConfigDirPath };
-});

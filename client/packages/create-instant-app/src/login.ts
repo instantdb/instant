@@ -1,9 +1,7 @@
-import envPaths from 'env-paths';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import openInBrowser from 'open';
-import { join } from 'node:path';
 import { Project } from './cli.js';
 import { randomUUID } from 'node:crypto';
+import { readConfigAuthToken, saveConfigAuthToken } from 'instant-cli/auth';
 import {
   fetchJson,
   instantBackendOrigin,
@@ -13,16 +11,7 @@ import {
 import { renderUnwrap, UI } from 'instant-cli/ui';
 import { toTitleCase } from './utils/titleCase.js';
 
-const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const forceEphemeral = Boolean(process.env.INSTANT_CLI_FORCE_EPHEMERAL);
-
-function getAuthPaths() {
-  const key = `instantdb-${dev ? 'dev' : 'prod'}`;
-  const { config: appConfigDirPath } = envPaths(key);
-  const authConfigFilePath = join(appConfigDirPath, 'a');
-
-  return { authConfigFilePath, appConfigDirPath };
-}
 
 export const createApp = async (
   title: string,
@@ -173,11 +162,7 @@ const getAuthToken = async (): Promise<string | null> => {
     return process.env.INSTANT_CLI_AUTH_TOKEN;
   }
 
-  const authToken = await readFile(
-    getAuthPaths().authConfigFilePath,
-    'utf-8',
-  ).catch(() => null);
-  return authToken;
+  return readConfigAuthToken(instantBackendOrigin).catch(() => null);
 };
 
 export type AppTokenResponse = {
@@ -346,7 +331,7 @@ export const tryConnectApp = async (
         }),
       );
 
-      await saveConfigAuthToken(authInfo.token);
+      await saveConfigAuthToken(instantBackendOrigin, authInfo.token);
       authToken = authInfo.token;
     }
 
@@ -455,14 +440,4 @@ async function waitForAuthToken({
     // }
   }
   throw new Error('Timed out waiting for login');
-}
-
-async function saveConfigAuthToken(authToken: string) {
-  const authPaths = getAuthPaths();
-
-  await mkdir(authPaths.appConfigDirPath, {
-    recursive: true,
-  });
-
-  return writeFile(authPaths.authConfigFilePath, authToken, 'utf-8');
 }

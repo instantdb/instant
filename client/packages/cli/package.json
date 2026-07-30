@@ -11,6 +11,12 @@
     "directory": "client/packages/cli"
   },
   "exports": {
+    "./auth": {
+      "import": {
+        "types": "./dist/auth.d.ts",
+        "default": "./dist/auth.js"
+      }
+    },
     "./ui": {
       "import": {
         "types": "./dist/ui/index.d.ts",
