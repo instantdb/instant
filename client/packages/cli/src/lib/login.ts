@@ -1,11 +1,8 @@
 import { Effect, Schedule, Schema } from 'effect';
 import { InstantHttp, withCommand } from './http.ts';
-import {
-  HttpClientRequest,
-  HttpClientResponse,
-  FileSystem,
-} from '@effect/platform';
-import { getAuthPaths } from '../util/getAuthPaths.ts';
+import { HttpClientRequest, HttpClientResponse } from '@effect/platform';
+import { writeAuthToken } from '../auth/index.ts';
+import { getBaseUrl } from './config.ts';
 
 const LoginInfo = Schema.Struct({
   secret: Schema.String,
@@ -46,9 +43,6 @@ export const waitForAuthToken = Effect.fn(function* (secret: string) {
 });
 
 export const saveConfigAuthToken = Effect.fn(function* (token: string) {
-  const authPaths = getAuthPaths();
-
-  const fs = yield* FileSystem.FileSystem;
-  yield* fs.makeDirectory(authPaths.appConfigDirPath, { recursive: true });
-  yield* fs.writeFileString(authPaths.authConfigFilePath, token);
+  const apiURI = yield* getBaseUrl;
+  yield* Effect.tryPromise(() => writeAuthToken(apiURI, token));
 });

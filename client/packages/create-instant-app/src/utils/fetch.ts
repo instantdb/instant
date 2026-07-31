@@ -3,9 +3,9 @@ import { version } from '@instantdb/version';
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 
-export const instantDashOrigin = dev
-  ? 'http://localhost:3000'
-  : 'https://instantdb.com';
+export const instantDashOrigin =
+  process.env.INSTANT_CLI_DASH_URI ||
+  (dev ? 'http://localhost:3000' : 'https://instantdb.com');
 
 export const instantBackendOrigin =
   process.env.INSTANT_CLI_API_URI ||
