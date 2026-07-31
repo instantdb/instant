@@ -44,6 +44,7 @@ services:
         caddy.reverse_proxy: "{{upstreams 3000}}"
   minio:
     image: minio/minio:latest
+    restart: always
     networks:
       - caddy
       - default
@@ -61,8 +62,6 @@ services:
       timeout: 5s
       retries: 12
     deploy:
-      restart_policy:
-        condition: any
       labels:
         caddy: ${S3_PUBLIC_ENDPOINT:? example http://storage.localhost}
         caddy.reverse_proxy: "{{upstreams 9000}}"
