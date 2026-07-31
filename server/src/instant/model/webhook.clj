@@ -335,9 +335,6 @@
         id-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "id"] attrs))
         setting-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "setting"] attrs))
         value-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "value"] attrs))]
-    (when-not (every? some? [id-aid setting-aid value-aid])
-      (throw (ex-info "Instant Config is missing required flags attributes."
-                      {:app-id config-app-id})))
     (tx/transact! (aurora/conn-pool :write)
                   attrs
                   config-app-id
