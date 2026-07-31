@@ -18,6 +18,7 @@
    [instant.core :as core]
    [instant.data.constants :refer [test-user-id]]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.stripe :as stripe]
    [instant.system-catalog-migration :as system-catalog-migration]
@@ -38,6 +39,11 @@
   (tracer/init)
   (aurora/start)
   (next-jdbc/with-transaction [conn (aurora/conn-pool :write)]
+    (sql/execute-one!
+     ::bootstrap-config-app-lock
+     conn
+     ["SELECT pg_advisory_xact_lock(hashtext(?))"
+      "instant-config-bootstrap"])
     (when-not (app-model/get-by-id conn {:id config/instant-config-app-id})
       (config-app/create! conn {:id config/instant-config-app-id
                                 :creator-id test-user-id})))
