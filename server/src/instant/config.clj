@@ -390,10 +390,11 @@
                              crypt-util/cloudfront-key-from-bytes)})))
 
 (defn get-connection-pool-size []
-  (if (or (= :prod (get-env))
-          (= :staging (get-env)))
-    400
-    20))
+  (or (some-> (System/getenv "CONNECTION_POOL_SIZE")
+              (parse-long))
+      (case (get-env)
+        (:prod :staging) 400
+        20)))
 
 (defn env-integer [var-name]
   (when-let [envvar (System/getenv var-name)]
