@@ -13,14 +13,18 @@
    [clojure.test]
    [clojure.tools.cli :refer [parse-opts]]
    [clojure.tools.namespace.find :refer [find-namespaces-in-dir]]
+   [instant.config-app :as config-app]
    [instant.config :as config]
    [instant.core :as core]
+   [instant.data.constants :refer [test-user-id]]
    [instant.jdbc.aurora :as aurora]
+   [instant.model.app :as app-model]
    [instant.stripe :as stripe]
    [instant.system-catalog-migration :as system-catalog-migration]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json <-json]]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [next.jdbc :as next-jdbc])
   (:import
    (java.io File FileNotFoundException)
    (java.time Instant)))
@@ -33,6 +37,10 @@
   (crypt-util/init (:aead-keyset (config/init)))
   (tracer/init)
   (aurora/start)
+  (next-jdbc/with-transaction [conn (aurora/conn-pool :write)]
+    (when-not (app-model/get-by-id conn {:id config/instant-config-app-id})
+      (config-app/create! conn {:id config/instant-config-app-id
+                                :creator-id test-user-id})))
   (core/start)
   (system-catalog-migration/ensure-attrs-on-system-catalog-app)
   (stripe/init)
