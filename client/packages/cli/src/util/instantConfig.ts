@@ -2,6 +2,7 @@ import { loadConfig } from './loadConfig.ts';
 
 export type InstantConfig = {
   apiURI?: string;
+  dashURI?: string;
   apps?: Record<string, { id: string }>;
 };
 

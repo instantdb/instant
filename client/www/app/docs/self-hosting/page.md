@@ -170,22 +170,27 @@ docker compose logs server -n 50
 
 ### Using the self-hosted instance with instant-cli
 
-To use the Instant CLI with your local backend, you can set the `INSTANT_CLI_API_URI` environment variable to `http://localhost:8888`. For example:
+To use the Instant CLI with your self-hosted instance, set `INSTANT_CLI_API_URI` to the backend URL and `INSTANT_CLI_DASH_URI` to the dashboard URL. For example:
 
 ```shell {% showCopy=true %}
 # Local Machine Deployment
-INSTANT_CLI_API_URI=http://localhost:8888 npx instant-cli@latest init
+INSTANT_CLI_API_URI=http://localhost:8888 \
+INSTANT_CLI_DASH_URI=http://localhost:3000 \
+npx instant-cli@latest init
 
 # Server Deployment
-INSTANT_CLI_API_URI=https://api.myinstant.com npx instant-cli@latest init
+INSTANT_CLI_API_URI=https://api.myinstant.com \
+INSTANT_CLI_DASH_URI=https://dash.myinstant.com \
+npx instant-cli@latest init
 ```
 
-You can also set it in the `instant.config.ts` file.
+You can also set both URLs in the `instant.config.ts` file.
 
 ```typescript
 // instant.config.ts
 export default {
   apiURI: 'http://127.0.0.1:8888',
+  dashURI: 'http://localhost:3000',
 };
 ```
 

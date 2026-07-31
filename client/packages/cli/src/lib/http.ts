@@ -167,12 +167,26 @@ export const getDashUrl = Effect.gen(function* () {
   const setEnv = yield* Config.string('INSTANT_CLI_DASH_URI').pipe(
     Config.option,
   );
-  const dev = Option.getOrNull(
-    yield* Config.boolean('INSTANT_CLI_DEV').pipe(Config.option),
+  const dev = yield* Config.boolean('INSTANT_CLI_DEV').pipe(
+    Config.withDefault(false),
   );
 
-  return Option.match(setEnv, {
-    onSome: (url) => url,
-    onNone: () => (dev ? 'http://localhost:3000' : 'https://instantdb.com'),
-  });
+  if (Option.isSome(setEnv)) {
+    return setEnv.value;
+  }
+
+  const instantConfig = yield* Effect.tryPromise(readInstantConfigFile);
+  if (instantConfig?.dashURI !== undefined) {
+    yield* Schema.decodeUnknown(HttpUrl)(instantConfig.dashURI).pipe(
+      Effect.mapError(() =>
+        BadArgsError.make({
+          message:
+            'Invalid dashURI in instant.config.ts. Expected a valid HTTP(S) URL.',
+        }),
+      ),
+    );
+    return instantConfig.dashURI;
+  }
+
+  return dev ? 'http://localhost:3000' : 'https://instantdb.com';
 });
