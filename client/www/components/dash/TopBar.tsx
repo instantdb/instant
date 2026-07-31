@@ -10,7 +10,6 @@ import {
 import { useFetchedDash } from './MainDashLayout';
 import { DarkModeToggle } from './DarkModeToggle';
 import { useReadyRouter } from '../clientOnlyPage';
-import { isSelfHosted } from '@/lib/config';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { getRole, isMinRole } from '@/pages/dash';
 
@@ -24,11 +23,7 @@ export const TopBar: React.FC<{}> = () => {
     dash.data?.currentWorkspaceId !== 'personal'
       ? dash.data?.currentWorkspaceId
       : null;
-  const docsUrl = isSelfHosted
-    ? 'https://instantdb.com/docs'
-    : orgId
-      ? `/docs?org=${orgId}`
-      : '/docs';
+  const docsUrl = orgId ? `/docs?org=${orgId}` : '/docs';
 
   const hasInvites = (dash.data.invites || []).length > 0;
 
