@@ -245,7 +245,7 @@ This will create an overlay network called "caddy" that we will use for the reve
 Assign labels to stabilize machine assignments
 
 ```bash
-docker node update --label-add caddy=true --label-add storage=true
+docker node update --label-add caddy=true --label-add storage=true <node-name>
 ```
 
 For each machine that you would like to accept requests, make sure you assign the "caddy=true" output and point your DNS at that IP address.

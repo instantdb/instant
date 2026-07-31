@@ -296,6 +296,8 @@ function InstantConfigSettingsContent({
   const [refreshThrottleInput, setRefreshThrottleInput] = useState(
     String(defaults.refreshThrottleMs),
   );
+  const [authenticationEditing, setAuthenticationEditing] = useState(false);
+  const [refreshThrottleEditing, setRefreshThrottleEditing] = useState(false);
   const [authenticationSaved, setAuthenticationSaved] = useState(false);
   const [refreshThrottleSaved, setRefreshThrottleSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -347,16 +349,22 @@ function InstantConfigSettingsContent({
     refreshThrottleInput !== String(refreshThrottleMs);
 
   useEffect(() => {
-    setMagicCodeRateLimitInput(String(magicCodeRateLimit));
-  }, [magicCodeRateLimit]);
+    if (!authenticationEditing) {
+      setMagicCodeRateLimitInput(String(magicCodeRateLimit));
+    }
+  }, [authenticationEditing, magicCodeRateLimit]);
 
   useEffect(() => {
-    setMagicCodeExpiryInput(String(magicCodeExpiry));
-  }, [magicCodeExpiry]);
+    if (!authenticationEditing) {
+      setMagicCodeExpiryInput(String(magicCodeExpiry));
+    }
+  }, [authenticationEditing, magicCodeExpiry]);
 
   useEffect(() => {
-    setRefreshThrottleInput(String(refreshThrottleMs));
-  }, [refreshThrottleMs]);
+    if (!refreshThrottleEditing) {
+      setRefreshThrottleInput(String(refreshThrottleMs));
+    }
+  }, [refreshThrottleEditing, refreshThrottleMs]);
 
   if (isLoading) {
     return <FullscreenLoading />;
@@ -416,6 +424,7 @@ function InstantConfigSettingsContent({
         flagUpdate(flagSettings.magicCodeRateLimit, nextRateLimit),
         flagUpdate(flagSettings.magicCodeExpiry, nextExpiry),
       ]);
+      setAuthenticationEditing(false);
       setAuthenticationSaved(true);
       successToast('App authentication settings updated.');
     } catch {
@@ -529,6 +538,7 @@ function InstantConfigSettingsContent({
       await db.transact(
         flagUpdate(flagSettings.refreshThrottleMs, nextThrottleMs),
       );
+      setRefreshThrottleEditing(false);
       setRefreshThrottleSaved(true);
       successToast('Refresh throttle updated.');
     } catch {
@@ -662,6 +672,10 @@ function InstantConfigSettingsContent({
               disabled={saving}
               onChange={(value) => {
                 setMagicCodeRateLimitInput(value);
+                setAuthenticationEditing(
+                  value !== String(magicCodeRateLimit) ||
+                    magicCodeExpiryInput !== String(magicCodeExpiry),
+                );
                 setAuthenticationSaved(false);
               }}
             />
@@ -674,6 +688,10 @@ function InstantConfigSettingsContent({
               disabled={saving}
               onChange={(value) => {
                 setMagicCodeExpiryInput(value);
+                setAuthenticationEditing(
+                  magicCodeRateLimitInput !== String(magicCodeRateLimit) ||
+                    value !== String(magicCodeExpiry),
+                );
                 setAuthenticationSaved(false);
               }}
             />
@@ -748,6 +766,7 @@ function InstantConfigSettingsContent({
             disabled={saving}
             onChange={(value) => {
               setRefreshThrottleInput(value);
+              setRefreshThrottleEditing(value !== String(refreshThrottleMs));
               setRefreshThrottleSaved(false);
             }}
           />
