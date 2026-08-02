@@ -90,7 +90,8 @@ it, but **don't** bring up the rest of the stack yet — step 4 has to run befor
 the server starts:
 
 ```bash
-docker compose exec -T postgres pg_restore -U instant -d instant --clean --if-exists --single-transaction < instant-pg16.dump
+docker compose exec -T postgres sh -c \
+  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --single-transaction' < instant-pg16.dump
 ```
 
 ### 4. Reset the aggregator replication slot
@@ -113,10 +114,12 @@ can recreate the slot at the database's current position and point
 aggregator simply resumes streaming from here:
 
 ```bash
-docker compose exec -T postgres psql -U instant -d instant -c \
-  "UPDATE wal_aggregator_status
-      SET lsn = (SELECT lsn FROM pg_create_logical_replication_slot('aggregator', 'wal2json'))
-    WHERE slot_name = 'aggregator';"
+docker compose exec -T postgres sh -c \
+  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+UPDATE wal_aggregator_status
+    SET lsn = (SELECT lsn FROM pg_create_logical_replication_slot('aggregator', 'wal2json'))
+  WHERE slot_name = 'aggregator';
+SQL
 ```
 
 This should print `UPDATE 1`. If it prints `UPDATE 0`, this deployment never
