@@ -85,8 +85,48 @@ docker compose up -d --wait postgres
 
 ### 3. Restore the dump
 
+Only the `postgres` service is running at this point (from step 2). Restore into
+it, but **don't** bring up the rest of the stack yet — step 4 has to run before
+the server starts:
+
 ```bash
 docker compose exec -T postgres pg_restore -U instant -d instant --clean --if-exists --single-transaction < instant-pg16.dump
+```
+
+### 4. Reset the aggregator replication slot
+
+The server keeps an internal count of your data (the "attr sketches") up to date
+by streaming Postgres' write-ahead log from a logical replication slot named
+`aggregator`, remembering how far it has read in the `wal_aggregator_status`
+table.
+
+`pg_dump`/`pg_restore` copies the sketches and the `wal_aggregator_status` row,
+but the dump does not include the replication slots. On the fresh PostgreSQL 17
+database the sketches are current, yet the `aggregator` slot is gone and
+`wal_aggregator_status` still points at a position in the old PostgreSQL 16
+slot that no longer exists. If you start the server as-is it can't resume the
+stream.
+
+Because the whole stack is down (no writes happen between the dump and now), you
+can recreate the slot at the database's current position and point
+`wal_aggregator_status` at it. The restored sketches are already accurate, so the
+aggregator simply resumes streaming from here:
+
+```bash
+docker compose exec -T postgres psql -U instant -d instant -c \
+  "UPDATE wal_aggregator_status
+      SET lsn = (SELECT lsn FROM pg_create_logical_replication_slot('aggregator', 'wal2json'))
+    WHERE slot_name = 'aggregator';"
+```
+
+This should print `UPDATE 1`. If it prints `UPDATE 0`, this deployment never
+initialized the aggregator (no status row) — the slot is left uncreated and the
+server will bootstrap it itself on first start, which is fine; continue to
+step 5.
+
+### 5. Start the rest of the stack
+
+```bash
 docker compose up -d
 ```
 
