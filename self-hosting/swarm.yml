@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-go/master/schema/compose-spec.json
 services:
   postgres:
-    image: ghcr.io/instantdb/postgresql:postgresql-16-pg-hint-plan
+    image: ghcr.io/instantdb/postgresql:postgresql-17-pg-hint-plan
     ports:
       - "8890:5432"
     environment:

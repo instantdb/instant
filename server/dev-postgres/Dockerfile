@@ -1,10 +1,10 @@
-FROM postgres:16
+FROM postgres:17
 
 RUN apt-get update && \
     apt-get install -y \
       build-essential \
-      postgresql-server-dev-16 \
-      postgresql-16-pg-hint-plan \
+      postgresql-server-dev-17 \
+      postgresql-17-pg-hint-plan \
       wget && \
     mkdir build && cd build && \
     wget https://github.com/eulerto/wal2json/archive/refs/tags/wal2json_2_6.tar.gz && \
@@ -16,7 +16,7 @@ RUN apt-get update && \
     rm -rf build && \
     apt-get remove -y \
     build-essential \
-    postgresql-server-dev-16 \
+    postgresql-server-dev-17 \
     wget && \
     apt-get autoremove -y && \
     apt-get clean
