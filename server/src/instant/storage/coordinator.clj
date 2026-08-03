@@ -51,9 +51,18 @@
   (let [location-id (str (random-uuid))
         _ (instant-s3/upload-file-to-s3 (assoc ctx :location-id location-id) file)
         _ (when-let [copy-bucket (flags/copy-file-bucket app-id)]
-            (instant-s3/copy-file {:destination-bucket copy-bucket
-                                   :app-id app-id
-                                   :location-id location-id}))
+            (try
+              (instant-s3/copy-file {:destination-bucket copy-bucket
+                                     :app-id app-id
+                                     :location-id location-id})
+              (catch Throwable e
+                ;; The source object is uploaded but we bail before creating a
+                ;; file record, so delete it (best-effort) to avoid orphaning
+                ;; it in S3, then surface the original copy error.
+                (try
+                  (instant-s3/delete-file! app-id location-id)
+                  (catch Throwable _ nil))
+                (throw e))))
         metadata (instant-s3/get-object-metadata app-id location-id)]
     (try
       (app-file-model/create!
