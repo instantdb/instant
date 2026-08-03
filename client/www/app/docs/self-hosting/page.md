@@ -159,16 +159,16 @@ docker compose -f docker-compose.with-caddy.yml --env-file .env up --build
 
 After everything starts up, the dashboard will be available at whatever you set `INSTANT_DASHBOARD_URL` to.
 
-## Updating an Existing Deployment
+### Updating
 
-Instant publishes new server and dashboard images from `main`. For routine updates, pull and recreate only those application containers:
+For routine updates, pull the latest server and dashboard images and recreate only those containers:
 
 ```sh {% showCopy=true %}
-docker compose pull server www && \
-  docker compose up -d --no-deps server www
+docker compose -f docker-compose.with-caddy.yml --env-file .env pull server www && \
+  docker compose -f docker-compose.with-caddy.yml --env-file .env up -d --no-deps server www
 ```
 
-Include the same Compose options you normally use on both commands.
+If you changed the start command, use the same Compose options here.
 
 This does not update PostgreSQL or other infrastructure. It also leaves your Compose files, `.env`, overrides, and volumes unchanged.
 
