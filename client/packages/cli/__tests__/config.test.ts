@@ -9,7 +9,7 @@ vi.mock('../src/util/instantConfig.ts', () => ({
   readInstantConfigFile: mocks.readInstantConfigFile,
 }));
 
-import { getDashUrl } from '../src/lib/config.ts';
+import { getDashUrl, getOAuthCallbackUrl } from '../src/lib/config.ts';
 
 beforeEach(() => {
   vi.stubEnv('INSTANT_CLI_API_URI', undefined);
@@ -42,6 +42,16 @@ describe('dashboard URL configuration', () => {
 
     await expect(Effect.runPromise(getDashUrl)).resolves.toBe(
       'https://dash.env.example',
+    );
+  });
+});
+
+describe('OAuth callback URL configuration', () => {
+  it('uses the configured API URL', async () => {
+    vi.stubEnv('INSTANT_CLI_API_URI', 'https://api.instant.example/');
+
+    await expect(Effect.runPromise(getOAuthCallbackUrl)).resolves.toBe(
+      'https://api.instant.example/runtime/oauth/callback',
     );
   });
 });

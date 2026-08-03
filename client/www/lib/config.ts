@@ -1,3 +1,5 @@
+import { oauthCallbackURL } from '@instantdb/platform';
+
 export const isBrowser = typeof window != 'undefined';
 
 export const isDev = process.env.NODE_ENV === 'development';
@@ -96,6 +98,8 @@ export const config =
   isSelfHosted && !devBackend
     ? getSelfHostedConfig()
     : configFromApiURI(defaultApiURI)!;
+
+export const defaultOAuthCallbackURL = oauthCallbackURL(config.apiURI);
 
 // In dev mode, sync the devBackend flag to a cookie so server components
 // can resolve the same apiURI as the client.

@@ -13,7 +13,6 @@ import {
   OAuthClient,
 } from '../../../lib/oauth.ts';
 import {
-  DEFAULT_OAUTH_CALLBACK_URL,
   GOOGLE_AUTHORIZATION_ENDPOINT,
   GOOGLE_DISCOVERY_ENDPOINT,
   GOOGLE_TOKEN_ENDPOINT,
@@ -25,6 +24,7 @@ import {
   LINKEDIN_DISCOVERY_ENDPOINT,
   LINKEDIN_TOKEN_ENDPOINT,
 } from '@instantdb/platform';
+import { getOAuthCallbackUrl } from '../../../lib/config.ts';
 import { UI } from '../../../ui/index.ts';
 import chalk from 'chalk';
 import boxen from 'boxen';
@@ -58,9 +58,11 @@ const googleConsoleUrl =
   'https://console.developers.google.com/apis/credentials';
 const githubDeveloperUrl = 'https://github.com/settings/developers';
 const linkedinDeveloperUrl = 'https://www.linkedin.com/developers/apps';
-const optionalRedirectPrompt = redirectUriPrompt({
-  heading: 'Custom redirect URI (optional):',
-});
+const optionalRedirectPrompt = (oauthCallbackURL: string) =>
+  redirectUriPrompt({
+    heading: 'Custom redirect URI (optional):',
+    oauthCallbackURL,
+  });
 
 const selectGoogleAppType = (value: unknown) =>
   Effect.gen(function* () {
@@ -220,12 +222,14 @@ const printGoogleCustomCredentialsClient = Effect.fn(function* ({
   clientId,
   customRedirectUri,
   redirectUri,
+  oauthCallbackURL,
 }: {
   appType: typeof GoogleAppTypeSchema.Type;
   client: typeof OAuthClient.Type;
   clientId: string | undefined;
   customRedirectUri: string | undefined;
   redirectUri: string | undefined;
+  oauthCallbackURL: string;
 }) {
   const redirectMessages: string[] = [];
   if (appType === 'web' && redirectUri) {
@@ -233,6 +237,7 @@ const printGoogleCustomCredentialsClient = Effect.fn(function* ({
       ...redirectSetupMessages({
         prompt: 'Add this redirect URI in Google Console',
         redirectUri,
+        oauthCallbackURL,
         showCustomRedirectInstructions: Boolean(customRedirectUri),
       }),
     );
@@ -252,7 +257,10 @@ const printGoogleCustomCredentialsClient = Effect.fn(function* ({
   );
 });
 
-const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
+const handleGoogleClient = Effect.fn(function* (
+  opts: Record<string, unknown>,
+  oauthCallbackURL: string,
+) {
   // This one requires special logic for getting client name
   // because the suggested name includes the app type
   const appType = yield* selectGoogleAppType(opts['app-type']);
@@ -314,13 +322,13 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
         ? '--custom-redirect-uri is not compatible with --dev-credentials.'
         : 'Provided custom redirect URI when not using web app type.',
     }),
-    Args.prompt(optionalRedirectPrompt),
+    Args.prompt(optionalRedirectPrompt(oauthCallbackURL)),
     Args.optional(),
   );
 
   const redirectUri = useSharedCredentials
     ? undefined
-    : customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
+    : customRedirectUri || oauthCallbackURL;
 
   const response = yield* addOAuthClient({
     providerId: provider.id,
@@ -352,10 +360,14 @@ const handleGoogleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     clientId,
     customRedirectUri,
     redirectUri,
+    oauthCallbackURL,
   });
 });
 
-const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
+const handleGithubClient = Effect.fn(function* (
+  opts: Record<string, unknown>,
+  oauthCallbackURL: string,
+) {
   const { clientName, provider } = yield* getClientNameAndProvider(
     'github',
     opts,
@@ -372,11 +384,11 @@ const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
   );
 
   const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
-    Args.prompt(optionalRedirectPrompt),
+    Args.prompt(optionalRedirectPrompt(oauthCallbackURL)),
     Args.optional(),
   );
 
-  const redirectUri = customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
+  const redirectUri = customRedirectUri || oauthCallbackURL;
 
   // The backend infers GitHub's authorization/token endpoints from
   // meta.providerName === 'github', so we don't pass them here.
@@ -392,6 +404,7 @@ const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
   const redirectMessages = redirectSetupMessages({
     prompt: 'Add this callback URL in your GitHub OAuth App settings',
     redirectUri,
+    oauthCallbackURL,
     showCustomRedirectInstructions: Boolean(customRedirectUri),
   });
 
@@ -410,6 +423,7 @@ const handleGithubClient = Effect.fn(function* (opts: Record<string, unknown>) {
 
 const handleLinkedInClient = Effect.fn(function* (
   opts: Record<string, unknown>,
+  oauthCallbackURL: string,
 ) {
   const { clientName, provider } = yield* getClientNameAndProvider(
     'linkedin',
@@ -427,11 +441,11 @@ const handleLinkedInClient = Effect.fn(function* (
   );
 
   const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
-    Args.prompt(optionalRedirectPrompt),
+    Args.prompt(optionalRedirectPrompt(oauthCallbackURL)),
     Args.optional(),
   );
 
-  const redirectUri = customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL;
+  const redirectUri = customRedirectUri || oauthCallbackURL;
 
   const response = yield* addOAuthClient({
     providerId: provider.id,
@@ -447,6 +461,7 @@ const handleLinkedInClient = Effect.fn(function* (
   const redirectMessages = redirectSetupMessages({
     prompt: 'Add this redirect URI in your LinkedIn app settings',
     redirectUri,
+    oauthCallbackURL,
     showCustomRedirectInstructions: Boolean(customRedirectUri),
   });
 
@@ -463,7 +478,10 @@ const handleLinkedInClient = Effect.fn(function* (
   );
 });
 
-const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
+const handleAppleClient = Effect.fn(function* (
+  opts: Record<string, unknown>,
+  oauthCallbackURL: string,
+) {
   const { clientName, provider } = yield* getClientNameAndProvider(
     'apple',
     opts,
@@ -529,12 +547,12 @@ const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
     Args.availableWhen(!skipWeb, {
       message: `--custom-redirect-uri ${webSkipMessage}`,
     }),
-    Args.prompt(optionalRedirectPrompt),
+    Args.prompt(optionalRedirectPrompt(oauthCallbackURL)),
     Args.optional(),
   );
 
   const redirectUri = privateKey
-    ? customRedirectUri || DEFAULT_OAUTH_CALLBACK_URL
+    ? customRedirectUri || oauthCallbackURL
     : undefined;
 
   const meta: { teamId?: string; keyId?: string } = {};
@@ -566,6 +584,7 @@ const handleAppleClient = Effect.fn(function* (opts: Record<string, unknown>) {
       ...redirectSetupMessages({
         prompt: `Add this return URL under your Services ID on ${link('https://developer.apple.com', 'developer.apple.com')}`,
         redirectUri,
+        oauthCallbackURL,
         showCustomRedirectInstructions: Boolean(customRedirectUri),
       }),
     );
@@ -697,13 +716,16 @@ export const authClientAddCmd = Effect.fn(
         }),
       ),
     );
+    const oauthCallbackURL = yield* getOAuthCallbackUrl;
 
     yield* Match.value(clientType).pipe(
       Match.withReturnType<Effect.Effect<void, any, any>>(),
-      Match.when('google', () => handleGoogleClient(opts)),
-      Match.when('github', () => handleGithubClient(opts)),
-      Match.when('apple', () => handleAppleClient(opts)),
-      Match.when('linkedin', () => handleLinkedInClient(opts)),
+      Match.when('google', () => handleGoogleClient(opts, oauthCallbackURL)),
+      Match.when('github', () => handleGithubClient(opts, oauthCallbackURL)),
+      Match.when('apple', () => handleAppleClient(opts, oauthCallbackURL)),
+      Match.when('linkedin', () =>
+        handleLinkedInClient(opts, oauthCallbackURL),
+      ),
       Match.when('clerk', () => handleClerkClient(opts)),
       Match.when('firebase', () => handleFirebaseClient(opts)),
       Match.exhaustive,

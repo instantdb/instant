@@ -2,11 +2,9 @@ import { HttpBody, HttpClientResponse } from '@effect/platform';
 import { Effect, Schema } from 'effect';
 import { CurrentApp } from '../context/currentApp.ts';
 import { InstantHttpAuthed, withCommand } from './http.ts';
-import chalk from 'chalk';
-import { runUIEffect, stripFirstBlankLine, validateRequired } from './ui.ts';
+import { validateRequired } from './ui.ts';
 import { UI } from '../ui/index.ts';
 import { BadArgsError } from '../errors.ts';
-import { link } from '../logging.ts';
 import type { ClientTypeSchema } from '../commands/auth/client/add.ts';
 import { Args } from './args.ts';
 
@@ -179,43 +177,6 @@ export const updateOAuthClient = Effect.fn(function* (params: {
     .pipe(
       Effect.flatMap(HttpClientResponse.schemaBodyJson(AddOAuthClientResponse)),
     );
-});
-
-// Due to the long prompt text, we use modifiers to manually create the prompt so we can
-// change it after submission.
-export const promptForRedirectURI = Effect.fn(function* (
-  existingValue?: string,
-) {
-  if (existingValue) return existingValue;
-
-  const result = yield* runUIEffect(
-    new UI.TextInput({
-      prompt: '',
-      placeholder: 'https://yoursite.com/oauth/callback',
-      modifyOutput: UI.modifiers.piped([
-        (output, status) => {
-          if (status === 'idle') {
-            return (
-              `\nCustom redirect URL (optional):
-${chalk.dim('With a custom redirect URL, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
-${chalk.dim(`Your URL must forward to ${link('https://api.instantdb.com/runtime/oauth/callback')} with all query parameters preserved.`)}\n\n` +
-              stripFirstBlankLine(output)
-            );
-          }
-          return `\nCustom redirect URL (optional):\n${stripFirstBlankLine(output)}`;
-        },
-        UI.modifiers.dimOnComplete,
-      ]),
-    }),
-  ).pipe(
-    Effect.catchTag('UIError', (e) =>
-      BadArgsError.make({
-        message: `UI error for redirect URI: ${e.message}`,
-      }),
-    ),
-  );
-
-  return result === '' ? undefined : result;
 });
 
 export const getOrCreateProvider = Effect.fn(function* (

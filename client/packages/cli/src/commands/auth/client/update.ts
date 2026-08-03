@@ -11,10 +11,8 @@ import {
   updateOAuthClient,
 } from '../../../lib/oauth.ts';
 import { UI } from '../../../ui/index.ts';
-import {
-  clerkDomainFromPublishableKey,
-  DEFAULT_OAUTH_CALLBACK_URL,
-} from '@instantdb/platform';
+import { clerkDomainFromPublishableKey } from '@instantdb/platform';
+import { getOAuthCallbackUrl } from '../../../lib/config.ts';
 import chalk from 'chalk';
 import boxen from 'boxen';
 import {
@@ -42,10 +40,13 @@ type ProviderRow = {
   provider_name: string;
 };
 
-const redirectPrompt = redirectUriPrompt({
-  heading: 'Custom redirect URI (optional):',
-});
-const newRedirectPrompt = redirectUriPrompt({ heading: 'New redirect URI:' });
+const redirectPrompt = (oauthCallbackURL: string) =>
+  redirectUriPrompt({
+    heading: 'Custom redirect URI (optional):',
+    oauthCallbackURL,
+  });
+const newRedirectPrompt = (oauthCallbackURL: string) =>
+  redirectUriPrompt({ heading: 'New redirect URI:', oauthCallbackURL });
 const googleConsoleUrl =
   'https://console.developers.google.com/apis/credentials';
 
@@ -267,12 +268,14 @@ const resolveGoogleUpdateMode = Effect.fn(function* ({
 const updateGoogleRedirect = Effect.fn(function* ({
   opts,
   client,
+  oauthCallbackURL,
 }: {
   opts: Record<string, unknown>;
   client: OAuthClientRow;
+  oauthCallbackURL: string;
 }) {
   const redirectTo = yield* Args.text(opts, 'custom-redirect-uri').pipe(
-    Args.prompt(newRedirectPrompt),
+    Args.prompt(newRedirectPrompt(oauthCallbackURL)),
     Args.required(),
   );
 
@@ -288,6 +291,7 @@ const updateGoogleRedirect = Effect.fn(function* ({
         ...redirectSetupMessages({
           prompt: 'Add this redirect URI in Google Console',
           redirectUri: redirectTo,
+          oauthCallbackURL,
           showCustomRedirectInstructions: true,
         }),
       ].join('\n'),
@@ -302,12 +306,14 @@ const updateGoogleCustomCredentials = Effect.fn(function* ({
   isWeb,
   switchingFromShared,
   promptCredentials,
+  oauthCallbackURL,
 }: {
   opts: Record<string, unknown>;
   client: OAuthClientRow;
   isWeb: boolean;
   switchingFromShared: boolean;
   promptCredentials: boolean;
+  oauthCallbackURL: string;
 }) {
   const mustCollectCredentials = promptCredentials || switchingFromShared;
   const shouldPromptRedirectUri =
@@ -330,13 +336,13 @@ const updateGoogleCustomCredentials = Effect.fn(function* ({
         Args.availableWhen(
           shouldPromptRedirectUri || Args.has(opts, 'custom-redirect-uri'),
         ),
-        Args.prompt(redirectPrompt),
+        Args.prompt(redirectPrompt(oauthCallbackURL)),
         Args.optional(),
       )
     : undefined;
 
   const redirectTo = switchingFromShared
-    ? customRedirectUri || client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL
+    ? customRedirectUri || client.redirect_to || oauthCallbackURL
     : customRedirectUri;
 
   const response = yield* updateOAuthClient({
@@ -361,6 +367,7 @@ const updateGoogleCustomCredentials = Effect.fn(function* ({
       ...redirectSetupMessages({
         prompt: 'Add this redirect URI in Google Console',
         redirectUri: redirectTo,
+        oauthCallbackURL,
         showCustomRedirectInstructions: Boolean(customRedirectUri),
       }),
     );
@@ -377,6 +384,7 @@ const updateGoogleCustomCredentials = Effect.fn(function* ({
 const handleGoogleUpdate = Effect.fn(function* (
   opts: Record<string, unknown>,
   client: OAuthClientRow,
+  oauthCallbackURL: string,
 ) {
   const { yes } = yield* GlobalOpts;
   const appType = getMetaString(client.meta, 'appType');
@@ -410,7 +418,7 @@ const handleGoogleUpdate = Effect.fn(function* (
   }
 
   if (updateMode === 'redirect') {
-    return yield* updateGoogleRedirect({ opts, client });
+    return yield* updateGoogleRedirect({ opts, client, oauthCallbackURL });
   }
 
   return yield* updateGoogleCustomCredentials({
@@ -419,6 +427,7 @@ const handleGoogleUpdate = Effect.fn(function* (
     isWeb,
     switchingFromShared,
     promptCredentials: !hasAnyUpdateFlag && !yes,
+    oauthCallbackURL,
   });
 });
 
@@ -428,6 +437,7 @@ const handleClientIdSecretUpdate = Effect.fn(function* (params: {
   providerLabel: string;
   providerUrl: string;
   redirectSetupPrompt: string;
+  oauthCallbackURL: string;
 }) {
   const { yes } = yield* GlobalOpts;
   const hasAnyUpdateFlag = Args.hasAny(params.opts, [
@@ -473,7 +483,11 @@ const handleClientIdSecretUpdate = Effect.fn(function* (params: {
     Args.availableWhen(
       promptRedirect || Args.has(params.opts, 'custom-redirect-uri'),
     ),
-    Args.prompt(promptRedirect ? newRedirectPrompt : redirectPrompt),
+    Args.prompt(
+      promptRedirect
+        ? newRedirectPrompt(params.oauthCallbackURL)
+        : redirectPrompt(params.oauthCallbackURL),
+    ),
     Args.required(),
   );
 
@@ -494,6 +508,7 @@ const handleClientIdSecretUpdate = Effect.fn(function* (params: {
       ...redirectSetupMessages({
         prompt: params.redirectSetupPrompt,
         redirectUri: customRedirectUri,
+        oauthCallbackURL: params.oauthCallbackURL,
         showCustomRedirectInstructions: true,
       }),
     );
@@ -580,10 +595,12 @@ const readAppleWebUpdate = Effect.fn(function* ({
   opts,
   client,
   promptAll,
+  oauthCallbackURL,
 }: {
   opts: Record<string, unknown>;
   client: OAuthClientRow;
   promptAll: boolean;
+  oauthCallbackURL: string;
 }) {
   const teamId = yield* Args.text(opts, 'team-id').pipe(
     Args.availableWhen(promptAll || Args.has(opts, 'team-id')),
@@ -605,7 +622,7 @@ const readAppleWebUpdate = Effect.fn(function* ({
     : undefined;
   const customRedirectUri = yield* Args.text(opts, 'custom-redirect-uri').pipe(
     Args.availableWhen(promptAll || Args.has(opts, 'custom-redirect-uri')),
-    Args.prompt(redirectPrompt),
+    Args.prompt(redirectPrompt(oauthCallbackURL)),
     Args.optional(),
   );
 
@@ -616,7 +633,7 @@ const readAppleWebUpdate = Effect.fn(function* ({
   return {
     privateKey,
     redirectTo: privateKey
-      ? customRedirectUri || client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL
+      ? customRedirectUri || client.redirect_to || oauthCallbackURL
       : customRedirectUri,
     customRedirectUri,
     meta: Object.keys(meta).length ? meta : undefined,
@@ -626,6 +643,7 @@ const readAppleWebUpdate = Effect.fn(function* ({
 const handleAppleUpdate = Effect.fn(function* (
   opts: Record<string, unknown>,
   client: OAuthClientRow,
+  oauthCallbackURL: string,
 ) {
   const { yes } = yield* GlobalOpts;
   const { promptAll, configureWeb } = yield* resolveAppleUpdateConfig({
@@ -640,7 +658,12 @@ const handleAppleUpdate = Effect.fn(function* (
     Args.required(),
   );
   const webUpdate: AppleWebUpdate = configureWeb
-    ? yield* readAppleWebUpdate({ opts, client, promptAll })
+    ? yield* readAppleWebUpdate({
+        opts,
+        client,
+        promptAll,
+        oauthCallbackURL,
+      })
     : {};
 
   const response = yield* updateOAuthClient({
@@ -661,6 +684,7 @@ const handleAppleUpdate = Effect.fn(function* (
       ...redirectSetupMessages({
         prompt: `Add this return URL under your Services ID on ${link('https://developer.apple.com', 'developer.apple.com')}`,
         redirectUri: webUpdate.redirectTo,
+        oauthCallbackURL,
         showCustomRedirectInstructions: Boolean(webUpdate.customRedirectUri),
       }),
     );
@@ -752,10 +776,13 @@ export const authClientUpdateCmd = Effect.fn(
         message: `OAuth provider not found for client: ${resolvedClient.client_name}`,
       });
     }
+    const oauthCallbackURL = yield* getOAuthCallbackUrl;
 
     yield* Match.value(provider.provider_name).pipe(
       Match.withReturnType<Effect.Effect<void, any, any>>(),
-      Match.when('google', () => handleGoogleUpdate(opts, resolvedClient)),
+      Match.when('google', () =>
+        handleGoogleUpdate(opts, resolvedClient, oauthCallbackURL),
+      ),
       Match.when('github', () =>
         handleClientIdSecretUpdate({
           opts,
@@ -764,6 +791,7 @@ export const authClientUpdateCmd = Effect.fn(
           providerUrl: 'https://github.com/settings/developers',
           redirectSetupPrompt:
             'Add this callback URL in your GitHub OAuth App settings',
+          oauthCallbackURL,
         }),
       ),
       Match.when('linkedin', () =>
@@ -774,9 +802,12 @@ export const authClientUpdateCmd = Effect.fn(
           providerUrl: 'https://www.linkedin.com/developers/apps',
           redirectSetupPrompt:
             'Add this redirect URI in your LinkedIn app settings',
+          oauthCallbackURL,
         }),
       ),
-      Match.when('apple', () => handleAppleUpdate(opts, resolvedClient)),
+      Match.when('apple', () =>
+        handleAppleUpdate(opts, resolvedClient, oauthCallbackURL),
+      ),
       Match.when('clerk', () => handleClerkUpdate(opts, resolvedClient)),
       Match.when('firebase', () => handleFirebaseUpdate(opts, resolvedClient)),
       Match.orElse((providerName) =>
