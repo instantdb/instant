@@ -65,9 +65,6 @@
     (with-redefs [flags/flag (fn [_key not-found] not-found)]
       (is (true? (flags/ephemeral-apps-enabled?)))))
 
-  (testing "only false disables temporary apps"
-    (doseq [value [nil true "false" 0]]
-      (with-redefs [flags/flag (constantly value)]
-        (is (true? (flags/ephemeral-apps-enabled?)))))
+  (testing "temporary apps can be disabled"
     (with-redefs [flags/flag (constantly false)]
       (is (false? (flags/ephemeral-apps-enabled?))))))

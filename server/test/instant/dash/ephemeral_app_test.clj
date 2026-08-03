@@ -6,7 +6,7 @@
    [instant.util.exception :as ex]))
 
 (deftest create-is-denied-when-ephemeral-apps-are-disabled
-  (with-redefs [flags/ephemeral-apps-enabled? (constantly false)]
+  (binding [flags/*flag-overrides* {:ephemeral-apps-enabled false}]
     (try
       (ephemeral-app/http-post-handler {:body {:title "test-app"}})
       (is false "Expected temporary app creation to be denied")

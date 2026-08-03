@@ -430,7 +430,7 @@
      (get-in (query-result) [:flags key] not-found))))
 
 (defn ephemeral-apps-enabled? []
-  (not (false? (flag :ephemeral-apps-enabled true))))
+  (flag :ephemeral-apps-enabled true))
 
 (defn app-proxy-targets
   "The app proxy routing table. Emptying the flag turns off all routing
