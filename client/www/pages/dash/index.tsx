@@ -6,6 +6,7 @@ import {
   ComboboxOptions,
 } from '@headlessui/react';
 import {
+  ArchiveBoxIcon,
   ArrowTopRightOnSquareIcon,
   BeakerIcon,
   CodeBracketIcon,
@@ -61,6 +62,7 @@ import {
   useFetchedDash,
 } from '@/components/dash/MainDashLayout';
 import OAuthApps from '@/components/dash/OAuthApps';
+import { Backups } from '@/components/dash/Backups';
 import { Sandbox } from '@/components/dash/Sandbox';
 import { Webhooks } from '@/components/dash/Webhooks';
 import WebhookIcon from '@/components/icons/WebhookIcon';
@@ -134,6 +136,7 @@ type MainTabId =
   | 'perms'
   | 'auth'
   | 'webhooks'
+  | 'backups'
   | 'email'
   | 'team'
   | 'admin'
@@ -169,6 +172,7 @@ const mainTabs: Tab<MainTabId>[] = [
   { id: 'perms', title: 'Permissions', icon: makeIcon(LockClosedIcon) },
   { id: 'auth', title: 'Auth', icon: makeIcon(IdentificationIcon) },
   { id: 'webhooks', title: 'Webhooks', icon: makeIcon(WebhookIcon) },
+  { id: 'backups', title: 'Backups', icon: makeIcon(ArchiveBoxIcon) },
   { id: 'repl', title: 'Query Inspector', icon: makeIcon(MagnifyingGlassIcon) },
   { id: 'sandbox', title: 'Sandbox', icon: makeIcon(BeakerIcon) },
   {
@@ -989,6 +993,8 @@ function DashboardContent({
         <AppAuth app={app} key={app.id} nav={nav} />
       ) : tab === 'webhooks' ? (
         <Webhooks app={app} namespaces={schemaData.namespaces} />
+      ) : tab === 'backups' ? (
+        <Backups app={app} />
       ) : tab === 'admin' && isMinRole('admin', role) ? (
         <Admin
           role={role}

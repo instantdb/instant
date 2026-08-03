@@ -7,6 +7,7 @@
             [hiccup2.core :as h]
             [instant.cloudwatch :as cloudwatch]
             [instant.config :as config]
+            [instant.backup :as backup]
             [instant.dash.admin :as dash-admin]
             [instant.dash.ephemeral-app :as ephemeral-app]
             [instant.dash.get-a-db :as get-a-db]
@@ -64,6 +65,8 @@
                      check-custom-sender-rate-limit!]]
             [instant.session-counter :as session-counter]
             [instant.storage.coordinator :as storage-coordinator]
+            [instant.storage.s3 :as storage-s3]
+            [instant.util.s3 :as s3-util]
             [instant.stripe :as stripe]
             [instant.superadmin.routes :refer [req->superadmin-app!
                                                req->superadmin-user!]]
@@ -89,11 +92,14 @@
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.http-response :as response])
   (:import
+   (com.github.luben.zstd ZstdInputStream)
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
+   (java.io BufferedReader BufferedWriter InputStreamReader OutputStreamWriter PipedInputStream PipedOutputStream)
    (java.nio ByteBuffer)
+   (java.nio.charset StandardCharsets)
    (java.sql Timestamp)
-   (java.time Instant)
+   (java.time Duration Instant)
    (java.util Base64 Map UUID)))
 
 (def cli-min-version (semver/parse "v0.19.0"))
@@ -1785,6 +1791,128 @@
 ;; --------
 ;; Webhooks
 
+(defn app-backup-row->response [row]
+  {:id (:id row)
+   :isn (str (:isn row))
+   :backup_at (:backup_at row)
+   :files_size (:files_size row)
+   :db_size (:db_size row)
+   :uncompressed_size (:uncompressed_size row)
+   :description (:description row)
+   :expires_at (:expires_at row)})
+
+(defn app-backups-get [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/read
+                                                                         req)
+        backups (backup/get-app-backups-by-app-id {:app-id app-id})]
+    (response/ok {:backups (mapv app-backup-row->response backups)})))
+
+(defn app-backup-files-get [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/read
+                                                                         req)
+        backup-id (ex/get-param! req [:params :backup_id] uuid-util/coerce)
+        record (ex/assert-record! (backup/get-app-backup-by-id {:id backup-id
+                                                                :app-id app-id})
+                                  :app-backup
+                                  {:id backup-id})
+        prefix (str (:storage_prefix record) "/")
+        objects (s3-util/list-all-objects (storage-s3/s3-client)
+                                          config/s3-app-backups-bucket-name
+                                          {:prefix prefix})
+        files (mapv (fn [obj]
+                      (let [k (:key obj)
+                            file-name (subs k (count prefix))]
+                        {:name file-name
+                         :size (:size obj)}))
+                    objects)]
+    (response/ok {:files files})))
+
+(defn app-backup-file-url-get [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/read
+                                                                         req)
+        backup-id (ex/get-param! req [:params :backup_id] uuid-util/coerce)
+        name (ex/get-param! req [:params :name] string-util/coerce-non-blank-str)
+        record (ex/assert-record! (backup/get-app-backup-by-id {:id backup-id
+                                                                :app-id app-id})
+                                  :app-backup
+                                  {:id backup-id})
+        prefix (str (:storage_prefix record) "/")
+        key (str prefix name)
+        url (s3-util/generate-presigned-url
+             (storage-s3/presign-creds)
+             {:app-id app-id
+              :method :get
+              :bucket-name config/s3-app-backups-bucket-name
+              :key key
+              :signing-instant (Instant/now)
+              :duration (Duration/ofHours 1)})]
+    (response/ok {:url (str url)})))
+
+(defn app-backup-storage-files-get
+  "Streams NDJSON of {path, size, url} for every `$files` entity captured
+   in the backup. Reads the `$files.jsonl` shard from the backup's storage
+   prefix in S3, decompresses zstd line-by-line, and emits a presigned URL
+   for each file's object in the source app's storage bucket.
+
+   The luminus/ring-undertow-adapter only supports a fixed set of body
+   types (byte[]/String/ByteBuffer/InputStream/File/ISeq); a generic
+   StreamableResponseBody throws UnsupportedOperationException. So we hand
+   the adapter a PipedInputStream and fill it from a virtual-thread
+   producer that decodes/encodes lines and flushes per write."
+  [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :data/read
+                                                                         req)
+        backup-id (ex/get-param! req [:params :backup_id] uuid-util/coerce)
+        record (ex/assert-record! (backup/get-app-backup-by-id {:id backup-id
+                                                                :app-id app-id})
+                                  :app-backup
+                                  {:id backup-id})
+        files-key (str (:storage_prefix record) "/entities/$files.jsonl")
+        presign-creds (storage-s3/presign-creds)
+        pipe-out (PipedOutputStream.)
+        pipe-in (PipedInputStream. pipe-out (int (* 64 1024)))]
+    (ua/vfuture
+     (try
+       (with-open [writer (BufferedWriter. (OutputStreamWriter. pipe-out StandardCharsets/UTF_8))
+                   s3-stream (s3-util/get-object (storage-s3/s3-async-client)
+                                                 config/s3-app-backups-bucket-name
+                                                 files-key)
+                   zst-stream (ZstdInputStream. s3-stream)
+                   rdr (BufferedReader. (InputStreamReader. zst-stream StandardCharsets/UTF_8))]
+         (doseq [row (json/parsed-seq rdr)]
+           (let [entity (get row "entity")
+                 location-id (get entity "location-id")]
+             (when location-id
+               (let [url (s3-util/generate-presigned-url
+                          presign-creds
+                          {:app-id app-id
+                           :method :get
+                           :bucket-name config/s3-bucket-name
+                           :key (storage-s3/->object-key app-id location-id)
+                           :signing-instant (Instant/now)
+                           :duration (Duration/ofHours 12)})]
+                 (.write writer ^String (json/->json {:locationId location-id
+                                                      :path (get entity "path")
+                                                      :url (str url)}))
+                 (.write writer "\n")
+                 (.flush writer))))))
+       (catch Exception e
+         (tracer/record-exception-span! e {:name "backup/stream-storage-files-error"
+                                           :escaping? false})
+         ;; with-open closes the writer (→ pipe-out) on the normal path;
+         ;; this handles the case where we threw before the writer existed,
+         ;; so the consumer still sees EOF rather than blocking forever.
+         (try (.close pipe-out) (catch Exception _)))))
+    {:status 200
+     :headers {"Content-Type" "application/x-ndjson"
+               "Cache-Control" "no-cache"
+               "X-Accel-Buffering" "no"}
+     :body pipe-in}))
+
 (defn webhook-row->response [webhook]
   (select-keys webhook [:id :sink :namespaces :actions :status
                         :disabled_reason :created_at :updated_at]))
@@ -2429,6 +2557,12 @@
   (GET "/dash/apps/:app_id/indexing-jobs/:job_id" [] indexing-job-get)
   (GET "/dash/apps/:app_id/indexing-jobs/group/:group_id" [] indexing-jobs-group-get)
   (POST "/dash/apps/:app_id/indexing-jobs" [] indexing-job-post)
+
+  ;; Backups
+  (GET "/dash/apps/:app_id/backups" [] app-backups-get)
+  (GET "/dash/apps/:app_id/backups/:backup_id/files" [] app-backup-files-get)
+  (GET "/dash/apps/:app_id/backups/:backup_id/file-url" [] app-backup-file-url-get)
+  (GET "/dash/apps/:app_id/backups/:backup_id/storage-files" [] app-backup-storage-files-get)
 
   ;; Webhooks
   (GET "/dash/apps/:app_id/webhooks" [] webhooks-get)

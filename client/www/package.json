@@ -70,6 +70,7 @@
     "embla-carousel-react": "^8.6.0",
     "export-to-csv": "^1.4.0",
     "facehash": "^0.1.0",
+    "fflate": "^0.8.3",
     "focus-visible": "^5.2.0",
     "fuse.js": "^7.0.0",
     "gray-matter": "^4.0.3",

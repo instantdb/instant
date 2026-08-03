@@ -87,7 +87,7 @@ export function CopyableText({
       <TooltipTrigger asChild>
         <span
           title="Click to copy"
-          className={`cursor-default ${className ?? ''}`}
+          className={`cursor-pointer ${className ?? ''}`}
           onClick={handleClick}
         >
           {value}

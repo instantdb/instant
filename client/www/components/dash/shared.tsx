@@ -11,3 +11,14 @@ export function ErrorMessage({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+export function formatTimestamp(ts: string): string {
+  try {
+    return new Date(ts).toLocaleString(undefined, {
+      dateStyle: 'full',
+      timeStyle: 'short',
+    });
+  } catch {
+    return ts;
+  }
+}
