@@ -458,7 +458,8 @@
   "Creates a unique namespace for a pg advisory lock."
   [k]
   (int (case k
-         :webhook 1)))
+         :webhook 1
+         :webhook-config 2)))
 
 (defn init []
   ;; instantiate the config-map so we can fail early if it's not
