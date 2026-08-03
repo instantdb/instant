@@ -27,8 +27,8 @@ import {
 import { errorToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
 
-import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
 import { useDarkMode } from '../DarkModeToggle';
+import { defaultOAuthCallbackURL } from '@/lib/config';
 
 function exampleCode({ clientName }: { clientName: string }) {
   return /* js */ `// Create the authorization URL:
@@ -169,8 +169,8 @@ export function AddGitHubClientForm({
 
       <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
         <p className="overflow-hidden">
-          Add <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> as
-          the Authorization callback URL in your GitHub OAuth App settings.
+          Add <Copytext value={redirectTo || defaultOAuthCallbackURL} /> as the
+          Authorization callback URL in your GitHub OAuth App settings.
         </p>
         {redirectTo && <RedirectForwardingNote redirectTo={redirectTo} />}
         <p className="text-sm text-gray-500 dark:text-neutral-400">
@@ -231,7 +231,7 @@ export function GitHubClient({
       <div className="flex flex-col gap-2">
         <Copyable
           label="Authorization callback URL"
-          value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
+          value={client.redirect_to || defaultOAuthCallbackURL}
         />
         {client.redirect_to && (
           <RedirectForwardingNote redirectTo={client.redirect_to} />

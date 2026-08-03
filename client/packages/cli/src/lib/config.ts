@@ -1,4 +1,5 @@
 import { Config, Effect, Option, Schema } from 'effect';
+import { oauthCallbackURL } from '@instantdb/platform';
 import { BadArgsError } from '../errors.ts';
 import { readInstantConfigFile } from '../util/instantConfig.ts';
 
@@ -38,6 +39,10 @@ export const getBaseUrl = Effect.gen(function* () {
 
   return dev ? 'http://localhost:8888' : 'https://api.instantdb.com';
 });
+
+export const getOAuthCallbackUrl = getBaseUrl.pipe(
+  Effect.map(oauthCallbackURL),
+);
 
 export const getDashUrl = Effect.gen(function* () {
   const setEnv = yield* Config.string('INSTANT_CLI_DASH_URI').pipe(

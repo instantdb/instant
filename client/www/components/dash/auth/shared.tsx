@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { jsonFetch } from '@/lib/fetch';
-import config from '@/lib/config';
+import config, { defaultOAuthCallbackURL } from '@/lib/config';
 import {
   InstantApp,
   InstantIssue,
@@ -19,7 +19,6 @@ import {
 } from '@/components/ui';
 import { errorToast, successToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
-import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
 
 export function findName(prefix: string, used: Set<string>): string {
   if (!used.has(prefix)) {
@@ -220,7 +219,7 @@ function RedirectUrlLabel() {
           <p>
             Your URI must forward to{' '}
             <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-800 dark:bg-neutral-700 dark:text-neutral-200">
-              https://api.instantdb.com/runtime/oauth/callback
+              {defaultOAuthCallbackURL}
             </code>{' '}
             with all query parameters preserved.
           </p>
@@ -295,7 +294,7 @@ export function RedirectForwardingNote({ redirectTo }: { redirectTo: string }) {
         Your redirect URI must forward all query parameters to Instant's
         callback.
       </p>
-      <Copyable label="Callback" value={DEFAULT_OAUTH_CALLBACK_URL} />
+      <Copyable label="Callback" value={defaultOAuthCallbackURL} />
       <div className="flex">
         <TestRedirectButton redirectTo={redirectTo} />
       </div>

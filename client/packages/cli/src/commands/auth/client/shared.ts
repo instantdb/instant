@@ -1,6 +1,5 @@
 import { FileSystem } from '@effect/platform';
 import { Effect } from 'effect';
-import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
 import chalk from 'chalk';
 import { BadArgsError } from '../../../errors.ts';
 import { link } from '../../../logging.ts';
@@ -38,7 +37,13 @@ export const clientSecretPrompt = ({
   ]),
 });
 
-export const redirectUriPrompt = ({ heading }: { heading: string }) => ({
+export const redirectUriPrompt = ({
+  heading,
+  oauthCallbackURL,
+}: {
+  heading: string;
+  oauthCallbackURL: string;
+}) => ({
   prompt: '',
   placeholder: 'https://yoursite.com/oauth/callback',
   modifyOutput: UI.modifiers.piped([
@@ -47,7 +52,7 @@ export const redirectUriPrompt = ({ heading }: { heading: string }) => ({
         return (
           `\n${heading}
 ${chalk.dim('With a custom redirect URI, users will see "Redirecting to yoursite.com..." for a more branded experience.')}
-${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all query parameters preserved.`)}\n\n` +
+${chalk.dim(`Your URI must forward to ${oauthCallbackURL} with all query parameters preserved.`)}\n\n` +
           stripFirstBlankLine(output)
         );
       }
@@ -64,10 +69,12 @@ ${chalk.dim(`Your URI must forward to ${DEFAULT_OAUTH_CALLBACK_URL} with all que
 export const redirectSetupMessages = ({
   prompt,
   redirectUri,
+  oauthCallbackURL,
   showCustomRedirectInstructions,
 }: {
   prompt: string;
   redirectUri: string;
+  oauthCallbackURL: string;
   showCustomRedirectInstructions?: boolean;
 }) => {
   const messages = ['', chalk.bold(`${prompt}:`), chalk.bold(redirectUri)];
@@ -75,7 +82,7 @@ export const redirectSetupMessages = ({
   if (showCustomRedirectInstructions) {
     messages.push(
       '',
-      `Your custom redirect must forward to ${chalk.bold(DEFAULT_OAUTH_CALLBACK_URL)} with all query parameters preserved.`,
+      `Your custom redirect must forward to ${chalk.bold(oauthCallbackURL)} with all query parameters preserved.`,
     );
     messages.push(
       `You can test it by visiting: ${chalk.bold(redirectUri + '?test-redirect=true')}`,

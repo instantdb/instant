@@ -17,7 +17,6 @@ import {
   OAuthServiceProvider,
 } from '@/lib/types';
 import {
-  DEFAULT_OAUTH_CALLBACK_URL,
   LINKEDIN_AUTHORIZATION_ENDPOINT,
   LINKEDIN_TOKEN_ENDPOINT,
   LINKEDIN_DISCOVERY_ENDPOINT,
@@ -33,6 +32,7 @@ import { errorToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
 
 import { useDarkMode } from '../DarkModeToggle';
+import { defaultOAuthCallbackURL } from '@/lib/config';
 
 function exampleCode({ clientName }: { clientName: string }) {
   return /* js */ `// Create the authorization URL:
@@ -176,7 +176,7 @@ export function AddLinkedInClientForm({
 
       <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
         <p className="overflow-hidden">
-          Add <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> as a
+          Add <Copytext value={redirectTo || defaultOAuthCallbackURL} /> as a
           redirect URI for your LinkedIn app.
         </p>
         {redirectTo && <RedirectForwardingNote redirectTo={redirectTo} />}
@@ -239,7 +239,7 @@ export function LinkedInClient({
       <div className="flex flex-col gap-2">
         <Copyable
           label="Redirect URI"
-          value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
+          value={client.redirect_to || defaultOAuthCallbackURL}
         />
         {client.redirect_to && (
           <RedirectForwardingNote redirectTo={client.redirect_to} />

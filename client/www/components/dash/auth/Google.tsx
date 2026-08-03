@@ -28,8 +28,8 @@ import {
   TextInput,
   ToggleGroup,
 } from '@/components/ui';
-import { DEFAULT_OAUTH_CALLBACK_URL } from '@instantdb/platform';
 import { useDarkMode } from '../DarkModeToggle';
+import { defaultOAuthCallbackURL } from '@/lib/config';
 
 type AppType = 'web' | 'ios' | 'android' | 'button-for-web';
 function isNative(appType: AppType) {
@@ -272,9 +272,8 @@ export function AddGoogleClientForm({
           {appType === 'web' && (
             <div className="flex flex-col gap-2 rounded-sm border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
               <p className="overflow-hidden">
-                Add{' '}
-                <Copytext value={redirectTo || DEFAULT_OAUTH_CALLBACK_URL} /> to
-                the "Authorized redirect URIs" on your{' '}
+                Add <Copytext value={redirectTo || defaultOAuthCallbackURL} />{' '}
+                to the "Authorized redirect URIs" on your{' '}
                 <a
                   className="underline dark:text-white"
                   target="_blank"
@@ -602,7 +601,7 @@ function Login() {
               <div className="flex flex-col gap-2">
                 <Copyable
                   label="Redirect URI"
-                  value={client.redirect_to || DEFAULT_OAUTH_CALLBACK_URL}
+                  value={client.redirect_to || defaultOAuthCallbackURL}
                 />
                 {client.redirect_to && (
                   <RedirectForwardingNote redirectTo={client.redirect_to} />

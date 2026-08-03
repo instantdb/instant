@@ -1,4 +1,4 @@
-import { test, expect, describe, vi, beforeEach } from 'vitest';
+import { test, expect, describe, vi, beforeEach, afterEach } from 'vitest';
 import { Effect, Layer, Logger } from 'effect';
 import * as NodeContext from '@effect/platform-node/NodeContext';
 import { GlobalOpts } from '../src/context/globalOpts.ts';
@@ -90,10 +90,15 @@ const withEntry = (flags: Map<string, string>, key: string, value: string) =>
   new Map([...flags, [key, value]]);
 
 beforeEach(() => {
+  vi.stubEnv('INSTANT_CLI_API_URI', undefined);
   prompts = [];
   addedClients = [];
   logs = [];
   mockPromptReturn = '';
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 // -- flag sets --
@@ -186,6 +191,16 @@ describe('interactive prompts for each missing flag', () => {
 // -- success cases --
 
 describe('success', () => {
+  test('uses the configured API URI for the callback URL', async () => {
+    vi.stubEnv('INSTANT_CLI_API_URI', 'https://api.instant.example');
+
+    await run(webFlags, { yes: true });
+
+    expect(addedClients[0].redirectTo).toBe(
+      'https://api.instant.example/runtime/oauth/callback',
+    );
+  });
+
   test('all required flags → creates client and prints callback URL', async () => {
     await run(webFlags, { yes: true });
     expect(addedClients).toHaveLength(1);

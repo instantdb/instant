@@ -1,5 +1,10 @@
-export const DEFAULT_OAUTH_CALLBACK_URL =
-  'https://api.instantdb.com/runtime/oauth/callback';
+export function oauthCallbackURL(apiURI: string) {
+  return `${apiURI.replace(/\/+$/, '')}/runtime/oauth/callback`;
+}
+
+export const DEFAULT_OAUTH_CALLBACK_URL = oauthCallbackURL(
+  'https://api.instantdb.com',
+);
 
 export const GOOGLE_AUTHORIZATION_ENDPOINT =
   'https://accounts.google.com/o/oauth2/v2/auth';
