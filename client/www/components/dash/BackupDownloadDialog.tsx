@@ -569,16 +569,18 @@ export function DownloadDialog({
             {progress?.currentEntity ?? ''}
           </span>
         </div>
-        <div className="flex min-w-0 items-baseline gap-3 tabular-nums">
-          <span className="shrink-0">
-            {filesTotal == null
-              ? `Listing storage files…`
-              : `${filesDone.toLocaleString()} of ${filesTotal.toLocaleString()} storage files`}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-right font-mono">
-            {progress?.currentFile ?? ''}
-          </span>
-        </div>
+        {filesTotal === 0 ? null : (
+          <div className="flex min-w-0 items-baseline gap-3 tabular-nums">
+            <span className="shrink-0">
+              {filesTotal == null
+                ? `Listing storage files…`
+                : `${filesDone.toLocaleString()} of ${filesTotal.toLocaleString()} storage files`}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-right font-mono">
+              {progress?.currentFile ?? ''}
+            </span>
+          </div>
+        )}
         <div className="flex min-w-0 items-baseline gap-3">
           <span className="min-w-0 flex-1 truncate">
             {savingVerb}{' '}
