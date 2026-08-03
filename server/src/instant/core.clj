@@ -376,7 +376,10 @@
           (app-proxy/stop)))
       (future
         (tracer/with-span! {:name "stop-triples-size-updates"}
-          (triples-size-updates/stop-global)))))
+          (triples-size-updates/stop-global)))
+      (future
+        (tracer/with-span! {:name "stop-backup"}
+          (backup/stop)))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []
