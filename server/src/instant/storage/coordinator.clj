@@ -79,7 +79,7 @@
                         (ex-cause e)))))))
 
 (defn delete-files!
-  "Deletes multiple files from both Instant and S3."
+  "Deletes multiple files from Instant. S3 cleanup is handled by the storage sweeper."
   [{:keys [app-id paths current-user skip-perms-check?]}]
   (storage-beta/assert-storage-enabled! app-id)
   (when (not skip-perms-check?)
@@ -87,21 +87,17 @@
       (assert-storage-permission! "delete" {:app-id app-id
                                             :path path
                                             :current-user current-user})))
-  (let [deleted (app-file-model/delete-by-paths! {:app-id app-id :paths paths})
-        locations (mapv :location-id deleted)
-        ids (mapv :id deleted)
-        _ (instant-s3/bulk-delete-files! app-id locations)]
-    {:ids ids}))
+  (let [deleted (app-file-model/delete-by-paths! {:app-id app-id :paths paths})]
+    {:ids (mapv :id deleted)}))
 
 (defn delete-file!
-  "Deletes a file from both Instant and S3."
+  "Deletes a file from Instant. S3 cleanup is handled by the storage sweeper."
   [{:keys [app-id path current-user skip-perms-check?]}]
   (when (not skip-perms-check?)
     (assert-storage-permission! "delete" {:app-id app-id
                                           :path path
                                           :current-user current-user}))
-  (let [{:keys [id location-id]} (app-file-model/delete-by-path! {:app-id app-id :path path})
-        _ (instant-s3/delete-file! app-id location-id)]
+  (let [{:keys [id]} (app-file-model/delete-by-path! {:app-id app-id :path path})]
     {:id id}))
 
 ;; Logic for legacy S3 upload/download URLs
