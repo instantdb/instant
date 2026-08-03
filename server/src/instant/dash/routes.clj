@@ -70,7 +70,7 @@
             [instant.stripe :as stripe]
             [instant.superadmin.routes :refer [req->superadmin-app!
                                                req->superadmin-user!]]
-            [instant.util.async :refer [fut-bg]]
+            [instant.util.async :as ua :refer [fut-bg]]
             [instant.util.crypt :as crypt-util]
             [instant.util.date :as date]
             [instant.util.email :as email]
