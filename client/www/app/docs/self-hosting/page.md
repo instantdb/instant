@@ -159,6 +159,19 @@ docker compose -f docker-compose.with-caddy.yml --env-file .env up --build
 
 After everything starts up, the dashboard will be available at whatever you set `INSTANT_DASHBOARD_URL` to.
 
+### Updating
+
+For routine updates, pull the latest server and dashboard images and recreate only those containers:
+
+```sh {% showCopy=true %}
+docker compose -f docker-compose.with-caddy.yml --env-file .env pull server www && \
+  docker compose -f docker-compose.with-caddy.yml --env-file .env up -d --no-deps server www
+```
+
+If you changed the start command, use the same Compose options here.
+
+This does not update PostgreSQL or other infrastructure. It also leaves your Compose files, `.env`, overrides, and volumes unchanged.
+
 ## Memory Limits
 
 By default, the backend server container can use a lot of resources. We recommend setting a maximum memory limit on the server container using the `JAVA_OPTS` environment variable like so:
