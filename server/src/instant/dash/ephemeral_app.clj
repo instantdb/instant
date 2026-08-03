@@ -51,6 +51,9 @@
 ;; HTTP Handler
 
 (defn http-post-handler [req]
+  (ex/assert-permitted! :ephemeral-app-creation
+                        nil
+                        (flags/ephemeral-apps-enabled?))
   (let [title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         schema (get-in req [:body :schema])
         rules-code (ex/get-optional-param! req [:body :rules :code] w/stringify-keys)
