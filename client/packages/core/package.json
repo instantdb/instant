@@ -57,7 +57,7 @@
     "sandbox": "pnpm vitest --includeTaskLocation --testNamePattern=__nothing__ --inspect --browser --browser.ui true --testTimeout 0 --no-file-parallelism --project \"e2e (chromium)\""
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.17.4",
+    "@arethetypeswrong/cli": "^0.18.5",
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
     "@types/node": "^18.19.74",

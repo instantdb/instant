@@ -6,6 +6,7 @@ import {
   ComboboxOptions,
 } from '@headlessui/react';
 import {
+  ArchiveBoxIcon,
   ArrowTopRightOnSquareIcon,
   BeakerIcon,
   CodeBracketIcon,
@@ -61,6 +62,7 @@ import {
   useFetchedDash,
 } from '@/components/dash/MainDashLayout';
 import OAuthApps from '@/components/dash/OAuthApps';
+import { Backups } from '@/components/dash/Backups';
 import { Sandbox } from '@/components/dash/Sandbox';
 import { Webhooks } from '@/components/dash/Webhooks';
 import WebhookIcon from '@/components/icons/WebhookIcon';
@@ -76,6 +78,7 @@ import {
 } from '@/components/ui';
 import { SearchFilter, useSchemaQuery } from '@/lib/hooks/explorer';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import { useFlag } from '@/lib/hooks/useFlag';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 import clsx from 'clsx';
 import { createPortal } from 'react-dom';
@@ -134,6 +137,7 @@ type MainTabId =
   | 'perms'
   | 'auth'
   | 'webhooks'
+  | 'backups'
   | 'email'
   | 'team'
   | 'admin'
@@ -169,6 +173,7 @@ const mainTabs: Tab<MainTabId>[] = [
   { id: 'perms', title: 'Permissions', icon: makeIcon(LockClosedIcon) },
   { id: 'auth', title: 'Auth', icon: makeIcon(IdentificationIcon) },
   { id: 'webhooks', title: 'Webhooks', icon: makeIcon(WebhookIcon) },
+  { id: 'backups', title: 'Backups', icon: makeIcon(ArchiveBoxIcon) },
   { id: 'repl', title: 'Query Inspector', icon: makeIcon(MagnifyingGlassIcon) },
   { id: 'sandbox', title: 'Sandbox', icon: makeIcon(BeakerIcon) },
   {
@@ -264,6 +269,7 @@ function Dashboard() {
   const router = useReadyRouter();
   const fetchedDash = useFetchedDash();
   const posthog = usePostHog();
+  const showBackups = useFlag('backups');
   const apps = fetchedDash.data.apps;
 
   const appId =
@@ -555,6 +561,7 @@ function Dashboard() {
   // Role is the max between the org and the app
   const role = getRole(dashResponse.data, app);
   const availableTabs: TabItem[] = mainTabs
+    .filter((t) => t.id !== 'backups' || showBackups)
     .filter((t) => isTabAvailable(t, role))
     .map((t) => {
       return {
@@ -989,6 +996,8 @@ function DashboardContent({
         <AppAuth app={app} key={app.id} nav={nav} />
       ) : tab === 'webhooks' ? (
         <Webhooks app={app} namespaces={schemaData.namespaces} />
+      ) : tab === 'backups' ? (
+        <Backups app={app} />
       ) : tab === 'admin' && isMinRole('admin', role) ? (
         <Admin
           role={role}

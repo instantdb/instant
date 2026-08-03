@@ -36,7 +36,7 @@
    (com.github.luben.zstd Zstd ZstdOutputStream)
    (com.google.common.util.concurrent RateLimiter)
    (java.lang.reflect InvocationHandler InvocationTargetException Proxy)
-   (java.sql Connection)
+   (java.sql Connection Timestamp)
    (java.time Duration Instant Period ZonedDateTime)
    (java.util ArrayList HashMap)
    (java.util.concurrent LinkedBlockingQueue)
@@ -46,6 +46,11 @@
    (org.apache.commons.io.output CountingOutputStream)
    (org.postgresql.jdbc PgConnection PgConnection)
    (software.amazon.awssdk.core.async AsyncRequestBody)))
+
+(defn expired?
+  ([backup] (expired? (Instant/now) backup))
+  ([^Instant now {:keys [expires_at]}]
+   (not (.isAfter (Timestamp/.toInstant expires_at) now))))
 
 (def insert-backup-job-q
   (uhsql/preformat {:insert-into :backup-jobs
@@ -126,7 +131,9 @@
 (def get-app-backups-by-app-id-q
   (uhsql/preformat {:select [:id :app-id :isn :backup-at :files-size :db-size :uncompressed-size :description :expires-at]
                     :from :app-backups
-                    :where [:= :app-id :?app-id]
+                    :where [:and
+                            [:= :app-id :?app-id]
+                            [:> :expires-at :%now]]
                     :order-by [[:backup-at :desc]]}))
 
 (defn get-app-backups-by-app-id

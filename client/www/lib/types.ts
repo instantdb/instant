@@ -90,6 +90,17 @@ export type InstantWebhookPayload = {
   idempotencyKey: string;
 };
 
+export type InstantAppBackup = {
+  id: string;
+  isn: string;
+  backup_at: string;
+  files_size: number | null;
+  db_size: number | null;
+  uncompressed_size: number | null;
+  description: string | null;
+  expires_at: string | null;
+};
+
 export type InstantMember = {
   id: string;
   email: string;

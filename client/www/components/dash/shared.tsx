@@ -11,3 +11,18 @@ export function ErrorMessage({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+export function formatTimestamp(ts: string): string {
+  try {
+    const date = new Date(ts);
+    if (Number.isNaN(date.getTime())) {
+      return ts;
+    }
+    return date.toLocaleString(undefined, {
+      dateStyle: 'full',
+      timeStyle: 'short',
+    });
+  } catch {
+    return ts;
+  }
+}
