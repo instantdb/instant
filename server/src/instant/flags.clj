@@ -218,7 +218,8 @@
                   (update :cloudfront-signed-url-apps parse-uuids-flag)
                   (update :smokescreen-whitelist-ips parse-ips-flag)
                   (update :refresh-throttled-apps parse-uuids-flag)
-                  (update :use-reactive-cache-for-verify-token-apps parse-uuids-flag))
+                  (update :use-reactive-cache-for-verify-token-apps parse-uuids-flag)
+                  (update :backup-skip-app-ids parse-uuids-flag))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
@@ -513,6 +514,12 @@
 
 (defn failing-over? []
   (toggled? :failing-over))
+
+(defn backup-skip-app-ids
+  "App ids to exclude from the nightly backup, e.g. apps that have been
+   migrated to self-hosted. Add/remove ids here without a deploy."
+  []
+  (flag :backup-skip-app-ids #{}))
 
 (defn use-cloudfront-signed-url? [app-id]
   (when-not (toggled? :disable-cloudfront-signed-urls-globally)

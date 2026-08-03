@@ -709,23 +709,26 @@
                         ["select aurora_volume_logical_start_lsn() as lsn"])))
 
 (defn get-eligible-app-ids
-  "Returns non-ephemeral/non-deleted app ids ordered by id."
+  "Returns non-ephemeral/non-deleted app ids ordered by id, excluding any apps
+   in the `:backup-skip-app-ids` flag (e.g. apps migrated to self-hosted)."
   [clone-pool]
-  (map :id
-       (binding [sql/*query-timeout-seconds* 600]
-         (sql/select ::get-eligible
-                     clone-pool
-                     (hsql/format {:with [[:sums {:select [:app_id [[:sum :total] :triple_total]]
-                                                  :from :attr_sketches
-                                                  :group-by :app_id}]]
-                                   :select [:id [[:coalesce :triple_total :0] :triple_total]]
-                                   :from :apps
-                                   :left-join [:sums [:= :id :app_id]]
-                                   :where [:and
-                                           [:is-distinct-from :creator-id (:id @ephemeral-creator)]
-                                           [:not= :id #uuid "0516144f-712d-433d-b65d-6d2b7469004a"]
-                                           [:= nil :deletion-marked-at]]
-                                   :order-by [[:triple_total :desc]]})))))
+  (let [skip-app-ids (flags/backup-skip-app-ids)]
+    (map :id
+         (binding [sql/*query-timeout-seconds* 600]
+           (sql/select ::get-eligible
+                       clone-pool
+                       (hsql/format {:with [[:sums {:select [:app_id [[:sum :total] :triple_total]]
+                                                    :from :attr_sketches
+                                                    :group-by :app_id}]]
+                                     :select [:id [[:coalesce :triple_total :0] :triple_total]]
+                                     :from :apps
+                                     :left-join [:sums [:= :id :app_id]]
+                                     :where [:and
+                                             [:is-distinct-from :creator-id (:id @ephemeral-creator)]
+                                             (when (seq skip-app-ids)
+                                               [:not-in :id (vec skip-app-ids)])
+                                             [:= nil :deletion-marked-at]]
+                                     :order-by [[:triple_total :desc]]}))))))
 
 (defn handle-app
   "Processes a single app. Delivers the result to `finished-promise` (either
