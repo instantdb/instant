@@ -100,7 +100,8 @@
    (java.nio.charset StandardCharsets)
    (java.sql Timestamp)
    (java.time Duration Instant)
-   (java.util Base64 Map UUID)))
+   (java.util Base64 Map UUID)
+   (software.amazon.awssdk.services.s3.model S3Exception)))
 
 (def cli-min-version (semver/parse "v0.19.0"))
 
@@ -1877,35 +1878,48 @@
         pipe-in (PipedInputStream. pipe-out (int (* 64 1024)))]
     (ua/vfuture
      (try
-       (with-open [writer (BufferedWriter. (OutputStreamWriter. pipe-out StandardCharsets/UTF_8))
-                   s3-stream (s3-util/get-object (storage-s3/s3-async-client)
-                                                 config/s3-app-backups-bucket-name
-                                                 files-key)
-                   zst-stream (ZstdInputStream. s3-stream)
-                   rdr (BufferedReader. (InputStreamReader. zst-stream StandardCharsets/UTF_8))]
-         (doseq [row (json/parsed-seq rdr)]
-           (let [entity (get row "entity")
-                 location-id (get entity "location-id")]
-             (when location-id
-               (let [url (s3-util/generate-presigned-url
-                          presign-creds
-                          {:app-id app-id
-                           :method :get
-                           :bucket-name config/s3-bucket-name
-                           :key (storage-s3/->object-key app-id location-id)
-                           :signing-instant (Instant/now)
-                           :duration (Duration/ofHours 12)})]
-                 (.write writer ^String (json/->json {:locationId location-id
-                                                      :path (get entity "path")
-                                                      :url (str url)}))
-                 (.write writer "\n")
-                 (.flush writer))))))
+       (with-open [writer (BufferedWriter. (OutputStreamWriter. pipe-out StandardCharsets/UTF_8))]
+         (try
+           (with-open [s3-stream (s3-util/get-object (storage-s3/s3-async-client)
+                                                     config/s3-app-backups-bucket-name
+                                                     files-key)
+                       zst-stream (ZstdInputStream. s3-stream)
+                       rdr (BufferedReader. (InputStreamReader. zst-stream StandardCharsets/UTF_8))]
+             (doseq [row (json/parsed-seq rdr)]
+               (let [entity (get row "entity")
+                     location-id (get entity "location-id")]
+                 (when location-id
+                   (let [url (s3-util/generate-presigned-url
+                              presign-creds
+                              {:app-id app-id
+                               :method :get
+                               :bucket-name config/s3-bucket-name
+                               :key (storage-s3/->object-key app-id location-id)
+                               :signing-instant (Instant/now)
+                               :duration (Duration/ofHours 12)})]
+                     (.write writer ^String (json/->json {:locationId location-id
+                                                          :path (get entity "path")
+                                                          :url (str url)}))
+                     (.write writer "\n")
+                     (.flush writer))))))
+           (catch Exception e
+             (tool/def-locals)
+             ;; Don't throw if $files.jsonl is missing--it just means they have
+             ;; no files. get-object surfaces the miss as an S3Exception with a
+             ;; 404 status (not a typed NoSuchKeyException), wrapped in the
+             ;; CompletableFuture's ExecutionException.
+             (when-not (some #(and (instance? S3Exception %)
+                                   (= 404 (.statusCode ^S3Exception %)))
+                             (take-while some? (iterate ex-cause e)))
+               (throw e))))
+         ;; Notify the client that we've sent all of the files. Its absence
+         ;; tells the client the stream was truncated by an early failure.
+         (.write writer ^String (json/->json {:done true}))
+         (.write writer "\n")
+         (.flush writer))
        (catch Exception e
          (tracer/record-exception-span! e {:name "backup/stream-storage-files-error"
                                            :escaping? false})
-         ;; with-open closes the writer (→ pipe-out) on the normal path;
-         ;; this handles the case where we threw before the writer existed,
-         ;; so the consumer still sees EOF rather than blocking forever.
          (try (.close pipe-out) (catch Exception _)))))
     {:status 200
      :headers {"Content-Type" "application/x-ndjson"

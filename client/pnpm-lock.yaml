@@ -1733,6 +1733,9 @@ importers:
       nanoid:
         specifier: ^5.1.6
         version: 5.1.6
+      native-file-system-adapter:
+        specifier: ^3.0.1
+        version: 3.0.1
       next:
         specifier: ^15.5.7
         version: 15.5.7(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(babel-plugin-react-compiler@1.0.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -13859,6 +13862,10 @@ packages:
 
   nanotar@0.2.0:
     resolution: {integrity: sha512-9ca1h0Xjvo9bEkE4UOxgAzLV0jHKe6LMaxo37ND2DAhhAtd0j8pR1Wxz+/goMrZO8AEZTWCmyaOsFI/W5AdpCQ==}
+
+  native-file-system-adapter@3.0.1:
+    resolution: {integrity: sha512-ocuhsYk2SY0906LPc3QIMW+rCV3MdhqGiy7wV5Bf0e8/5TsMjDdyIwhNiVPiKxzTJLDrLT6h8BoV9ERfJscKhw==}
+    engines: {node: '>=14.8.0'}
 
   nativewind@2.0.11:
     resolution: {integrity: sha512-qCEXUwKW21RYJ33KRAJl3zXq2bCq82WoI564fI21D/TiqhfmstZOqPN53RF8qK1NDK6PGl56b2xaTxgObEePEg==}
@@ -34026,6 +34033,10 @@ snapshots:
   nanoid@5.1.6: {}
 
   nanotar@0.2.0: {}
+
+  native-file-system-adapter@3.0.1:
+    optionalDependencies:
+      fetch-blob: 3.2.0
 
   nativewind@2.0.11(react@18.3.1)(tailwindcss@3.3.2(ts-node@10.9.2(@swc/core@1.15.3)(@types/node@22.13.0)(typescript@5.9.3))):
     dependencies:

@@ -1,5 +1,6 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import { AsyncZipDeflate, Zip } from 'fflate';
+import { showSaveFilePicker } from 'native-file-system-adapter';
 
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
@@ -86,15 +87,7 @@ type DownloadResult =
   | { via: 'picker'; filename: string }
   | { via: 'browser-default'; filename: string };
 
-type SaveFilePicker = (opts: {
-  suggestedName?: string;
-  types?: { description: string; accept: Record<string, string[]> }[];
-}) => Promise<{
-  name: string;
-  createWritable: () => Promise<WritableStream<Uint8Array>>;
-}>;
-
-type SaveFileHandle = Awaited<ReturnType<SaveFilePicker>>;
+type SaveFileHandle = Awaited<ReturnType<typeof showSaveFilePicker>>;
 
 type ZipEntry = {
   name: string;
@@ -181,6 +174,19 @@ function fflateZipStream(
   });
 }
 
+async function registerDownloadServiceWorker(): Promise<void> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    return;
+  }
+
+  try {
+    await navigator.serviceWorker.register('/native-file-system-adapter-sw.js');
+    await navigator.serviceWorker.ready;
+  } catch {
+    // falls back to constructing a blob
+  }
+}
+
 async function downloadBackup(
   token: string,
   appId: string,
@@ -190,34 +196,17 @@ async function downloadBackup(
 ): Promise<DownloadResult> {
   const filename = backupZipName(backup);
 
-  const showSaveFilePicker: SaveFilePicker | undefined =
-    typeof window !== 'undefined'
-      ? (window as unknown as { showSaveFilePicker?: SaveFilePicker })
-          .showSaveFilePicker
-      : undefined;
-
-  // Acquire the save destination FIRST, before any awaits, while transient
-  // user activation from the button click is still valid. If we awaited
-  // anything first the picker would throw SecurityError on slow connections.
-  let pickerHandle: SaveFileHandle | null = null;
-  if (showSaveFilePicker) {
-    try {
-      pickerHandle = await showSaveFilePicker({
-        suggestedName: filename,
-        types: [
-          {
-            description: 'ZIP Archive',
-            accept: { 'application/zip': ['.zip'] },
-          },
-        ],
-      });
-    } catch (e) {
-      // User cancelled the picker — propagate so handleDownload can ignore it.
-      if ((e as { name?: string })?.name === 'AbortError') throw e;
-      // Anything else (activation expired, picker disabled, etc.) — fall
-      // through to the blob anchor path.
-    }
-  }
+  // Acquire the save destination first to prevent the the picker
+  // frowm throwing a SecurityError on async access.
+  const pickerHandle: SaveFileHandle = await showSaveFilePicker({
+    suggestedName: filename,
+    types: [
+      {
+        description: 'ZIP Archive',
+        accept: { 'application/zip': ['.zip'] },
+      },
+    ],
+  });
 
   // ---- Shared progress state ----
   // current = files (backup + storage) fully fetched.
@@ -274,6 +263,10 @@ async function downloadBackup(
   // It pushes onto storagePending and bumps `storageDiscovered` as URLs
   // stream in.
   void (async () => {
+    // Set once we see the server's terminal `done` sentinel (or a 404, which
+    // means there's no $files shard at all). If discovery ends without it and
+    // we weren't aborted, the stream was truncated by a server-side failure.
+    let storageComplete = false;
     try {
       const res = await fetch(
         `${config.apiURI}/dash/apps/${appId}/backups/${backup.id}/storage-files`,
@@ -281,6 +274,7 @@ async function downloadBackup(
       );
       if (res.status === 404) {
         filesTotal = 0;
+        storageComplete = true;
         tick();
         return;
       }
@@ -293,7 +287,13 @@ async function downloadBackup(
       const consume = (line: string) => {
         const trimmed = line.trim();
         if (trimmed.length === 0) return;
-        const obj = JSON.parse(trimmed) as StorageFileLine;
+        const obj = JSON.parse(trimmed) as StorageFileLine & {
+          done?: boolean;
+        };
+        if (obj.done) {
+          storageComplete = true;
+          return;
+        }
         if (!obj.locationId || !obj.url) return;
         storagePending.push(obj);
         filesTotal = (filesTotal ?? 0) + 1;
@@ -314,7 +314,7 @@ async function downloadBackup(
       consume(buf);
     } catch (e) {
       // The abort path is expected when the zip pipeline failed and we
-      // tore the discovery down — not a user-visible error.
+      // tore the discovery down
       if ((e as { name?: string })?.name !== 'AbortError') {
         storageError = e as Error;
       }
@@ -322,6 +322,14 @@ async function downloadBackup(
       // Discovery finished without ever calling consume (empty stream) —
       // surface "0 of 0" so the dialog doesn't sit on "?" forever.
       if (filesTotal == null) filesTotal = 0;
+      // No `done` sentinel and we weren't aborted → the server closed the
+      // pipe early. Fail loudly instead of building a partial zip. Don't
+      // clobber a more specific error already caught above.
+      if (!storageComplete && storageError == null && !signal.aborted) {
+        storageError = new Error(
+          'Storage file listing ended before it finished. Please retry the download.',
+        );
+      }
       storageDone = true;
       tick();
       notify();
@@ -383,7 +391,7 @@ async function downloadBackup(
         });
       }
     }
-    // Storage phase done — clear so the dialog stops showing the last file.
+    // Storage phase done, clear so the dialog stops showing the last file.
     currentFile = '';
     tick();
 
@@ -401,22 +409,10 @@ async function downloadBackup(
   const countedBody = fflateZipStream(entries).pipeThrough(byteCounter);
 
   try {
-    if (pickerHandle) {
-      const writable = await pickerHandle.createWritable();
-      await countedBody.pipeTo(writable);
-      return { via: 'picker', filename: pickerHandle.name ?? filename };
-    }
-
-    const blob = await new Response(countedBody).blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    return { via: 'browser-default', filename };
+    await registerDownloadServiceWorker();
+    const writable = await pickerHandle.createWritable();
+    await countedBody.pipeTo(writable);
+    return { via: 'picker', filename: pickerHandle.name ?? filename };
   } catch (e) {
     // Tear down the background discovery and any in-flight body fetches
     // so we don't keep pulling from S3 after the zip pipeline has failed.
@@ -456,7 +452,7 @@ export function DownloadDialog({
 
   // Upper bound: everything stored uncompressed (STORE mode and/or files
   // that don't compress). Lower bound: everything compressed at a ~3x
-  // DEFLATE ratio — best case for text/JSON, but storage files vary wildly
+  // DEFLATE ratio, best case for text/JSON, but storage files vary wildly
   // (raw text compresses well, already-compressed images/videos don't).
   // We apply the same divisor to both since we can't see the file types
   // from here; the actual zip will land somewhere inside the range.
@@ -490,15 +486,10 @@ export function DownloadDialog({
       }));
     } catch (e) {
       if ((e as { name?: string })?.name === 'AbortError') {
-        // Picker dismissed or dialog closed mid-download — just exit.
+        // Exit if picker dismissed or dialog closed mid-download
         dialog.onClose();
         return;
       }
-      // messageFromInstantError only knows how to read the structured
-      // body Instant returns from its API — plain Errors thrown by the
-      // download pipeline (storage 403, fetch failures, etc.) have no
-      // body, so fall through to the Error's own message before the
-      // generic catch-all.
       const msg =
         messageFromInstantError(e as InstantIssue) ||
         (e instanceof Error ? e.message : null) ||
