@@ -59,3 +59,12 @@
     (doseq [value [nil 0 -1 1.5 "10"]]
       (with-redefs [flags/flag (constantly value)]
         (is (= 20 (flags/magic-code-rate-limit-per-hour)))))))
+
+(deftest ephemeral-apps-enabled
+  (testing "temporary apps are enabled by default"
+    (with-redefs [flags/flag (fn [_key not-found] not-found)]
+      (is (true? (flags/ephemeral-apps-enabled?)))))
+
+  (testing "temporary apps can be disabled"
+    (with-redefs [flags/flag (constantly false)]
+      (is (false? (flags/ephemeral-apps-enabled?))))))

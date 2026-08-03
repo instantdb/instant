@@ -1,4 +1,10 @@
-import { Button, FullscreenLoading, Select, TextInput } from '@/components/ui';
+import {
+  Button,
+  FullscreenLoading,
+  Select,
+  Switch,
+  TextInput,
+} from '@/components/ui';
 import { useAuthToken } from '@/lib/auth';
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
@@ -29,6 +35,10 @@ const flagSettings = {
     setting: 'dashboard-signups',
     description:
       'Controls who can create dashboard accounts for this Instant deployment.',
+  },
+  ephemeralAppsEnabled: {
+    setting: 'ephemeral-apps-enabled',
+    description: 'Controls whether clients can create temporary apps.',
   },
   magicCodeRateLimit: {
     setting: 'magic-code-rate-limit-per-hour',
@@ -318,6 +328,9 @@ function InstantConfigSettingsContent({
     ? (storedMode as SignupMode)
     : 'open';
   const allowedEmails = stringListValue(dashboardSignupsValue.allowedEmails);
+  const ephemeralAppsEnabled =
+    flagBySetting.get(flagSettings.ephemeralAppsEnabled.setting)?.value !==
+    false;
   const magicCodeRateLimit = integerValue(
     flagBySetting.get(flagSettings.magicCodeRateLimit.setting)?.value,
     defaults.magicCodeRateLimit,
@@ -429,6 +442,20 @@ function InstantConfigSettingsContent({
       successToast('App authentication settings updated.');
     } catch {
       errorToast('Could not update app authentication settings.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateEphemeralAppsEnabled = async (enabled: boolean) => {
+    setSaving(true);
+    try {
+      await db.transact(flagUpdate(flagSettings.ephemeralAppsEnabled, enabled));
+      successToast(
+        enabled ? 'Temporary apps enabled.' : 'Temporary apps disabled.',
+      );
+    } catch {
+      errorToast('Could not update temporary app settings.');
     } finally {
       setSaving(false);
     }
@@ -650,6 +677,28 @@ function InstantConfigSettingsContent({
             </div>
           </div>
         )}
+      </SettingsSection>
+
+      <SettingsSection
+        title="Temporary apps"
+        description="Allow clients to create temporary apps without signing in. Enabled by default."
+      >
+        <div className="flex items-center justify-between gap-4">
+          <label
+            htmlFor="ephemeral-apps-enabled"
+            className="text-sm font-medium"
+          >
+            Allow temporary app creation
+          </label>
+          <Switch
+            id="ephemeral-apps-enabled"
+            checked={ephemeralAppsEnabled}
+            disabled={saving}
+            onCheckedChange={(checked) => {
+              void updateEphemeralAppsEnabled(checked);
+            }}
+          />
+        </div>
       </SettingsSection>
 
       <SettingsSection

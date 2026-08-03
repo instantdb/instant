@@ -128,6 +128,12 @@ By default, anyone can create a dashboard account. To limit access, open **Deplo
 
 Existing dashboard users can always sign in.
 
+### Temporary Apps
+
+Instant supports spinning up temporary apps without authentication. Because these apps do not require a dashboard account, the signup restrictions above do not apply to them. Anyone who can reach your backend API can create temporary apps by default.
+
+To disable temporary app creation, open **Deployment Settings** and turn off **Allow temporary app creation** under **Temporary apps**.
+
 ### Configure Google Dashboard Login (Optional)
 
 To let users log in to the Instant dashboard with Google, create an OAuth client in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) with the application type **Web application**.
