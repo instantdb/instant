@@ -88,7 +88,7 @@
                                           props)]
     (.unwrap conn PgConnection)))
 
-(defn- get-pg-copy-ready-conn
+(defn get-pg-copy-ready-conn
   "Given a db-spec, return a PGConnection that is suitable for running a
    long-running COPY command."
   ^PgConnection [db-spec]
