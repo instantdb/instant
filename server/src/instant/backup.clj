@@ -36,7 +36,7 @@
    (com.github.luben.zstd Zstd ZstdOutputStream)
    (com.google.common.util.concurrent RateLimiter)
    (java.lang.reflect InvocationHandler InvocationTargetException Proxy)
-   (java.sql Connection)
+   (java.sql Connection Timestamp)
    (java.time Duration Instant Period ZonedDateTime)
    (java.util ArrayList HashMap)
    (java.util.concurrent LinkedBlockingQueue)
@@ -50,7 +50,7 @@
 (defn expired?
   ([backup] (expired? (Instant/now) backup))
   ([^Instant now {:keys [expires_at]}]
-   (not (.isAfter (.toInstant expires_at) now))))
+   (not (.isAfter (Timestamp/.toInstant expires_at) now))))
 
 (def insert-backup-job-q
   (uhsql/preformat {:insert-into :backup-jobs

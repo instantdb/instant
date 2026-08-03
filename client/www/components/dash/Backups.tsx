@@ -1,8 +1,7 @@
-import { useContext, useMemo } from 'react';
+import { useMemo } from 'react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 import config from '@/lib/config';
-import { TokenContext } from '@/lib/contexts';
 import { useAuthedFetch } from '@/lib/auth';
 import { InstantApp, InstantAppBackup } from '@/lib/types';
 
@@ -30,7 +29,6 @@ function BackupRow({
   app: InstantApp;
   backup: InstantAppBackup;
 }) {
-  const token = useContext(TokenContext);
   const downloadDialog = useDialog();
 
   return (

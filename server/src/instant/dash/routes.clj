@@ -1811,6 +1811,18 @@
       (ex/throw-expiration-err! :app-backup {:id backup-id}))
     record))
 
+(defn backup-storage-prefix!
+  "Returns the backup's storage_prefix, asserting it's non-blank. The prefix is
+   the only thing scoping a backup's S3 keys to this app in the shared backups
+   bucket, so a blank one (which would collapse to \"/\") must never be used to
+   build a key."
+  [record]
+  (let [prefix (:storage_prefix record)]
+    (ex/assert-permitted! :app-backup-has-storage-prefix
+                          {:id (:id record)}
+                          (not (string/blank? prefix)))
+    prefix))
+
 (defn app-backups-get [req]
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
                                                                          :data/read
@@ -1824,7 +1836,7 @@
                                                                          req)
         backup-id (ex/get-param! req [:params :backup_id] uuid-util/coerce)
         record (get-active-app-backup! app-id backup-id)
-        prefix (str (:storage_prefix record) "/")
+        prefix (str (backup-storage-prefix! record) "/")
         objects (s3-util/list-all-objects (storage-s3/s3-client)
                                           config/s3-app-backups-bucket-name
                                           {:prefix prefix})
@@ -1841,16 +1853,16 @@
                                                                          :data/read
                                                                          req)
         backup-id (ex/get-param! req [:params :backup_id] uuid-util/coerce)
-        name (ex/get-param! req [:params :name] string-util/coerce-non-blank-str)
+        file-name (ex/get-param! req [:params :name] string-util/coerce-non-blank-str)
         record (get-active-app-backup! app-id backup-id)
-        prefix (str (:storage_prefix record) "/")
-        key (str prefix name)
+        prefix (str (backup-storage-prefix! record) "/")
+        object-key (str prefix file-name)
         url (s3-util/generate-presigned-url
              (storage-s3/presign-creds)
              {:app-id app-id
               :method :get
               :bucket-name config/s3-app-backups-bucket-name
-              :key key
+              :key object-key
               :signing-instant (Instant/now)
               :duration (Duration/ofHours 1)})]
     (response/ok {:url (str url)})))
@@ -1872,7 +1884,7 @@
                                                                          req)
         backup-id (ex/get-param! req [:params :backup_id] uuid-util/coerce)
         record (get-active-app-backup! app-id backup-id)
-        files-key (str (:storage_prefix record) "/entities/$files.jsonl")
+        files-key (str (backup-storage-prefix! record) "/entities/$files.jsonl")
         presign-creds (storage-s3/presign-creds)
         pipe-out (PipedOutputStream.)
         pipe-in (PipedInputStream. pipe-out (int (* 64 1024)))]
