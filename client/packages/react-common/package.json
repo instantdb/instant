@@ -51,7 +51,7 @@
     "publish-package": "pnpm pack && npm publish *.tgz --access public"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.17.4",
+    "@arethetypeswrong/cli": "^0.18.5",
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
     "@types/node": "^22.6.1",
