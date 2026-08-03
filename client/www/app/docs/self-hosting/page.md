@@ -108,6 +108,26 @@ The `_DOMAIN` variables are only used by the Caddy reverse proxy, so if you are 
 
 The MinIO bucket is private by default. Files are accessed through Instant-generated signed URLs.
 
+### Configure the Deployment Superuser
+
+The deployment superuser can manage settings for your entire self-hosted deployment. Set `INSTANT_SUPERUSER_EMAIL` to the email address of the person who should administer it:
+
+```shell
+INSTANT_SUPERUSER_EMAIL=admin@example.com
+```
+
+Instant creates this dashboard user when the server starts. Log in with this email and open **Deployment Settings** from the account menu to manage your deployment. If you change the email, restart the server to transfer superuser access.
+
+#### Restrict Dashboard Signups (Optional)
+
+By default, anyone can create a dashboard account. To limit access, open **Deployment Settings** and set **Who can sign up?**:
+
+- **Open**: Anyone can sign up.
+- **Restricted**: Only email addresses you add can sign up.
+- **Closed**: No new dashboard accounts can sign up.
+
+Existing dashboard users can always sign in.
+
 ### Configure Google Dashboard Login (Optional)
 
 To let users log in to the Instant dashboard with Google, create an OAuth client in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) with the application type **Web application**.
@@ -168,7 +188,7 @@ You can use this command to print out recent logs from the server (last 50 lines
 docker compose logs server -n 50
 ```
 
-### Using the self-hosted instance with instant-cli
+### Using your self-hosted deployment with instant-cli
 
 To use the Instant CLI with your self-hosted instance, set `INSTANT_CLI_API_URI` to the backend URL and `INSTANT_CLI_DASH_URI` to the dashboard URL. For example:
 
@@ -230,7 +250,7 @@ This will create an overlay network called "caddy" that we will use for the reve
 Assign labels to stabilize machine assignments
 
 ```bash
-docker node update --label-add caddy=true --label-add storage=true
+docker node update --label-add caddy=true --label-add storage=true <node-name>
 ```
 
 For each machine that you would like to accept requests, make sure you assign the "caddy=true" output and point your DNS at that IP address.

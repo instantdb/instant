@@ -330,16 +330,16 @@
 (defn enable-webhooks-config-flag
   "Enables the flag that tells us to include wal-logs for this instance."
   [app-id]
-  (when-let [config-app-id (config/instant-config-app-id)]
-    (let [attrs (attr-model/get-by-app-id config-app-id)
-          id-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "id"] attrs))
-          setting-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "setting"] attrs))
-          value-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "value"] attrs))]
-      (tx/transact! (aurora/conn-pool :write)
-                    attrs
-                    config-app-id
-                    [[:add-triple [setting-aid "enable-wal-entity-log-apps-map"] id-aid [setting-aid "enable-wal-entity-log-apps-map"]]
-                     [:deep-merge-triple [setting-aid "enable-wal-entity-log-apps-map"] value-aid {(str app-id) true}]]))))
+  (let [config-app-id config/instant-config-app-id
+        attrs (attr-model/get-by-app-id config-app-id)
+        id-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "id"] attrs))
+        setting-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "setting"] attrs))
+        value-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "value"] attrs))]
+    (tx/transact! (aurora/conn-pool :write)
+                  attrs
+                  config-app-id
+                  [[:add-triple [setting-aid "enable-wal-entity-log-apps-map"] id-aid [setting-aid "enable-wal-entity-log-apps-map"]]
+                   [:deep-merge-triple [setting-aid "enable-wal-entity-log-apps-map"] value-aid {(str app-id) true}]])))
 
 (defn create!
   "Creates a new webhook, validating that the namespaces are valid, the webhook url is valid,

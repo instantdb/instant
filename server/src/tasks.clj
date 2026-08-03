@@ -2,10 +2,19 @@
   (:require [tool]
             [clojure.java.io :as io]
             [clojure.java.process :as process]
+            [clojure.string :as string]
             [instant.util.crypt :as crypt-util]
+            [instant.util.email :as email]
             [instant.config-edn :as config-edn]
             [instant.config :as config]
+            [instant.config-app :as config-app]
+            [instant.data.constants :refer [test-user-id]]
+            [instant.jdbc.sql :as sql]
+            [instant.model.app :as app-model]
+            [instant.model.instant-user :as instant-user-model]
+            [instant.util.tracer :as tracer]
             [lambdaisland.uri :as uri]
+            [next.jdbc :as next-jdbc]
             [next.jdbc.connection :refer [jdbc-url]])
   (:import (java.io BufferedReader InputStreamReader)
            (sun.misc Signal SignalHandler)))
@@ -65,6 +74,9 @@
 
 ;; OSS bootstrap
 
+(def override-config-path
+  "resources/config/override.edn")
+
 (defn jdbc-url->postgres-url [url & params]
   (let [{:keys [host port path query]} (uri/parse (subs url (count "jdbc:")))
         {:keys [user username password]} (uri/query-string->map query)]
@@ -82,7 +94,7 @@
   resources/config/override.edn, e.g. when creating a Docker Swarm secret."
   [_args]
   (let [path (or (System/getenv "OVERRIDE_CONFIG_PATH")
-                 "resources/config/override.edn")]
+                 override-config-path)]
     (io/make-parents path)
     (crypt-util/register-aead)
     (crypt-util/register-signature)
@@ -95,8 +107,7 @@
                              :json (crypt-util/generate-webhook-signing-key)}}))))
 
 (defn ensure-override-config
-  "Creates a config file that will override the default `dev.edn` config,
-  since an oss developer won't be able to decode the dev.edn file."
+  "Creates an OSS override config when one does not exist."
   []
   (when-not (io/resource "config/override.edn")
     (generate-override-config nil)))
@@ -111,9 +122,57 @@
                   "-path" "resources/migrations"
                   "up")))
 
+(defn superuser-email []
+  (when-let [value (some-> (System/getenv "INSTANT_SUPERUSER_EMAIL")
+                           string/trim
+                           not-empty)]
+    (or (email/coerce value)
+        (throw (ex-info
+                "INSTANT_SUPERUSER_EMAIL must be a valid email address."
+                {:value value})))))
+
+(defn bootstrap-config-app! []
+  (next-jdbc/with-transaction [conn (config/get-aurora-config)]
+    (sql/execute-one!
+     ::bootstrap-config-app-lock
+     conn
+     ["SELECT pg_advisory_xact_lock(hashtext(?))"
+      "instant-config-bootstrap"])
+    (let [email (superuser-email)
+          user (if email
+                 (or (instant-user-model/get-by-email conn {:email email})
+                     (instant-user-model/create!
+                      conn
+                      {:id (random-uuid)
+                       :email email}))
+                 (instant-user-model/get-by-id! conn {:id test-user-id}))
+          app (app-model/get-by-id conn {:id config/instant-config-app-id})]
+      (cond
+        (nil? app)
+        (do
+          (config-app/create! conn {:id config/instant-config-app-id
+                                    :creator-id (:id user)})
+          (println "Created Instant Config for" (:email user)))
+
+        (not= (:creator_id app) (:id user))
+        (do
+          (app-model/change-creator!
+           conn
+           {:id config/instant-config-app-id
+            :new-creator-id (:id user)})
+          (println "Changed Instant Config owner to" (:email user)))
+
+        :else
+        (println "Instant Config is owned by" (:email user))))))
+
 (defn bootstrap-for-oss
   "Helper to setup everything the server needs for its initial run."
   [_args]
   (ensure-override-config)
   (println "Migrating database")
-  (migrate-database))
+  (migrate-database)
+  (tracer/init)
+  (try
+    (bootstrap-config-app!)
+    (finally
+      (tracer/shutdown))))

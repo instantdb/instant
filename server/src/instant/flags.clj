@@ -39,6 +39,9 @@
             :handle-receive-timeout {}
             :query-modifiers {}})
 
+(def dashboard-signup-modes
+  #{"open" "restricted" "closed"})
+
 (def toggle-defaults {:pg-hints-by-default (= :test (config/get-env))})
 
 (defn parse-uuids-flag [vs]
@@ -232,8 +235,29 @@
                                                           (json/<-json true))}))
 
                                 {}
-                                (get result "query-modifiers"))]
+                                (get result "query-modifiers"))
+        dashboard-signups (some-> (get flags :dashboard-signups)
+                                  w/keywordize-keys)
+        dashboard-signup-mode
+        (let [mode (get dashboard-signups :mode)
+              mode-name (if (keyword? mode) (name mode) mode)]
+          (if (contains? dashboard-signup-modes mode-name)
+            (keyword mode-name)
+            :open))
+        dashboard-allowed-emails
+        (let [emails (get dashboard-signups :allowedEmails)]
+          (if-not (sequential? emails)
+            #{}
+            (set (keep (fn [email]
+                         (when (string? email)
+                           (some-> email
+                                   string/lower-case
+                                   string/trim
+                                   not-empty)))
+                       emails))))]
     {:emails emails
+     :dashboard-allowed-emails dashboard-allowed-emails
+     :dashboard-signup-mode dashboard-signup-mode
      :storage-enabled-whitelist storage-enabled-whitelist
      :storage-block-list storage-block-list
      :promo-code-emails promo-code-emails
@@ -280,6 +304,22 @@
 (defn admin-email? [email]
   (contains? (:team (get-emails))
              email))
+
+(defn dashboard-signup-mode []
+  (or (:dashboard-signup-mode (query-result))
+      :open))
+
+(defn dashboard-allowed-emails []
+  (or (:dashboard-allowed-emails (query-result))
+      #{}))
+
+(defn dashboard-signup-allowed? [email]
+  (case (dashboard-signup-mode)
+    :open true
+    :restricted (contains? (dashboard-allowed-emails)
+                           (some-> email string/lower-case string/trim))
+    :closed false
+    true))
 
 ;; (TODO) After storage is public for awhile we can remove this
 (defn storage-enabled-whitelist []
@@ -467,10 +507,12 @@
   (flag :stream-flush-byte-limit 1048576))
 
 (defn magic-code-rate-limit-per-hour
-  "Max number of magic code emails per email address per app per hour.
-   Set to 0 to disable."
+  "Max number of magic code emails per email address per app per hour."
   []
-  (flag :magic-code-rate-limit-per-hour 20))
+  (let [limit (flag :magic-code-rate-limit-per-hour 20)]
+    (if (pos-int? limit)
+      limit
+      20)))
 
 (defn default-magic-code-expiry-minutes
   []

@@ -52,6 +52,9 @@
 
 (def use-logfmt? (aws-env?))
 
+(def instant-config-app-id
+  #uuid "24a4d71b-7bb2-4630-9aee-01146af26239")
+
 (defonce instance-id
   (delay
     (when (aws-env?)
@@ -88,9 +91,6 @@
                                      crypt-util/hex-string->bytes)
                              (crypt-util/random-bytes 32))
                          "HmacSHA256")))
-
-(defn instant-config-app-id []
-  (-> @config-map :instant-config-app-id))
 
 (defn s3-storage-access-key []
   (some-> @config-map :s3-storage-access-key crypt-util/secret-value))

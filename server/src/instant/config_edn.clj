@@ -58,7 +58,6 @@
 (s/def ::honeycomb-api-key ::config-value)
 (s/def ::posthog-api-key ::config-value)
 (s/def ::google-oauth-client ::oauth-client)
-(s/def ::instant-config-app-id uuid?)
 (s/def ::kms-key-url string?)
 (s/def ::rate-limit-hmac-key ::config-value)
 
@@ -76,8 +75,7 @@
                                          ::json]
                                 :opt-un [::kms-key-url]))
 
-(s/def ::config (s/keys :opt-un [::instant-config-app-id
-                                 ::cloudfront-signing-key
+(s/def ::config (s/keys :opt-un [::cloudfront-signing-key
                                  ::s3-storage-access-key
                                  ::s3-storage-secret-key
                                  ::s3-endpoint
@@ -119,8 +117,7 @@
                                       ::hybrid-keyset
                                       ::rate-limit-hmac-key
                                       ::webhook-keyset]
-                             :opt-un [::instant-config-app-id
-                                      ::next-database-cluster-id
+                             :opt-un [::next-database-cluster-id
                                       ::shared-oauth-clients]))
 
 (defn config-spec [prod?]

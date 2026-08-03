@@ -176,7 +176,9 @@ export type OrgSummary = {
 
 export type DashResponse = {
   apps: InstantApp[];
+  instant_config_app_id?: string;
   invites?: InstantMemberInvite[];
+  superuser: boolean;
   user: {
     email: string;
     id: string;

@@ -84,13 +84,13 @@
     (.close ^PgConnection connection)))
 
 (defn pause-aggregator-on-primary []
-  (let [attrs (attr-model/get-by-app-id (config/instant-config-app-id))
+  (let [attrs (attr-model/get-by-app-id config/instant-config-app-id)
         setting-aid (:id (attr-model/seek-by-fwd-ident-name ["toggles" "setting"] attrs))
         toggle-aid (:id (attr-model/seek-by-fwd-ident-name ["toggles" "toggled"] attrs))]
     ;; TODO: This needs a transaction-model/create! or else it doesn't trigger an update
     (tx/transact! (aurora/conn-pool :write)
                   attrs
-                  (config/instant-config-app-id)
+                  config/instant-config-app-id
                   [[:add-triple [setting-aid "disable-aggregator"] toggle-aid true]])
 
     (loop [i 0]
@@ -188,13 +188,13 @@
     (.close ^PgConnection connection)))
 
 (defn pause-invalidator-on-primary []
-  (let [attrs (attr-model/get-by-app-id (config/instant-config-app-id))
+  (let [attrs (attr-model/get-by-app-id config/instant-config-app-id)
         setting-aid (:id (attr-model/seek-by-fwd-ident-name ["toggles" "setting"] attrs))
         toggle-aid (:id (attr-model/seek-by-fwd-ident-name ["toggles" "toggled"] attrs))]
     ;; TODO: This needs a transaction-model/create! or else it doesn't trigger an update
     (tx/transact! (aurora/conn-pool :write)
                   attrs
-                  (config/instant-config-app-id)
+                  config/instant-config-app-id
                   [[:add-triple [setting-aid "disable-singleton-invalidator"] toggle-aid true]])
 
     (loop [i 0]
@@ -480,16 +480,16 @@
     ;; Create a transaction we can use as a proxy for everything syncing over to
     ;; the new instance
     (let [tx (transaction-model/create! prev-pool
-                                        {:app-id (config/instant-config-app-id)})
+                                        {:app-id config/instant-config-app-id})
           quit (fn []
                  (rollback)
                  (throw (ex-info "Abandoning failover, somehow the writes aren't in sync." {:quit? true})))]
       (try
         (loop [i 0]
           (if-let [row (sql/select-one next-pool ["select * from transactions where app_id = ?::uuid and id = ?::bigint"
-                                                  (config/instant-config-app-id)
+                                                  config/instant-config-app-id
                                                   (:id tx)])]
-            (if (not= (:app_id row) (config/instant-config-app-id))
+            (if (not= (:app_id row) config/instant-config-app-id)
               (do
                 (println "Got a bad tx row" row)
                 (quit))
@@ -553,7 +553,7 @@
     ;; Create a transaction we can use as a proxy for everything syncing over to
     ;; the new instance
     (let [tx (transaction-model/create! prev-pool
-                                        {:app-id (config/instant-config-app-id)})
+                                        {:app-id config/instant-config-app-id})
           quit (fn []
                  (println "Abandoning failover")
                  (deliver next-pool-promise prev-pool)
@@ -561,9 +561,9 @@
                  (throw (Exception. "Abandoning failover, somehow the writes aren't in sync.")))]
       (loop [i 0]
         (if-let [row (sql/select-one next-pool ["select * from transactions where app_id = ?::uuid and id = ?::bigint"
-                                                (config/instant-config-app-id)
+                                                config/instant-config-app-id
                                                 (:id tx)])]
-          (if (not= (:app_id row) (config/instant-config-app-id))
+          (if (not= (:app_id row) config/instant-config-app-id)
             (do
               (println "Got a bad tx row" row)
               (quit))
