@@ -3,6 +3,11 @@
 // browser download, avoiding full Blob buffering in browsers without native
 // showSaveFilePicker.
 
+// These numeric message-type values must stay in sync with the upstream
+// download fallback in native-file-system-adapter@3.0.1
+// (src/adapters/downloader.js). This service worker is a hand-maintained
+// mirror of that file's protocol, so re-verify these constants against the
+// upstream source whenever the native-file-system-adapter dependency is bumped.
 const WRITE = 0;
 const PULL = 0;
 const ERROR = 1;

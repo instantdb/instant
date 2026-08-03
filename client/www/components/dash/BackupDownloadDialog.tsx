@@ -336,9 +336,18 @@ async function downloadBackup(
     }
   })();
 
-  const files = await fetchFiles(token, appId, backup.id);
-  if (files.length === 0) {
-    throw new Error('No files found for this backup.');
+  let files: BackupFile[];
+  try {
+    files = await fetchFiles(token, appId, backup.id);
+    if (files.length === 0) {
+      throw new Error('No files found for this backup.');
+    }
+  } catch (e) {
+    // Entity discovery failed before we reached the zip pipeline's own
+    // teardown. Stop the background storage-files discovery stream so it
+    // doesn't keep pulling from S3 after we bail.
+    abortController.abort();
+    throw e;
   }
   entitiesTotal = files.length;
   tick();
@@ -398,12 +407,27 @@ async function downloadBackup(
     if (storageError) throw storageError;
   })();
 
-  // Count bytes as the zip stream flows through to the final sink.
+  // Count bytes as the zip stream flows through to the final sink. Throttle
+  // the progress updates by time: a large backup pushes many small chunks and
+  // ticking (a React setState) on every one would flood re-renders, but a
+  // byte-based threshold stalls when the compressed stream is smaller than the
+  // threshold. Ticking at most every 100ms updates smoothly for any size while
+  // capping re-renders at ~10/sec; flush() reports the final total.
+  const TICK_INTERVAL_MS = 100;
+  let lastTickAt = 0;
   const byteCounter = new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, controller) {
       zipBytes += chunk.byteLength;
-      tick();
+      const now = Date.now();
+      if (now - lastTickAt >= TICK_INTERVAL_MS) {
+        lastTickAt = now;
+        tick();
+      }
       controller.enqueue(chunk);
+    },
+    flush() {
+      // Report the final byte total once the stream drains.
+      tick();
     },
   });
   const countedBody = fflateZipStream(entries).pipeThrough(byteCounter);
