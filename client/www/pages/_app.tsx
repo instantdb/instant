@@ -7,7 +7,7 @@ import { NuqsAdapter } from 'nuqs/adapters/next/pages';
 import Head from 'next/head';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Button } from '@/components/ui';
-import { isDev } from '@/lib/config';
+import { isDev, isSelfHosted } from '@/lib/config';
 import { Dev } from '@/components/Dev';
 import {
   patchFirefoxClicks,
@@ -65,7 +65,7 @@ function App({ Component, pageProps }: AppPropsWithLayout) {
           <NuqsAdapter>{mainEl}</NuqsAdapter>
         </SWRConfig>
       </ErrorBoundary>
-      {isDev ? null : <GoogleScripts />}
+      {!isDev && !isSelfHosted && <GoogleScripts />}
       {isDev ? <Dev /> : null}
     </PostHogProvider>
   );

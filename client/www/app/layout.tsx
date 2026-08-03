@@ -111,7 +111,7 @@ export default async function RootLayout({
           />
         )}
         <Providers>{children}</Providers>
-        {!isDev && <GoogleScripts />}
+        {!isDev && !isSelfHosted && <GoogleScripts />}
       </body>
     </html>
   );
