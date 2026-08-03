@@ -8,6 +8,7 @@
    [instant.isn :as isn]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.model.app :as app-model]
    [instant.model.history :as history]
    [instant.reactive.topics :as topics]
    [instant.storage.s3 :as s3]
@@ -330,16 +331,27 @@
 (defn enable-webhooks-config-flag
   "Enables the flag that tells us to include wal-logs for this instance."
   [app-id]
-  (let [config-app-id config/instant-config-app-id
-        attrs (attr-model/get-by-app-id config-app-id)
-        id-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "id"] attrs))
-        setting-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "setting"] attrs))
-        value-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "value"] attrs))]
-    (tx/transact! (aurora/conn-pool :write)
-                  attrs
-                  config-app-id
-                  [[:add-triple [setting-aid "enable-wal-entity-log-apps-map"] id-aid [setting-aid "enable-wal-entity-log-apps-map"]]
-                   [:deep-merge-triple [setting-aid "enable-wal-entity-log-apps-map"] value-aid {(str app-id) true}]])))
+  (let [config-app-id config/instant-config-app-id]
+    (app-model/assert-write-allowed! config-app-id)
+    (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+      ;; The add and deep-merge use different SQL statements that can lock the
+      ;; shared lookup and value triples in opposite orders under concurrency.
+      (sql/select ::enable-webhooks-config-flag-lock!
+                  conn
+                  ["select pg_advisory_xact_lock(?::int4, ?::int4)"
+                   (config/pg-lock-ns :webhook-config)
+                   0])
+      (let [attrs (attr-model/get-by-app-id conn config-app-id)
+            id-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "id"] attrs))
+            setting-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "setting"] attrs))
+            value-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "value"] attrs))]
+        (tx/transact-without-tx-conn!
+         conn
+         attrs
+         config-app-id
+         [[:add-triple [setting-aid "enable-wal-entity-log-apps-map"] id-aid [setting-aid "enable-wal-entity-log-apps-map"]]
+          [:deep-merge-triple [setting-aid "enable-wal-entity-log-apps-map"] value-aid {(str app-id) true}]]
+         {:skip-app-status-write-check? true})))))
 
 (defn create!
   "Creates a new webhook, validating that the namespaces are valid, the webhook url is valid,
@@ -414,7 +426,7 @@
                                                  :reason reason}))))))
 
 (def update-q
-  (uhsql/preformat
+  (uhsql/preformat  
    {:update :webhooks
     :set {:sink [:coalesce [:cast :?sink :jsonb] :sink]
           :id-attr-ids [:coalesce [:cast :?id-attr-ids (keyword "uuid[]")] :id-attr-ids]

@@ -1,6 +1,7 @@
 (ns instant.model.webhook-test
   (:require
    [clojure.test :refer [deftest is testing]]
+   [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-empty-app]]
@@ -395,6 +396,47 @@
         "The attr_id column should be the third column in the triples table")
     (is (= "pg_size" (:column_name (nth columns webhook/pg-size-column-idx)))
         "The pg_size column should be the 12th column in the triples table")))
+
+(deftest enable-webhooks-config-flag-serializes-concurrent-updates
+  (let [config-app-id config/instant-config-app-id
+        attrs (attr-model/get-by-app-id config-app-id)
+        setting-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "setting"] attrs))
+        value-aid (:id (attr-model/seek-by-fwd-ident-name ["flags" "value"] attrs))
+        setting "enable-wal-entity-log-apps-map"
+        app-ids (repeatedly 20 random-uuid)
+        start-promise (promise)
+        tasks (mapv (fn [app-id]
+                      (future
+                        @start-promise
+                        (webhook/enable-webhooks-config-flag app-id)))
+                    app-ids)]
+    (try
+      (deliver start-promise true)
+      (doseq [task tasks]
+        @task)
+      (let [{:keys [value]}
+            (sql/select-one
+             (aurora/conn-pool :read)
+             ["select v.value
+                 from triples s
+                 join triples v using (app_id, entity_id)
+                where s.app_id = ?::uuid
+                  and s.attr_id = ?::uuid
+                  and s.value = ?::jsonb
+                  and v.attr_id = ?::uuid"
+              config-app-id
+              setting-aid
+              (json/->json setting)
+              value-aid])]
+        (is (every? #(true? (get value (str %))) app-ids)))
+      (finally
+        (tx/transact! (aurora/conn-pool :write)
+                      attrs
+                      config-app-id
+                      [[:deep-merge-triple
+                        [setting-aid setting]
+                        value-aid
+                        (zipmap (map str app-ids) (repeat nil))]])))))
 
 (deftest cant-create-more-than-max-webhooks
   (with-redefs [webhook/maximum-active-webhooks (constantly 10)
