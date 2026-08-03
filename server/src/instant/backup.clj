@@ -1,10 +1,13 @@
 (ns instant.backup
   (:require
+   [chime.core :as chime-core]
    [clojure.string]
    [honey.sql :as hsql]
    [instant.config :as config]
    [instant.dash.ephemeral-app :refer [ephemeral-creator]]
    [instant.db.model.attr :as attr-model]
+   [instant.flags :as flags]
+   [instant.grab :as grab]
    [instant.isn]
    [instant.clone :as clone]
    [instant.jdbc.aurora :as aurora]
@@ -18,9 +21,11 @@
    [instant.model.webhook :as webhook-model]
    [instant.storage.s3 :refer [s3-transfer-manager]]
    [instant.util.async :as ua]
+   [instant.util.date :as date]
    [instant.util.defrecord :refer [defrecord-once]]
    [instant.util.hsql :as uhsql]
    [instant.util.json :as json]
+   [instant.util.lang :as lang]
    [instant.util.s3 :as s3]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
@@ -32,7 +37,7 @@
    (com.google.common.util.concurrent RateLimiter)
    (java.lang.reflect InvocationHandler InvocationTargetException Proxy)
    (java.sql Connection)
-   (java.time Duration Instant)
+   (java.time Duration Instant Period ZonedDateTime)
    (java.util ArrayList HashMap)
    (java.util.concurrent LinkedBlockingQueue)
    (java.util.concurrent.locks ReentrantLock)
@@ -179,7 +184,7 @@
                              :join [[:attrs :a] [:= :a.id :t.attr_id]
                                     [:apps :app] [:= :app.id :t.app_id]]
                              :where [:and
-                                     [:not= :app.creator-id [:inline (uuid-util/coerce (:id @ephemeral-creator))]]
+                                     [:is-distinct-from :app.creator-id [:inline (uuid-util/coerce (:id @ephemeral-creator))]]
                                      [:= nil :a.deletion-marked-at]
                                      [:= nil :app.deletion-marked-at]
                                      (when start-app-id
@@ -312,7 +317,7 @@
 ;; 9 -> 3.4mb
 ;; 14 -> 3.2mb
 ;; 22 -> 2.6mb
-(def ^{:tag Integer} compression-level (int 7))
+(def ^{:tag Integer} compression-level (int 3))
 
 (defn complete-streams [query-conn
                         {:keys [backup-id
@@ -465,8 +470,7 @@
                                                                :content-encoding "zstd"
                                                                :tags {:expire true}}
                                                               pipe-in))))
-        zstd-out (doto (ZstdOutputStream. pipe-out compression-level)
-                   (.setWorkers 1))
+        zstd-out (ZstdOutputStream. pipe-out compression-level)
         ;; Counter sits upstream of zstd so it sees the raw JSONL bytes
         ;; written by the JsonGenerator. Knowing the raw size lets us tell
         ;; the user how much disk space the unpacked backup will take.
@@ -707,14 +711,21 @@
 (defn get-eligible-app-ids
   "Returns non-ephemeral/non-deleted app ids ordered by id."
   [clone-pool]
-  (map :id (sql/select ::get-eligible
-                       clone-pool
-                       (hsql/format {:select :id
-                                     :from :apps
-                                     :where [:and
-                                             [:not= :creator-id (:id @ephemeral-creator)]
-                                             [:= nil :deletion-marked-at]]
-                                     :order-by [[:id :asc]]}))))
+  (map :id
+       (binding [sql/*query-timeout-seconds* 600]
+         (sql/select ::get-eligible
+                     clone-pool
+                     (hsql/format {:with [[:sums {:select [:app_id [[:sum :total] :triple_total]]
+                                                  :from :attr_sketches
+                                                  :group-by :app_id}]]
+                                   :select [:id [[:coalesce :triple_total :0] :triple_total]]
+                                   :from :apps
+                                   :left-join [:sums [:= :id :app_id]]
+                                   :where [:and
+                                           [:is-distinct-from :creator-id (:id @ephemeral-creator)]
+                                           [:not= :id #uuid "0516144f-712d-433d-b65d-6d2b7469004a"]
+                                           [:= nil :deletion-marked-at]]
+                                   :order-by [[:triple_total :desc]]})))))
 
 (defn handle-app
   "Processes a single app. Delivers the result to `finished-promise` (either
@@ -726,34 +737,36 @@
            app-id
            finished-promise]}]
   (try
-    (let [triples-queue (LinkedBlockingQueue. 50000)
+    (let [triples-queue (LinkedBlockingQueue. 5000)
           upload-progress-queue (LinkedBlockingQueue.)
           flush-streams-queue (LinkedBlockingQueue.)
           done-signal ::done
-          _copy-process (ua/vfuture
-                         (try
-                           (with-open [conn (next.jdbc/get-connection clone-pool)]
-                             (doseq [triple (app-triples-seq (.unwrap conn PgConnection) app-id)]
-                               (.put triples-queue triple))
-                             (.put triples-queue done-signal))
-                           (catch Throwable t
-                             (deliver finished-promise t)
-                             (.put triples-queue done-signal)
-                             (.put flush-streams-queue done-signal)
-                             (throw t))))
-          _upload-process (ua/vfuture
-                           (try
-                             (start-upload-process {:process-id process-id
-                                                    :triples-queue triples-queue
-                                                    :record-progress-queue upload-progress-queue
-                                                    :flush-streams-queue flush-streams-queue
-                                                    :on-done (fn []
-                                                               (.put flush-streams-queue done-signal))
-                                                    :done-signal done-signal})
-                             (catch Throwable t
-                               (deliver finished-promise t)
-                               (.put flush-streams-queue done-signal)
-                               (throw t))))
+          copy-process (ua/vfuture
+                        (try
+                          (with-open [conn (next.jdbc/get-connection clone-pool)]
+                            (doseq [triple (app-triples-seq (.unwrap conn PgConnection) app-id)]
+                              (.put triples-queue triple))
+                            (.put triples-queue done-signal))
+                          (catch Throwable t
+                            (deliver finished-promise t)
+                            (.put triples-queue done-signal)
+                            (.put flush-streams-queue done-signal)
+                            (throw t))))
+          upload-process (ua/vfuture
+                          (try
+                            (start-upload-process {:process-id process-id
+                                                   :triples-queue triples-queue
+                                                   :record-progress-queue upload-progress-queue
+                                                   :flush-streams-queue flush-streams-queue
+                                                   :on-done (fn []
+                                                              (.put flush-streams-queue done-signal))
+                                                   :done-signal done-signal})
+                            (catch Throwable t
+                              (deliver finished-promise t)
+                              (.put flush-streams-queue done-signal)
+                              (throw t))))
+          _ @copy-process
+          _ @upload-process
           ;; This is a little awkward, since we'll only ever take 1 thing out of the queue,
           ;; but it allows us to use the same code as `process-with-copy`
           item (.take flush-streams-queue)]
@@ -770,6 +783,26 @@
                    {:triple-count (:triple-count (.take upload-progress-queue))}))))
     (catch Throwable t
       (deliver finished-promise t))))
+
+(defn log-retry-queue!
+  "Logs the apps that failed during a backup. Records a top-level exception
+   span when the retry queue is non-empty so that it surfaces in our alerting."
+  [process-id ^LinkedBlockingQueue retry-queue]
+  (let [failures (vec retry-queue)]
+    (if (seq failures)
+      (tracer/with-new-trace-root
+        (tracer/record-exception-span!
+         (ex-info (format "%d app(s) failed during backup" (count failures))
+                  {:process-id process-id
+                   :failed-count (count failures)
+                   :failed-app-ids (mapv :app-id failures)})
+         {:name "backup/retry-queue-not-empty"
+          :escaping? false
+          :attributes {:process-id process-id
+                       :failed-count (count failures)
+                       :failed-app-ids (mapv :app-id failures)}}))
+      (tracer/record-info! {:name "backup/retry-queue-empty"
+                            :attributes {:process-id process-id}}))))
 
 (defn process-with-clone-pool
   "Similar to process-with-copy, but creates a separate copy command per app.
@@ -788,6 +821,9 @@
         app-ids (get-eligible-app-ids clone-pool)
         app-queue (LinkedBlockingQueue. process-count)
         record-progress-queue (LinkedBlockingQueue.)
+        ;; Apps that failed during the backup. We log these at the end of the
+        ;; process (see `log-retry-queue!`) but don't retry them yet.
+        retry-queue (LinkedBlockingQueue.)
         done-signal ::done
         process-state (atom nil)
         abort (fn []
@@ -823,9 +859,9 @@
                                                          :app-id (:app-id item)
                                                          :finished-promise (:finished-promise item)})
                                             (catch Throwable t
-                                              (deliver (:finished-promise item) t)
-                                              (abort)
-                                              (throw t)))
+                                              (tracer/with-new-trace-root
+                                                (tracer/record-exception-span! t {:name "backup/handle-app-error"}))
+                                              (deliver (:finished-promise item) t)))
                                           (recur (.take app-queue))))))
                                    (range process-count))
 
@@ -837,26 +873,30 @@
                                    (if (= item done-signal)
                                      (mark-backup-completed! {:id process-id})
                                      (let [{:keys [app-id finished-promise]} item
-                                           result @finished-promise]
-                                       (when (instance? Throwable result)
-                                         (throw result))
-                                       (let [triple-count (+ triple-count
-                                                             (long (:triple-count result)))]
-                                         (when (or (= (.peek record-progress-queue) done-signal)
-                                                   (.tryAcquire update-limiter))
-                                           (update-backup-progress! {:id process-id
-                                                                     :max-app-id app-id
-                                                                     :triple-count triple-count
-                                                                     :app-count app-count}))
-                                         (recur (.take record-progress-queue)
-                                                (inc app-count)
-                                                triple-count))))))]
+                                           result @finished-promise
+                                           triple-count (if (instance? Throwable result)
+                                                          (do
+                                                            (.add retry-queue {:app-id app-id
+                                                                               :error result})
+                                                            triple-count)
+                                                          (+ triple-count
+                                                             (long (:triple-count result))))]
+                                       (when (or (= (.peek record-progress-queue) done-signal)
+                                                 (.tryAcquire update-limiter))
+                                         (update-backup-progress! {:id process-id
+                                                                   :max-app-id app-id
+                                                                   :triple-count triple-count
+                                                                   :app-count app-count}))
+                                       (recur (.take record-progress-queue)
+                                              (inc app-count)
+                                              triple-count)))))]
     (reset! process-state {:distribute-apps-process distribute-apps-process
                            :update-progress-process update-progress-process
                            :handle-app-processes handle-app-processes})
     {:distribute-apps-process distribute-apps-process
      :update-progress-process update-progress-process
      :handle-app-processes handle-app-processes
+     :retry-queue retry-queue
      :abort abort
      :wait-for-finish (fn []
                         (try
@@ -864,6 +904,7 @@
                           (doseq [p handle-app-processes]
                             @p)
                           @update-progress-process
+                          (log-retry-queue! process-id retry-queue)
                           (catch Throwable t
                             (abort)
                             (throw t))))}))
@@ -875,8 +916,8 @@
   (let [clone-config (clone/create-clone! {:instance-class "db.r8gd.xlarge"
                                            :source-cluster-id source-cluster-id})]
     (try
-      (let [process-count 200
-            clone-pool (clone/start-clone-pool (* 2 process-count)
+      (let [process-count 8
+            clone-pool (clone/start-clone-pool (* 3 process-count)
                                                (:cluster-id clone-config))]
         (try
           (let [clone-lsn (get-clone-lsn clone-pool)
@@ -899,3 +940,67 @@
                                           :clone-lsn (:lsn (sql/select-one (aurora/conn-pool :read) ["select pg_current_wal_lsn() as lsn"]))
                                           :backup-at (Instant/now)
                                           :process-count 10})))
+
+;; Scheduled nightly backup
+;;
+;; Holds the state of the most recent backup run so that we can nrepl in and
+;; inspect it, e.g. `@current-backup`. The `:future` is the running future;
+;; deref it to block on the result or `future-cancel` it to abort.
+(defonce current-backup (atom nil))
+
+(defn daily-backup!
+  "Kicks off a full clone-based backup for `date`. Runs at most once per day
+   across the fleet (via `grab/run-once!`) and skips while failing over.
+   The backup itself runs in a future so we don't block the scheduler; watch
+   its progress with `@current-backup`."
+  [^Instant date]
+  (when-not (flags/failing-over?)
+    (let [date-str (date/numeric-date-str (.atZone date date/pt-zone))]
+      (grab/run-once!
+       (str "daily-backup-" date-str)
+       (fn []
+         (reset! current-backup {:date date-str
+                                 :started-at (Instant/now)
+                                 :status :running})
+         (let [fut (future
+                     (tracer/with-span! {:name "backup/daily-backup"
+                                         :attributes {:date date-str}}
+                       (try
+                         (process-with-clone {:source-cluster-id (clone/default-source-cluster-id)})
+                         (swap! current-backup assoc
+                                :status :completed
+                                :finished-at (Instant/now))
+                         (catch Throwable t
+                           (tracer/record-exception-span! t {:name "backup/daily-backup-error"
+                                                             :escaping? false})
+                           (swap! current-backup assoc
+                                  :status :failed
+                                  :finished-at (Instant/now)
+                                  :error t)
+                           (throw t)))))]
+           (swap! current-backup assoc :future fut)))))))
+
+(defn period []
+  (let [now (date/pt-now)
+        eight-pm-pt (-> now
+                        (.withHour 20)
+                        (.withMinute 0)
+                        (.withSecond 0)
+                        (.withNano 0))
+        periodic-seq (chime-core/periodic-seq
+                      eight-pm-pt
+                      (Period/ofDays 1))]
+    (->> periodic-seq
+         (filter (fn [x] (ZonedDateTime/.isAfter x now))))))
+
+(defn start []
+  (tracer/record-info! {:name "backup/start-daemon"})
+  (def schedule
+    (chime-core/chime-at (period) daily-backup!)))
+
+(defn stop []
+  (lang/close schedule))
+
+(defn restart []
+  (stop)
+  (start))

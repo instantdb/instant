@@ -10,7 +10,8 @@
    (java.io InputStream)
    (java.time Instant Duration)
    (software.amazon.awssdk.core.async AsyncRequestBody
-                                      AsyncResponseTransformer)
+                                      AsyncResponseTransformer
+                                      BufferedSplittableAsyncRequestBody)
    (software.amazon.awssdk.services.s3 S3AsyncClient
                                        S3Client)
    (software.amazon.awssdk.services.s3.model CopyObjectRequest
@@ -330,6 +331,9 @@
 (defn transfer-manager-upload-stream
   [^S3TransferManager transfer-manager bucket-name ctx ^InputStream stream]
   (let [content-length (:content-length ctx)
-        body (AsyncRequestBody/fromInputStream stream (when content-length
-                                                        (long content-length)))]
+        ;; The BufferedSplittableAsyncRequestBody allows parts to retry if there
+        ;; is a transient error uploading to s3.
+        body (BufferedSplittableAsyncRequestBody/create
+              (AsyncRequestBody/fromInputStream stream (when content-length
+                                                         (long content-length))))]
     (transfer-manager-upload transfer-manager bucket-name ctx body)))
