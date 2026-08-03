@@ -12,6 +12,9 @@ type DashboardConfig = {
 
 type RuntimeDashboardConfig = Partial<DashboardConfig>;
 
+const selfHostedConfigError =
+  'Self-hosted dashboard requires INSTANT_API_URI or INSTANT_BACKEND_URL to be a valid HTTP(S) URL.';
+
 declare global {
   interface Window {
     __instantConfig?: RuntimeDashboardConfig;
@@ -20,6 +23,9 @@ declare global {
 
 function websocketURIFromApiURI(apiURI: string) {
   const url = new URL(apiURI);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('API URI must use HTTP or HTTPS.');
+  }
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   url.pathname = '/runtime/session';
   url.search = '';
@@ -27,7 +33,7 @@ function websocketURIFromApiURI(apiURI: string) {
   return url.toString();
 }
 
-function configFromApiURI(apiURI: string | undefined | null) {
+export function configFromApiURI(apiURI: string | undefined | null) {
   if (!apiURI) {
     return null;
   }
@@ -38,18 +44,26 @@ function configFromApiURI(apiURI: string | undefined | null) {
   };
 }
 
-function getRuntimeConfig() {
-  try {
-    if (isBrowser) {
-      return configFromApiURI(window.__instantConfig?.apiURI);
-    }
-
-    return configFromApiURI(
-      process.env.INSTANT_API_URI || process.env.INSTANT_BACKEND_URL,
-    );
-  } catch (_e) {
-    return null;
+function getRuntimeApiURI() {
+  if (isBrowser) {
+    return window.__instantConfig?.apiURI;
   }
+
+  return process.env.INSTANT_API_URI || process.env.INSTANT_BACKEND_URL;
+}
+
+export function requireSelfHostedConfig(
+  apiURI: string | undefined | null,
+): DashboardConfig {
+  try {
+    const config = configFromApiURI(apiURI);
+    if (config) {
+      return config;
+    }
+  } catch (_e) {
+    // Throw the same actionable error for missing and malformed URLs.
+  }
+  throw new Error(selfHostedConfigError);
 }
 
 const devBackend = getLocal('devBackend');
@@ -67,9 +81,20 @@ const defaultApiURI = devBackend
   ? `http://localhost:${localPort}`
   : `https://${isStaging ? 'api-staging' : 'api'}.instantdb.com`;
 
+function getSelfHostedConfig() {
+  const apiURI = getRuntimeApiURI();
+  if (apiURI || isBrowser) {
+    return requireSelfHostedConfig(apiURI);
+  }
+
+  // The build evaluates this module before the container has runtime config.
+  // Container startup validates the URL before serving the dashboard.
+  return configFromApiURI(`http://localhost:${localPort}`)!;
+}
+
 export const config =
   isSelfHosted && !devBackend
-    ? getRuntimeConfig() || configFromApiURI(defaultApiURI)!
+    ? getSelfHostedConfig()
     : configFromApiURI(defaultApiURI)!;
 
 // In dev mode, sync the devBackend flag to a cookie so server components
