@@ -163,7 +163,8 @@
   ([app-id]
    (enqueue-app-files! app-id 5000))
   ([app-id write-batch-size]
-   (assert (uuid? app-id))
+   (when-not (uuid? app-id)
+     (throw (ex-info "app-id must be a uuid" {:app-id app-id})))
    (when-not (dest-bucket app-id)
      (throw (ex-info "No destination bucket configured for app" {:app-id app-id})))
    (when (= instant-s3/bucket-name (dest-bucket app-id))
