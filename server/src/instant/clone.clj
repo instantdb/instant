@@ -182,7 +182,7 @@
                     (.engine engine)
                     (.publiclyAccessible ^Boolean publicly-accessible)
                     (.availabilityZone availability-zone)
-                    (.monitoringInterval 0)
+                    (.monitoringInterval (int 0))
                     (.tags (ucoll/array-of Tag tags))
                     (.build))]
     (.createDBInstance (rds-client) ^CreateDbInstanceRequest request)))

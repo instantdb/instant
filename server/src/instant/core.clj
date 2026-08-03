@@ -45,6 +45,7 @@
    [instant.reactive.session :as session]
    [instant.reactive.store :as rs]
    [instant.runtime.routes :as runtime-routes]
+   [instant.backup :as backup]
    [instant.scripts.analytics :as analytics]
    [instant.scripts.daily-metrics :as daily-metrics]
    [instant.scripts.welcome-email :as welcome-email]
@@ -375,7 +376,10 @@
           (app-proxy/stop)))
       (future
         (tracer/with-span! {:name "stop-triples-size-updates"}
-          (triples-size-updates/stop-global)))))
+          (triples-size-updates/stop-global)))
+      (future
+        (tracer/with-span! {:name "stop-backup"}
+          (backup/stop)))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []
@@ -482,6 +486,10 @@
       (when (= (config/get-env) :prod)
         (with-log-init :welcome-email
           (welcome-email/start)))
+      (when (and (= (config/get-env) :prod)
+                 (config/aws-env?))
+        (with-log-init :backup
+          (backup/start)))
 
       (with-log-init :hint-testing
         (hint-testing/start))
