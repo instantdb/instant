@@ -3,9 +3,10 @@
    [clj-http.client :as http]
    [clojure.test :refer [deftest is testing use-fixtures]]
    [instant.config :as config]
-   [instant.fixtures :refer [random-email with-empty-app with-org with-pro-app with-startup-org with-free-org with-user]]
    [instant.dash.ephemeral-app :as ephemeral-app]
    [instant.dash.get-a-db :as get-a-db]
+   [instant.dash.routes :as routes]
+   [instant.fixtures :refer [random-email with-empty-app with-org with-pro-app with-startup-org with-free-org with-user]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
@@ -30,6 +31,10 @@
     (f)))
 
 (use-fixtures :each silence-routes-exceptions)
+
+(deftest signup-outreach-does-not-run-outside-production
+  (with-redefs [config/prod? (constantly false)]
+    (is (nil? (routes/ping-for-outreach (random-uuid))))))
 
 (deftest app-invites-work
   (with-redefs [config/postmark-send-enabled? (constantly false)]
