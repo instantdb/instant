@@ -117,6 +117,19 @@
      {}
      targets)))
 
+(defn- parse-copy-files-bucket-flag [targets]
+  (if-not (map? targets)
+    {}
+    (reduce-kv
+     (fn [acc app-id-value target-value]
+       (if-let [app-id (uuid-util/coerce app-id-value)]
+         (assoc acc app-id target-value)
+         (do
+           (log/error "Ignoring invalid app proxy app id" {:app-id app-id-value})
+           acc)))
+     {}
+     targets)))
+
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
    query-result atom, to make look ups faster."
@@ -185,6 +198,7 @@
                             (assoc acc (keyword setting) value))
                           {}
                           (get result "flags"))
+                  (update :copy-file-bucket parse-copy-files-bucket-flag)
                   (update :app-proxy-targets parse-app-proxy-targets-flag)
                   (update :always-materialize-attr-ids parse-uuids-flag)
                   (update :tika-enabled-apps parse-uuids-flag)
@@ -419,6 +433,11 @@
    without a deploy."
   []
   (flag :app-proxy-targets {}))
+
+(defn copy-file-bucket
+  "Bucket that files for an app should be copied to."
+  [app-id]
+  (get (flag :copy-file-bucket) app-id))
 
 (defn handle-receive-timeout [app-id]
   (get-in (query-result) [:handle-receive-timeout app-id]))

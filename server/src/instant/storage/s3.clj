@@ -89,7 +89,8 @@
          (doto (NettyNioAsyncHttpClient/builder)
            (.readTimeout Duration/ZERO)
            (.writeTimeout Duration/ZERO)
-           (.tcpKeepAlive Boolean/TRUE)))
+           (.tcpKeepAlive Boolean/TRUE)
+           (.maxConcurrency (int 1024)))) ;; default is 50
         (configure-s3-endpoint-client)
         (.build))))
 
@@ -218,6 +219,15 @@
         (if-let [mock *s3-mock*]
           ((:upload mock) bucket-name ctx* file)
           (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file))))))
+
+(defn copy-file [{:keys [app-id
+                         location-id
+                         destination-bucket]}]
+  (let [object-key (->object-key app-id location-id)]
+    (s3-util/copy-object (s3-client) {:source-bucket-name bucket-name
+                                      :destination-bucket-name destination-bucket
+                                      :source-key object-key
+                                      :destination-key object-key})))
 
 (defn format-object [{:keys [object-metadata]}]
   (-> object-metadata

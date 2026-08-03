@@ -27,7 +27,9 @@
                                              PutObjectRequest
                                              S3Object)
    (software.amazon.awssdk.transfer.s3 S3TransferManager)
-   (software.amazon.awssdk.transfer.s3.model UploadRequest)))
+   (software.amazon.awssdk.transfer.s3.model Copy
+                                             CopyRequest
+                                             UploadRequest)))
 
 (set! *warn-on-reflection* true)
 
@@ -89,14 +91,19 @@
            destination-bucket-name
            source-key
            destination-key]}]
-  (let [^CopyObjectRequest req (-> (CopyObjectRequest/builder)
-                                   (.sourceBucket source-bucket-name)
-                                   (.sourceKey source-key)
-                                   (.destinationBucket destination-bucket-name)
-                                   (.destinationKey destination-key)
-                                   (.build))
-        ^CopyObjectResponse resp (.copyObject s3-client req)]
-    resp))
+  (tracer/with-span! {:name "copy-object"
+                      :attributes {:source-bucket source-bucket-name
+                                   :destination-bucket destination-bucket-name
+                                   :source-key source-key
+                                   :destination-key destination-key}}
+    (let [^CopyObjectRequest req (-> (CopyObjectRequest/builder)
+                                     (.sourceBucket source-bucket-name)
+                                     (.sourceKey source-key)
+                                     (.destinationBucket destination-bucket-name)
+                                     (.destinationKey destination-key)
+                                     (.build))
+          ^CopyObjectResponse resp (.copyObject s3-client req)]
+      resp)))
 
 (defn get-object
   ^InputStream [^S3AsyncClient s3-client bucket-name object-key]
@@ -303,6 +310,22 @@
         (-> upload
             (.completionFuture)
             deref)))))
+
+(defn transfer-manager-copy
+  "Server-side copy via the transfer manager. Returns the completion
+   CompletableFuture (does not block)."
+  [^S3TransferManager transfer-manager
+   {:keys [source-bucket-name destination-bucket-name source-key destination-key]}]
+  (let [^CopyObjectRequest req (-> (CopyObjectRequest/builder)
+                                   (.sourceBucket source-bucket-name)
+                                   (.sourceKey source-key)
+                                   (.destinationBucket destination-bucket-name)
+                                   (.destinationKey destination-key)
+                                   (.build))
+        ^CopyRequest copy-req (-> (CopyRequest/builder)
+                                  (.copyObjectRequest req)
+                                  (.build))]
+    (.completionFuture ^Copy (.copy transfer-manager copy-req))))
 
 (defn transfer-manager-upload-stream
   [^S3TransferManager transfer-manager bucket-name ctx ^InputStream stream]
