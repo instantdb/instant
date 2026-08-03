@@ -1,5 +1,6 @@
 (ns instant.storage.coordinator
-  (:require [instant.storage.s3 :as instant-s3]
+  (:require [instant.flags :as flags]
+            [instant.storage.s3 :as instant-s3]
             [instant.model.app-file :as app-file-model]
             [instant.model.rule :as rule-model]
             [instant.storage.beta :as storage-beta]
@@ -49,6 +50,10 @@
                                           :current-user current-user}))
   (let [location-id (str (random-uuid))
         _ (instant-s3/upload-file-to-s3 (assoc ctx :location-id location-id) file)
+        _ (when-let [copy-bucket (flags/copy-file-bucket app-id)]
+            (instant-s3/copy-file {:destination-bucket copy-bucket
+                                   :app-id app-id
+                                   :location-id location-id}))
         metadata (instant-s3/get-object-metadata app-id location-id)]
     (try
       (app-file-model/create!
