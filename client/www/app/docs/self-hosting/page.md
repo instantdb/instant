@@ -118,7 +118,7 @@ INSTANT_SUPERUSER_EMAIL=admin@example.com
 
 Instant creates this dashboard user when the server starts. Log in with this email and open **Deployment Settings** from the account menu to manage your deployment. If you change the email, restart the server to transfer superuser access.
 
-#### Restrict Dashboard Signups (Optional)
+### Restrict Dashboard Signups
 
 By default, anyone can create a dashboard account. To limit access, open **Deployment Settings** and set **Who can sign up?**:
 
