@@ -1802,6 +1802,15 @@
    :description (:description row)
    :expires_at (:expires_at row)})
 
+(defn get-active-app-backup! [app-id backup-id]
+  (let [record (ex/assert-record! (backup/get-app-backup-by-id {:id backup-id
+                                                                :app-id app-id})
+                                  :app-backup
+                                  {:id backup-id})]
+    (when (backup/expired? record)
+      (ex/throw-expiration-err! :app-backup {:id backup-id}))
+    record))
+
 (defn app-backups-get [req]
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
                                                                          :data/read
@@ -1814,10 +1823,7 @@
                                                                          :data/read
                                                                          req)
         backup-id (ex/get-param! req [:params :backup_id] uuid-util/coerce)
-        record (ex/assert-record! (backup/get-app-backup-by-id {:id backup-id
-                                                                :app-id app-id})
-                                  :app-backup
-                                  {:id backup-id})
+        record (get-active-app-backup! app-id backup-id)
         prefix (str (:storage_prefix record) "/")
         objects (s3-util/list-all-objects (storage-s3/s3-client)
                                           config/s3-app-backups-bucket-name
@@ -1836,10 +1842,7 @@
                                                                          req)
         backup-id (ex/get-param! req [:params :backup_id] uuid-util/coerce)
         name (ex/get-param! req [:params :name] string-util/coerce-non-blank-str)
-        record (ex/assert-record! (backup/get-app-backup-by-id {:id backup-id
-                                                                :app-id app-id})
-                                  :app-backup
-                                  {:id backup-id})
+        record (get-active-app-backup! app-id backup-id)
         prefix (str (:storage_prefix record) "/")
         key (str prefix name)
         url (s3-util/generate-presigned-url
@@ -1868,10 +1871,7 @@
                                                                          :data/read
                                                                          req)
         backup-id (ex/get-param! req [:params :backup_id] uuid-util/coerce)
-        record (ex/assert-record! (backup/get-app-backup-by-id {:id backup-id
-                                                                :app-id app-id})
-                                  :app-backup
-                                  {:id backup-id})
+        record (get-active-app-backup! app-id backup-id)
         files-key (str (:storage_prefix record) "/entities/$files.jsonl")
         presign-creds (storage-s3/presign-creds)
         pipe-out (PipedOutputStream.)

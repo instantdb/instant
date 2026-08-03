@@ -73,8 +73,9 @@ export function Backups({ app }: { app: InstantApp }) {
 
   const backups = useMemo(
     () =>
-      [...(backupsRes.data?.backups ?? [])].sort((a, b) =>
-        b.backup_at.localeCompare(a.backup_at),
+      (backupsRes.data?.backups ?? []).filter(
+        (backup) =>
+          backup.expires_at && new Date(backup.expires_at) > new Date(),
       ),
     [backupsRes.data?.backups],
   );

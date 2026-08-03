@@ -47,6 +47,11 @@
    (org.postgresql.jdbc PgConnection PgConnection)
    (software.amazon.awssdk.core.async AsyncRequestBody)))
 
+(defn expired?
+  ([backup] (expired? (Instant/now) backup))
+  ([^Instant now {:keys [expires_at]}]
+   (not (.isAfter (.toInstant expires_at) now))))
+
 (def insert-backup-job-q
   (uhsql/preformat {:insert-into :backup-jobs
                     :values [{:id :?id
@@ -126,7 +131,9 @@
 (def get-app-backups-by-app-id-q
   (uhsql/preformat {:select [:id :app-id :isn :backup-at :files-size :db-size :uncompressed-size :description :expires-at]
                     :from :app-backups
-                    :where [:= :app-id :?app-id]
+                    :where [:and
+                            [:= :app-id :?app-id]
+                            [:> :expires-at :%now]]
                     :order-by [[:backup-at :desc]]}))
 
 (defn get-app-backups-by-app-id
