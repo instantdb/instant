@@ -1903,7 +1903,6 @@
                      (.write writer "\n")
                      (.flush writer))))))
            (catch Exception e
-             (tool/def-locals)
              ;; Don't throw if $files.jsonl is missing--it just means they have
              ;; no files. get-object surfaces the miss as an S3Exception with a
              ;; 404 status (not a typed NoSuchKeyException), wrapped in the
