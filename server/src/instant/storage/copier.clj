@@ -212,7 +212,5 @@
                          (recur [] (+ total (count batch))))
                      (recur batch total)))))))
          (catch Throwable t
-           ;; unblock a producer parked on `.put` (or trip its next `.put`) and
-           ;; let it unwind + close its read conn on its own
            (future-cancel producer)
            (throw t)))))))
