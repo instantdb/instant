@@ -3369,10 +3369,10 @@
            batch-data))))
 
 (defn query-nested [{:keys [app-id db query-hash] :as ctx} nested-patterns]
-  (let [disable-hints? (or (flags/toggled? :disable-pg-hints)
+  (let [disable-hints? (or (flags/toggled? :disable-pg-hints false)
                            (contains? (flags/flag :disable-hint-query-hashes)
                                       query-hash))
-        enable-hints? (or (flags/toggled? :pg-hints-by-default)
+        enable-hints? (or (flags/toggled? :pg-hints-by-default true)
                           (contains? (flags/flag :use-hint-query-hashes)
                                      query-hash))]
     (tracer/add-data! {:attributes {:use-pg-hint (and enable-hints?
