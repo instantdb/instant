@@ -159,6 +159,19 @@ docker compose -f docker-compose.with-caddy.yml --env-file .env up --build
 
 After everything starts up, the dashboard will be available at whatever you set `INSTANT_DASHBOARD_URL` to.
 
+## Updating an Existing Deployment
+
+Instant publishes new server and dashboard images from `main`. For routine updates, pull and recreate only those application containers:
+
+```sh {% showCopy=true %}
+docker compose pull server www && \
+  docker compose up -d --no-deps server www
+```
+
+Include the same Compose options you normally use on both commands.
+
+This does not update PostgreSQL or other infrastructure. It also leaves your Compose files, `.env`, overrides, and volumes unchanged.
+
 ## Memory Limits
 
 By default, the backend server container can use a lot of resources. We recommend setting a maximum memory limit on the server container using the `JAVA_OPTS` environment variable like so:
