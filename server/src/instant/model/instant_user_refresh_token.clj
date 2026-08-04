@@ -1,13 +1,23 @@
 (ns instant.model.instant-user-refresh-token
   (:require [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
-            [instant.model.instant-user :as instant-user-model])
+            [instant.model.instant-user :as instant-user-model]
+            [instant.util.exception :as ex])
   (:import
    (java.util UUID)))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [id user-id]}]
+   (ex/assert-permitted!
+    :dashboard-login-enabled
+    user-id
+    (nil? (sql/select-one
+           conn
+           ["SELECT 1 FROM user_flags
+             WHERE user_id = ?::uuid
+               AND flag_name = 'dashboard-login-disabled'"
+            user-id])))
    (sql/execute-one! conn
                      ["INSERT INTO instant_user_refresh_tokens (id, user_id) VALUES (?::uuid, ?::uuid)"
                       id user-id])))
@@ -23,4 +33,3 @@
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def r (create! {:id (UUID/randomUUID) :user-id (:id u)}))
   (delete-by-id! {:id (:id r)}))
-

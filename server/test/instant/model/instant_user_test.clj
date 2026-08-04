@@ -4,7 +4,21 @@
    [instant.fixtures :refer [with-empty-app with-org with-user]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.model.instant-user :as instant-user]))
+   [instant.model.instant-user :as instant-user]
+   [instant.model.instant-user-refresh-token :as instant-user-refresh-token]
+   [instant.util.test :refer [perm-err?]]))
+
+(deftest disabled-dashboard-login-prevents-token-creation
+  (with-user
+    (fn [user]
+      (sql/execute-one!
+       (aurora/conn-pool :write)
+       ["INSERT INTO user_flags (id, user_id, flag_name)
+         VALUES (?::uuid, ?::uuid, 'dashboard-login-disabled')"
+        (random-uuid) (:id user)])
+      (is (perm-err?
+           (instant-user-refresh-token/create!
+            {:id (random-uuid) :user-id (:id user)}))))))
 
 (deftest get-by-app-id
   (with-user

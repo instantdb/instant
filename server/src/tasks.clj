@@ -131,6 +131,37 @@
                 "INSTANT_SUPERUSER_EMAIL must be a valid email address."
                 {:value value})))))
 
+(def ^:private self-hosted-bundled-user-emails
+  ["system-catalog-user@instantdb.com"
+   "testuser@instantdb.com"
+   "hello+ephemeralappsdev@instantdb.com"
+   "hello+ephemeralapps@instantdb.com"
+   "stopa@instantdb.com"
+   "hello+getadbapps@instantdb.com"])
+
+(defn- disable-self-hosted-bundled-user-logins! []
+  (let [configured-superuser-email (superuser-email)]
+    (next-jdbc/with-transaction [conn (config/get-aurora-config)]
+      (doseq [user-email self-hosted-bundled-user-emails
+              :when (not= user-email configured-superuser-email)]
+        (sql/execute-one!
+         conn
+         ["INSERT INTO user_flags (id, user_id, flag_name)
+           SELECT gen_random_uuid(), id, 'dashboard-login-disabled'
+           FROM instant_users
+           WHERE email = ?
+           ON CONFLICT (user_id, flag_name) DO NOTHING"
+          user-email]))
+      (when configured-superuser-email
+        (sql/execute-one!
+         conn
+         ["DELETE FROM user_flags
+           USING instant_users
+           WHERE user_flags.user_id = instant_users.id
+             AND user_flags.flag_name = 'dashboard-login-disabled'
+             AND instant_users.email = ?"
+          configured-superuser-email])))))
+
 (defn bootstrap-config-app! []
   (next-jdbc/with-transaction [conn (config/get-aurora-config)]
     (sql/execute-one!
@@ -173,6 +204,7 @@
   (migrate-database)
   (tracer/init)
   (try
+    (disable-self-hosted-bundled-user-logins!)
     (bootstrap-config-app!)
     (finally
       (tracer/shutdown))))
