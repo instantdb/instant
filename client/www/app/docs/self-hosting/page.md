@@ -108,7 +108,7 @@ The `_DOMAIN` variables are only used by the Caddy reverse proxy, so if you are 
 
 The MinIO bucket is private by default. Files are accessed through Instant-generated signed URLs.
 
-`S3_PUBLIC_ENDPOINT` must be an origin without a path, such as `https://files.myinstant.com` or `https://localhost:9443`. [MinIO does not support](https://github.com/minio/docs/blob/main/source/integrations/setup-nginx-proxy-with-minio.rst?plain=1#L105) serving its S3 API from a subpath such as `/storage`. If MinIO is behind a proxy, use a dedicated hostname or port.
+`S3_PUBLIC_ENDPOINT` must be an origin without a path, such as `https://files.myinstant.com` or `https://localhost:9443`. MinIO does not support serving its S3 API from a subpath such as `/storage`. If MinIO is behind a proxy, use a dedicated hostname or port.
 
 ### Configure the Deployment Superuser
 
