@@ -2378,10 +2378,11 @@ export default class Reactor {
     return res;
   }
 
-  async signInAsGuest() {
+  async signInAsGuest(params) {
     const res = await authAPI.signInAsGuest({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
+      extraFields: params?.extraFields,
     });
     await this.changeCurrentUser(res.user);
     return res;

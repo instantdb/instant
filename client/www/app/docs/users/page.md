@@ -180,6 +180,14 @@ You can set custom `$users` properties at the moment a user is created by passin
 
 The fields you pass must be defined in your schema as optional attributes on `$users`.
 
+**Guest auth**
+
+```javascript
+db.auth.signInAsGuest({
+  extraFields: { nickname: 'nezaj' },
+});
+```
+
 **Magic codes**
 
 ```javascript

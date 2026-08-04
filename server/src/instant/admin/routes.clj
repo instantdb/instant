@@ -533,13 +533,18 @@
 
 (defn sign-in-guest-post [req]
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
-        ;; create guest user
-        user-id       (random-uuid)
-        user          (app-user-model/create!
-                       {:app-id app-id
-                        :id     user-id
-                        :type   "guest"})
-        ;; create refresh-token for user
+        extra-fields (get-in req [:body :extra-fields])
+        user-id      (random-uuid)
+        _            (when (seq extra-fields)
+                       (app-user-model/assert-signup!
+                        {:app-id          app-id
+                         :extra-fields    extra-fields
+                         :skip-perm-check? true}))
+        user         (app-user-model/create!
+                       {:app-id       app-id
+                        :id           user-id
+                        :type         "guest"
+                        :extra-fields extra-fields})
         refresh-token (random-uuid)
         _             (app-user-refresh-token-model/create!
                        {:app-id  app-id

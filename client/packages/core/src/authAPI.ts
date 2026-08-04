@@ -105,15 +105,20 @@ export async function verifyRefreshToken({
   return res;
 }
 
+export type SignInAsGuestParams = {
+  extraFields?: Record<string, any> | undefined;
+};
 export async function signInAsGuest({
   apiURI,
   appId,
-}: SharedInput): Promise<VerifyResponse> {
+  extraFields,
+}: SharedInput & SignInAsGuestParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/auth/sign_in_guest`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       'app-id': appId,
+      ...(extraFields ? { 'extra-fields': extraFields } : {}),
     }),
   });
   return res;

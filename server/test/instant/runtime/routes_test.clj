@@ -100,20 +100,25 @@
       :body
       :user))
 
-(defn sign-in-guest-runtime [app]
-  (-> (request {:method :post
-                :url    "/runtime/auth/sign_in_guest"
-                :body   {:app-id (:id app)}})
-      :body
-      :user))
+(defn sign-in-guest-runtime
+  ([app] (sign-in-guest-runtime app {}))
+  ([app body]
+   (-> (request {:method :post
+                 :url    "/runtime/auth/sign_in_guest"
+                 :body   (assoc body :app-id (:id app))})
+       :body
+       :user)))
 
-(defn sign-in-guest-admin [app]
-  (-> (request {:method :post
-                :url    "/admin/sign_in_guest"
-                :headers {"app-id"        (:id app)
-                          "authorization" (str "Bearer " (:admin-token app))}})
-      :body
-      :user))
+(defn sign-in-guest-admin
+  ([app] (sign-in-guest-admin app {}))
+  ([app body]
+   (-> (request {:method  :post
+                 :url     "/admin/sign_in_guest"
+                 :headers {"app-id"        (:id app)
+                           "authorization" (str "Bearer " (:admin-token app))}
+                 :body    body})
+       :body
+       :user)))
 
 (deftest magic-codes-test
   (test-util/test-matrix
@@ -669,8 +674,9 @@
        (rule-model/put! {:app-id app-id
                          :code {"$users" {"allow" {"create" "true"}}}})
 
-       (let [guest (sign-in-guest app)
+       (let [guest (sign-in-guest app {:extra-fields {"username" "guest_user"}})
              _     (is (= "guest" (:type guest)))
+             _     (is (= "guest_user" (:username guest)))
              code  (send-code app {:email "guest@test.com"})
              body  (verify-body app {:email "guest@test.com"
                                      :code code
@@ -883,6 +889,14 @@
 (deftest users-create-rule-guest-test
   (with-empty-app
     (fn [{app-id :id :as app}]
+      (test-util/make-attrs app-id
+                            [[:$users/username]])
+
+      (testing "extra-fields require an explicit create rule"
+        (is (thrown-with-msg?
+             ExceptionInfo #"status 400"
+             (sign-in-guest-runtime app {:extra-fields {"username" "guest_user"}}))))
+
       (testing "create rule blocks guest signup"
         (rule-model/put! {:app-id app-id
                           :code {"$users" {"allow" {"create" "false"}}}})
