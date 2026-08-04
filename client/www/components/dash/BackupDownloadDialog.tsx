@@ -435,7 +435,7 @@ async function downloadBackup(
     // (compression and CRC32 run off the main thread so a multi-GB backup
     // doesn't jank the tab), each degrading to an inline main-thread codec on
     // browsers that lack them — correctness (incl. zip64) is unaffected either way.
-    const zipWriter = new ZipWriter(countingSink, { zip64: true });
+    const zipWriter = new ZipWriter(countingSink, { zip64: true, signal });
     for await (const entry of entries) {
       await zipWriter.add(entry.name, entry.input, {
         lastModDate: entry.lastModified,
@@ -834,8 +834,27 @@ function DownloadInstance({
       body = (
         <div className="flex min-w-0 flex-col gap-4">
           <SubsectionHeading>Download complete</SubsectionHeading>
-          {progressBlock}
-          <Content>{' '}</Content>
+          <div className="flex min-w-0 flex-col gap-1 text-gray-500 dark:text-neutral-500">
+            <div className="tabular-nums">
+              {entitiesDone.toLocaleString()} namespaces
+            </div>
+            {filesTotal === 0 ? null : (
+              <div className="tabular-nums">
+                {filesDone.toLocaleString()} storage files
+              </div>
+            )}
+            <div className="flex min-w-0 items-baseline gap-3">
+              <span className="min-w-0 flex-1 truncate">
+                Saved to{' '}
+                <span className="font-mono">
+                  {progress?.outputFilename ?? backupZipName(backup)}
+                </span>
+              </span>
+              <span className="shrink-0 tabular-nums">
+                {formatBytes(progress?.bytes ?? 0)}
+              </span>
+            </div>
+          </div>
           <div>
             <Button type="button" variant="secondary" onClick={dismiss}>
               Close
