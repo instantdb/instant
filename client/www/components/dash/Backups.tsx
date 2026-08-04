@@ -1,18 +1,19 @@
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 import config from '@/lib/config';
 import { useAuthedFetch } from '@/lib/auth';
+import { TokenContext } from '@/lib/contexts';
 import { InstantApp, InstantAppBackup } from '@/lib/types';
 
-import { Button, Content, SectionHeading, useDialog } from '@/components/ui';
+import { Button, Content, SectionHeading } from '@/components/ui';
 import {
   ErrorMessage,
   Loading,
   formatTimestamp,
 } from '@/components/dash/shared';
 import { CopyableText } from '@/components/dash/Webhooks';
-import { DownloadDialog } from '@/components/dash/BackupDownloadDialog';
+import { useBackupDownloads } from '@/components/dash/BackupDownloadDialog';
 import {
   Item,
   ItemActions,
@@ -29,7 +30,8 @@ function BackupRow({
   app: InstantApp;
   backup: InstantAppBackup;
 }) {
-  const downloadDialog = useDialog();
+  const token = useContext(TokenContext);
+  const { open } = useBackupDownloads();
 
   return (
     <Item
@@ -55,11 +57,14 @@ function BackupRow({
         </dl>
       </ItemContent>
       <ItemActions>
-        <Button variant="secondary" size="mini" onClick={downloadDialog.onOpen}>
+        <Button
+          variant="secondary"
+          size="mini"
+          onClick={() => open(app, backup, token)}
+        >
           <ArrowDownTrayIcon width={14} /> Download
         </Button>
       </ItemActions>
-      <DownloadDialog app={app} backup={backup} dialog={downloadDialog} />
     </Item>
   );
 }

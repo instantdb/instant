@@ -1,22 +1,26 @@
-import { useContext, useEffect, useRef, useState } from 'react';
-import { AsyncZipDeflate, Zip } from 'fflate';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { ArrowsPointingOutIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ZipDeflate, Zip } from 'fflate';
 import { showSaveFilePicker } from 'native-file-system-adapter';
 
 import config from '@/lib/config';
-import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantApp, InstantAppBackup, InstantIssue } from '@/lib/types';
 
-import {
-  Button,
-  Content,
-  Dialog,
-  SubsectionHeading,
-  useDialog,
-} from '@/components/ui';
+import { Button, Content, Dialog, SubsectionHeading } from '@/components/ui';
 
 import { formatTimestamp } from '@/components/dash/shared';
+import { useDarkMode } from '@/components/dash/DarkModeToggle';
 
 type BackupFile = { name: string; size: number };
 
@@ -25,7 +29,13 @@ type DownloadProgress = {
   entitiesTotal: number | null;
   filesCompleted: number;
   filesTotal: number | null;
+  // Compressed bytes written to disk so far (the zip's on-disk size).
   bytes: number;
+  // Uncompressed bytes read from source bodies, and the backup's known
+  // uncompressed total — the numerator/denominator for the % progress bar.
+  // bytesTotal is null when the backup row carries no sizes.
+  bytesRead: number;
+  bytesTotal: number | null;
   // Empty while we aren't actively fetching from that phase — clear once
   // the yield is done so the line stops claiming a file after completion.
   currentEntity: string;
@@ -39,15 +49,18 @@ function backupZipName(backup: InstantAppBackup): string {
 }
 
 function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
+  // Decimal (1000-based) units with SI labels, to match how macOS/Finder
+  // reports file sizes so the number lines up with what lands on disk.
+  if (n < 1000) return `${n} B`;
   const units = ['KB', 'MB', 'GB', 'TB'];
   let i = -1;
   let v = n;
   do {
-    v /= 1024;
+    v /= 1000;
     i++;
-  } while (v >= 1024 && i < units.length - 1);
-  return `${v < 10 && i > 0 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
+  } while (v >= 1000 && i < units.length - 1);
+  const digits = v < 10 ? 2 : v < 100 ? 1 : 0;
+  return `${v.toFixed(digits)} ${units[i]}`;
 }
 
 async function fetchFiles(
@@ -96,20 +109,31 @@ type ZipEntry = {
 };
 
 // Build a zip output stream using fflate's streaming Zip writer with
-// async DEFLATE level 6 (workers do the compression off the main thread).
+// synchronous DEFLATE level 4 (compression runs inline on the main thread so
+// reads stay paced to compression speed — see the note at the ZipDeflate call).
 // Each input stream is consumed chunk-by-chunk; the final chunk is flagged
 // via look-ahead — push() needs to know which chunk is the last.
 //
-// The closed flag guards against the async deflate workers calling back
-// after the controller has already errored or been cancelled (e.g. user
-// aborts mid-download): controller.enqueue throws on an errored stream,
-// and we want to swallow that quietly while also terminating the workers
-// so they stop burning CPU.
+// The closed flag guards against the zip callback firing after the controller
+// has already errored or been cancelled (e.g. user aborts mid-download):
+// controller.enqueue throws on an errored stream, and we want to swallow that
+// quietly.
 function fflateZipStream(
   entries: AsyncIterable<ZipEntry>,
 ): ReadableStream<Uint8Array> {
   let closed = false;
   let zip: Zip | null = null;
+  // Output backpressure gate. `controller.enqueue` never blocks, so without
+  // this the pump would pile compressed chunks into the stream's queue ahead of
+  // a slow disk sink. The pump parks here whenever the queue is full and pull()
+  // resumes it once the sink drains. (Input-side backlog is handled by using
+  // synchronous ZipDeflate below, which paces reads to compression speed.)
+  let readyResolve: (() => void) | null = null;
+  const resume = () => {
+    const r = readyResolve;
+    readyResolve = null;
+    r?.();
+  };
   const terminate = () => {
     try {
       (zip as unknown as { terminate?: () => void })?.terminate?.();
@@ -117,61 +141,95 @@ function fflateZipStream(
       // swallow — best-effort cleanup
     }
   };
-  return new ReadableStream<Uint8Array>({
-    async start(controller) {
-      zip = new Zip((err, data, final) => {
-        if (closed) return;
-        if (err) {
-          closed = true;
-          controller.error(err);
-          return;
-        }
-        if (data && data.byteLength > 0) {
-          try {
-            controller.enqueue(data);
-          } catch {
+  return new ReadableStream<Uint8Array>(
+    {
+      start(controller) {
+        // Park the pump until the consumer asks for more (pull()) whenever the
+        // queue is at/over the high-water mark. Returns null when there's no
+        // need to wait so the hot path stays synchronous.
+        const whenDrained = (): Promise<void> | null => {
+          if (closed) return null;
+          const desired = controller.desiredSize;
+          if (desired === null || desired > 0) return null;
+          return new Promise<void>((r) => {
+            readyResolve = r;
+          });
+        };
+        zip = new Zip((err, data, final) => {
+          if (closed) return;
+          if (err) {
             closed = true;
-            terminate();
+            controller.error(err);
+            resume();
             return;
           }
-        }
-        if (final) {
-          closed = true;
-          controller.close();
-        }
-      });
-      try {
-        for await (const entry of entries) {
-          if (closed) break;
-          const file = new AsyncZipDeflate(entry.name, { level: 6 });
-          file.mtime = entry.lastModified;
-          zip.add(file);
-          const reader = entry.input.getReader();
-          let pending: Uint8Array | null = null;
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              file.push(pending ?? new Uint8Array(0), true);
-              break;
+          if (data && data.byteLength > 0) {
+            try {
+              controller.enqueue(data);
+            } catch {
+              closed = true;
+              terminate();
+              resume();
+              return;
             }
-            if (pending !== null) file.push(pending, false);
-            pending = value;
           }
-        }
-        if (!closed) zip.end();
-      } catch (e) {
-        if (!closed) {
-          closed = true;
-          controller.error(e);
-        }
+          if (final) {
+            closed = true;
+            controller.close();
+          }
+        });
+        // Run the pump detached: pull() is never called until start() settles,
+        // so awaiting the pump (and its gate) inside start() would deadlock.
+        void (async () => {
+          try {
+            for await (const entry of entries) {
+              if (closed) break;
+              // Synchronous (main-thread) deflate: push() compresses inline and
+              // returns, so reads are naturally paced to compression speed and
+              // nothing queues ahead of the CPU. AsyncZipDeflate offloads to a
+              // Web Worker but its push() never blocks, so on a fast network
+              // uncompressed chunks piled up unbounded in the worker and OOM'd.
+              const file = new ZipDeflate(entry.name, { level: 4 });
+              file.mtime = entry.lastModified;
+              zip!.add(file);
+              const reader = entry.input.getReader();
+              let pending: Uint8Array | null = null;
+              while (true) {
+                const wait = whenDrained();
+                if (wait) await wait;
+                if (closed) break;
+                const { done, value } = await reader.read();
+                if (done) {
+                  file.push(pending ?? new Uint8Array(0), true);
+                  break;
+                }
+                if (pending !== null) file.push(pending, false);
+                pending = value;
+              }
+            }
+            if (!closed) zip!.end();
+          } catch (e) {
+            if (!closed) {
+              closed = true;
+              controller.error(e);
+            }
+            terminate();
+          }
+        })();
+      },
+      pull() {
+        resume();
+      },
+      cancel() {
+        closed = true;
+        resume();
         terminate();
-      }
+      },
     },
-    cancel() {
-      closed = true;
-      terminate();
-    },
-  });
+    // Bound the queue by bytes, not chunk count, so a slow sink can't grow it
+    // without limit while still letting the pump run a little ahead.
+    new ByteLengthQueuingStrategy({ highWaterMark: 8 * 1024 * 1024 }),
+  );
 }
 
 async function registerDownloadServiceWorker(): Promise<void> {
@@ -229,6 +287,14 @@ async function downloadBackup(
   let currentFile = '';
   let outputFilename = pickerHandle?.name ?? filename;
   let zipBytes = 0;
+  let uncompressedRead = 0;
+  // Denominator for the % bar: uncompressed entities + storage files, since we
+  // read (and count) both. Gated on uncompressed_size — no size, no bar — with
+  // files_size added when present.
+  const bytesTotal =
+    backup.uncompressed_size != null
+      ? backup.uncompressed_size + (backup.files_size ?? 0)
+      : null;
   const storagePending: StorageFileLine[] = [];
   let storageDone = false;
   let storageError: Error | null = null;
@@ -248,10 +314,27 @@ async function downloadBackup(
       filesCompleted,
       filesTotal,
       bytes: zipBytes,
+      bytesRead: uncompressedRead,
+      bytesTotal,
       currentEntity,
       currentFile,
       outputFilename,
     });
+
+  // Count uncompressed bytes as each source body streams through, for the %
+  // bar. This is the input size (matches backup.uncompressed_size); zipBytes
+  // is the compressed output written to disk.
+  const countRead = (
+    body: ReadableStream<Uint8Array>,
+  ): ReadableStream<Uint8Array> =>
+    body.pipeThrough(
+      new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+          uncompressedRead += chunk.byteLength;
+          controller.enqueue(chunk);
+        },
+      }),
+    );
 
   const notify = () => {
     const w = waitResolve;
@@ -366,7 +449,7 @@ async function downloadBackup(
       yield {
         name: f.name,
         lastModified: new Date(backup.backup_at),
-        input: res.body!,
+        input: countRead(res.body!),
       };
     }
     // Entity phase done — clear so the dialog stops claiming we're still
@@ -390,7 +473,7 @@ async function downloadBackup(
         yield {
           name: `files/${obj.locationId}`,
           lastModified: new Date(backup.backup_at),
-          input: fileRes.body!,
+          input: countRead(fileRes.body!),
         };
       } else if (storageDone) {
         break;
@@ -455,24 +538,124 @@ type DownloadDialogState =
     }
   | { kind: 'error'; message: string; progress: DownloadProgress | null };
 
-export function DownloadDialog({
+type DownloadItem = {
+  id: string;
+  app: InstantApp;
+  backup: InstantAppBackup;
+  token: string;
+  open: boolean;
+};
+
+type BackupDownloadsApi = {
+  // Open (or focus) the download dialog for a backup. Safe to call from
+  // anywhere under the provider — the download itself lives at the app root,
+  // so it survives tab switches and route changes.
+  open: (app: InstantApp, backup: InstantAppBackup, token: string) => void;
+};
+
+const BackupDownloadsContext = createContext<BackupDownloadsApi | null>(null);
+
+export function useBackupDownloads(): BackupDownloadsApi {
+  const ctx = useContext(BackupDownloadsContext);
+  if (!ctx) {
+    throw new Error(
+      'useBackupDownloads must be used within a BackupDownloadProvider',
+    );
+  }
+  return ctx;
+}
+
+// Mount once near the app root so downloads keep running (and stay reachable
+// via their pill) across tab switches and route changes. Only add/remove/open
+// events re-render here; each download's fast-moving progress state is isolated
+// inside its DownloadInstance, so ticks don't re-render the app tree.
+export function BackupDownloadProvider({ children }: { children: ReactNode }) {
+  const [items, setItems] = useState<DownloadItem[]>([]);
+
+  const setOpen = (id: string, open: boolean) =>
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, open } : it)));
+  const removeItem = (id: string) =>
+    setItems((prev) => prev.filter((it) => it.id !== id));
+
+  // Stable identity so context consumers (backup rows) never re-render from
+  // download activity.
+  const open = useCallback(
+    (app: InstantApp, backup: InstantAppBackup, token: string) => {
+      setItems((prev) =>
+        prev.some((it) => it.id === backup.id)
+          ? prev.map((it) =>
+              it.id === backup.id
+                ? { ...it, app, backup, token, open: true }
+                : it,
+            )
+          : [...prev, { id: backup.id, app, backup, token, open: true }],
+      );
+    },
+    [],
+  );
+
+  const api = useMemo(() => ({ open }), [open]);
+
+  return (
+    <BackupDownloadsContext.Provider value={api}>
+      {children}
+      {items.map((item) => (
+        <DownloadInstance
+          key={item.id}
+          app={item.app}
+          backup={item.backup}
+          token={item.token}
+          open={item.open}
+          onRequestOpen={() => setOpen(item.id, true)}
+          onRequestClose={() => setOpen(item.id, false)}
+          onDone={() => removeItem(item.id)}
+        />
+      ))}
+    </BackupDownloadsContext.Provider>
+  );
+}
+
+function DownloadInstance({
   app,
   backup,
-  dialog,
+  token,
+  open,
+  onRequestOpen,
+  onRequestClose,
+  onDone,
 }: {
   app: InstantApp;
   backup: InstantAppBackup;
-  dialog: ReturnType<typeof useDialog>;
+  token: string;
+  open: boolean;
+  onRequestOpen: () => void;
+  onRequestClose: () => void;
+  onDone: () => void;
 }) {
-  const token = useContext(TokenContext);
+  const { darkMode } = useDarkMode();
   const [state, setState] = useState<DownloadDialogState>({ kind: 'confirm' });
   const abortRef = useRef<AbortController | null>(null);
 
-  // Reset the dialog body whenever it's reopened so the user sees the
-  // confirm screen again rather than the stale result of a previous run.
+  // While actively downloading, warn before a full page unload (tab close,
+  // refresh, external/hard navigation) — that tears down the JS context and
+  // aborts the download mid-write. Client-side in-app navigation is fine: the
+  // provider lives at the app root, so the download survives it and isn't
+  // blocked here.
   useEffect(() => {
-    if (dialog.open) setState({ kind: 'confirm' });
-  }, [dialog.open]);
+    if (state.kind !== 'downloading') return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Legacy browsers need a truthy returnValue to show the native prompt;
+      // the typed member is deprecated, so assign it off a plain-object cast.
+      (e as { returnValue: unknown }).returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [state.kind]);
+
+  // The download outlives the modal. Closing mid-download minimizes to a pill
+  // (see handleClose) while the state machine keeps running; dismissing tears
+  // the whole instance down via onDone.
 
   // Upper bound: everything stored uncompressed (STORE mode and/or files
   // that don't compress). Lower bound: everything compressed at a ~3x
@@ -510,8 +693,9 @@ export function DownloadDialog({
       }));
     } catch (e) {
       if ((e as { name?: string })?.name === 'AbortError') {
-        // Exit if picker dismissed or dialog closed mid-download
-        dialog.onClose();
+        // Picker dismissed or the user cancelled — tear this instance down so
+        // no pill lingers.
+        onDone();
         return;
       }
       const msg =
@@ -528,10 +712,41 @@ export function DownloadDialog({
     }
   };
 
-  const close = () => {
+  // Hide the dialog but keep the download running in the background; the
+  // minimized pill takes over. Backdrop click / Escape route here too.
+  const minimize = onRequestClose;
+
+  // Tear this instance down entirely — dismiss a finished or not-yet-started
+  // download so no pill lingers.
+  const dismiss = onDone;
+
+  // Abort an in-flight download, then dismiss it. This is the only path that
+  // truly stops a running download.
+  const cancel = () => {
     abortRef.current?.abort();
-    dialog.onClose();
+    onDone();
   };
+
+  // Closing the dialog chrome (backdrop / Escape / X) minimizes a running
+  // download; for any other state it's a real dismiss.
+  const handleClose = () => {
+    if (state.kind === 'downloading') minimize();
+    else dismiss();
+  };
+
+  const progress = state.kind === 'confirm' ? null : state.progress;
+  // Percentage over the backup's uncompressed size. null (no bar) when the row
+  // has no size. Reads can slightly exceed the recorded total, and a finished
+  // download should read as 100%.
+  const pct =
+    progress?.bytesTotal != null && progress.bytesTotal > 0
+      ? Math.min(
+          100,
+          state.kind === 'complete'
+            ? 100
+            : ((progress.bytesRead ?? 0) / progress.bytesTotal) * 100,
+        )
+      : null;
 
   let body;
   if (state.kind === 'confirm') {
@@ -555,7 +770,7 @@ export function DownloadDialog({
           <Button type="button" variant="primary" onClick={start}>
             Download
           </Button>
-          <Button type="button" variant="secondary" onClick={close}>
+          <Button type="button" variant="secondary" onClick={dismiss}>
             Cancel
           </Button>
         </div>
@@ -566,7 +781,6 @@ export function DownloadDialog({
     state.kind === 'complete' ||
     state.kind === 'error'
   ) {
-    const progress = state.progress;
     const entitiesDone = progress?.entitiesCompleted ?? 0;
     const entitiesTotal = progress?.entitiesTotal ?? null;
     const filesDone = progress?.filesCompleted ?? 0;
@@ -603,8 +817,17 @@ export function DownloadDialog({
           </span>
           <span className="shrink-0 tabular-nums">
             {formatBytes(progress?.bytes ?? 0)}
+            {pct != null ? ` · ${Math.round(pct)}%` : ''}
           </span>
         </div>
+        {pct != null ? (
+          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-neutral-800">
+            <div
+              className="h-full rounded-full bg-gray-500 transition-[width] duration-150 dark:bg-neutral-400"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        ) : null}
       </div>
     );
 
@@ -613,12 +836,12 @@ export function DownloadDialog({
         <div className="flex min-w-0 flex-col gap-4">
           <SubsectionHeading>Downloading backup</SubsectionHeading>
           {progressBlock}
-          <Content>
-            Keep this dialog open until the zip finishes writing.
-          </Content>
-          <div>
-            <Button type="button" variant="secondary" onClick={close}>
-              Cancel
+          <div className="flex flex-row gap-2">
+            <Button type="button" variant="secondary" onClick={minimize}>
+              Minimize
+            </Button>
+            <Button type="button" variant="destructive" onClick={cancel}>
+              Cancel download
             </Button>
           </div>
         </div>
@@ -630,7 +853,7 @@ export function DownloadDialog({
           {progressBlock}
           <Content>{' '}</Content>
           <div>
-            <Button type="button" variant="secondary" onClick={close}>
+            <Button type="button" variant="secondary" onClick={dismiss}>
               Close
             </Button>
           </div>
@@ -645,7 +868,7 @@ export function DownloadDialog({
             {state.message}
           </div>
           <div>
-            <Button type="button" variant="secondary" onClick={close}>
+            <Button type="button" variant="secondary" onClick={dismiss}>
               Close
             </Button>
           </div>
@@ -654,9 +877,68 @@ export function DownloadDialog({
     }
   }
 
+  // Show the pill whenever a run is live/finished but the dialog is closed.
+  const minimized = !open && state.kind !== 'confirm';
+  const pillTitle =
+    state.kind === 'complete'
+      ? 'Download complete'
+      : state.kind === 'error'
+        ? 'Download failed'
+        : 'Downloading backup';
+
   return (
-    <Dialog title="Download backup" {...dialog}>
-      {body}
-    </Dialog>
+    <>
+      <Dialog title="Download backup" open={open} onClose={handleClose}>
+        {body}
+      </Dialog>
+      {minimized ? (
+        <div className={darkMode ? 'dark' : ''}>
+          <div className="fixed right-4 bottom-4 z-50 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-gray-200 bg-white p-3 text-sm shadow-lg dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
+            <div className="flex items-start gap-2">
+              <button
+                type="button"
+                onClick={onRequestOpen}
+                className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1 text-left"
+                title="Show download"
+              >
+                <div className="flex items-center gap-1.5">
+                  <ArrowsPointingOutIcon
+                    width={14}
+                    className="shrink-0 opacity-60"
+                  />
+                  <span className="min-w-0 flex-1 truncate">{pillTitle}</span>
+                  {pct != null && state.kind === 'downloading' ? (
+                    <span className="shrink-0 text-gray-500 tabular-nums dark:text-neutral-400">
+                      {Math.round(pct)}%
+                    </span>
+                  ) : null}
+                </div>
+                <span className="truncate font-mono text-xs text-gray-500 dark:text-neutral-400">
+                  {progress?.outputFilename ?? backupZipName(backup)}
+                </span>
+                {state.kind === 'downloading' && pct != null ? (
+                  <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-neutral-700">
+                    <div
+                      className="h-full rounded-full bg-gray-500 transition-[width] duration-150 dark:bg-neutral-400"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                ) : null}
+              </button>
+              <button
+                type="button"
+                onClick={state.kind === 'downloading' ? cancel : dismiss}
+                className="shrink-0 cursor-pointer rounded p-0.5 opacity-60 hover:opacity-100"
+                title={
+                  state.kind === 'downloading' ? 'Cancel download' : 'Dismiss'
+                }
+              >
+                <XMarkIcon width={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
