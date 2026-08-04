@@ -86,6 +86,7 @@ import { isObject } from 'lodash';
 import { EditNamespaceDialog } from './edit-namespace-dialog';
 import { EditRowDialog, isEditableExplorerAttr } from './edit-row-dialog';
 import copy from 'copy-to-clipboard';
+import { formatVal } from './format-value';
 
 const fallbackItems: any[] = [];
 
@@ -539,10 +540,7 @@ export const InnerExplorer: React.FC<{
               return info.row.original[attr.name];
             }
           }
-          if (isObject(info.row.original[attr.name])) {
-            return <Val data={info.row.original[attr.name]}></Val>;
-          }
-          return info.row.original[attr.name];
+          return formatVal(info.row.original[attr.name]);
         },
       });
     });
@@ -1468,14 +1466,6 @@ export const InnerExplorer: React.FC<{
     </>
   );
 };
-
-function formatVal(data: any, pretty?: boolean): string {
-  if (isObject(data)) {
-    return JSON.stringify(data, null, pretty ? 2 : undefined);
-  }
-
-  return String(data);
-}
 
 function Val({ data, pretty }: { data: any; pretty?: boolean }) {
   const props = useExplorerProps();
