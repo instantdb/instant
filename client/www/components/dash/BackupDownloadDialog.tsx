@@ -108,137 +108,6 @@ type ZipEntry = {
   input: ReadableStream<Uint8Array>;
 };
 
-// Build a zip output stream using fflate's streaming Zip writer with
-// synchronous DEFLATE level 4 (compression runs inline on the main thread so
-// reads stay paced to compression speed — see the note at the ZipDeflate call).
-// Each input stream is consumed chunk-by-chunk; the final chunk is flagged
-// via look-ahead — push() needs to know which chunk is the last.
-//
-// The closed flag guards against the zip callback firing after the controller
-// has already errored or been cancelled (e.g. user aborts mid-download):
-// controller.enqueue throws on an errored stream, and we want to swallow that
-// quietly.
-function fflateZipStream(
-  entries: AsyncIterable<ZipEntry>,
-  fflate: typeof import('fflate'),
-): ReadableStream<Uint8Array> {
-  let closed = false;
-  let zip: import('fflate').Zip | null = null;
-  // Output backpressure gate. `controller.enqueue` never blocks, so without
-  // this the pump would pile compressed chunks into the stream's queue ahead of
-  // a slow disk sink. The pump parks here whenever the queue is full and pull()
-  // resumes it once the sink drains. (Input-side backlog is handled by using
-  // synchronous ZipDeflate below, which paces reads to compression speed.)
-  let readyResolve: (() => void) | null = null;
-  const resume = () => {
-    const r = readyResolve;
-    readyResolve = null;
-    r?.();
-  };
-  const terminate = () => {
-    try {
-      (zip as unknown as { terminate?: () => void })?.terminate?.();
-    } catch {
-      // swallow — best-effort cleanup
-    }
-  };
-  return new ReadableStream<Uint8Array>(
-    {
-      start(controller) {
-        // Park the pump until the consumer asks for more (pull()) whenever the
-        // queue is at/over the high-water mark. Returns null when there's no
-        // need to wait so the hot path stays synchronous.
-        const whenDrained = (): Promise<void> | null => {
-          if (closed) return null;
-          const desired = controller.desiredSize;
-          if (desired === null || desired > 0) return null;
-          return new Promise<void>((r) => {
-            readyResolve = r;
-          });
-        };
-        zip = new fflate.Zip((err, data, final) => {
-          if (closed) return;
-          if (err) {
-            closed = true;
-            controller.error(err);
-            resume();
-            return;
-          }
-          if (data && data.byteLength > 0) {
-            try {
-              controller.enqueue(data);
-            } catch {
-              closed = true;
-              terminate();
-              resume();
-              return;
-            }
-          }
-          if (final) {
-            closed = true;
-            controller.close();
-          }
-        });
-        // Run the pump detached: pull() is never called until start() settles,
-        // so awaiting the pump (and its gate) inside start() would deadlock.
-        void (async () => {
-          try {
-            for await (const entry of entries) {
-              if (closed) break;
-              // Synchronous (main-thread) deflate: push() compresses inline and
-              // returns, so reads are naturally paced to compression speed and
-              // nothing queues ahead of the CPU. AsyncZipDeflate offloads to a
-              // Web Worker but its push() never blocks, so on a fast network
-              // uncompressed chunks piled up unbounded in the worker and OOM'd.
-              const file = new fflate.ZipDeflate(entry.name, { level: 4 });
-              file.mtime = entry.lastModified;
-              zip!.add(file);
-              const reader = entry.input.getReader();
-              let pending: Uint8Array | null = null;
-              try {
-                while (true) {
-                  const wait = whenDrained();
-                  if (wait) await wait;
-                  if (closed) break;
-                  const { done, value } = await reader.read();
-                  if (done) {
-                    file.push(pending ?? new Uint8Array(0), true);
-                    break;
-                  }
-                  if (pending !== null) file.push(pending, false);
-                  pending = value;
-                }
-              } finally {
-                // Release the lock and signal the source to stop, whether we
-                // finished the entry, broke out on close, or the sink threw.
-                await reader.cancel().catch(() => {});
-              }
-            }
-            if (!closed) zip!.end();
-          } catch (e) {
-            if (!closed) {
-              closed = true;
-              controller.error(e);
-            }
-            terminate();
-          }
-        })();
-      },
-      pull() {
-        resume();
-      },
-      cancel() {
-        closed = true;
-        resume();
-        terminate();
-      },
-    },
-    // Bound the queue by bytes, not chunk count, so a slow sink can't grow it
-    // without limit while still letting the pump run a little ahead.
-    new ByteLengthQueuingStrategy({ highWaterMark: 8 * 1024 * 1024 }),
-  );
-}
-
 async function registerDownloadServiceWorker(): Promise<void> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
     return;
@@ -293,10 +162,12 @@ async function downloadBackup(
   // ---- Shared progress state ----
   // current = files (backup + storage) fully fetched.
   // total = backup file count + storage files ever discovered.
-  // `storagePending` is a FIFO of yet-to-fetch storage files only — entries
-  // are shift()'d off as the generator processes them so the queue stays
-  // bounded by (discovery rate - fetch rate). `storageDiscovered` is the
-  // monotone counter used for the denominator.
+  // `storageQueue` is a FIFO of yet-to-fetch storage files only — dequeued as
+  // the generator processes them, so it stays bounded by (discovery rate -
+  // fetch rate). It's an object with head/tail indices rather than an array
+  // because discovery streams the whole list in up front: Array.shift() is O(n),
+  // so draining a large backup would be O(n²). Object access is O(1) and delete
+  // frees each slot as it's consumed.
   // Two parallel counters surfaced in the dialog:
   //   entities — the backup payload (config.json + per-etype JSONL shards).
   //   files    — the user's $files (storage uploads).
@@ -319,7 +190,9 @@ async function downloadBackup(
     backup.uncompressed_size != null
       ? backup.uncompressed_size + (backup.files_size ?? 0)
       : null;
-  const storagePending: StorageFileLine[] = [];
+  const storageQueue: Record<number, StorageFileLine> = {};
+  let queueHead = 0;
+  let queueTail = 0;
   let storageDone = false;
   let storageError: Error | null = null;
   let waitResolve: (() => void) | null = null;
@@ -402,7 +275,7 @@ async function downloadBackup(
           return;
         }
         if (!obj.locationId || !obj.url) return;
-        storagePending.push(obj);
+        storageQueue[queueTail++] = obj;
         filesTotal = (filesTotal ?? 0) + 1;
         tick();
         notify();
@@ -459,7 +332,7 @@ async function downloadBackup(
   entitiesTotal = files.length;
   tick();
 
-  const entries = (async function* () {
+  const entries = (async function* (): AsyncGenerator<ZipEntry> {
     for (const f of files) {
       currentEntity = f.name;
       tick();
@@ -482,7 +355,12 @@ async function downloadBackup(
     tick();
 
     while (true) {
-      const obj = storagePending.shift();
+      let obj: StorageFileLine | undefined;
+      if (queueHead < queueTail) {
+        obj = storageQueue[queueHead];
+        delete storageQueue[queueHead];
+        queueHead++;
+      }
       if (obj) {
         currentFile = obj.path || obj.locationId;
         tick();
@@ -514,41 +392,62 @@ async function downloadBackup(
     if (storageError) throw storageError;
   })();
 
-  // Count bytes as the zip stream flows through to the final sink. Throttle
-  // the progress updates by time: a large backup pushes many small chunks and
-  // ticking (a React setState) on every one would flood re-renders, but a
-  // byte-based threshold stalls when the compressed stream is smaller than the
-  // threshold. Ticking at most every 100ms updates smoothly for any size while
-  // capping re-renders at ~10/sec; flush() reports the final total.
+  // Throttle progress updates by time: a large backup pushes many small chunks
+  // and ticking (a React setState) on every one would flood re-renders. Ticking
+  // at most every 100ms stays smooth at any size while capping re-renders.
   const TICK_INTERVAL_MS = 100;
   let lastTickAt = 0;
-  const byteCounter = new TransformStream<Uint8Array, Uint8Array>({
-    transform(chunk, controller) {
-      zipBytes += chunk.byteLength;
-      const now = Date.now();
-      if (now - lastTickAt >= TICK_INTERVAL_MS) {
-        lastTickAt = now;
-        tick();
-      }
-      controller.enqueue(chunk);
-    },
-    flush() {
-      // Report the final byte total once the stream drains.
-      tick();
-    },
-  });
-  // Load the zip encoder dynamically
-  const fflate = await import('fflate');
-  const countedBody = fflateZipStream(entries, fflate).pipeThrough(byteCounter);
 
+  // Load the zip encoder on demand (kept out of the shared bundle).
+  const { ZipWriter } = await import('@zip.js/zip.js');
+
+  let diskWriter: WritableStreamDefaultWriter<Uint8Array> | null = null;
   try {
     const writable = await pickerHandle.createWritable();
-    await countedBody.pipeTo(writable);
+    const writer = writable.getWriter();
+    diskWriter = writer;
+    // Sink that zip.js writes compressed bytes into: it tallies the on-disk
+    // (compressed) size for progress, then forwards to the file. Awaiting the
+    // disk write propagates backpressure up into zip.js, so a fast source can't
+    // outrun the disk and balloon memory.
+    const countingSink = new WritableStream<Uint8Array>({
+      async write(chunk) {
+        zipBytes += chunk.byteLength;
+        const now = Date.now();
+        if (now - lastTickAt >= TICK_INTERVAL_MS) {
+          lastTickAt = now;
+          tick();
+        }
+        await writer.write(chunk);
+      },
+      async close() {
+        await writer.close();
+        tick();
+      },
+      async abort(reason) {
+        await writer.abort(reason);
+      },
+    });
+
+    // zip64: without it any archive whose central-directory offset passes 4GB
+    // writes a wrapped 32-bit offset and the zip is unreadable. Everything else
+    // is left at zip.js's defaults: workers + CompressionStream when available
+    // (compression and CRC32 run off the main thread so a multi-GB backup
+    // doesn't jank the tab), each degrading to an inline main-thread codec on
+    // browsers that lack them — correctness (incl. zip64) is unaffected either way.
+    const zipWriter = new ZipWriter(countingSink, { zip64: true });
+    for await (const entry of entries) {
+      await zipWriter.add(entry.name, entry.input, {
+        lastModDate: entry.lastModified,
+      });
+    }
+    await zipWriter.close();
     return { via: 'picker', filename: pickerHandle.name ?? filename };
   } catch (e) {
-    // Tear down the background discovery and any in-flight body fetches
-    // so we don't keep pulling from S3 after the zip pipeline has failed.
+    // Tear down the background discovery and any in-flight body fetches so we
+    // don't keep pulling from S3, and discard the partial file on disk.
     abortController.abort();
+    await diskWriter?.abort(e).catch(() => {});
     throw e;
   }
 }
@@ -745,7 +644,7 @@ function DownloadInstance({
   const hasSizes = backupBytes != null && filesBytes != null;
   const totalBytes = (backupBytes ?? 0) + (filesBytes ?? 0);
   const maxBytes = totalBytes;
-  const minBytes = Math.round(totalBytes / 3);
+  const minBytes = Math.round(totalBytes / 4);
 
   const start = async () => {
     const showSaveFilePicker = pickerRef.current;
