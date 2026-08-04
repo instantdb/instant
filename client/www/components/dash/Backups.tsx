@@ -31,7 +31,21 @@ function BackupRow({
   backup: InstantAppBackup;
 }) {
   const token = useContext(TokenContext);
-  const { open } = useBackupDownloads();
+  const { open, active } = useBackupDownloads();
+
+  const isActive = active?.id === backup.id;
+  // Only one download at a time: while another backup is actively downloading,
+  // this row's button is disabled with an explanation.
+  const blockedByOther = active?.status === 'downloading' && !isActive;
+  // Only relabel once the download has actually started (past the confirm
+  // dialog) — while confirming it's still just "Download".
+  const downloadLabel =
+    isActive && active?.status === 'downloading'
+      ? 'Downloading…'
+      : isActive &&
+          (active?.status === 'complete' || active?.status === 'error')
+        ? 'Show download'
+        : 'Download';
 
   return (
     <Item
@@ -60,9 +74,15 @@ function BackupRow({
         <Button
           variant="secondary"
           size="mini"
+          disabled={blockedByOther}
+          title={
+            blockedByOther
+              ? 'You can only download one backup at a time.'
+              : undefined
+          }
           onClick={() => open(app, backup, token)}
         >
-          <ArrowDownTrayIcon width={14} /> Download
+          <ArrowDownTrayIcon width={14} /> {downloadLabel}
         </Button>
       </ItemActions>
     </Item>

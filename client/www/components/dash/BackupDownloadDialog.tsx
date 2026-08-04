@@ -9,8 +9,6 @@ import {
   type ReactNode,
 } from 'react';
 import { ArrowsPointingOutIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { ZipDeflate, Zip } from 'fflate';
-import { showSaveFilePicker } from 'native-file-system-adapter';
 
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
@@ -100,7 +98,9 @@ type DownloadResult =
   | { via: 'picker'; filename: string }
   | { via: 'browser-default'; filename: string };
 
-type SaveFileHandle = Awaited<ReturnType<typeof showSaveFilePicker>>;
+type SaveFileHandle = Awaited<
+  ReturnType<typeof import('native-file-system-adapter').showSaveFilePicker>
+>;
 
 type ZipEntry = {
   name: string;
@@ -120,9 +120,10 @@ type ZipEntry = {
 // quietly.
 function fflateZipStream(
   entries: AsyncIterable<ZipEntry>,
+  fflate: typeof import('fflate'),
 ): ReadableStream<Uint8Array> {
   let closed = false;
-  let zip: Zip | null = null;
+  let zip: import('fflate').Zip | null = null;
   // Output backpressure gate. `controller.enqueue` never blocks, so without
   // this the pump would pile compressed chunks into the stream's queue ahead of
   // a slow disk sink. The pump parks here whenever the queue is full and pull()
@@ -155,7 +156,7 @@ function fflateZipStream(
             readyResolve = r;
           });
         };
-        zip = new Zip((err, data, final) => {
+        zip = new fflate.Zip((err, data, final) => {
           if (closed) return;
           if (err) {
             closed = true;
@@ -189,22 +190,28 @@ function fflateZipStream(
               // nothing queues ahead of the CPU. AsyncZipDeflate offloads to a
               // Web Worker but its push() never blocks, so on a fast network
               // uncompressed chunks piled up unbounded in the worker and OOM'd.
-              const file = new ZipDeflate(entry.name, { level: 4 });
+              const file = new fflate.ZipDeflate(entry.name, { level: 4 });
               file.mtime = entry.lastModified;
               zip!.add(file);
               const reader = entry.input.getReader();
               let pending: Uint8Array | null = null;
-              while (true) {
-                const wait = whenDrained();
-                if (wait) await wait;
-                if (closed) break;
-                const { done, value } = await reader.read();
-                if (done) {
-                  file.push(pending ?? new Uint8Array(0), true);
-                  break;
+              try {
+                while (true) {
+                  const wait = whenDrained();
+                  if (wait) await wait;
+                  if (closed) break;
+                  const { done, value } = await reader.read();
+                  if (done) {
+                    file.push(pending ?? new Uint8Array(0), true);
+                    break;
+                  }
+                  if (pending !== null) file.push(pending, false);
+                  pending = value;
                 }
-                if (pending !== null) file.push(pending, false);
-                pending = value;
+              } finally {
+                // Release the lock and signal the source to stop, whether we
+                // finished the entry, broke out on close, or the sink threw.
+                await reader.cancel().catch(() => {});
               }
             }
             if (!closed) zip!.end();
@@ -236,16 +243,33 @@ async function registerDownloadServiceWorker(): Promise<void> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
     return;
   }
+  // The service worker only backs native-file-system-adapter's fallback
+  // writable, used to stream to disk on browsers without the File System Access
+  // API. When the native API is present (Chromium), the picker returns a real
+  // file handle and createWritable() streams straight to disk — no SW needed.
+  if ('showSaveFilePicker' in window) {
+    return;
+  }
 
   try {
     await navigator.serviceWorker.register('/native-file-system-adapter-sw.js');
-    await navigator.serviceWorker.ready;
+    // Bound the activation wait: `ready` can hang if the worker registers but
+    // never activates, and the Download button waits on this — so a stall must
+    // not wedge it. Worst case we proceed and the adapter falls back to a blob.
+    await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+    ]);
   } catch {
-    // falls back to constructing a blob
+    // Registration failed — the adapter falls back to constructing a blob.
   }
 }
 
 async function downloadBackup(
+  // Passed in already-loaded (not imported here): showSaveFilePicker must be
+  // invoked synchronously from the click to keep the browser's transient
+  // activation, so awaiting an import() first would trip a SecurityError.
+  showSaveFilePicker: typeof import('native-file-system-adapter').showSaveFilePicker,
   token: string,
   appId: string,
   backup: InstantAppBackup,
@@ -513,10 +537,11 @@ async function downloadBackup(
       tick();
     },
   });
-  const countedBody = fflateZipStream(entries).pipeThrough(byteCounter);
+  // Load the zip encoder dynamically
+  const fflate = await import('fflate');
+  const countedBody = fflateZipStream(entries, fflate).pipeThrough(byteCounter);
 
   try {
-    await registerDownloadServiceWorker();
     const writable = await pickerHandle.createWritable();
     await countedBody.pipeTo(writable);
     return { via: 'picker', filename: pickerHandle.name ?? filename };
@@ -546,11 +571,16 @@ type DownloadItem = {
   open: boolean;
 };
 
+type DownloadStatus = DownloadDialogState['kind'];
+
 type BackupDownloadsApi = {
   // Open (or focus) the download dialog for a backup. Safe to call from
   // anywhere under the provider — the download itself lives at the app root,
   // so it survives tab switches and route changes.
   open: (app: InstantApp, backup: InstantAppBackup, token: string) => void;
+  // The single in-flight/finished download, so backup rows can label their own
+  // button and disable the others while one is actively downloading.
+  active: { id: string; status: DownloadStatus } | null;
 };
 
 const BackupDownloadsContext = createContext<BackupDownloadsApi | null>(null);
@@ -565,52 +595,73 @@ export function useBackupDownloads(): BackupDownloadsApi {
   return ctx;
 }
 
-// Mount once near the app root so downloads keep running (and stay reachable
-// via their pill) across tab switches and route changes. Only add/remove/open
-// events re-render here; each download's fast-moving progress state is isolated
-// inside its DownloadInstance, so ticks don't re-render the app tree.
+// Mount once near the app root so the download keeps running (and stays
+// reachable via its pill) across tab switches and route changes. Only open/
+// close/done/busy transitions re-render here; the download's fast-moving
+// progress state is isolated inside DownloadInstance, so ticks don't re-render
+// the app tree.
 export function BackupDownloadProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<DownloadItem[]>([]);
+  // At most one download at a time.
+  const [item, setItem] = useState<DownloadItem | null>(null);
+  // The instance reports its state up so rows can reflect it. Coarse (changes a
+  // few times per download), so it doesn't re-render on progress ticks.
+  const [status, setStatus] = useState<DownloadStatus>('confirm');
+  // Latest values for the stable `open` callback to read without going stale.
+  const itemRef = useRef(item);
+  const statusRef = useRef(status);
+  useEffect(() => {
+    itemRef.current = item;
+    statusRef.current = status;
+  }, [item, status]);
 
-  const setOpen = (id: string, open: boolean) =>
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, open } : it)));
-  const removeItem = (id: string) =>
-    setItems((prev) => prev.filter((it) => it.id !== id));
-
-  // Stable identity so context consumers (backup rows) never re-render from
-  // download activity.
-  const open = useCallback(
-    (app: InstantApp, backup: InstantAppBackup, token: string) => {
-      setItems((prev) =>
-        prev.some((it) => it.id === backup.id)
-          ? prev.map((it) =>
-              it.id === backup.id
-                ? { ...it, app, backup, token, open: true }
-                : it,
-            )
-          : [...prev, { id: backup.id, app, backup, token, open: true }],
-      );
-    },
+  const setOpen = useCallback(
+    (open: boolean) => setItem((cur) => (cur ? { ...cur, open } : cur)),
     [],
   );
+  const removeItem = useCallback(() => setItem(null), []);
 
-  const api = useMemo(() => ({ open }), [open]);
+  // Stable identity so context consumers (backup rows) only re-render when the
+  // active download itself changes, never from its progress ticks.
+  const open = useCallback(
+    (app: InstantApp, backup: InstantAppBackup, token: string) => {
+      const cur = itemRef.current;
+      // Re-opening the active download's own row just resurfaces its dialog.
+      if (cur && cur.id === backup.id) {
+        setOpen(true);
+        return;
+      }
+      // Never clobber a download that's actively writing to disk. (Rows for
+      // other backups are disabled in this state, so this is just a guard.)
+      if (cur && statusRef.current === 'downloading') return;
+      // No active download, or the previous one is finished — start fresh.
+      setStatus('confirm');
+      setItem({ id: backup.id, app, backup, token, open: true });
+    },
+    [setOpen],
+  );
+
+  const active = useMemo(
+    () => (item ? { id: item.id, status } : null),
+    [item, status],
+  );
+  const api = useMemo(() => ({ open, active }), [open, active]);
 
   return (
     <BackupDownloadsContext.Provider value={api}>
       {children}
-      {items.map((item) => (
+      {item ? (
         <DownloadInstance
           key={item.id}
           app={item.app}
           backup={item.backup}
           token={item.token}
           open={item.open}
-          onRequestOpen={() => setOpen(item.id, true)}
-          onRequestClose={() => setOpen(item.id, false)}
-          onDone={() => removeItem(item.id)}
+          onStatusChange={setStatus}
+          onRequestOpen={() => setOpen(true)}
+          onRequestClose={() => setOpen(false)}
+          onDone={removeItem}
         />
-      ))}
+      ) : null}
     </BackupDownloadsContext.Provider>
   );
 }
@@ -620,6 +671,7 @@ function DownloadInstance({
   backup,
   token,
   open,
+  onStatusChange,
   onRequestOpen,
   onRequestClose,
   onDone,
@@ -628,6 +680,7 @@ function DownloadInstance({
   backup: InstantAppBackup;
   token: string;
   open: boolean;
+  onStatusChange: (status: DownloadStatus) => void;
   onRequestOpen: () => void;
   onRequestClose: () => void;
   onDone: () => void;
@@ -635,6 +688,30 @@ function DownloadInstance({
   const { darkMode } = useDarkMode();
   const [state, setState] = useState<DownloadDialogState>({ kind: 'confirm' });
   const abortRef = useRef<AbortController | null>(null);
+
+  // Report this download's coarse state up so backup rows can label their
+  // button and disable the others while it's running.
+  useEffect(() => {
+    onStatusChange(state.kind);
+  }, [state.kind, onStatusChange]);
+
+  // The save picker must be invoked synchronously from the Download click, so
+  // we preload it here (it also keeps the zip deps out of the shared bundle)
+  // and disable the button until it's ready
+  const pickerRef = useRef<
+    typeof import('native-file-system-adapter').showSaveFilePicker | null
+  >(null);
+  const [pickerReady, setPickerReady] = useState(false);
+  useEffect(() => {
+    void Promise.all([
+      import('native-file-system-adapter').then((m) => {
+        pickerRef.current = m.showSaveFilePicker;
+      }),
+      // Register the fallback's service worker up front (no-op on Chromium) so
+      // it's active before we write, rather than installing it in the hot path.
+      registerDownloadServiceWorker(),
+    ]).then(() => setPickerReady(true));
+  }, []);
 
   // While actively downloading, warn before a full page unload (tab close,
   // refresh, external/hard navigation) — that tears down the JS context and
@@ -671,11 +748,14 @@ function DownloadInstance({
   const minBytes = Math.round(totalBytes / 3);
 
   const start = async () => {
+    const showSaveFilePicker = pickerRef.current;
+    if (!showSaveFilePicker) return;
     const controller = new AbortController();
     abortRef.current = controller;
     setState({ kind: 'downloading', progress: null });
     try {
       const result = await downloadBackup(
+        showSaveFilePicker,
         token,
         app.id,
         backup,
@@ -767,7 +847,12 @@ function DownloadInstance({
           </Content>
         ) : null}
         <div className="flex flex-row gap-2">
-          <Button type="button" variant="primary" onClick={start}>
+          <Button
+            type="button"
+            variant="primary"
+            onClick={start}
+            disabled={!pickerReady}
+          >
             Download
           </Button>
           <Button type="button" variant="secondary" onClick={dismiss}>
