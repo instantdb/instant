@@ -5,7 +5,8 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.instant-user :as instant-user]
-   [instant.model.instant-user-refresh-token :as instant-user-refresh-token]))
+   [instant.model.instant-user-refresh-token :as instant-user-refresh-token]
+   [instant.util.test :refer [perm-err?]]))
 
 (deftest disabled-dashboard-login-prevents-token-creation
   (with-user
@@ -15,9 +16,9 @@
        ["INSERT INTO user_flags (id, user_id, flag_name)
          VALUES (?::uuid, ?::uuid, 'dashboard-login-disabled')"
         (random-uuid) (:id user)])
-      (is (thrown? Exception
-                   (instant-user-refresh-token/create!
-                    {:id (random-uuid) :user-id (:id user)}))))))
+      (is (perm-err?
+           (instant-user-refresh-token/create!
+            {:id (random-uuid) :user-id (:id user)}))))))
 
 (deftest get-by-app-id
   (with-user
