@@ -6,7 +6,14 @@ import { useAuthedFetch } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
 import { InstantApp, InstantAppBackup } from '@/lib/types';
 
-import { Button, Content, SectionHeading } from '@/components/ui';
+import {
+  Button,
+  Content,
+  SectionHeading,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui';
 import {
   ErrorMessage,
   Loading,
@@ -47,6 +54,20 @@ function BackupRow({
         ? 'Show download'
         : 'Download';
 
+  const downloadButton = (
+    <Button
+      variant="secondary"
+      size="mini"
+      disabled={blockedByOther}
+      // pointer-events-none so hover falls through to the wrapping tooltip
+      // trigger below — a disabled button emits no pointer events itself.
+      className={blockedByOther ? 'pointer-events-none' : undefined}
+      onClick={blockedByOther ? undefined : () => open(app, backup, token)}
+    >
+      <ArrowDownTrayIcon width={14} /> {downloadLabel}
+    </Button>
+  );
+
   return (
     <Item
       variant="outline"
@@ -71,19 +92,20 @@ function BackupRow({
         </dl>
       </ItemContent>
       <ItemActions>
-        <Button
-          variant="secondary"
-          size="mini"
-          disabled={blockedByOther}
-          title={
-            blockedByOther
-              ? 'You can only download one backup at a time.'
-              : undefined
-          }
-          onClick={() => open(app, backup, token)}
-        >
-          <ArrowDownTrayIcon width={14} /> {downloadLabel}
-        </Button>
+        {blockedByOther ? (
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <span className="inline-flex cursor-not-allowed">
+                {downloadButton}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              You can only download one backup at a time.
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          downloadButton
+        )}
       </ItemActions>
     </Item>
   );
