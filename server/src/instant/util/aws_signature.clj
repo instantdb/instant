@@ -305,7 +305,6 @@
         endpoint-uri (when endpoint (URI/create endpoint))
         scheme (if endpoint-uri (.getScheme endpoint-uri) "https")
         host (if endpoint-uri (uri-host-header endpoint-uri) (s3-host region bucket))
-        endpoint-path (some-> endpoint-uri .getRawPath (str/replace #"/$" ""))
         url-path (if path-style?
                    (str "/" bucket path-with-slash)
                    path-with-slash)
@@ -335,4 +334,4 @@
                                          :payload unsigned-payload})
         signature (->signature sig-request)
         all-query-params (assoc query "X-Amz-Signature" signature)]
-    (str scheme "://" host endpoint-path url-path "?" (->canonical-query-str all-query-params))))
+    (str scheme "://" host url-path "?" (->canonical-query-str all-query-params))))

@@ -260,31 +260,5 @@
           "response-cache-control=public%2C%20max-age%3D86400%2C%20immutable"]
          (url->pretty put-req)))))
 
-(deftest s3-presign-url-with-endpoint-path
-  (let [object-key (storage-s3/->object-key example-app-id example-location-id)
-        opts {:access-key example-aws-access-key
-              :secret-key example-aws-access-key
-              :region example-region
-              :method :get
-              :bucket example-bucket-name
-              :path-style? true
-              :signing-instant example-signing-instant
-              :expires-duration (Duration/ofSeconds 400)
-              :path object-key}
-        [base-url-without-path & expected-query]
-        (url->pretty (aws-sig/presign-s3-url
-                     (assoc opts :endpoint "https://localhost:5443")))
-        expected-base-url (str "https://localhost:5443/storage/"
-                               example-bucket-name "/" object-key)]
-    (is (= (str "https://localhost:5443/" example-bucket-name "/" object-key)
-           base-url-without-path))
-    (doseq [endpoint ["https://localhost:5443/storage"
-                      "https://localhost:5443/storage/"]]
-      (let [[base-url & query] (url->pretty
-                                (aws-sig/presign-s3-url
-                                 (assoc opts :endpoint endpoint)))]
-        (is (= expected-base-url base-url))
-        (is (= expected-query query))))))
-
 (comment
   (test/run-tests *ns*))
