@@ -65,20 +65,20 @@ authTest(
   },
 );
 
-// authTest('guest user with extraFields gets fields written', async ({ db }) => {
-//   const res = await db.auth.signInAsGuest({
-//     extraFields: { username: 'guest_user', displayName: 'Guest User' },
-//   });
-//
-//   expect(res.user.isGuest).toBe(true);
-//
-//   const { data } = await db.queryOnce({ $users: {} });
-//   const user = data.$users.find((u) => u.id === res.user.id);
-//   expect(user).toMatchObject({
-//     username: 'guest_user',
-//     displayName: 'Guest User',
-//   });
-// });
+authTest('guest user with extraFields gets fields written', async ({ db }) => {
+  const res = await db.auth.signInAsGuest({
+    extraFields: { username: 'guest_user', displayName: 'Guest User' },
+  });
+
+  expect(res.user.isGuest).toBe(true);
+
+  const { data } = await db.queryOnce({ $users: {} });
+  const user = data.$users.find((u) => u.id === res.user.id);
+  expect(user).toMatchObject({
+    username: 'guest_user',
+    displayName: 'Guest User',
+  });
+});
 
 authTest(
   'returning user gets created=false',
