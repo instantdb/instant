@@ -126,6 +126,7 @@ import type {
   ExchangeCodeForTokenParams,
   SendMagicCodeParams,
   SendMagicCodeResponse,
+  SignInAsGuestParams,
   SignInWithIdTokenParams,
   VerifyMagicCodeParams,
   VerifyResponse,
@@ -403,8 +404,8 @@ class Auth {
    * @example
    *   db.auth.signInAsGuest();
    */
-  signInAsGuest = (): Promise<VerifyResponse> => {
-    return this.db.signInAsGuest();
+  signInAsGuest = (params?: SignInAsGuestParams): Promise<VerifyResponse> => {
+    return this.db.signInAsGuest(params);
   };
 
   /**
@@ -1209,6 +1210,7 @@ export {
   type ExchangeCodeForTokenParams,
   type SendMagicCodeParams,
   type SendMagicCodeResponse,
+  type SignInAsGuestParams,
   type SignInWithIdTokenParams,
   type VerifyMagicCodeParams,
   type VerifyResponse,

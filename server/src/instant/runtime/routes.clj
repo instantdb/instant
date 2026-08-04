@@ -130,13 +130,17 @@
 
 (defn sign-in-guest-post [req]
   (let [app-id        (ex/get-param! req [:body :app-id] uuid-util/coerce)
+        extra-fields  (get-in req [:body :extra-fields])
         user-id       (random-uuid)
         _             (app-user-model/assert-signup!
-                       {:app-id app-id :id user-id})
+                       {:app-id       app-id
+                        :id           user-id
+                        :extra-fields extra-fields})
         user          (app-user-model/create!
-                       {:app-id app-id
-                        :id     user-id
-                        :type   "guest"})
+                       {:app-id       app-id
+                        :id           user-id
+                        :type         "guest"
+                        :extra-fields extra-fields})
         refresh-token (random-uuid)
         _             (app-user-refresh-token-model/create!
                        {:app-id  app-id

@@ -11,6 +11,16 @@ Instant supports guest authentication. This allows your users to try your app be
 
 Use `db.auth.signInAsGuest()` to create a new guest user. This will create a new guest user with an id, but no email address.
 
+You can set custom `$users` properties when creating the guest by passing `extraFields`:
+
+```javascript
+db.auth.signInAsGuest({
+  extraFields: { nickname: 'nezaj' },
+});
+```
+
+The fields must be optional attributes on `$users`, and `$users` must have a `create` rule. See [Setting properties at signup](/docs/users#setting-properties-at-signup) for details.
+
 ```tsx {% showCopy=true %}
 'use client';
 
