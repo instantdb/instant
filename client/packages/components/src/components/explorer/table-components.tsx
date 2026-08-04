@@ -29,6 +29,7 @@ import { isObject } from 'lodash';
 import copy from 'copy-to-clipboard';
 import { useExplorerDialog, useExplorerProps, useExplorerState } from '.';
 import { TableColMeta } from './inner-explorer';
+import { formatVal } from './format-value';
 
 export const TableHeader = ({
   header,
@@ -395,14 +396,6 @@ function isCopyableCellValue(
     return value.trim().length > 0;
   }
   return true;
-}
-
-function formatVal(data: any, pretty?: boolean): string {
-  if (isObject(data)) {
-    return JSON.stringify(data, null, pretty ? 2 : undefined);
-  }
-
-  return String(data);
 }
 
 function Val({ data, pretty }: { data: any; pretty?: boolean }) {
