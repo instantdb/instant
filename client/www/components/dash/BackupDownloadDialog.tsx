@@ -65,11 +65,12 @@ async function fetchFiles(
   token: string,
   appId: string,
   backupId: string,
+  signal: AbortSignal,
 ): Promise<BackupFile[]> {
   // XXX: Why are you using the authed fetch hook here?
   const { files } = (await jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/backups/${backupId}/files`,
-    { headers: { authorization: `Bearer ${token}` } },
+    { headers: { authorization: `Bearer ${token}` }, signal },
   )) as { files: BackupFile[] };
   return files;
 }
@@ -79,11 +80,13 @@ async function fetchFileUrl(
   appId: string,
   backupId: string,
   name: string,
+  signal: AbortSignal,
 ): Promise<string> {
   // XXX: Why are you using the authed fetch hook here?
   const url = `${config.apiURI}/dash/apps/${appId}/backups/${backupId}/file-url?name=${encodeURIComponent(name)}`;
   const { url: signed } = (await jsonFetch(url, {
     headers: { authorization: `Bearer ${token}` },
+    signal,
   })) as { url: string };
   return signed;
 }
@@ -318,7 +321,7 @@ async function downloadBackup(
 
   let files: BackupFile[];
   try {
-    files = await fetchFiles(token, appId, backup.id);
+    files = await fetchFiles(token, appId, backup.id, signal);
     if (files.length === 0) {
       throw new Error('No files found for this backup.');
     }
@@ -332,11 +335,16 @@ async function downloadBackup(
   entitiesTotal = files.length;
   tick();
 
+  // Entry write order is significant for restore: config first, then the
+  // entities/*.jsonl shards, then files/${locationId}. In particular ALL entity
+  // files must be written before ANY storage file. This generator preserves
+  // that: it yields the entity `files` (config + entities/*.jsonl, in the order
+  // fetchFiles returns them) to completion, then drains the storage queue.
   const entries = (async function* (): AsyncGenerator<ZipEntry> {
     for (const f of files) {
       currentEntity = f.name;
       tick();
-      const url = await fetchFileUrl(token, appId, backup.id, f.name);
+      const url = await fetchFileUrl(token, appId, backup.id, f.name, signal);
       const res = await fetch(url, { signal });
       if (!res.ok) {
         throw new Error(`Failed to fetch ${f.name}: ${res.status}`);
@@ -398,11 +406,11 @@ async function downloadBackup(
   const TICK_INTERVAL_MS = 100;
   let lastTickAt = 0;
 
-  // Load the zip encoder on demand (kept out of the shared bundle).
-  const { ZipWriter } = await import('@zip.js/zip.js');
-
   let diskWriter: WritableStreamDefaultWriter<Uint8Array> | null = null;
   try {
+    // Load the zip encoder on demand (kept out of the shared bundle). Inside the
+    // try so a chunk-load failure aborts the background discovery too.
+    const { ZipWriter } = await import('@zip.js/zip.js');
     const writable = await pickerHandle.createWritable();
     const writer = writable.getWriter();
     diskWriter = writer;
@@ -587,6 +595,10 @@ function DownloadInstance({
   const { darkMode } = useDarkMode();
   const [state, setState] = useState<DownloadDialogState>({ kind: 'confirm' });
   const abortRef = useRef<AbortController | null>(null);
+  // Set when the user cancels. The download promise rejects asynchronously with
+  // AbortError, and by then a replacement download for the same backup.id may
+  // own the slot — so the late rejection must not run onDone and tear it down.
+  const canceledRef = useRef(false);
 
   // Report this download's coarse state up so backup rows can label their
   // button and disable the others while it's running.
@@ -673,8 +685,10 @@ function DownloadInstance({
     } catch (e) {
       if ((e as { name?: string })?.name === 'AbortError') {
         // Picker dismissed or the user cancelled — tear this instance down so
-        // no pill lingers.
-        onDone();
+        // no pill lingers. But if the user cancelled, onDone already ran and a
+        // replacement download for the same backup.id may now own the slot, so
+        // this stale run must not remove it.
+        if (!canceledRef.current) onDone();
         return;
       }
       const msg =
@@ -702,6 +716,7 @@ function DownloadInstance({
   // Abort an in-flight download, then dismiss it. This is the only path that
   // truly stops a running download.
   const cancel = () => {
+    canceledRef.current = true;
     abortRef.current?.abort();
     onDone();
   };
