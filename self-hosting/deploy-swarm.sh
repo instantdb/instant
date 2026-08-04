@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 SSH_HOST=root@ip
 DASHBOARD_URL="https://dashboard@example.com"
 SERVER_URL="https://backend.example.com"
+# Must be an origin without a path. Use a dedicated hostname or port.
 S3_PUBLIC_ENDPOINT="https://files.example.com"
 POSTGRES_PASSWORD=changeme
 MINIO_ROOT_PASSWORD=changeme
