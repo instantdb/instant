@@ -10,8 +10,13 @@ import {
 } from 'react';
 import { ArrowsPointingOutIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
+import {
+  BackupsManager,
+  type AppBackupFile,
+  type AppBackupStorageFile,
+} from '@instantdb/platform';
+
 import config from '@/lib/config';
-import { jsonFetch } from '@/lib/fetch';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantApp, InstantAppBackup, InstantIssue } from '@/lib/types';
 
@@ -19,8 +24,6 @@ import { Button, Content, Dialog, SubsectionHeading } from '@/components/ui';
 
 import { formatTimestamp } from '@/components/dash/shared';
 import { useDarkMode } from '@/components/dash/DarkModeToggle';
-
-type BackupFile = { name: string; size: number };
 
 type DownloadProgress = {
   entitiesCompleted: number;
@@ -60,42 +63,6 @@ function formatBytes(n: number): string {
   const digits = v < 10 ? 2 : v < 100 ? 1 : 0;
   return `${v.toFixed(digits)} ${units[i]}`;
 }
-
-async function fetchFiles(
-  token: string,
-  appId: string,
-  backupId: string,
-  signal: AbortSignal,
-): Promise<BackupFile[]> {
-  // XXX: Why are you using the authed fetch hook here?
-  const { files } = (await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/backups/${backupId}/files`,
-    { headers: { authorization: `Bearer ${token}` }, signal },
-  )) as { files: BackupFile[] };
-  return files;
-}
-
-async function fetchFileUrl(
-  token: string,
-  appId: string,
-  backupId: string,
-  name: string,
-  signal: AbortSignal,
-): Promise<string> {
-  // XXX: Why are you using the authed fetch hook here?
-  const url = `${config.apiURI}/dash/apps/${appId}/backups/${backupId}/file-url?name=${encodeURIComponent(name)}`;
-  const { url: signed } = (await jsonFetch(url, {
-    headers: { authorization: `Bearer ${token}` },
-    signal,
-  })) as { url: string };
-  return signed;
-}
-
-type StorageFileLine = {
-  locationId: string;
-  path: string;
-  url: string;
-};
 
 type DownloadResult =
   | { via: 'picker'; filename: string }
@@ -162,6 +129,13 @@ async function downloadBackup(
     ],
   });
 
+  // The dash token can't refresh mid-download, so withAuth just supplies it.
+  const manager = new BackupsManager({
+    appId,
+    apiURI: config.apiURI,
+    withAuth: (operation) => operation(token),
+  });
+
   // ---- Shared progress state ----
   // current = files (backup + storage) fully fetched.
   // total = backup file count + storage files ever discovered.
@@ -174,7 +148,7 @@ async function downloadBackup(
   // Two parallel counters surfaced in the dialog:
   //   entities — the backup payload (config.json + per-etype JSONL shards).
   //   files    — the user's $files (storage uploads).
-  // entitiesTotal is null until fetchFiles resolves; filesTotal is null
+  // entitiesTotal is null until listFiles resolves; filesTotal is null
   // until the discovery NDJSON returns at least one line OR completes
   // (an empty stream sets it to 0 so the dialog shows "0 of 0 files").
   let entitiesCompleted = 0;
@@ -193,7 +167,7 @@ async function downloadBackup(
     backup.uncompressed_size != null
       ? backup.uncompressed_size + (backup.files_size ?? 0)
       : null;
-  const storageQueue: Record<number, StorageFileLine> = {};
+  const storageQueue: Record<number, AppBackupStorageFile> = {};
   let queueHead = 0;
   let queueTail = 0;
   let storageDone = false;
@@ -258,53 +232,20 @@ async function downloadBackup(
   };
 
   // Kick off storage-files discovery in parallel with the backup file list.
-  // It pushes onto storagePending and bumps `storageDiscovered` as URLs
-  // stream in.
+  // It fills `storageQueue` as URLs stream in. The manager consumes the
+  // server's terminal `done` sentinel and throws if the stream ends without
+  // it (a server-side failure truncated the listing), so a partial zip can't
+  // pass as complete.
   void (async () => {
-    // Set once we see the server's terminal `done` sentinel. A backup with no
-    // storage files still gets the sentinel (the server sends it even when
-    // there's no $files shard), so if discovery ends without it and we weren't
-    // aborted, the stream was truncated by a server-side failure.
-    let storageComplete = false;
     try {
-      const res = await fetch(
-        `${config.apiURI}/dash/apps/${appId}/backups/${backup.id}/storage-files`,
-        { headers: { authorization: `Bearer ${token}` }, signal },
-      );
-      if (!res.ok || !res.body) {
-        throw new Error(`Failed to list storage files: ${res.status}`);
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-      const consume = (line: string) => {
-        const trimmed = line.trim();
-        if (trimmed.length === 0) return;
-        const obj = JSON.parse(trimmed) as StorageFileLine & {
-          done?: boolean;
-        };
-        if (obj.done) {
-          storageComplete = true;
-          return;
-        }
-        if (!obj.locationId || !obj.url) return;
-        storageQueue[queueTail++] = obj;
+      for await (const file of manager.streamStorageFiles(backup.id, {
+        signal,
+      })) {
+        storageQueue[queueTail++] = file;
         filesTotal = (filesTotal ?? 0) + 1;
         throttledTick();
         notify();
-      };
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        let nl = buf.indexOf('\n');
-        while (nl !== -1) {
-          consume(buf.slice(0, nl));
-          buf = buf.slice(nl + 1);
-          nl = buf.indexOf('\n');
-        }
       }
-      consume(buf);
     } catch (e) {
       // The abort path is expected when the zip pipeline failed and we
       // tore the discovery down
@@ -312,26 +253,18 @@ async function downloadBackup(
         storageError = e as Error;
       }
     } finally {
-      // Discovery finished without ever calling consume (empty stream) —
+      // Discovery finished without yielding anything (no storage files) —
       // surface "0 of 0" so the dialog doesn't sit on "?" forever.
       if (filesTotal == null) filesTotal = 0;
-      // No `done` sentinel and we weren't aborted → the server closed the
-      // pipe early. Fail loudly instead of building a partial zip. Don't
-      // clobber a more specific error already caught above.
-      if (!storageComplete && storageError == null && !signal.aborted) {
-        storageError = new Error(
-          'Storage file listing ended before it finished. Please retry the download.',
-        );
-      }
       storageDone = true;
       tick();
       notify();
     }
   })();
 
-  let files: BackupFile[];
+  let files: AppBackupFile[];
   try {
-    files = await fetchFiles(token, appId, backup.id, signal);
+    files = await manager.listFiles(backup.id, { signal });
     if (files.length === 0) {
       throw new Error('No files found for this backup.');
     }
@@ -351,12 +284,12 @@ async function downloadBackup(
   // entities/*.jsonl shards, then files/${locationId}. In particular ALL entity
   // files must be written before ANY storage file. This generator preserves
   // that: it yields the entity `files` (config + entities/*.jsonl, in the order
-  // fetchFiles returns them) to completion, then drains the storage queue.
+  // listFiles returns them) to completion, then drains the storage queue.
   const entries = (async function* (): AsyncGenerator<ZipEntry> {
     for (const f of files) {
       currentEntity = f.name;
       tick();
-      const url = await fetchFileUrl(token, appId, backup.id, f.name, signal);
+      const url = await manager.getFileUrl(backup.id, f.name, { signal });
       const res = await fetch(url, { signal });
       if (!res.ok) {
         throw new Error(`Failed to fetch ${f.name}: ${res.status}`);
@@ -376,7 +309,7 @@ async function downloadBackup(
 
     while (true) {
       if (storageError) throw storageError;
-      let obj: StorageFileLine | undefined;
+      let obj: AppBackupStorageFile | undefined;
       if (queueHead < queueTail) {
         obj = storageQueue[queueHead];
         delete storageQueue[queueHead];

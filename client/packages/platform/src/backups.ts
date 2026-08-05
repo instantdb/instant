@@ -154,10 +154,11 @@ export class BackupsManager {
     this.#withAuth = opts.withAuth;
   }
 
-  #getJson(path: string): Promise<any> {
+  #getJson(path: string, signal?: AbortSignal): Promise<any> {
     return this.#withAuth(async (token) => {
       const res = await fetch(`${this.#apiURI}${path}`, {
         headers: authHeaders(token),
+        signal,
       });
       if (res.status !== 200) {
         throw await apiError(res);
@@ -169,8 +170,11 @@ export class BackupsManager {
   /**
    * Returns the app's downloadable (non-expired) backups, newest first.
    */
-  async list(): Promise<AppBackup[]> {
-    const res = await this.#getJson(`/dash/apps/${this.#appId}/backups`);
+  async list(opts?: { signal?: AbortSignal }): Promise<AppBackup[]> {
+    const res = await this.#getJson(
+      `/dash/apps/${this.#appId}/backups`,
+      opts?.signal,
+    );
     return ((res.backups || []) as AppBackupResponse[]).map(toAppBackup);
   }
 
@@ -179,9 +183,13 @@ export class BackupsManager {
    * `entities/<etype>.jsonl` shards) in archive write order. Storage blobs
    * are not included; discover those with {@link streamStorageFiles}.
    */
-  async listFiles(backupId: string): Promise<AppBackupFile[]> {
+  async listFiles(
+    backupId: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<AppBackupFile[]> {
     const res = await this.#getJson(
       `/dash/apps/${this.#appId}/backups/${backupId}/files`,
+      opts?.signal,
     );
     return (res.files || []) as AppBackupFile[];
   }
@@ -193,9 +201,14 @@ export class BackupsManager {
    * The entity files are stored zstd-compressed (the response carries
    * `Content-Encoding: zstd`); decompress to get the raw JSON/JSONL.
    */
-  async getFileUrl(backupId: string, name: string): Promise<string> {
+  async getFileUrl(
+    backupId: string,
+    name: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<string> {
     const res = await this.#getJson(
       `/dash/apps/${this.#appId}/backups/${backupId}/file-url?name=${encodeURIComponent(name)}`,
+      opts?.signal,
     );
     return res.url as string;
   }

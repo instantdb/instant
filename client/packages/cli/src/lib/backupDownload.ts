@@ -205,7 +205,7 @@ export async function downloadBackupToFile(opts: {
   // then drains the storage queue.
   type ZipEntry = { name: string; input: ReadableStream<Uint8Array> };
   const entries = (async function* (): AsyncGenerator<ZipEntry> {
-    const files = await manager.listFiles(backup.id);
+    const files = await manager.listFiles(backup.id, { signal });
     if (files.length === 0) {
       throw new Error('No files found for this backup.');
     }
@@ -216,7 +216,7 @@ export async function downloadBackupToFile(opts: {
     for (const f of files) {
       currentEntry = f.name;
       tick();
-      const url = await manager.getFileUrl(backup.id, f.name);
+      const url = await manager.getFileUrl(backup.id, f.name, { signal });
       const res = await fetchStream(url, signal);
       if (res.statusCode !== 200) {
         res.resume();
