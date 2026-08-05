@@ -61,14 +61,12 @@ const pickBackup = (
       });
     }
 
-    // Aligned columns in the same order as the `backup list` table: id,
-    // created, sizes, expiry, description.
+    // The picker stays lean: id, age, and description are what you choose
+    // by, in the table's column order. Sizes and expiry show up in the
+    // confirm table right after, where headers explain them.
     const cells = sorted.map((backup) => [
       backup.id,
       `created ${relativeTime(backup.backupAt)}`,
-      backup.dbSize != null ? formatFileSize(backup.dbSize) : '-',
-      backup.filesSize != null ? formatFileSize(backup.filesSize) : '-',
-      backup.expiresAt ? `expires ${relativeTime(backup.expiresAt)}` : '',
       backup.description ? stripControlChars(backup.description) : '',
     ]);
     const widths = cells[0].map((_, i) =>
