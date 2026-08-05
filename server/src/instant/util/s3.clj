@@ -9,6 +9,9 @@
   (:import
    (java.io InputStream)
    (java.time Instant Duration)
+   (software.amazon.awssdk.auth.credentials AwsBasicCredentials
+                                            StaticCredentialsProvider)
+   (software.amazon.awssdk.awscore AwsRequestOverrideConfiguration)
    (software.amazon.awssdk.core.async AsyncRequestBody
                                       AsyncResponseTransformer
                                       BufferedSplittableAsyncRequestBody)
@@ -91,18 +94,31 @@
    {:keys [source-bucket-name
            destination-bucket-name
            source-key
-           destination-key]}]
+           destination-key
+           access-key
+           secret-key]}]
   (tracer/with-span! {:name "copy-object"
                       :attributes {:source-bucket source-bucket-name
                                    :destination-bucket destination-bucket-name
                                    :source-key source-key
                                    :destination-key destination-key}}
-    (let [^CopyObjectRequest req (-> (CopyObjectRequest/builder)
-                                     (.sourceBucket source-bucket-name)
-                                     (.sourceKey source-key)
-                                     (.destinationBucket destination-bucket-name)
-                                     (.destinationKey destination-key)
-                                     (.build))
+    (let [^CopyObjectRequest req
+          (cond-> (CopyObjectRequest/builder)
+            true (.sourceBucket source-bucket-name)
+            true (.sourceKey source-key)
+            true (.destinationBucket destination-bucket-name)
+            true (.destinationKey destination-key)
+            ;; Override the client's default credentials for this one
+            ;; request. All-or-nothing: if only one is set we fall back
+            ;; to the client's default creds.
+            (and access-key secret-key)
+            (.overrideConfiguration
+             (-> (AwsRequestOverrideConfiguration/builder)
+                 (.credentialsProvider
+                  (StaticCredentialsProvider/create
+                   (AwsBasicCredentials/create access-key secret-key)))
+                 (.build)))
+            true (.build))
           ^CopyObjectResponse resp (.copyObject s3-client req)]
       resp)))
 
@@ -316,13 +332,25 @@
   "Server-side copy via the transfer manager. Returns the completion
    CompletableFuture (does not block)."
   [^S3TransferManager transfer-manager
-   {:keys [source-bucket-name destination-bucket-name source-key destination-key]}]
-  (let [^CopyObjectRequest req (-> (CopyObjectRequest/builder)
-                                   (.sourceBucket source-bucket-name)
-                                   (.sourceKey source-key)
-                                   (.destinationBucket destination-bucket-name)
-                                   (.destinationKey destination-key)
-                                   (.build))
+   {:keys [source-bucket-name destination-bucket-name source-key destination-key
+           access-key secret-key]}]
+  (let [^CopyObjectRequest req
+        (cond-> (CopyObjectRequest/builder)
+          true (.sourceBucket source-bucket-name)
+          true (.sourceKey source-key)
+          true (.destinationBucket destination-bucket-name)
+          true (.destinationKey destination-key)
+          ;; Override the client's default credentials for this one
+          ;; request. All-or-nothing: if only one is set we fall back
+          ;; to the client's default creds.
+          (and access-key secret-key)
+          (.overrideConfiguration
+           (-> (AwsRequestOverrideConfiguration/builder)
+               (.credentialsProvider
+                (StaticCredentialsProvider/create
+                 (AwsBasicCredentials/create access-key secret-key)))
+               (.build)))
+          true (.build))
         ^CopyRequest copy-req (-> (CopyRequest/builder)
                                   (.copyObjectRequest req)
                                   (.build))]

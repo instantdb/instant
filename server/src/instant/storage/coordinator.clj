@@ -54,7 +54,9 @@
             (try
               (instant-s3/copy-file {:destination-bucket copy-bucket
                                      :app-id app-id
-                                     :location-id location-id})
+                                     :location-id location-id
+                                     :access-key (config/s3-storage-access-key)
+                                     :secret-key (config/s3-storage-secret-key)})
               (catch Throwable e
                 ;; The source object is uploaded but we bail before creating a
                 ;; file record, so delete it (best-effort) to avoid orphaning
