@@ -16,7 +16,7 @@
    (software.amazon.awssdk.auth.credentials DefaultCredentialsProvider)
    (software.amazon.awssdk.http.nio.netty NettyNioAsyncHttpClient)
    (software.amazon.awssdk.regions Region)
-   (software.amazon.awssdk.services.s3 S3AsyncClient S3Client S3ClientBuilder S3CrtAsyncClientBuilder)
+   (software.amazon.awssdk.services.s3 S3AsyncClient S3AsyncClientBuilder S3Client S3ClientBuilder S3CrtAsyncClientBuilder)
    (software.amazon.awssdk.services.s3.multipart MultipartConfiguration)
    (software.amazon.awssdk.transfer.s3 S3TransferManager)))
 
@@ -38,6 +38,18 @@
       (.credentialsProvider builder credentials-provider))))
 
 (defn- configure-s3-endpoint-async-client ^S3CrtAsyncClientBuilder [^S3CrtAsyncClientBuilder builder]
+  (if-let [endpoint (config/s3-endpoint)]
+    (doto builder
+      (.endpointOverride (URI/create endpoint))
+      (.region (Region/of (config/s3-region)))
+      (.forcePathStyle Boolean/TRUE))
+    (let [credentials-provider (-> (DefaultCredentialsProvider/builder)
+                                   ;; Keeps credentials fresh in the background
+                                   (.asyncCredentialUpdateEnabled true)
+                                   (.build))]
+      (.credentialsProvider builder credentials-provider))))
+
+(defn- configure-s3-endpoint-async-export-client ^S3AsyncClientBuilder [^S3AsyncClientBuilder builder]
   (if-let [endpoint (config/s3-endpoint)]
     (doto builder
       (.endpointOverride (URI/create endpoint))
@@ -102,7 +114,7 @@
              (.writeTimeout Duration/ZERO)
              (.tcpKeepAlive Boolean/TRUE)
              (.maxConcurrency (int 1024)))) ;; default is 50
-          (configure-s3-endpoint-client)
+          (configure-s3-endpoint-async-export-client)
           (.build)))))
 
 (defn s3-async-export-client

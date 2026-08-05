@@ -198,7 +198,11 @@
   (with-open [in in
               rdr_ (InputStreamReader. in StandardCharsets/UTF_8)
               rdr (BufferedReader. rdr_)]
-    (json/<-json-stream rdr true)))
+    (let [config (json/<-json-stream rdr true)]
+      (when-not (and (map? config) (:schema config))
+        (throw (ex-info "Backup config.json is malformed: expected an object with a schema key."
+                        {:config-keys (when (map? config) (keys config))})))
+      config)))
 
 (defn queue-seq [^LinkedBlockingQueue q done-signal]
   (lazy-seq
@@ -228,7 +232,7 @@
         ;; max heap (-Xmx) minus what's currently in use
         free-heap (- (.maxMemory rt)
                      (- (.totalMemory rt) (.freeMemory rt)))]
-    (min (max 8 (quot free-heap (* 2 multipart-part-size)))
+    (min (max 8 (quot free-heap (* 4 multipart-part-size)))
          256)))
 
 (defn upload-file [app-id {:keys [location-id
@@ -330,7 +334,8 @@
                                    attrs
                                    entries))
 
-                          (clojure.string/starts-with? entry-name entities-prefix)
+                          (and (clojure.string/starts-with? entry-name entities-prefix)
+                               (clojure.string/ends-with? entry-name entities-suffix))
                           (let [etype (subs entry-name
                                             (count entities-prefix)
                                             (- (count entry-name) (count entities-suffix)))
@@ -377,6 +382,29 @@
      {:app-id app-id}
      [{:message "An app already exists with this id."}])))
 
+(def delete-app-triples-q
+  (uhsql/preformat
+   {:delete-from :triples
+    :where [:in :ctid {:select :ctid
+                       :from :triples
+                       :where [:= :app-id :?app-id]
+                       :limit :?batch-size}]}))
+
+(defn delete-app-triples!
+  "Deletes an app's triples in batches so the per-statement delete trigger works
+   over a bounded transition table."
+  [app-id]
+  (loop []
+    (let [deleted (-> (sql/do-execute! ::delete-app-triples!
+                                       (aurora/conn-pool :write)
+                                       (uhsql/formatp delete-app-triples-q
+                                                      {:app-id app-id
+                                                       :batch-size triples-copy-batch-size}))
+                      first
+                      :next.jdbc/update-count)]
+      (when (and deleted (pos? deleted))
+        (recur)))))
+
 (defn restore-from-zip [{:keys [^String zip-file-path
                                 creator-id
                                 app-id
@@ -405,17 +433,27 @@
         (let [start (promise)
               triples-process (ua/vfuture
                                (try
+                                 @start
                                  (process-triples done-signal triples-queue)
                                  (catch Throwable t
                                    (abort t)
                                    (throw t))))
               files-process (ua/vfuture
-                             (process-files app-id done-signal max-concurrency files-queue error abort))
+                             (try
+                               @start
+                               (process-files app-id done-signal max-concurrency files-queue error abort)
+                               (catch Throwable t
+                                 (abort t)
+                                 (throw t))))
               files-check-process (ua/vfuture
-                                   ;; We need to wait for all triples to sync before we check
-                                   ;; that all files are present.
-                                   @triples-process
-                                   (check-files app-id done-signal files-check-queue))
+                                   (try
+                                     ;; We need to wait for all triples to sync before we check
+                                     ;; that all files are present.
+                                     @triples-process
+                                     (check-files app-id done-signal files-check-queue)
+                                     (catch Throwable t
+                                       (abort t)
+                                       (throw t))))
               zip-process (ua/vfuture
                            (try
                              @start
@@ -437,5 +475,14 @@
       (catch Throwable t
         (compare-and-set! error nil t)
         (run! future-cancel @processes)
+        ;; Best-effort cleanup of the partially-restored app; don't let it mask
+        ;; the original error (the ephemeral-app sweeper is a backstop).
+        (try
+          (delete-app-triples! app-id)
+          (app-model/delete-immediately-by-id! {:id app-id})
+          (catch Throwable cleanup-err
+            (tracer/record-exception-span! cleanup-err
+                                           {:name "restore/cleanup-failed"
+                                            :escaping? false})))
         (throw @error)))
     app-id))
