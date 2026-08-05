@@ -38,7 +38,7 @@
 ;; A backup that's been `processing` this long is assumed dead (its worker
 ;; crashed) and gets marked errored so the app isn't stuck behind the
 ;; one-in-flight limit forever.
-(def stuck-threshold-minutes 120)
+(def stuck-threshold-minutes 10)
 
 ;; How often a running job persists its progress (triples copied) to the db.
 (def progress-report-interval-ms 1000)
