@@ -223,7 +223,13 @@ export async function downloadBackupArchive(
   // files must be written before ANY storage file. listFiles returns the
   // entity files in write order; this generator yields them to completion,
   // then drains the storage queue.
-  type ArchiveEntry = { name: string; input: ReadableStream<Uint8Array> };
+  type ArchiveEntry = {
+    name: string;
+    input: ReadableStream<Uint8Array>;
+    // Fired after the writer finishes consuming the entry, so completion
+    // counters reflect fully-written files rather than started fetches.
+    onAdded: () => void;
+  };
   const entries = (async function* (): AsyncGenerator<ArchiveEntry> {
     const files = await manager.listFiles(backup.id, { signal });
     if (files.length === 0) {
@@ -252,15 +258,25 @@ export async function downloadBackupArchive(
         if (isAbortError(e)) throw e;
         throw new Error(`Failed to fetch ${f.name}: ${errorMessage(e)}.`);
       }
-      if (f.name !== 'config.json') entitiesCompleted++;
-      tick();
-      yield { name: f.name, input: countBytes(body) };
+      yield {
+        name: f.name,
+        input: countBytes(body),
+        onAdded: () => {
+          if (f.name !== 'config.json') entitiesCompleted++;
+          tick();
+        },
+      };
     }
     currentEntity = '';
     tick();
 
     while (true) {
       if (storageError) throw storageError;
+      // A caller abort while no fetch is in flight surfaces only in the
+      // discovery stream, which swallows it as expected teardown — check
+      // explicitly so a cancellation can't read as a complete storage phase
+      // with files still undiscovered.
+      signal.throwIfAborted();
       let file: AppBackupStorageFile | undefined;
       if (queueHead < queue.length) {
         file = queue[queueHead];
@@ -268,7 +284,8 @@ export async function downloadBackupArchive(
         queueHead++;
       }
       if (file) {
-        currentFile = file.path || file.locationId;
+        const label = file.path || file.locationId;
+        currentFile = label;
         tick();
         let body: ReadableStream<Uint8Array>;
         try {
@@ -276,12 +293,17 @@ export async function downloadBackupArchive(
         } catch (e) {
           if (isAbortError(e)) throw e;
           throw new Error(
-            `Couldn't download storage file "${file.path}" (${errorMessage(e)}).`,
+            `Couldn't download storage file "${label}" (${errorMessage(e)}).`,
           );
         }
-        filesCompleted++;
-        tick();
-        yield { name: `files/${file.locationId}`, input: countBytes(body) };
+        yield {
+          name: `files/${file.locationId}`,
+          input: countBytes(body),
+          onAdded: () => {
+            filesCompleted++;
+            tick();
+          },
+        };
       } else if (storageDone) {
         break;
       } else {
@@ -322,7 +344,11 @@ export async function downloadBackupArchive(
       await writer.add(entry.name, entry.input, {
         lastModDate: backup.backupAt,
       });
+      entry.onAdded();
     }
+    // A caller abort that lands after the last entry lets the generator
+    // finish cleanly; don't close and return a complete-looking archive.
+    signal.throwIfAborted();
     await writer.close();
     await discovery;
     tick();

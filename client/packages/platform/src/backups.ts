@@ -98,7 +98,14 @@ export function formatFileSize(n: number): string {
     v /= 1000;
     i++;
   } while (v >= 1000 && i < units.length - 1);
-  const digits = v < 10 ? 2 : v < 100 ? 1 : 0;
+  let digits = v < 10 ? 2 : v < 100 ? 1 : 0;
+  // Rounding can cross a unit boundary (999,500 would read "1000 KB");
+  // promote to the next unit instead.
+  if (Number(v.toFixed(digits)) >= 1000 && i < units.length - 1) {
+    v /= 1000;
+    i++;
+    digits = 2;
+  }
   return `${v.toFixed(digits)} ${units[i]}`;
 }
 
@@ -295,6 +302,11 @@ export class BackupsManager {
       if (
         typeof line.locationId !== 'string' ||
         line.locationId.length === 0 ||
+        // The locationId becomes the archive entry path `files/<locationId>`;
+        // reject separators and control characters that could escape it.
+        /[/\\\u0000-\u001f\u007f]/.test(line.locationId) ||
+        line.locationId === '.' ||
+        line.locationId === '..' ||
         typeof line.url !== 'string' ||
         line.url.length === 0
       ) {

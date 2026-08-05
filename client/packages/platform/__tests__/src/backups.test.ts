@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   BackupsManager,
   backupZipName,
+  formatFileSize,
   type AppBackupStorageFile,
 } from '../../src/backups.ts';
 
@@ -94,6 +95,15 @@ describe('streamStorageFiles', () => {
     expect(await collect(makeManager())).toEqual([]);
   });
 
+  test('rejects a locationId that could escape the archive path', async () => {
+    stubFetchBody([
+      '{"locationId":"../evil","path":"a.png","url":"http://s3/loc-1"}\n',
+      '{"done":true}\n',
+    ]);
+
+    await expect(collect(makeManager())).rejects.toThrow(/malformed record/);
+  });
+
   test('throws when the stream ends without the done sentinel', async () => {
     stubFetchBody([
       '{"locationId":"loc-1","path":"a.png","url":"http://s3/loc-1"}\n',
@@ -141,5 +151,18 @@ describe('list', () => {
     expect(backupZipName(backup)).toBe(
       'instant-backup-2026-08-05T07-12-00-000Z.zip',
     );
+  });
+});
+
+describe('formatFileSize', () => {
+  test('formats with decimal units and adaptive precision', () => {
+    expect(formatFileSize(999)).toBe('999 B');
+    expect(formatFileSize(3510)).toBe('3.51 KB');
+    expect(formatFileSize(1_540_000_000)).toBe('1.54 GB');
+  });
+
+  test('promotes across the unit boundary when rounding', () => {
+    expect(formatFileSize(999_500)).toBe('1.00 MB');
+    expect(formatFileSize(999_999_500)).toBe('1.00 GB');
   });
 });
