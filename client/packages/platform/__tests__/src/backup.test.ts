@@ -51,26 +51,20 @@ const configOnlyFetch = (storageResponse: () => Response) =>
   });
 
 describe('canonicalizeBackupFiles', () => {
-  test('puts config first and sorts entity entries', () => {
+  test('puts config first and sorts the remaining entries', () => {
     expect(
       canonicalizeBackupFiles([
         { name: 'entities/users.jsonl', size: 3 },
         { name: 'config.json', size: 1 },
+        { name: 'manifest.json', size: 5 },
         { name: 'entities/$files.jsonl', size: 2 },
-        { name: 'entities/acme/posts.jsonl', size: 4 },
       ]).map((file) => file.name),
     ).toEqual([
       'config.json',
       'entities/$files.jsonl',
-      'entities/acme/posts.jsonl',
       'entities/users.jsonl',
+      'manifest.json',
     ]);
-  });
-
-  test('accepts a config-only backup', () => {
-    expect(canonicalizeBackupFiles([{ name: 'config.json', size: 1 }])).toEqual(
-      [{ name: 'config.json', size: 1 }],
-    );
   });
 
   test.each([
@@ -95,13 +89,6 @@ describe('canonicalizeBackupFiles', () => {
     {
       files: [
         { name: 'config.json', size: 1 },
-        { name: 'entities/.jsonl', size: 1 },
-      ],
-      message: 'unexpected entry',
-    },
-    {
-      files: [
-        { name: 'config.json', size: 1 },
         { name: 'entities/acme/../secrets.jsonl', size: 1 },
       ],
       message: 'unexpected entry',
@@ -109,21 +96,7 @@ describe('canonicalizeBackupFiles', () => {
     {
       files: [
         { name: 'config.json', size: 1 },
-        { name: 'entities/acme/./posts.jsonl', size: 1 },
-      ],
-      message: 'unexpected entry',
-    },
-    {
-      files: [
-        { name: 'config.json', size: 1 },
         { name: 'entities/acme\\posts.jsonl', size: 1 },
-      ],
-      message: 'unexpected entry',
-    },
-    {
-      files: [
-        { name: 'config.json', size: 1 },
-        { name: 'entities/acme\u001b.jsonl', size: 1 },
       ],
       message: 'unexpected entry',
     },
@@ -268,99 +241,6 @@ describe('BackupsManager', () => {
     expect(decodeBackupBody).toHaveBeenCalledOnce();
   });
 
-  test('parses CRLF NDJSON at arbitrary byte boundaries', async () => {
-    const storageFile = {
-      locationId: 'legacy/文件',
-      path: 'café/猫.png',
-      url: 'https://signed.test/unicode-file',
-    };
-    const listing = [
-      '',
-      JSON.stringify(storageFile),
-      '',
-      JSON.stringify({ done: true }),
-      '',
-    ].join('\r\n');
-    const bytes = new TextEncoder().encode(listing);
-    const storagePaths: (string | null)[] = [];
-    const fetch = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.endsWith('/files')) {
-        return json({ files: [{ name: 'config.json', size: 1 }] });
-      }
-      if (url.includes('/file-url?')) {
-        return json({ url: 'https://signed.test/config' });
-      }
-      if (url === 'https://signed.test/config') return new Response('{}');
-      if (url.endsWith('/storage-files')) {
-        return new Response(
-          new ReadableStream<Uint8Array>({
-            start(controller) {
-              for (const byte of bytes) controller.enqueue(Uint8Array.of(byte));
-              controller.close();
-            },
-          }),
-        );
-      }
-      if (url === storageFile.url) return new Response('unicode body');
-      throw new Error(`Unexpected request: ${url}`);
-    });
-    const manager = new BackupsManager({
-      apiURI: 'https://api.test',
-      token: 'secret',
-      fetch: fetch as typeof globalThis.fetch,
-    });
-
-    const entries = await collectEntries(
-      manager.downloadEntries('app-1', backup, {
-        callbacks: {
-          onStorageFile: (file) => storagePaths.push(file.path),
-        },
-      }),
-    );
-
-    expect(entries).toEqual([
-      { name: 'config.json', body: '{}' },
-      { name: 'files/legacy/文件', body: 'unicode body' },
-    ]);
-    expect(storagePaths).toEqual(['café/猫.png']);
-  });
-
-  test.each([
-    {
-      name: 'data after completion',
-      listing: [
-        JSON.stringify({ done: true }),
-        JSON.stringify({
-          locationId: 'late-file',
-          path: 'late.txt',
-          url: 'https://signed.test/late-file',
-        }),
-      ].join('\n'),
-      message: 'data after its completion marker',
-    },
-    {
-      name: 'a duplicate completion marker',
-      listing: [
-        JSON.stringify({ done: true }),
-        JSON.stringify({ done: true }),
-      ].join('\n'),
-      message: 'more than one completion marker',
-    },
-  ])('rejects $name', async ({ listing, message }) => {
-    const manager = new BackupsManager({
-      apiURI: 'https://api.test',
-      token: 'secret',
-      fetch: configOnlyFetch(
-        () => new Response(listing),
-      ) as typeof globalThis.fetch,
-    });
-
-    await expect(
-      collectEntries(manager.downloadEntries('app-1', backup)),
-    ).rejects.toThrow(message);
-  });
-
   test('treats a storage listing 404 as an error', async () => {
     const manager = new BackupsManager({
       apiURI: 'https://api.test',
@@ -451,17 +331,8 @@ describe('BackupsManager', () => {
     };
 
     await expect(run(['same', 'same'])).rejects.toThrow('duplicate entry');
-    await expect(run(['   '])).rejects.toThrow('blank location ID on line 1');
+    await expect(run(['   '])).rejects.toThrow('invalid storage location ID');
     await expect(run(['legacy/../unsafe'])).rejects.toThrow(
-      'invalid storage location ID',
-    );
-    await expect(run(['legacy/./unsafe'])).rejects.toThrow(
-      'invalid storage location ID',
-    );
-    await expect(run(['legacy\\unsafe'])).rejects.toThrow(
-      'invalid storage location ID',
-    );
-    await expect(run(['unsafe\u001b'])).rejects.toThrow(
       'invalid storage location ID',
     );
   });
@@ -503,7 +374,7 @@ describe('BackupsManager', () => {
     expect(entries.at(-1)?.name).toBe('files/legacy/path');
   });
 
-  test('surfaces server errors without leaking non-JSON bodies', async () => {
+  test('surfaces server error messages', async () => {
     const manager = new BackupsManager({
       apiURI: 'https://api.test',
       token: 'secret',

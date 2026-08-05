@@ -118,16 +118,14 @@ export const backupDownloadCommand = Effect.fn(function* (
       message: `Output path is a directory: ${outputPath}`,
     });
   }
-  const exists = outputStatus === 'file';
-  let overwrite = exists && yes;
-  if (exists && !yes) {
-    overwrite = yield* runUIEffect(
+  if (outputStatus === 'file' && !yes) {
+    const replace = yield* runUIEffect(
       new UI.Confirmation({
         promptText: `File already exists. Replace ${outputPath}?`,
         defaultValue: false,
       }),
     );
-    if (!overwrite) {
+    if (!replace) {
       yield* Effect.log('Cancelled.');
       return;
     }
@@ -152,7 +150,6 @@ export const backupDownloadCommand = Effect.fn(function* (
     backup,
     manager,
     outputPath,
-    overwrite,
     signal: abortController.signal,
     onProgress: (progress) => {
       latestProgress = progress;

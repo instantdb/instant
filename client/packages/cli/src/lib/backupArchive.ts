@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { link, open, rename, unlink } from 'node:fs/promises';
+import { open, rename, unlink } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { Writable } from 'node:stream';
 import { finished } from 'node:stream/promises';
@@ -25,7 +25,6 @@ type DownloadBackupArchiveOptions = {
   backup: InstantAppBackup;
   manager: BackupsManager;
   outputPath: string;
-  overwrite?: boolean;
   signal?: AbortSignal;
   onProgress?: (progress: BackupArchiveProgress) => void;
 };
@@ -45,26 +44,11 @@ const removePartial = async (path: string) => {
   }
 };
 
-const commitArchive = async (
-  partialPath: string,
-  outputPath: string,
-  overwrite: boolean,
-) => {
-  if (overwrite) {
-    await rename(partialPath, outputPath);
-    return;
-  }
-
-  await link(partialPath, outputPath);
-  await unlink(partialPath);
-};
-
 export async function downloadBackupArchive({
   appId,
   backup,
   manager,
   outputPath,
-  overwrite = false,
   signal,
   onProgress,
 }: DownloadBackupArchiveOptions): Promise<BackupArchiveResult> {
@@ -169,6 +153,8 @@ export async function downloadBackupArchive({
     await fileFinished;
     downloadSignal.throwIfAborted();
 
+    // fsync before rename so a crash right after we report success can't
+    // leave a truncated archive at outputPath.
     const file = await open(partialPath, 'r');
     try {
       await file.sync();
@@ -177,7 +163,7 @@ export async function downloadBackupArchive({
     }
 
     downloadSignal.throwIfAborted();
-    await commitArchive(partialPath, outputPath, overwrite);
+    await rename(partialPath, outputPath);
     return {
       outputPath,
       bytesWritten: progress.bytesWritten,

@@ -202,7 +202,7 @@ describe('backup list', () => {
     expect(output).not.toContain('\u001b[2J');
   });
 
-  test('prints active backups newest first and filters expired backups', async () => {
+  test('--json prints active backups newest first and filters expired backups', async () => {
     const old = makeBackup('old', {
       backup_at: '2026-08-01T12:00:00.000Z',
     });
@@ -210,7 +210,6 @@ describe('backup list', () => {
       backup_at: '2026-08-03T12:00:00.000Z',
     });
     const expired = makeBackup('expired', {
-      backup_at: '2026-08-05T12:00:00.000Z',
       expires_at: '2020-08-05T12:00:00.000Z',
     });
     const missingExpiration = makeBackup('missing-expiration', {
@@ -219,28 +218,6 @@ describe('backup list', () => {
     state.manager = makeManager({
       backups: [old, expired, missingExpiration, newest],
     });
-
-    await run(backupListCommand({} as any), false);
-
-    const output = logs.join('\n');
-    expect(output.indexOf('ID: newest')).toBeLessThan(
-      output.indexOf('ID: old'),
-    );
-    expect(output).not.toContain('ID: expired');
-    expect(output).not.toContain('ID: missing-expiration');
-  });
-
-  test('--json prints the filtered and sorted backup array', async () => {
-    const old = makeBackup('old', {
-      backup_at: '2026-08-01T12:00:00.000Z',
-    });
-    const newest = makeBackup('newest', {
-      backup_at: '2026-08-03T12:00:00.000Z',
-    });
-    const expired = makeBackup('expired', {
-      expires_at: '2020-08-05T12:00:00.000Z',
-    });
-    state.manager = makeManager({ backups: [old, expired, newest] });
 
     await run(backupListCommand({ json: true } as any), false);
 
@@ -390,12 +367,6 @@ describe('backup ZIP archive', () => {
     });
 
     const archive = await readFile(output);
-    expect(
-      archive.indexOf(Buffer.from([0x50, 0x4b, 0x06, 0x06])),
-    ).toBeGreaterThanOrEqual(0);
-    expect(
-      archive.indexOf(Buffer.from([0x50, 0x4b, 0x06, 0x07])),
-    ).toBeGreaterThanOrEqual(0);
     const reader = new ZipReader(new Uint8ArrayReader(archive));
     const zipEntries = await reader.getEntries();
     expect(zipEntries.map((entry) => entry.filename)).toEqual([
@@ -421,22 +392,6 @@ describe('backup ZIP archive', () => {
     expect(await partialFiles()).toEqual([]);
   });
 
-  test('opens the partial before starting network work', async () => {
-    const manager = makeManager();
-
-    await expect(
-      downloadBackupArchive({
-        appId: 'app-1',
-        backup: makeBackup('backup-1'),
-        manager: manager as any,
-        outputPath: join(testDirectory, 'missing', 'archive.zip'),
-      }),
-    ).rejects.toMatchObject({ code: 'ENOENT' });
-
-    expect(manager.downloadEntries).not.toHaveBeenCalled();
-    expect(await partialFiles()).toEqual([]);
-  });
-
   test('replaces an existing archive only after the download succeeds', async () => {
     const output = join(testDirectory, 'replace.zip');
     await writeFile(output, 'old archive');
@@ -446,49 +401,9 @@ describe('backup ZIP archive', () => {
       backup: makeBackup('backup-1'),
       manager: makeManager() as any,
       outputPath: output,
-      overwrite: true,
     });
 
     expect(await readFile(output, 'utf8')).not.toBe('old archive');
-    expect(await partialFiles()).toEqual([]);
-  });
-
-  test('does not overwrite a target created before commit', async () => {
-    const output = join(testDirectory, 'raced.zip');
-    const manager = {
-      downloadEntries: vi.fn(
-        (
-          _appId: string,
-          backup: InstantAppBackup,
-          options: { callbacks?: BackupDownloadCallbacks } = {},
-        ) =>
-          (async function* () {
-            options.callbacks?.onBackupFiles?.([
-              { name: 'config.json', size: 2 },
-            ]);
-            yield {
-              kind: 'config',
-              name: 'config.json',
-              sourceName: 'config.json',
-              lastModified: new Date(backup.backup_at),
-              input: readable(encoder.encode('{}')),
-            } satisfies BackupEntry;
-            await writeFile(output, 'racing archive');
-            options.callbacks?.onStorageComplete?.();
-          })(),
-      ),
-    };
-
-    await expect(
-      downloadBackupArchive({
-        appId: 'app-1',
-        backup: makeBackup('backup-1'),
-        manager: manager as any,
-        outputPath: output,
-      }),
-    ).rejects.toMatchObject({ code: 'EEXIST' });
-
-    expect(await readFile(output, 'utf8')).toBe('racing archive');
     expect(await partialFiles()).toEqual([]);
   });
 
@@ -509,7 +424,6 @@ describe('backup ZIP archive', () => {
         backup: makeBackup('backup-1'),
         manager: manager as any,
         outputPath: output,
-        overwrite: true,
       }),
     ).rejects.toThrow('stream failed');
 

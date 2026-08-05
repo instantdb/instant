@@ -34,11 +34,9 @@ export type BackupDownloadCallbacks = {
   onStorageComplete?: () => void;
 };
 
-type TokenProvider = string | (() => string | Promise<string>);
-
 export type BackupsManagerConfig = {
   apiURI?: string;
-  token: TokenProvider;
+  token: string;
   fetch?: typeof globalThis.fetch;
   headers?: HeadersInit;
   decodeBackupBody?: (
@@ -95,15 +93,13 @@ const isBackup = (value: unknown): value is InstantAppBackup => {
   );
 };
 
-const isSafeEntityName = (name: string) => {
-  if (!name.startsWith('entities/') || !name.endsWith('.jsonl')) return false;
-  const namespace = name.slice('entities/'.length, -'.jsonl'.length);
-  if (!namespace || name.includes('\\') || controlCharacters.test(name)) {
-    return false;
-  }
-  return namespace
+// Entry names become paths inside the zip, so refuse traversal segments,
+// backslashes, and control characters outright.
+const isSafeEntryName = (name: string) => {
+  if (name.includes('\\') || controlCharacters.test(name)) return false;
+  return name
     .split('/')
-    .every((segment) => segment !== '.' && segment !== '..');
+    .every((segment) => segment !== '' && segment !== '.' && segment !== '..');
 };
 
 export function canonicalizeBackupFiles(
@@ -111,7 +107,7 @@ export function canonicalizeBackupFiles(
 ): BackupFile[] {
   const seen = new Set<string>();
   let config: BackupFile | undefined;
-  const entities: BackupFile[] = [];
+  const rest: BackupFile[] = [];
 
   for (const file of files) {
     if (seen.has(file.name)) {
@@ -123,34 +119,37 @@ export function canonicalizeBackupFiles(
 
     if (file.name === 'config.json') {
       config = file;
-    } else if (isSafeEntityName(file.name)) {
-      entities.push(file);
-    } else {
+      continue;
+    }
+    // Unknown-but-safe names are allowed so newer servers can add files to
+    // backups without breaking older clients. `files/` is reserved for the
+    // storage entries the archive appends after the backup payload.
+    if (
+      !isSafeEntryName(file.name) ||
+      file.name === 'files' ||
+      file.name.startsWith('files/')
+    ) {
       throw new BackupDownloadError(
         `Backup contains unexpected entry "${safeDisplayName(file.name)}".`,
       );
     }
+    rest.push(file);
   }
 
   if (!config) {
     throw new BackupDownloadError('Backup is missing config.json.');
   }
 
-  return [config, ...entities.sort(compareNames)];
+  return [config, ...rest.sort(compareNames)];
 }
 
 export function backupZipName(backup: InstantAppBackup): string {
-  const safe = backup.backup_at.replace(/[^a-zA-Z0-9_-]/g, '-');
+  const safe = backup.backup_at.replace(/[:.]/g, '-');
   return `instant-backup-${safe}.zip`;
 }
 
 const storageEntryName = (locationId: string) => {
-  if (
-    !locationId.trim() ||
-    locationId.includes('\\') ||
-    controlCharacters.test(locationId) ||
-    locationId.split('/').some((segment) => segment === '.' || segment === '..')
-  ) {
+  if (!locationId.trim() || !isSafeEntryName(locationId)) {
     throw new BackupDownloadError(
       `Backup contains invalid storage location ID "${safeDisplayName(locationId)}".`,
     );
@@ -207,71 +206,9 @@ async function* lines(
   }
 }
 
-class AsyncQueue<T> {
-  readonly #capacity: number;
-  readonly #items: T[] = [];
-  readonly #readWaiters = new Set<() => void>();
-  readonly #writeWaiters = new Set<() => void>();
-  #head = 0;
-  #closed = false;
-  #failed = false;
-  #error: unknown;
-
-  constructor(capacity: number) {
-    this.#capacity = capacity;
-  }
-
-  #wait(waiters: Set<() => void>) {
-    return new Promise<void>((resolve) => waiters.add(resolve));
-  }
-
-  #wake(waiters: Set<() => void>) {
-    for (const resolve of waiters) resolve();
-    waiters.clear();
-  }
-
-  async push(item: T): Promise<boolean> {
-    while (!this.#closed && this.#items.length - this.#head >= this.#capacity) {
-      await this.#wait(this.#writeWaiters);
-    }
-    if (this.#closed) return false;
-    this.#items.push(item);
-    this.#wake(this.#readWaiters);
-    return true;
-  }
-
-  close(error?: unknown) {
-    if (this.#closed) return;
-    this.#closed = true;
-    if (error !== undefined) {
-      this.#failed = true;
-      this.#error = error;
-    }
-    this.#wake(this.#readWaiters);
-    this.#wake(this.#writeWaiters);
-  }
-
-  async next(): Promise<IteratorResult<T>> {
-    while (!this.#closed && this.#head === this.#items.length) {
-      await this.#wait(this.#readWaiters);
-    }
-    if (this.#failed) throw this.#error;
-    if (this.#head < this.#items.length) {
-      const value = this.#items[this.#head++]!;
-      if (this.#head > 1024 && this.#head * 2 >= this.#items.length) {
-        this.#items.splice(0, this.#head);
-        this.#head = 0;
-      }
-      this.#wake(this.#writeWaiters);
-      return { done: false, value };
-    }
-    return { done: true, value: undefined };
-  }
-}
-
 export class BackupsManager {
   readonly #apiURI: string;
-  readonly #token: TokenProvider;
+  readonly #token: string;
   readonly #fetch: typeof globalThis.fetch;
   readonly #headers: HeadersInit | undefined;
   readonly #decodeBackupBody: (
@@ -296,12 +233,6 @@ export class BackupsManager {
       });
   }
 
-  async #getToken(): Promise<string> {
-    return typeof this.#token === 'function'
-      ? await this.#token()
-      : this.#token;
-  }
-
   async #authedFetch(path: string, init?: RequestInit): Promise<Response> {
     const headers = new Headers(this.#headers);
     if (init?.headers) {
@@ -309,7 +240,7 @@ export class BackupsManager {
         headers.set(key, value),
       );
     }
-    headers.set('authorization', `Bearer ${await this.#getToken()}`);
+    headers.set('authorization', `Bearer ${this.#token}`);
     return this.#fetch(`${this.#apiURI}${path}`, { ...init, headers });
   }
 
@@ -415,23 +346,8 @@ export class BackupsManager {
       }
       const record = value as Record<string, unknown>;
       if (record.done === true) {
-        if (complete) {
-          throw new BackupDownloadError(
-            'Storage file listing contains more than one completion marker.',
-          );
-        }
         complete = true;
         continue;
-      }
-      if (complete) {
-        throw new BackupDownloadError(
-          'Storage file listing contains data after its completion marker.',
-        );
-      }
-      if (typeof record.locationId === 'string' && !record.locationId.trim()) {
-        throw new BackupDownloadError(
-          `Storage file listing contains a blank location ID on line ${lineNumber}.`,
-        );
       }
       if (
         typeof record.locationId !== 'string' ||
@@ -471,10 +387,29 @@ export class BackupsManager {
     if (signal?.aborted) forwardAbort();
     else signal?.addEventListener('abort', forwardAbort, { once: true });
 
-    const storageQueue = new AsyncQueue<{
-      file: StorageFile;
-      name: string;
-    }>(256);
+    // `storageQueue` is a FIFO of yet-to-fetch storage files — dequeued as the
+    // generator reaches the storage phase. It's an object with head/tail
+    // indices rather than an array because discovery streams the whole list in
+    // up front: Array.shift() is O(n), so draining a large backup would be
+    // O(n²). Object access is O(1) and delete frees each slot as it's consumed.
+    const storageQueue: Record<number, { file: StorageFile; name: string }> =
+      {};
+    let queueHead = 0;
+    let queueTail = 0;
+    let storageDone = false;
+    let storageError: unknown = null;
+    let waitResolve: (() => void) | null = null;
+
+    const notify = () => {
+      const w = waitResolve;
+      waitResolve = null;
+      w?.();
+    };
+
+    // Kick off storage-files discovery in parallel with the backup file list,
+    // draining the listing as fast as the server streams it so it can finish
+    // and close the connection; a response left half-read through the whole
+    // entity phase risks being cut off by proxy idle timeouts.
     const storageProducer = (async () => {
       const seenEntries = new Set<string>();
       try {
@@ -490,14 +425,17 @@ export class BackupsManager {
             );
           }
           seenEntries.add(name);
+          storageQueue[queueTail++] = { file, name };
           callbacks?.onStorageFile?.(file);
-          if (!(await storageQueue.push({ file, name }))) return;
+          notify();
         }
         callbacks?.onStorageComplete?.();
-        storageQueue.close();
       } catch (error) {
-        storageQueue.close(error);
+        storageError = error;
         if (!controller.signal.aborted) controller.abort(error);
+      } finally {
+        storageDone = true;
+        notify();
       }
     })();
 
@@ -539,9 +477,21 @@ export class BackupsManager {
       }
 
       while (true) {
-        const next = await storageQueue.next();
-        if (next.done) break;
-        const { file, name } = next.value;
+        if (storageError) throw storageError;
+        let next: { file: StorageFile; name: string } | undefined;
+        if (queueHead < queueTail) {
+          next = storageQueue[queueHead];
+          delete storageQueue[queueHead];
+          queueHead++;
+        }
+        if (!next) {
+          if (storageDone) break;
+          await new Promise<void>((resolve) => {
+            waitResolve = resolve;
+          });
+          continue;
+        }
+        const { file, name } = next;
         const sourceName = safeDisplayName(file.path ?? file.locationId);
         const response = await this.#fetch(file.url, {
           signal: controller.signal,
@@ -567,7 +517,6 @@ export class BackupsManager {
       }
     } finally {
       controller.abort();
-      storageQueue.close();
       await storageProducer;
       signal?.removeEventListener('abort', forwardAbort);
     }

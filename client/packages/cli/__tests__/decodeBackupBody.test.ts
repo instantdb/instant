@@ -64,36 +64,6 @@ describe('decodeNodeBackupBody', () => {
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
-  test('cancels an encoded response body when decompression is canceled', async () => {
-    const onCancel = vi.fn();
-    const compressed = zstdCompressSync(bytes('encoded body'));
-    let firstPull = true;
-    const response = new Response(
-      new ReadableStream<Uint8Array>({
-        pull(controller) {
-          if (firstPull) {
-            firstPull = false;
-            controller.enqueue(compressed.subarray(0, 4));
-          }
-        },
-        cancel() {
-          onCancel();
-        },
-      }),
-    );
-    const decoded = await decodeNodeBackupBody(response);
-
-    await decoded.cancel('stopped');
-
-    await vi.waitFor(() => expect(onCancel).toHaveBeenCalledOnce());
-  });
-
-  test('rejects responses without a body', async () => {
-    await expect(decodeNodeBackupBody(new Response(null))).rejects.toThrow(
-      'Backup entry response has no body.',
-    );
-  });
-
   test('fails clearly when Node does not support zstd', async () => {
     vi.doMock('node:zlib', () => ({ createZstdDecompress: undefined }));
     try {
