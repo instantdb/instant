@@ -242,6 +242,21 @@ async function downloadBackup(
     w?.();
   };
 
+  // Throttle progress updates by time: a large backup pushes many small chunks
+  // (and a large listing many discovery lines) and ticking (a React setState)
+  // on every one would flood re-renders. Ticking at most every 100ms stays
+  // smooth at any size. Phase changes and completion tick() directly so they're
+  // still immediate.
+  const TICK_INTERVAL_MS = 100;
+  let lastTickAt = 0;
+  const throttledTick = () => {
+    const now = Date.now();
+    if (now - lastTickAt >= TICK_INTERVAL_MS) {
+      lastTickAt = now;
+      tick();
+    }
+  };
+
   // Kick off storage-files discovery in parallel with the backup file list.
   // It pushes onto storagePending and bumps `storageDiscovered` as URLs
   // stream in.
@@ -280,7 +295,7 @@ async function downloadBackup(
         if (!obj.locationId || !obj.url) return;
         storageQueue[queueTail++] = obj;
         filesTotal = (filesTotal ?? 0) + 1;
-        tick();
+        throttledTick();
         notify();
       };
       while (true) {
@@ -332,7 +347,9 @@ async function downloadBackup(
     abortController.abort();
     throw e;
   }
-  entitiesTotal = files.length;
+  // config.json isn't a namespace — count only the entities/*.jsonl shards so
+  // the "N namespaces" label isn't off by one.
+  entitiesTotal = files.filter((f) => f.name !== 'config.json').length;
   tick();
 
   // Entry write order is significant for restore: config first, then the
@@ -349,7 +366,7 @@ async function downloadBackup(
       if (!res.ok) {
         throw new Error(`Failed to fetch ${f.name}: ${res.status}`);
       }
-      entitiesCompleted++;
+      if (f.name !== 'config.json') entitiesCompleted++;
       tick();
       yield {
         name: f.name,
@@ -363,6 +380,7 @@ async function downloadBackup(
     tick();
 
     while (true) {
+      if (storageError) throw storageError;
       let obj: StorageFileLine | undefined;
       if (queueHead < queueTail) {
         obj = storageQueue[queueHead];
@@ -400,12 +418,6 @@ async function downloadBackup(
     if (storageError) throw storageError;
   })();
 
-  // Throttle progress updates by time: a large backup pushes many small chunks
-  // and ticking (a React setState) on every one would flood re-renders. Ticking
-  // at most every 100ms stays smooth at any size while capping re-renders.
-  const TICK_INTERVAL_MS = 100;
-  let lastTickAt = 0;
-
   let diskWriter: WritableStreamDefaultWriter<Uint8Array> | null = null;
   try {
     // Load the zip encoder on demand (kept out of the shared bundle). Inside the
@@ -421,11 +433,7 @@ async function downloadBackup(
     const countingSink = new WritableStream<Uint8Array>({
       async write(chunk) {
         zipBytes += chunk.byteLength;
-        const now = Date.now();
-        if (now - lastTickAt >= TICK_INTERVAL_MS) {
-          lastTickAt = now;
-          tick();
-        }
+        throttledTick();
         await writer.write(chunk);
       },
       async close() {
@@ -613,16 +621,29 @@ function DownloadInstance({
     typeof import('native-file-system-adapter').showSaveFilePicker | null
   >(null);
   const [pickerReady, setPickerReady] = useState(false);
-  useEffect(() => {
-    void Promise.all([
+  const [pickerError, setPickerError] = useState(false);
+  const loadPicker = useCallback(() => {
+    setPickerError(false);
+    Promise.all([
       import('native-file-system-adapter').then((m) => {
         pickerRef.current = m.showSaveFilePicker;
       }),
       // Register the fallback's service worker up front (no-op on Chromium) so
       // it's active before we write, rather than installing it in the hot path.
       registerDownloadServiceWorker(),
-    ]).then(() => setPickerReady(true));
+    ])
+      .then(() => setPickerReady(true))
+      .catch((e) => {
+        // A rejected import / SW registration would otherwise leave the button
+        // permanently disabled (and surface as an unhandled rejection). Flag it
+        // so the user gets a retry instead of a dead button.
+        console.error('Failed to prepare backup download', e);
+        setPickerError(true);
+      });
   }, []);
+  useEffect(() => {
+    loadPicker();
+  }, [loadPicker]);
 
   // While actively downloading, warn before a full page unload (tab close,
   // refresh, external/hard navigation) — that tears down the JS context and
@@ -760,15 +781,26 @@ function DownloadInstance({
             compression ratio.
           </Content>
         ) : null}
+        {pickerError ? (
+          <Content className="text-red-600 dark:text-red-400">
+            Couldn't prepare the download. Please retry.
+          </Content>
+        ) : null}
         <div className="flex flex-row gap-2">
-          <Button
-            type="button"
-            variant="primary"
-            onClick={start}
-            disabled={!pickerReady}
-          >
-            Download
-          </Button>
+          {pickerError ? (
+            <Button type="button" variant="primary" onClick={loadPicker}>
+              Retry
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="primary"
+              onClick={start}
+              disabled={!pickerReady}
+            >
+              Download
+            </Button>
+          )}
           <Button type="button" variant="secondary" onClick={dismiss}>
             Cancel
           </Button>
