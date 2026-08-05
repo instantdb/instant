@@ -20,6 +20,7 @@ import { SWRConfig } from 'swr';
 import { localStorageProvider } from '@/lib/swrCache';
 import posthog from '@/lib/posthog';
 import { PostHogProvider } from 'posthog-js/react';
+import { BackupDownloadProvider } from '@/components/dash/BackupDownloadDialog';
 
 declare global {
   function __getAppId(): any;
@@ -62,7 +63,9 @@ function App({ Component, pageProps }: AppPropsWithLayout) {
             provider: localStorageProvider,
           }}
         >
-          <NuqsAdapter>{mainEl}</NuqsAdapter>
+          <NuqsAdapter>
+            <BackupDownloadProvider>{mainEl}</BackupDownloadProvider>
+          </NuqsAdapter>
         </SWRConfig>
       </ErrorBoundary>
       {!isDev && !isSelfHosted && <GoogleScripts />}

@@ -1,18 +1,26 @@
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 import config from '@/lib/config';
 import { useAuthedFetch } from '@/lib/auth';
+import { TokenContext } from '@/lib/contexts';
 import { InstantApp, InstantAppBackup } from '@/lib/types';
 
-import { Button, Content, SectionHeading, useDialog } from '@/components/ui';
+import {
+  Button,
+  Content,
+  SectionHeading,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui';
 import {
   ErrorMessage,
   Loading,
   formatTimestamp,
 } from '@/components/dash/shared';
 import { CopyableText } from '@/components/dash/Webhooks';
-import { DownloadDialog } from '@/components/dash/BackupDownloadDialog';
+import { useBackupDownloads } from '@/components/dash/BackupDownloadDialog';
 import {
   Item,
   ItemActions,
@@ -29,7 +37,36 @@ function BackupRow({
   app: InstantApp;
   backup: InstantAppBackup;
 }) {
-  const downloadDialog = useDialog();
+  const token = useContext(TokenContext);
+  const { open, active } = useBackupDownloads();
+
+  const isActive = active?.id === backup.id;
+  // Only one download at a time: while another backup is actively downloading,
+  // this row's button is disabled with an explanation.
+  const blockedByOther = active?.status === 'downloading' && !isActive;
+  // Only relabel once the download has actually started (past the confirm
+  // dialog) — while confirming it's still just "Download".
+  const downloadLabel =
+    isActive && active?.status === 'downloading'
+      ? 'Downloading…'
+      : isActive &&
+          (active?.status === 'complete' || active?.status === 'error')
+        ? 'Show download'
+        : 'Download';
+
+  const downloadButton = (
+    <Button
+      variant="secondary"
+      size="mini"
+      disabled={blockedByOther}
+      // pointer-events-none so hover falls through to the wrapping tooltip
+      // trigger below — a disabled button emits no pointer events itself.
+      className={blockedByOther ? 'pointer-events-none' : undefined}
+      onClick={blockedByOther ? undefined : () => open(app, backup, token)}
+    >
+      <ArrowDownTrayIcon width={14} /> {downloadLabel}
+    </Button>
+  );
 
   return (
     <Item
@@ -55,11 +92,21 @@ function BackupRow({
         </dl>
       </ItemContent>
       <ItemActions>
-        <Button variant="secondary" size="mini" onClick={downloadDialog.onOpen}>
-          <ArrowDownTrayIcon width={14} /> Download
-        </Button>
+        {blockedByOther ? (
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <span className="inline-flex cursor-not-allowed">
+                {downloadButton}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              You can only download one backup at a time.
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          downloadButton
+        )}
       </ItemActions>
-      <DownloadDialog app={app} backup={backup} dialog={downloadDialog} />
     </Item>
   );
 }
