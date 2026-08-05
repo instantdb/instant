@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { once } from 'node:events';
 import zlib from 'node:zlib';
+import { BackupsManager } from '@instantdb/platform';
 import { downloadBackupToFile } from '../src/lib/backupDownload.ts';
 
 // Exercises the real pipeline end-to-end against a local HTTP server: zstd
@@ -88,6 +89,11 @@ const manager = {
     for (const f of storageFiles) {
       yield { locationId: f.locationId, path: f.path, url: f.url() };
     }
+  },
+  // Borrow the real method so the test drives the production pipeline
+  // against this fake's endpoints.
+  downloadArchive(opts: unknown) {
+    return (BackupsManager.prototype.downloadArchive as any).call(this, opts);
   },
 } as any;
 

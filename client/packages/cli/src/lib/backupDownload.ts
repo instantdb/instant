@@ -6,13 +6,12 @@ import { get as httpGet, type IncomingMessage } from 'node:http';
 import { get as httpsGet } from 'node:https';
 import { Readable, Writable, type Duplex } from 'node:stream';
 import zlib from 'node:zlib';
-import {
-  downloadBackupArchive,
-  type AppBackup,
-  type BackupArchiveWriter,
-  type BackupDownloadProgress,
-  type BackupDownloadResult,
-  type BackupsManager,
+import type {
+  AppBackup,
+  BackupArchiveWriter,
+  BackupDownloadProgress,
+  BackupDownloadResult,
+  BackupsManager,
 } from '@instantdb/platform';
 
 export type {
@@ -84,7 +83,8 @@ async function createZipWriter(
 
 /**
  * Downloads a backup into a zip file at `outPath` via the shared
- * `downloadBackupArchive` pipeline, supplying the Node-specific pieces:
+ * `BackupsManager.downloadArchive` pipeline, supplying the Node-specific
+ * pieces:
  * presigned URLs are fetched with node:http(s) and decompressed explicitly,
  * and the archive streams to disk with backpressure so memory stays flat
  * regardless of backup size.
@@ -116,8 +116,7 @@ export async function downloadBackupToFile(opts: {
     if (!fileStream.closed) await once(fileStream, 'close');
   };
   try {
-    const result = await downloadBackupArchive({
-      manager: opts.manager,
+    const result = await opts.manager.downloadArchive({
       backup: opts.backup,
       fetchBody,
       sink: Writable.toWeb(fileStream) as WritableStream<Uint8Array>,

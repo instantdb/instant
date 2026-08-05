@@ -127,7 +127,6 @@ export {
 } from './backups.ts';
 
 export {
-  downloadBackupArchive,
   type DownloadBackupArchiveOpts,
   type BackupArchiveWriter,
   type BackupDownloadProgress,
