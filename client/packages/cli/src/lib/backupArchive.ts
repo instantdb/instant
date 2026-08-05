@@ -59,6 +59,8 @@ export async function downloadBackupArchive({
   );
   const fileHandle = await open(partialPath, 'wx');
   const fileStream = fileHandle.createWriteStream();
+  // finished() rejects if the stream errors before we await it below; the
+  // noop catch keeps that from surfacing as an unhandled rejection.
   const fileFinished = finished(fileStream);
   void fileFinished.catch(() => undefined);
 
@@ -76,6 +78,9 @@ export async function downloadBackupArchive({
     storageTotal: null,
     storageDiscoveryComplete: false,
     bytesRead: 0,
+    // Denominator for the % display: uncompressed entities + storage files,
+    // since we read (and count) both. Gated on uncompressed_size — no size,
+    // no percentage — with files_size added when present.
     bytesTotal:
       backup.uncompressed_size == null
         ? null

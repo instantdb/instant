@@ -244,6 +244,8 @@ async function downloadBackup(
           tick();
         },
         onStorageComplete() {
+          // Discovery finished without ever seeing a file (empty stream) —
+          // surface "0 of 0" so the dialog doesn't sit on "?" forever.
           filesTotal ??= 0;
           tick();
         },
@@ -267,6 +269,8 @@ async function downloadBackup(
       }
       if (entry.kind === 'entity') entitiesCompleted++;
       if (entry.kind !== 'storage' && entitiesCompleted === entitiesTotal) {
+        // Entity phase done — clear so the dialog stops claiming we're still
+        // downloading an entity file once we move into storage.
         currentEntity = '';
       }
       tick();

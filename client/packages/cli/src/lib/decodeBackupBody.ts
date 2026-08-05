@@ -89,6 +89,12 @@ const hasZstdMagic = (prefix: Uint8Array) =>
   prefix.byteLength === zstdMagic.byteLength &&
   prefix.every((byte, index) => byte === zstdMagic[index]);
 
+/**
+ * Backup entries are stored zstd-compressed in S3. Depending on the Node
+ * version, fetch may have already decompressed the body (undici only gained
+ * zstd support recently), so sniff the magic bytes and only decompress when
+ * the body is still compressed.
+ */
 export async function decodeNodeBackupBody(
   response: Response,
 ): Promise<ReadableStream<Uint8Array>> {

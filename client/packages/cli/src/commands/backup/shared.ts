@@ -26,6 +26,8 @@ export const backupDataSize = (backup: InstantAppBackup) => {
   return (databaseSize ?? 0) + (backup.files_size ?? 0);
 };
 
+// Decimal (1000-based) units with SI labels, to match how macOS/Finder
+// reports file sizes so the number lines up with what lands on disk.
 export const formatBytes = (bytes: number | null) => {
   if (bytes == null) return 'size unknown';
   if (bytes < 1000) return `${bytes} B`;

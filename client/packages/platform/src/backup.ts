@@ -175,37 +175,6 @@ const responseError = async (response: Response, action: string) => {
   );
 };
 
-async function* lines(
-  body: ReadableStream<Uint8Array>,
-): AsyncGenerator<string> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let reachedEnd = false;
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        reachedEnd = true;
-        break;
-      }
-      buffer += decoder.decode(value, { stream: true });
-      let newline = buffer.indexOf('\n');
-      while (newline !== -1) {
-        yield buffer.slice(0, newline);
-        buffer = buffer.slice(newline + 1);
-        newline = buffer.indexOf('\n');
-      }
-    }
-    buffer += decoder.decode();
-    if (buffer) yield buffer;
-  } finally {
-    if (!reachedEnd) await reader.cancel().catch(() => undefined);
-    reader.releaseLock();
-  }
-}
-
 export class BackupsManager {
   readonly #apiURI: string;
   readonly #token: string;
@@ -325,20 +294,22 @@ export class BackupsManager {
       throw new BackupDownloadError('Listing storage files returned no body.');
     }
 
+    // Set once we see the server's terminal `done` sentinel. If the listing
+    // ends without it, the stream was truncated by a server-side failure.
     let complete = false;
     let lineNumber = 0;
-    for await (const line of lines(response.body)) {
+    const consume = (line: string): StorageFile | undefined => {
       lineNumber++;
-      if (!line.trim()) continue;
+      const trimmed = line.trim();
+      if (trimmed.length === 0) return;
       let value: unknown;
       try {
-        value = JSON.parse(line);
+        value = JSON.parse(trimmed);
       } catch {
         throw new BackupDownloadError(
           `Storage file listing contains invalid JSON on line ${lineNumber}.`,
         );
       }
-
       if (!value || typeof value !== 'object') {
         throw new BackupDownloadError(
           `Storage file listing contains an invalid record on line ${lineNumber}.`,
@@ -347,7 +318,7 @@ export class BackupsManager {
       const record = value as Record<string, unknown>;
       if (record.done === true) {
         complete = true;
-        continue;
+        return;
       }
       if (
         typeof record.locationId !== 'string' ||
@@ -359,13 +330,34 @@ export class BackupsManager {
           `Storage file listing contains an invalid record on line ${lineNumber}.`,
         );
       }
-      yield {
+      return {
         locationId: record.locationId,
         path: record.path,
         url: record.url,
       };
-    }
+    };
 
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl = buf.indexOf('\n');
+      while (nl !== -1) {
+        const file = consume(buf.slice(0, nl));
+        if (file) yield file;
+        buf = buf.slice(nl + 1);
+        nl = buf.indexOf('\n');
+      }
+    }
+    buf += decoder.decode();
+    const file = consume(buf);
+    if (file) yield file;
+
+    // No `done` sentinel → the server closed the pipe early. Fail loudly
+    // instead of building a partial zip.
     if (!complete) {
       throw new BackupDownloadError(
         'Storage file listing ended before it finished. Please retry the download.',
@@ -387,11 +379,12 @@ export class BackupsManager {
     if (signal?.aborted) forwardAbort();
     else signal?.addEventListener('abort', forwardAbort, { once: true });
 
-    // `storageQueue` is a FIFO of yet-to-fetch storage files — dequeued as the
-    // generator reaches the storage phase. It's an object with head/tail
-    // indices rather than an array because discovery streams the whole list in
-    // up front: Array.shift() is O(n), so draining a large backup would be
-    // O(n²). Object access is O(1) and delete frees each slot as it's consumed.
+    // `storageQueue` is a FIFO of yet-to-fetch storage files only — dequeued as
+    // the generator processes them, so it stays bounded by (discovery rate -
+    // fetch rate). It's an object with head/tail indices rather than an array
+    // because discovery streams the whole list in up front: Array.shift() is O(n),
+    // so draining a large backup would be O(n²). Object access is O(1) and delete
+    // frees each slot as it's consumed.
     const storageQueue: Record<number, { file: StorageFile; name: string }> =
       {};
     let queueHead = 0;
@@ -406,10 +399,11 @@ export class BackupsManager {
       w?.();
     };
 
-    // Kick off storage-files discovery in parallel with the backup file list,
-    // draining the listing as fast as the server streams it so it can finish
-    // and close the connection; a response left half-read through the whole
-    // entity phase risks being cut off by proxy idle timeouts.
+    // Kick off storage-files discovery in parallel with the backup file list.
+    // It pushes onto `storageQueue` as URLs stream in, draining the listing as
+    // fast as the server sends it so it can finish and close the connection —
+    // a response left half-read through the whole entity phase risks being cut
+    // off by proxy idle timeouts.
     const storageProducer = (async () => {
       const seenEntries = new Set<string>();
       try {
@@ -431,6 +425,8 @@ export class BackupsManager {
         }
         callbacks?.onStorageComplete?.();
       } catch (error) {
+        // The abort path is expected when the consumer tore the discovery
+        // down in its finally; storageError is never read after that.
         storageError = error;
         if (!controller.signal.aborted) controller.abort(error);
       } finally {
@@ -449,72 +445,79 @@ export class BackupsManager {
         );
       }
 
-      for (const file of files) {
+      // Entry write order is significant for restore: config first, then the
+      // entities/*.jsonl shards, then files/${locationId}. In particular ALL
+      // entity files must be written before ANY storage file. This generator
+      // preserves that: it yields the canonicalized `files` (config first,
+      // then sorted entities) to completion, then drains the storage queue.
+      for (const f of files) {
         const url = await this.#fileUrl(
           appId,
           backup.id,
-          file.name,
+          f.name,
           controller.signal,
         );
-        const response = await this.#fetch(url, {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw await responseError(response, `Downloading ${file.name}`);
+        const res = await this.#fetch(url, { signal: controller.signal });
+        if (!res.ok) {
+          throw await responseError(res, `Downloading ${f.name}`);
         }
-        if (!response.body) {
+        if (!res.body) {
           throw new BackupDownloadError(
-            `Downloading ${file.name} returned no body.`,
+            `Downloading ${f.name} returned no body.`,
           );
         }
         yield {
-          kind: file.name === 'config.json' ? 'config' : 'entity',
-          name: file.name,
-          sourceName: file.name,
+          kind: f.name === 'config.json' ? 'config' : 'entity',
+          name: f.name,
+          sourceName: f.name,
           lastModified,
-          input: await this.#decodeBackupBody(response),
+          input: await this.#decodeBackupBody(res),
         };
       }
 
       while (true) {
         if (storageError) throw storageError;
-        let next: { file: StorageFile; name: string } | undefined;
+        let obj: { file: StorageFile; name: string } | undefined;
         if (queueHead < queueTail) {
-          next = storageQueue[queueHead];
+          obj = storageQueue[queueHead];
           delete storageQueue[queueHead];
           queueHead++;
         }
-        if (!next) {
-          if (storageDone) break;
+        if (obj) {
+          const sourceName = safeDisplayName(
+            obj.file.path ?? obj.file.locationId,
+          );
+          const fileRes = await this.#fetch(obj.file.url, {
+            signal: controller.signal,
+          });
+          if (!fileRes.ok) {
+            throw await responseError(
+              fileRes,
+              `Downloading storage file "${sourceName}"`,
+            );
+          }
+          if (!fileRes.body) {
+            throw new BackupDownloadError(
+              `Downloading storage file "${sourceName}" returned no body.`,
+            );
+          }
+          yield {
+            kind: 'storage',
+            name: obj.name,
+            sourceName,
+            lastModified,
+            input: fileRes.body,
+          };
+        } else if (storageDone) {
+          break;
+        } else {
           await new Promise<void>((resolve) => {
             waitResolve = resolve;
           });
-          continue;
         }
-        const { file, name } = next;
-        const sourceName = safeDisplayName(file.path ?? file.locationId);
-        const response = await this.#fetch(file.url, {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw await responseError(
-            response,
-            `Downloading storage file "${sourceName}"`,
-          );
-        }
-        if (!response.body) {
-          throw new BackupDownloadError(
-            `Downloading storage file "${sourceName}" returned no body.`,
-          );
-        }
-        yield {
-          kind: 'storage',
-          name,
-          sourceName,
-          lastModified,
-          input: response.body,
-        };
       }
+
+      if (storageError) throw storageError;
     } finally {
       controller.abort();
       await storageProducer;
