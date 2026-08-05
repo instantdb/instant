@@ -12,7 +12,7 @@ export const formatBackupDate = (date: Date) =>
 export const stripControlChars = (s: string) => s.replace(/\p{Cc}/gu, '');
 
 // Relative times in both directions: "3 hours ago", "6 days from now".
-const relativeTime = (date: Date): string => {
+export const relativeTime = (date: Date): string => {
   const diffMs = date.getTime() - Date.now();
   const abs = Math.abs(diffMs);
   if (abs < 60_000) return diffMs <= 0 ? 'just now' : 'now';

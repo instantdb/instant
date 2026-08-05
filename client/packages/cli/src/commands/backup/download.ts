@@ -22,11 +22,7 @@ import {
 import { promptOk, runUIEffect } from '../../lib/ui.ts';
 import { onTerminate, renderUnwrap } from '../../ui/lib.ts';
 import { UI } from '../../ui/index.ts';
-import {
-  formatBackupDate,
-  renderBackupsTable,
-  stripControlChars,
-} from './list.ts';
+import { relativeTime, renderBackupsTable, stripControlChars } from './list.ts';
 
 const pickBackup = (
   backups: AppBackup[],
@@ -65,14 +61,23 @@ const pickBackup = (
       });
     }
 
+    // Aligned like the `backup list` table so the options scan as columns:
+    // created, sizes, expiry, description, id.
+    const cells = sorted.map((backup) => [
+      relativeTime(backup.backupAt),
+      backup.dbSize != null ? formatFileSize(backup.dbSize) : '-',
+      backup.filesSize != null ? formatFileSize(backup.filesSize) : '-',
+      backup.expiresAt ? `expires ${relativeTime(backup.expiresAt)}` : '',
+      backup.description ? stripControlChars(backup.description) : '',
+    ]);
+    const widths = cells[0].map((_, i) =>
+      Math.max(...cells.map((row) => row[i].length)),
+    );
     return yield* runUIEffect(
       new UI.Select({
-        options: sorted.map((backup) => ({
+        options: sorted.map((backup, idx) => ({
           label:
-            formatBackupDate(backup.backupAt) +
-            (backup.description
-              ? ` — ${stripControlChars(backup.description)}`
-              : '') +
+            cells[idx].map((cell, i) => cell.padEnd(widths[i])).join('  ') +
             ` ${chalk.dim(`(${backup.id})`)}`,
           value: backup,
         })),
