@@ -34,6 +34,7 @@
     "@instantdb/core": "workspace:*",
     "@instantdb/platform": "workspace:*",
     "@instantdb/version": "workspace:*",
+    "@zip.js/zip.js": "^2.8.34",
     "acorn": "^8.15.0",
     "acorn-typescript": "^1.4.13",
     "ansi-escapes": "4.3.2",
