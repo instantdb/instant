@@ -380,7 +380,11 @@
     (ex/throw-validation-err!
      :restore
      {:app-id app-id}
-     [{:message "An app already exists with this id."}])))
+     [{:message (format (str "An app already exists with this id, so the restore can't create it. "
+                             "If you want to overwrite the existing app, first delete it by connecting to your Postgres database and running:\n\n"
+                             "  DELETE FROM apps WHERE id = '%s'::uuid;\n\n"
+                             "This permanently deletes the existing app and all of its data. After the DELETE succeeds, run the restore again.")
+                        app-id)}])))
 
 (def delete-app-triples-q
   (uhsql/preformat
