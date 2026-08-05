@@ -1840,12 +1840,15 @@
         objects (s3-util/list-all-objects (storage-s3/s3-client)
                                           config/s3-app-backups-bucket-name
                                           {:prefix prefix})
-        files (mapv (fn [obj]
-                      (let [k (:key obj)
-                            file-name (subs k (count prefix))]
-                        {:name file-name
-                         :size (:size obj)}))
-                    objects)]
+        files (->> objects
+                   (map (fn [obj]
+                          (let [k (:key obj)
+                                file-name (subs k (count prefix))]
+                            {:name file-name
+                             :size (:size obj)})))
+                   ;; Make sure config.json is the first entry (required for restore)
+                   (sort-by (fn [f] (if (= "config.json" (:name f)) 0 1)))
+                   vec)]
     (response/ok {:files files})))
 
 (defn app-backup-file-url-get [req]
