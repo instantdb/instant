@@ -61,9 +61,10 @@ const pickBackup = (
       });
     }
 
-    // Aligned like the `backup list` table so the options scan as columns:
-    // created, sizes, expiry, description, id.
+    // Aligned columns in the same order as the `backup list` table: id,
+    // created, sizes, expiry, description.
     const cells = sorted.map((backup) => [
+      backup.id,
       relativeTime(backup.backupAt),
       backup.dbSize != null ? formatFileSize(backup.dbSize) : '-',
       backup.filesSize != null ? formatFileSize(backup.filesSize) : '-',
@@ -76,9 +77,7 @@ const pickBackup = (
     return yield* runUIEffect(
       new UI.Select({
         options: sorted.map((backup, idx) => ({
-          label:
-            cells[idx].map((cell, i) => cell.padEnd(widths[i])).join('  ') +
-            ` ${chalk.dim(`(${backup.id})`)}`,
+          label: cells[idx].map((cell, i) => cell.padEnd(widths[i])).join('  '),
           value: backup,
         })),
         promptText: 'Select a backup to download:',
