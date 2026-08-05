@@ -65,7 +65,7 @@ const pickBackup = (
     // created, sizes, expiry, description.
     const cells = sorted.map((backup) => [
       backup.id,
-      relativeTime(backup.backupAt),
+      `created ${relativeTime(backup.backupAt)}`,
       backup.dbSize != null ? formatFileSize(backup.dbSize) : '-',
       backup.filesSize != null ? formatFileSize(backup.filesSize) : '-',
       backup.expiresAt ? `expires ${relativeTime(backup.expiresAt)}` : '',
