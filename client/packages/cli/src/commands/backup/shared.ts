@@ -1,9 +1,15 @@
 import chalk from 'chalk';
 import { Effect } from 'effect';
-import type { InstantAppBackup } from '@instantdb/platform';
+import {
+  backupDataSize,
+  formatByteSize,
+  type InstantAppBackup,
+} from '@instantdb/platform';
 
 import { PlatformApiError } from '../../context/platformApi.ts';
 import { buildBackupsManager } from '../../lib/backups.ts';
+
+export { backupDataSize };
 
 export const activeBackups = (
   backups: readonly InstantAppBackup[],
@@ -20,25 +26,8 @@ export const activeBackups = (
         new Date(b.backup_at).valueOf() - new Date(a.backup_at).valueOf(),
     );
 
-export const backupDataSize = (backup: InstantAppBackup) => {
-  const databaseSize = backup.uncompressed_size ?? backup.db_size;
-  if (databaseSize == null && backup.files_size == null) return null;
-  return (databaseSize ?? 0) + (backup.files_size ?? 0);
-};
-
-export const formatBytes = (bytes: number | null) => {
-  if (bytes == null) return 'size unknown';
-  if (bytes < 1000) return `${bytes} B`;
-  const units = ['KB', 'MB', 'GB', 'TB', 'PB'];
-  let value = bytes;
-  let unit = -1;
-  do {
-    value /= 1000;
-    unit++;
-  } while (value >= 1000 && unit < units.length - 1);
-  const digits = value < 10 ? 2 : value < 100 ? 1 : 0;
-  return `${value.toFixed(digits)} ${units[unit]}`;
-};
+export const formatBytes = (bytes: number | null) =>
+  bytes == null ? 'size unknown' : formatByteSize(bytes);
 
 export const formatBackupTime = (timestamp: string) => {
   const date = new Date(timestamp);

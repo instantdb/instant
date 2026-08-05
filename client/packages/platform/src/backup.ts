@@ -144,6 +144,52 @@ export function backupZipName(backup: InstantAppBackup): string {
   return `instant-backup-${safe}.zip`;
 }
 
+/**
+ * Total uncompressed bytes the backup's data unpacks to (database entities
+ * plus storage files), or null when the backup row carries no sizes.
+ */
+export function backupDataSize(backup: InstantAppBackup): number | null {
+  const databaseSize = backup.uncompressed_size ?? backup.db_size;
+  if (databaseSize == null && backup.files_size == null) return null;
+  return (databaseSize ?? 0) + (backup.files_size ?? 0);
+}
+
+/**
+ * Estimated size range for the backup's zip archive. Upper bound: everything
+ * stored uncompressed (STORE mode and/or files that don't compress). Lower
+ * bound: everything compressed at a ~4x DEFLATE ratio, best case for
+ * text/JSON, but storage files vary wildly (raw text compresses well,
+ * already-compressed images/videos don't), so the actual zip lands somewhere
+ * inside the range. Null unless the backup row carries both the database and
+ * storage-file sizes.
+ */
+export function backupZipSizeEstimate(
+  backup: InstantAppBackup,
+): { minBytes: number; maxBytes: number } | null {
+  const databaseSize = backup.uncompressed_size ?? backup.db_size;
+  if (databaseSize == null || backup.files_size == null) return null;
+  const totalBytes = databaseSize + backup.files_size;
+  return { minBytes: Math.round(totalBytes / 4), maxBytes: totalBytes };
+}
+
+/**
+ * Formats a byte count with decimal (1000-based) SI units, matching how
+ * macOS/Finder reports file sizes so the number lines up with what lands on
+ * disk.
+ */
+export function formatByteSize(bytes: number): string {
+  if (bytes < 1000) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB', 'PB'];
+  let value = bytes;
+  let unit = -1;
+  do {
+    value /= 1000;
+    unit++;
+  } while (value >= 1000 && unit < units.length - 1);
+  const digits = value < 10 ? 2 : value < 100 ? 1 : 0;
+  return `${value.toFixed(digits)} ${units[unit]}`;
+}
+
 const storageEntryName = (locationId: string) => {
   if (
     !locationId.trim() ||

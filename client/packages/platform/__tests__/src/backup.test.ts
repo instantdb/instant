@@ -3,7 +3,10 @@ import { describe, expect, test, vi } from 'vitest';
 import {
   BackupsManager,
   BackupDownloadError,
+  backupDataSize,
+  backupZipSizeEstimate,
   canonicalizeBackupFiles,
+  formatByteSize,
   type BackupEntry,
   type InstantAppBackup,
 } from '../../src/backup.ts';
@@ -520,5 +523,49 @@ describe('BackupsManager', () => {
         'Listing backups failed with HTTP 404: Backup expired',
       ),
     );
+  });
+});
+
+describe('backup sizes', () => {
+  test('backupDataSize prefers uncompressed_size and adds files', () => {
+    expect(backupDataSize(backup)).toBe(24);
+    expect(backupDataSize({ ...backup, uncompressed_size: null })).toBe(23);
+    expect(
+      backupDataSize({ ...backup, uncompressed_size: null, db_size: null }),
+    ).toBe(11);
+    expect(
+      backupDataSize({
+        ...backup,
+        uncompressed_size: null,
+        db_size: null,
+        files_size: null,
+      }),
+    ).toBeNull();
+  });
+
+  test('backupZipSizeEstimate requires both sizes', () => {
+    expect(
+      backupZipSizeEstimate({
+        ...backup,
+        uncompressed_size: 400,
+        files_size: 100,
+      }),
+    ).toEqual({ minBytes: 125, maxBytes: 500 });
+    expect(backupZipSizeEstimate({ ...backup, files_size: null })).toBeNull();
+    expect(
+      backupZipSizeEstimate({
+        ...backup,
+        uncompressed_size: null,
+        db_size: null,
+      }),
+    ).toBeNull();
+  });
+
+  test('formatByteSize uses decimal units', () => {
+    expect(formatByteSize(0)).toBe('0 B');
+    expect(formatByteSize(999)).toBe('999 B');
+    expect(formatByteSize(1000)).toBe('1.00 KB');
+    expect(formatByteSize(1535270121)).toBe('1.54 GB');
+    expect(formatByteSize(44670424469)).toBe('44.7 GB');
   });
 });

@@ -9,7 +9,12 @@ import {
   type ReactNode,
 } from 'react';
 import { ArrowsPointingOutIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { BackupsManager, backupZipName } from '@instantdb/platform';
+import {
+  BackupsManager,
+  backupZipName,
+  backupZipSizeEstimate,
+  formatByteSize,
+} from '@instantdb/platform';
 
 import config from '@/lib/config';
 import { messageFromInstantError } from '@/lib/errors';
@@ -39,21 +44,6 @@ type DownloadProgress = {
   currentFile: string;
   outputFilename: string;
 };
-
-function formatBytes(n: number): string {
-  // Decimal (1000-based) units with SI labels, to match how macOS/Finder
-  // reports file sizes so the number lines up with what lands on disk.
-  if (n < 1000) return `${n} B`;
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let i = -1;
-  let v = n;
-  do {
-    v /= 1000;
-    i++;
-  } while (v >= 1000 && i < units.length - 1);
-  const digits = v < 10 ? 2 : v < 100 ? 1 : 0;
-  return `${v.toFixed(digits)} ${units[i]}`;
-}
 
 type DownloadResult =
   | { via: 'picker'; filename: string }
@@ -470,18 +460,7 @@ function DownloadInstance({
   // (see handleClose) while the state machine keeps running; dismissing tears
   // the whole instance down via onDone.
 
-  // Upper bound: everything stored uncompressed (STORE mode and/or files
-  // that don't compress). Lower bound: everything compressed at a ~3x
-  // DEFLATE ratio, best case for text/JSON, but storage files vary wildly
-  // (raw text compresses well, already-compressed images/videos don't).
-  // We apply the same divisor to both since we can't see the file types
-  // from here; the actual zip will land somewhere inside the range.
-  const backupBytes = backup.uncompressed_size ?? backup.db_size;
-  const filesBytes = backup.files_size;
-  const hasSizes = backupBytes != null && filesBytes != null;
-  const totalBytes = (backupBytes ?? 0) + (filesBytes ?? 0);
-  const maxBytes = totalBytes;
-  const minBytes = Math.round(totalBytes / 4);
+  const sizeEstimate = backupZipSizeEstimate(backup);
 
   const start = async () => {
     const showSaveFilePicker = pickerRef.current;
@@ -577,12 +556,12 @@ function DownloadInstance({
           <strong>{formatTimestamp(backup.backup_at)}</strong>. This will
           download a zip file containing all entities and all files.
         </Content>
-        {hasSizes ? (
+        {sizeEstimate ? (
           <Content>
             The zip file will be between{' '}
-            <strong>{formatBytes(minBytes)}</strong> and{' '}
-            <strong>{formatBytes(maxBytes)}</strong>, depending on the
-            compression ratio.
+            <strong>{formatByteSize(sizeEstimate.minBytes)}</strong> and{' '}
+            <strong>{formatByteSize(sizeEstimate.maxBytes)}</strong>, depending
+            on the compression ratio.
           </Content>
         ) : null}
         {pickerError ? (
@@ -651,7 +630,7 @@ function DownloadInstance({
             <span className="font-mono">{progress?.outputFilename ?? ''}</span>
           </span>
           <span className="shrink-0 tabular-nums">
-            {formatBytes(progress?.bytes ?? 0)}
+            {formatByteSize(progress?.bytes ?? 0)}
             {pct != null ? ` · ${Math.round(pct)}%` : ''}
           </span>
         </div>
@@ -702,7 +681,7 @@ function DownloadInstance({
                 </span>
               </span>
               <span className="shrink-0 tabular-nums">
-                {formatBytes(progress?.bytes ?? 0)}
+                {formatByteSize(progress?.bytes ?? 0)}
               </span>
             </div>
           </div>
