@@ -413,12 +413,13 @@
        reclaimed))))
 
 (defn make-pool ^ThreadPoolExecutor [n]
-  ;; runs n tasks at a time. The queue is bounded at max-worker-count
-  ;; and DiscardPolicy drops `.execute` when it's full
-  ;; `allowCoreThreadTimeOut` lets idle threads die so shrinking
-  ;; the pool actually releases them.
+  ;; core = max = n so exactly n tasks run at a time (n is the real cap). The
+  ;; queue is bounded at max-worker-count and DiscardPolicy drops `.execute`
+  ;; when it's full (self-continuation re-drives dropped tasks).
+  ;; `allowCoreThreadTimeOut` lets idle threads die so shrinking the pool
+  ;; actually releases them.
   (doto (ThreadPoolExecutor. (int n)
-                             (int max-worker-count)
+                             (int n)
                              60 TimeUnit/SECONDS
                              (LinkedBlockingQueue. (int max-worker-count))
                              (ThreadPoolExecutor$DiscardPolicy.))
@@ -426,9 +427,17 @@
 
 (defn resize-pool! [n]
   (when (bound? #'pool)
-    ;; setCorePoolSize starts threads for queued work when growing and reaps
-    ;; idle threads when shrinking.
-    (.setCorePoolSize ^ThreadPoolExecutor pool n)))
+    (let [n (int n)
+          ^ThreadPoolExecutor p pool]
+      ;; Move core and max together to n. They must satisfy core <= max at every
+      ;; step, so raise max first when growing and lower core first when
+      ;; shrinking. setCorePoolSize also starts threads for queued work and reaps
+      ;; idle ones.
+      (if (>= n (.getCorePoolSize p))
+        (do (.setMaximumPoolSize p n)
+            (.setCorePoolSize p n))
+        (do (.setCorePoolSize p n)
+            (.setMaximumPoolSize p n))))))
 
 (defn start []
   (tracer/record-info! {:name "app-backup-jobs/start"})
