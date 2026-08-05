@@ -114,8 +114,13 @@ async function downloadBackup(
     ],
   });
 
-  // Two parallel counters surfaced in the dialog: namespaces from the backup
-  // payload, and the user's storage uploads.
+  // ---- Shared progress state ----
+  // Two parallel counters surfaced in the dialog:
+  //   entities — the backup payload (config.json + per-etype JSONL shards).
+  //   files    — the user's $files (storage uploads).
+  // entitiesTotal is null until onBackupFiles fires; filesTotal is null
+  // until the discovery NDJSON returns at least one file OR completes
+  // (an empty listing sets it to 0 so the dialog shows "0 of 0 files").
   let entitiesCompleted = 0;
   let entitiesTotal: number | null = null;
   let filesCompleted = 0;
@@ -132,8 +137,11 @@ async function downloadBackup(
     backup.uncompressed_size != null
       ? backup.uncompressed_size + (backup.files_size ?? 0)
       : null;
-  // The caller-supplied AbortController is shared across every fetch owned by
-  // the backup manager and the zip writer.
+  // The caller-supplied AbortController is shared across every fetch we
+  // own (the NDJSON discovery stream, backup file body fetches, storage
+  // file body fetches). The caller can abort it externally (e.g. dialog
+  // close) and we also abort it from our own catch so the discovery stops
+  // pulling from S3 if the zip pipeline throws.
   const signal = abortController.signal;
 
   const tick = () =>
@@ -188,8 +196,8 @@ async function downloadBackup(
 
   let diskWriter: WritableStreamDefaultWriter<Uint8Array> | null = null;
   try {
-    // Load the browser zip encoder on demand. The backup manager owns API
-    // enumeration, validation, and entry order; zip output stays browser-local.
+    // Load the zip encoder on demand (kept out of the shared bundle). Inside the
+    // try so a chunk-load failure aborts the background discovery too.
     const { ZipWriter } = await import('@zip.js/zip.js');
     const writable = await pickerHandle.createWritable();
     const writer = writable.getWriter();
@@ -224,7 +232,8 @@ async function downloadBackup(
       signal,
       callbacks: {
         onBackupFiles(files) {
-          // config.json isn't a namespace.
+          // config.json isn't a namespace — count only the entities/*.jsonl
+          // shards so the "N namespaces" label isn't off by one.
           entitiesTotal = files.filter(
             (file) => file.name !== 'config.json',
           ).length;
@@ -265,7 +274,8 @@ async function downloadBackup(
     await zipWriter.close();
     return { via: 'picker', filename: pickerHandle.name ?? filename };
   } catch (e) {
-    // Tear down any in-flight body fetch and discard the partial file on disk.
+    // Tear down the background discovery and any in-flight body fetches so we
+    // don't keep pulling from S3, and discard the partial file on disk.
     abortController.abort();
     await diskWriter?.abort(e).catch(() => {});
     throw e;
