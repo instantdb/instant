@@ -70,17 +70,23 @@ describe('streamStorageFiles', () => {
     ]);
   });
 
-  test('skips lines without a locationId or url', async () => {
+  test('throws on a record without a locationId or url', async () => {
     stubFetchBody([
       '{"path":"orphan.png"}\n',
       '{"locationId":"loc-1","path":"a.png","url":"http://s3/loc-1"}\n',
       '{"done":true}\n',
     ]);
 
-    const files = await collect(makeManager());
-    expect(files).toEqual([
-      { locationId: 'loc-1', path: 'a.png', url: 'http://s3/loc-1' },
+    await expect(collect(makeManager())).rejects.toThrow(/malformed record/);
+  });
+
+  test('only accepts an exact done sentinel', async () => {
+    stubFetchBody([
+      '{"locationId":"loc-1","path":"a.png","url":"http://s3/loc-1"}\n',
+      '{"done":1}\n',
     ]);
+
+    await expect(collect(makeManager())).rejects.toThrow(/malformed record/);
   });
 
   test('completes without files when the app has none', async () => {

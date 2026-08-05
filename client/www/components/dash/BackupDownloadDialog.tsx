@@ -237,6 +237,7 @@ async function downloadBackup(
   // it (a server-side failure truncated the listing), so a partial zip can't
   // pass as complete.
   void (async () => {
+    let discoveryComplete = false;
     try {
       for await (const file of manager.streamStorageFiles(backup.id, {
         signal,
@@ -246,6 +247,7 @@ async function downloadBackup(
         throttledTick();
         notify();
       }
+      discoveryComplete = true;
     } catch (e) {
       // The abort path is expected when the zip pipeline failed and we
       // tore the discovery down
@@ -254,8 +256,10 @@ async function downloadBackup(
       }
     } finally {
       // Discovery finished without yielding anything (no storage files) —
-      // surface "0 of 0" so the dialog doesn't sit on "?" forever.
-      if (filesTotal == null) filesTotal = 0;
+      // surface "0 of 0" so the dialog doesn't sit on "?" forever. A failed
+      // listing keeps the total unknown so the error UI doesn't claim an
+      // empty-but-complete storage phase.
+      if (discoveryComplete && filesTotal == null) filesTotal = 0;
       storageDone = true;
       tick();
       notify();

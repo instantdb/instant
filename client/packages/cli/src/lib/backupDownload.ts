@@ -145,6 +145,7 @@ export async function downloadBackupToFile(opts: {
     } else if (encoding === 'gzip') {
       stream = pipe(stream, zlib.createGunzip());
     } else if (encoding) {
+      res.destroy();
       throw new Error(`Unsupported content encoding: ${encoding}`);
     }
     const counter = new Transform({
@@ -175,6 +176,7 @@ export async function downloadBackupToFile(opts: {
 
   // Never rejects: failures land in storageError for the drain loop to throw.
   const discovery = (async () => {
+    let discoveryComplete = false;
     try {
       for await (const file of manager.streamStorageFiles(backup.id, {
         signal,
@@ -184,6 +186,7 @@ export async function downloadBackupToFile(opts: {
         throttledTick();
         notify();
       }
+      discoveryComplete = true;
     } catch (e) {
       // The abort path is expected when the zip pipeline failed and we tore
       // the discovery down.
@@ -191,7 +194,9 @@ export async function downloadBackupToFile(opts: {
         storageError = e as Error;
       }
     } finally {
-      if (filesTotal == null) filesTotal = 0;
+      // A failed listing keeps the total unknown rather than reading as an
+      // empty-but-complete storage phase.
+      if (discoveryComplete && filesTotal == null) filesTotal = 0;
       storageDone = true;
       tick();
       notify();

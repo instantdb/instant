@@ -241,11 +241,23 @@ export class BackupsManager {
     }
     let complete = false;
     for await (const line of ndjsonLines(res.body)) {
-      if (line.done) {
+      if (line.done === true) {
         complete = true;
         break;
       }
-      if (!line.locationId || !line.url) continue;
+      // A file record always carries a locationId and url; anything else is
+      // corruption, and skipping it would silently omit a file from the
+      // archive.
+      if (
+        typeof line.locationId !== 'string' ||
+        line.locationId.length === 0 ||
+        typeof line.url !== 'string' ||
+        line.url.length === 0
+      ) {
+        throw new Error(
+          'Storage file listing returned a malformed record. Please retry the download.',
+        );
+      }
       yield {
         locationId: line.locationId,
         path: line.path ?? null,
