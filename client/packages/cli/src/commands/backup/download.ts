@@ -6,6 +6,7 @@ import { Effect } from 'effect';
 import throttle from 'lodash.throttle';
 import {
   backupZipName,
+  estimateZipSize,
   type AppBackup,
   type BackupsManager,
 } from '@instantdb/platform';
@@ -96,8 +97,9 @@ function makeProgressRenderer() {
       bytes += ` (${pct}%)`;
     }
     parts.push(bytes);
-    if (p.currentEntry) {
-      parts.push(p.currentEntry);
+    const currentEntry = p.currentEntity || p.currentFile;
+    if (currentEntry) {
+      parts.push(currentEntry);
     }
     let line = parts.join(' · ');
     const width = stream.columns || 80;
@@ -165,14 +167,9 @@ export const backupDownloadCmd = Effect.fn(function* (
 
   const backup = yield* pickBackup(backups, backupId, opts);
 
-  // Upper bound: everything stored uncompressed. Lower bound: everything
-  // compressed at a ~4x DEFLATE ratio, best case for text/JSON; storage files
-  // vary wildly, so the actual zip lands somewhere inside the range.
-  const backupBytes = backup.uncompressedSize ?? backup.dbSize;
-  const hasSizes = backupBytes != null && backup.filesSize != null;
-  const totalBytes = (backupBytes ?? 0) + (backup.filesSize ?? 0);
-  const estimate = hasSizes
-    ? ` The zip file will be between ${formatBytes(Math.round(totalBytes / 4))} and ${formatBytes(totalBytes)}, depending on the compression ratio.`
+  const sizes = estimateZipSize(backup);
+  const estimate = sizes
+    ? ` The zip file will be between ${formatBytes(sizes.min)} and ${formatBytes(sizes.max)}, depending on the compression ratio.`
     : '';
 
   const ok = yield* promptOk({

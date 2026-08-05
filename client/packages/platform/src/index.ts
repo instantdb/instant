@@ -118,10 +118,20 @@ export {
 export {
   BackupsManager,
   backupZipName,
+  estimateZipSize,
+  toAppBackup,
   type AppBackup,
   type AppBackupFile,
   type AppBackupStorageFile,
 } from './backups.ts';
+
+export {
+  downloadBackupArchive,
+  type DownloadBackupArchiveOpts,
+  type BackupArchiveWriter,
+  type BackupDownloadProgress,
+  type BackupDownloadResult,
+} from './backupDownload.ts';
 
 export {
   DEFAULT_OAUTH_CALLBACK_URL,

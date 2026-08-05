@@ -1,6 +1,11 @@
 import { InstantAPIError, version as coreVersion } from '@instantdb/core';
 import type { WithAuth } from '@instantdb/webhooks';
 import version from './version.ts';
+import {
+  downloadBackupArchive,
+  type BackupDownloadResult,
+  type DownloadBackupArchiveOpts,
+} from './backupDownload.ts';
 
 /** A point-in-time snapshot of an app. */
 export type AppBackup = {
@@ -59,7 +64,8 @@ type AppBackupResponse = {
   expires_at: string | null;
 };
 
-function toAppBackup(row: AppBackupResponse): AppBackup {
+/** Converts a backup row as the server sends it into an {@link AppBackup}. */
+export function toAppBackup(row: AppBackupResponse): AppBackup {
   return {
     id: row.id,
     isn: row.isn,
@@ -76,6 +82,24 @@ function toAppBackup(row: AppBackupResponse): AppBackup {
 export function backupZipName(backup: AppBackup): string {
   const safe = backup.backupAt.toISOString().replace(/[:.]/g, '-');
   return `instant-backup-${safe}.zip`;
+}
+
+/**
+ * Estimated size range for a backup's zip archive, or null when the backup
+ * row carries no sizes. Upper bound: everything stored uncompressed (STORE
+ * mode and/or files that don't compress). Lower bound: everything compressed
+ * at a ~4x DEFLATE ratio, best case for text/JSON, but storage files vary
+ * wildly (raw text compresses well, already-compressed images/videos don't).
+ * The same divisor applies to both since the file types aren't visible from
+ * here; the actual zip lands somewhere inside the range.
+ */
+export function estimateZipSize(
+  backup: AppBackup,
+): { min: number; max: number } | null {
+  const backupBytes = backup.uncompressedSize ?? backup.dbSize;
+  if (backupBytes == null || backup.filesSize == null) return null;
+  const max = backupBytes + backup.filesSize;
+  return { min: Math.round(max / 4), max };
 }
 
 function authHeaders(token: string): Record<string, string> {
@@ -140,8 +164,10 @@ async function* ndjsonLines(
  * come before ANY storage file, so a restore can process the archive in a
  * single streaming pass: `config.json` sets up the schema, the `$files`
  * entities register file metadata, and only then can each blob be matched
- * to its entity. {@link listFiles} returns the entity files already in
- * write order; write the {@link streamStorageFiles} blobs after them.
+ * to its entity. {@link downloadArchive} implements that order end to end;
+ * {@link listFiles} (which returns the entity files already in write order)
+ * and {@link streamStorageFiles} are the pieces for building a custom
+ * pipeline.
  */
 export class BackupsManager {
   #appId: string;
@@ -269,5 +295,18 @@ export class BackupsManager {
         'Storage file listing ended before it finished. Please retry the download.',
       );
     }
+  }
+
+  /**
+   * Downloads the backup into a single zip archive written to `opts.sink`,
+   * entries in the canonical restore order described above. The caller
+   * supplies the runtime-specific pieces — how to fetch a presigned URL,
+   * where the bytes go, and the archive encoder (e.g. zip.js's `ZipWriter`);
+   * see {@link DownloadBackupArchiveOpts}.
+   */
+  downloadArchive(
+    opts: DownloadBackupArchiveOpts,
+  ): Promise<BackupDownloadResult> {
+    return downloadBackupArchive({ manager: this, ...opts });
   }
 }
