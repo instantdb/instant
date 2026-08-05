@@ -229,6 +229,21 @@
                                                    :for [:update :skip-locked]}]
                                    :returning :*}))))
 
+;; A worker only owns its job while `worker_id` still points at it and the job is
+;; still `processing`. Every write it makes is scoped to that "still mine and
+;; still running" predicate, so a cancel (which clears `worker_id` and flips the
+;; status, see `cancel-job!`) or a stuck-reclaim (which flips the status) makes
+;; the write match nothing--we don't resurrect a cancelled/errored job, and the
+;; running worker learns it's been stopped.
+(defn owned-and-processing
+  "Where-clause matching `job-id` only while it's still claimed by this process
+   and still `processing`."
+  [job-id]
+  [:and
+   [:= :id job-id]
+   [:= :worker-id @config/process-id]
+   [:= :job-status "processing"]])
+
 (defn mark-completed! [conn job-id {:keys [app-backup-id work-completed]}]
   (sql/execute-one! ::mark-completed!
                     conn
@@ -237,7 +252,7 @@
                                         :app-backup-id app-backup-id
                                         :work-completed work-completed
                                         :done-at :%now}
-                                  :where [:= :id job-id]})))
+                                  :where (owned-and-processing job-id)})))
 
 (defn mark-error! [conn job-id ^Throwable t]
   (sql/execute-one! ::mark-error!
@@ -246,21 +261,55 @@
                                   :set {:job-status "errored"
                                         :error (.getMessage t)
                                         :done-at :%now}
-                                  :where [:= :id job-id]})))
+                                  :where (owned-and-processing job-id)})))
 
-(defn set-work-completed! [conn job-id n]
-  (sql/execute-one! ::set-work-completed!
-                    conn
-                    (hsql/format {:update :app-backup-jobs
-                                  :set {:work-completed n}
-                                  :where [:= :id job-id]})))
+(defn report-progress!
+  "Persists the copied-triple count for a running job and doubles as a
+   cancellation checkpoint. The update only touches the row while it's still ours
+   and still `processing`, so it matches nothing once the job has been cancelled
+   (its `worker_id` cleared and status flipped) or reclaimed. Returns true while
+   the job is still ours to run, false once it's been taken from us."
+  [conn job-id n]
+  (let [res (sql/do-execute! ::report-progress!
+                             conn
+                             (hsql/format {:update :app-backup-jobs
+                                           :set {:work-completed n}
+                                           :where (owned-and-processing job-id)}))]
+    (pos? (:next.jdbc/update-count (first res)))))
+
+(defn cancel-job!
+  "Marks a waiting/processing backup job as cancelled so its worker stops.
+   Clearing `worker_id` (along with flipping the status) is what the worker's
+   `report-progress!` checkpoint detects: its next scoped write no longer matches
+   the row, so it cancels the in-flight backup and bails. A waiting job simply
+   never gets claimed. Scoped to the app so a caller can only cancel its own
+   app's job. Returns the updated row, or nil when there was no in-flight job
+   with that id (already done/cancelled)."
+  ([app-id job-id] (cancel-job! (aurora/conn-pool :write) app-id job-id))
+  ([conn app-id job-id]
+   (sql/execute-one! ::cancel-job!
+                     conn
+                     (hsql/format {:update :app-backup-jobs
+                                   :set {:job-status "cancelled"
+                                         :worker-id nil
+                                         :done-at :%now}
+                                   :where [:and
+                                           [:= :id job-id]
+                                           [:= :app-id app-id]
+                                           [:in :job-status ["waiting" "processing"]]]
+                                   :returning :*}))))
 
 (defn run-job!
   "Runs the backup for a claimed job and records the outcome. The backup runs on
    a background vthread while this thread waits; between waits it persists the
    copied-triple count so the dashboard can show live progress. The copy loop
    only bumps `copied` (via the `on-triple` callback), so it never blocks on the
-   db."
+   db.
+
+   Each progress tick doubles as a cancellation checkpoint: `report-progress!`
+   only touches the row while it's still ours and still `processing`, so once the
+   job has been cancelled (or reclaimed) the write matches nothing and we cancel
+   the in-flight backup and stop, leaving the cancelled state in place."
   [{:keys [id app_id description]}]
   (tracer/with-span! {:name "app-backup-jobs/run-job"
                       :attributes {:job-id id
@@ -274,16 +323,16 @@
                                                :expires-at expires-at
                                                :on-triple (fn [] (.incrementAndGet copied))}))]
       (try
-        ;; `last-written` avoids redundant db writes when no triples were copied
-        ;; since the previous tick (e.g. the copy has finished).
-        (loop [last-written 0]
+        (loop []
           (let [result (deref fut progress-report-interval-ms ::pending)]
             (if (identical? ::pending result)
-              (let [n (.get copied)]
-                (if (= n last-written)
-                  (recur last-written)
-                  (do (set-work-completed! (aurora/conn-pool :write) id n)
-                      (recur n))))
+              ;; Still running. Persist progress and, in the same write, confirm
+              ;; the job is still ours. If it isn't, it's been cancelled out from
+              ;; under us, so kill the backup and bail without touching the row.
+              (if (report-progress! (aurora/conn-pool :write) id (.get copied))
+                (recur)
+                (do (future-cancel fut)
+                    (tracer/add-data! {:attributes {:cancelled true}})))
               (let [{:keys [triple-count app-backup]} result]
                 (mark-completed! (aurora/conn-pool :write)
                                  id

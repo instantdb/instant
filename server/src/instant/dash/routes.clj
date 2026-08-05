@@ -2028,6 +2028,34 @@
         jobs (app-backup-jobs/get-active-for-client app-id)]
     (response/ok {:jobs jobs})))
 
+(defn app-backup-job-cancel
+  "Cancels an in-progress backup job. A waiting job never runs; a processing
+   job's worker notices at its next progress checkpoint and aborts the backup.
+   Whoever can start a backup can cancel one."
+  [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :apps/write
+                                                                         req)
+        job-id (ex/get-param! req [:params :job_id] uuid-util/coerce)]
+    (ex/assert-record! (app-backup-jobs/cancel-job! app-id job-id)
+                       :app-backup-job
+                       {:id job-id})
+    (response/ok {:id job-id})))
+
+(defn app-backup-delete
+  "Soft-deletes a backup (admins only). The row is marked deleted, not removed;
+   its S3 objects expire on their own."
+  [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :admin
+                                                                         :apps/write
+                                                                         req)
+        backup-id (ex/get-param! req [:params :backup_id] uuid-util/coerce)]
+    (ex/assert-record! (backup/mark-app-backup-deleted! {:id backup-id
+                                                         :app-id app-id})
+                       :app-backup
+                       {:id backup-id})
+    (response/ok {:id backup-id})))
+
 (defn webhook-row->response [webhook]
   (select-keys webhook [:id :sink :namespaces :actions :status
                         :disabled_reason :created_at :updated_at]))
@@ -2676,8 +2704,10 @@
   ;; Backups
   (GET "/dash/apps/:app_id/backups" [] app-backups-get)
   (POST "/dash/apps/:app_id/backups" [] app-backup-job-post)
+  (DELETE "/dash/apps/:app_id/backups/:backup_id" [] app-backup-delete)
   (GET "/dash/apps/:app_id/backup-jobs" [] app-backup-jobs-get)
   (GET "/dash/apps/:app_id/backup-jobs/:job_id" [] app-backup-job-get)
+  (DELETE "/dash/apps/:app_id/backup-jobs/:job_id" [] app-backup-job-cancel)
   (GET "/dash/apps/:app_id/backups/:backup_id/files" [] app-backup-files-get)
   (GET "/dash/apps/:app_id/backups/:backup_id/file-url" [] app-backup-file-url-get)
   (GET "/dash/apps/:app_id/backups/:backup_id/storage-files" [] app-backup-storage-files-get)

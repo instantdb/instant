@@ -134,7 +134,8 @@
                     :from :app-backups
                     :where [:and
                             [:= :app-id :?app-id]
-                            [:> :expires-at :%now]]
+                            [:> :expires-at :%now]
+                            [:= nil :deletion-marked-at]]
                     :order-by [[:backup-at :desc]]}))
 
 (defn get-app-backups-by-app-id
@@ -150,7 +151,8 @@
                     :from :app-backups
                     :where [:and
                             [:= :id :?id]
-                            [:= :app-id :?app-id]]}))
+                            [:= :app-id :?app-id]
+                            [:= nil :deletion-marked-at]]}))
 
 (defn get-app-backup-by-id
   ([params] (get-app-backup-by-id (aurora/conn-pool :read) params))
@@ -160,6 +162,28 @@
                    (uhsql/formatp get-app-backup-by-id-q
                                   {:id id
                                    :app-id app-id}))))
+
+(def mark-app-backup-deleted-q
+  (uhsql/preformat {:update :app-backups
+                    :set {:deletion-marked-at :%now}
+                    :where [:and
+                            [:= :id :?id]
+                            [:= :app-id :?app-id]
+                            [:= nil :deletion-marked-at]]
+                    :returning :id}))
+
+(defn mark-app-backup-deleted!
+  "Soft-deletes a backup by stamping `deletion_marked_at`. The row and its S3
+   objects stay put--the objects expire on their own via their `expire` tag.
+   Returns the row when it flips a live backup, or nil if there was no matching
+   un-deleted backup."
+  ([params] (mark-app-backup-deleted! (aurora/conn-pool :write) params))
+  ([conn {:keys [id app-id]}]
+   (sql/execute-one! ::mark-app-backup-deleted!
+                     conn
+                     (uhsql/formatp mark-app-backup-deleted-q
+                                    {:id id
+                                     :app-id app-id}))))
 
 ;; Make sure the order of the columns matches the order of the record
 (defrecord-once Triple [app-id entity-id value created-at etype label many])

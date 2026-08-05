@@ -7,7 +7,12 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ArrowDownTrayIcon, PlusIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowDownTrayIcon,
+  EllipsisVerticalIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline';
 import { Transition } from '@headlessui/react';
 
 import config from '@/lib/config';
@@ -30,6 +35,12 @@ import {
   TooltipTrigger,
   useDialog,
 } from '@/components/ui';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/DropdownMenu';
 import {
   ErrorMessage,
   Loading,
@@ -59,6 +70,13 @@ function fetchBackupJob(token: string, appId: string, jobId: string) {
   }) as Promise<{ job: InstantAppBackupJob | null }>;
 }
 
+function cancelBackupJob(token: string, appId: string, jobId: string) {
+  return jsonMutate<{ id: string }>(
+    `${config.apiURI}/dash/apps/${appId}/backup-jobs/${jobId}`,
+    { token, method: 'DELETE' },
+  );
+}
+
 // Shared layout for both in-progress jobs and finished backups. Rendering them
 // through one component with the same structure (title, optional description, a
 // two-row detail grid, and an action) keeps the row the exact same size, so it
@@ -68,17 +86,20 @@ function BackupItem({
   description,
   rows,
   action,
+  corner,
 }: {
   title: string;
   description?: string | null;
   rows: [string, ReactNode][];
   action: ReactNode;
+  corner?: ReactNode;
 }) {
   return (
     <Item
       variant="outline"
-      className="bg-white dark:border-neutral-700 dark:bg-neutral-800"
+      className="group relative bg-white dark:border-neutral-700 dark:bg-neutral-800"
     >
+      {corner ? <div className="absolute top-2 right-2">{corner}</div> : null}
       <ItemContent>
         <ItemTitle>{title}</ItemTitle>
         {description ? <ItemDescription>{description}</ItemDescription> : null}
@@ -105,7 +126,18 @@ function ProgressBar({ pct }: { pct: number }) {
   );
 }
 
-function BackupJobRow({ job }: { job: InstantAppBackupJob }) {
+function BackupJobRow({
+  app,
+  job,
+  onCancelled,
+}: {
+  app: InstantApp;
+  job: InstantAppBackupJob;
+  onCancelled: () => void;
+}) {
+  const token = useContext(TokenContext);
+  const confirmDialog = useDialog();
+  const [cancelling, setCancelling] = useState(false);
   const completed = job.work_completed ?? 0;
   // Pad the estimate by 10% so the bar doesn't sit at 100% while the backup
   // finishes uploading and finalizing.
@@ -116,18 +148,74 @@ function BackupJobRow({ job }: { job: InstantAppBackupJob }) {
       : null;
   const label = job.job_status === 'waiting' ? 'Starting…' : 'Backing up…';
 
+  async function onCancel() {
+    if (!token) return;
+    setCancelling(true);
+    try {
+      await cancelBackupJob(token, app.id, job.id);
+      successToast('Backup cancelled.');
+      confirmDialog.onClose();
+      // The server drops the job from the active list immediately, so refetch to
+      // clear the row (a running worker aborts at its next progress checkpoint).
+      onCancelled();
+    } catch (e: any) {
+      errorToast(e?.body?.message ?? 'Failed to cancel backup.');
+      setCancelling(false);
+    }
+  }
+
   return (
     <BackupItem
       title={formatTimestamp(job.created_at)}
       description={job.description}
       rows={[
-        ['Status', label],
-        ['Progress', <ProgressBar pct={pct ?? 0} />],
+        ['Status', cancelling ? 'Cancelling…' : label],
+        [
+          'Progress',
+          <div className="flex items-center gap-2">
+            <ProgressBar pct={pct ?? 0} />
+            {pct !== null ? <span className="tabular-nums">{pct}%</span> : null}
+          </div>,
+        ],
       ]}
       action={
-        <span className="text-sm text-gray-500 tabular-nums dark:text-neutral-500">
-          {pct !== null ? `${pct}%` : ''}
-        </span>
+        <>
+          <Button
+            variant="secondary"
+            size="mini"
+            disabled={cancelling}
+            onClick={confirmDialog.onOpen}
+          >
+            Cancel
+          </Button>
+          <Dialog title="Cancel backup" {...confirmDialog}>
+            <div className="flex flex-col gap-4">
+              <SubsectionHeading>Cancel backup</SubsectionHeading>
+              <Content className="text-sm text-gray-500 dark:text-neutral-500">
+                Cancel this backup? Progress so far will be discarded and no
+                snapshot will be saved.
+              </Content>
+              <div className="flex flex-row gap-2">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  loading={cancelling}
+                  onClick={onCancel}
+                >
+                  Cancel backup
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={cancelling}
+                  onClick={confirmDialog.onClose}
+                >
+                  Keep backing up
+                </Button>
+              </div>
+            </div>
+          </Dialog>
+        </>
       }
     />
   );
@@ -136,12 +224,45 @@ function BackupJobRow({ job }: { job: InstantAppBackupJob }) {
 function BackupRow({
   app,
   backup,
+  onDeleted,
 }: {
   app: InstantApp;
   backup: InstantAppBackup;
+  onDeleted: () => void;
 }) {
   const token = useContext(TokenContext);
   const { open, active } = useBackupDownloads();
+  const deleteDialog = useDialog();
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Deleting is admin-only (the server enforces this too); hide the affordance
+  // for everyone else.
+  const canDelete =
+    app.user_app_role === 'admin' || app.user_app_role === 'owner';
+
+  function openDeleteDialog() {
+    setDeleteError(null);
+    deleteDialog.onOpen();
+  }
+
+  async function deleteBackup() {
+    if (!token) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await jsonMutate(
+        `${config.apiURI}/dash/apps/${app.id}/backups/${backup.id}`,
+        { token, method: 'DELETE' },
+      );
+      deleteDialog.onClose();
+      successToast('Backup deleted.');
+      onDeleted();
+    } catch (e: any) {
+      setDeleteError(e?.body?.message ?? 'Failed to delete backup.');
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const isActive = active?.id === backup.id;
   // Only one download at a time: while another backup is actively downloading,
@@ -171,37 +292,87 @@ function BackupRow({
     </Button>
   );
 
+  // Hidden until the row is hovered (or the menu is open/focused), so it stays
+  // out of the way until you go looking for it.
+  const actionsMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label="Backup actions"
+        className="cursor-pointer rounded p-1 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-gray-600 focus-visible:opacity-100 data-[state=open]:opacity-100 dark:text-neutral-500 dark:hover:text-neutral-300"
+      >
+        <EllipsisVerticalIcon width={16} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          variant="destructive"
+          className="cursor-pointer"
+          onSelect={openDeleteDialog}
+        >
+          <TrashIcon width={14} /> Delete backup
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
-    <BackupItem
-      title={formatTimestamp(backup.backup_at)}
-      description={backup.description}
-      rows={[
-        [
-          'Expires',
-          backup.expires_at ? formatTimestamp(backup.expires_at) : '—',
-        ],
-        [
-          'ID',
-          <CopyableText value={backup.id} className="font-mono break-all" />,
-        ],
-      ]}
-      action={
-        blockedByOther ? (
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <span className="inline-flex cursor-not-allowed">
-                {downloadButton}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              You can only download one backup at a time.
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          downloadButton
-        )
-      }
-    />
+    <>
+      <BackupItem
+        title={formatTimestamp(backup.backup_at)}
+        description={backup.description}
+        rows={[
+          [
+            'Expires',
+            backup.expires_at ? formatTimestamp(backup.expires_at) : '—',
+          ],
+          [
+            'ID',
+            <CopyableText value={backup.id} className="font-mono break-all" />,
+          ],
+        ]}
+        action={
+          blockedByOther ? (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <span className="inline-flex cursor-not-allowed">
+                  {downloadButton}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                You can only download one backup at a time.
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            downloadButton
+          )
+        }
+        corner={canDelete ? actionsMenu : null}
+      />
+      <Dialog title="Delete backup" {...deleteDialog}>
+        <div className="flex flex-col gap-3">
+          <SubsectionHeading>Delete backup</SubsectionHeading>
+          <Content className="text-sm text-gray-500 dark:text-neutral-500">
+            This removes the backup from your dashboard and can't be undone.
+          </Content>
+          {deleteError ? (
+            <div className="rounded-sm bg-red-100 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">
+              {deleteError}
+            </div>
+          ) : null}
+          <div className="flex gap-2">
+            <Button
+              variant="destructive"
+              loading={deleting}
+              onClick={deleteBackup}
+            >
+              Delete backup
+            </Button>
+            <Button variant="secondary" onClick={deleteDialog.onClose}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+    </>
   );
 }
 
@@ -350,10 +521,20 @@ export function Backups({ app }: { app: InstantApp }) {
       ) : (
         <ItemGroup className="gap-2">
           {jobs.map((job) => (
-            <BackupJobRow key={job.id} job={job} />
+            <BackupJobRow
+              key={job.id}
+              app={app}
+              job={job}
+              onCancelled={() => jobsRes.mutate()}
+            />
           ))}
           {backups.map((b) => (
-            <BackupRow key={b.id} app={app} backup={b} />
+            <BackupRow
+              key={b.id}
+              app={app}
+              backup={b}
+              onDeleted={() => backupsRes.mutate()}
+            />
           ))}
         </ItemGroup>
       )}
