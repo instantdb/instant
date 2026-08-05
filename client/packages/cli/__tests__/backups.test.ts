@@ -150,6 +150,24 @@ describe('backup download', () => {
     expect(logs.join('\n')).toContain('Saved 3 namespaces and 2 storage files');
   });
 
+  test('rejects a backup id combined with --latest', async () => {
+    state.manager = buildManager([makeBackup()]);
+    await expect(
+      run(backupDownloadCmd('backup-1', { latest: true, out: outPath() }), {
+        yes: true,
+      }),
+    ).rejects.toThrow(/not both/);
+    expect(state.downloadCalls).toHaveLength(0);
+  });
+
+  test('rejects an output path that is a directory', async () => {
+    state.manager = buildManager([makeBackup()]);
+    await expect(
+      run(backupDownloadCmd('backup-1', { out: tmpdir() }), { yes: true }),
+    ).rejects.toThrow(/is a directory/);
+    expect(state.downloadCalls).toHaveLength(0);
+  });
+
   test('errors on an unknown id', async () => {
     state.manager = buildManager([makeBackup()]);
     await expect(

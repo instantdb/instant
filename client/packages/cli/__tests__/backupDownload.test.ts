@@ -1,9 +1,9 @@
 import { test, expect, describe, beforeAll, afterAll, afterEach } from 'vitest';
 import { createServer, type Server } from 'node:http';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { once } from 'node:events';
 import zlib from 'node:zlib';
 import { downloadBackupToFile } from '../src/lib/backupDownload.ts';
@@ -93,9 +93,17 @@ const manager = {
 
 const outPath = join(tmpdir(), `backup-download-test-${process.pid}.zip`);
 
+// The partial file carries a random suffix, so scan for leftovers by prefix.
+const partialLeftovers = () =>
+  readdirSync(tmpdir()).filter((f) =>
+    f.startsWith(`${basename(outPath)}.partial`),
+  );
+
 afterEach(async () => {
   await rm(outPath, { force: true });
-  await rm(`${outPath}.partial`, { force: true });
+  for (const f of partialLeftovers()) {
+    await rm(join(tmpdir(), f), { force: true });
+  }
 });
 
 describe('downloadBackupToFile', () => {
@@ -110,7 +118,7 @@ describe('downloadBackupToFile', () => {
 
     expect(result.entities).toBe(2);
     expect(result.files).toBe(2);
-    expect(existsSync(`${outPath}.partial`)).toBe(false);
+    expect(partialLeftovers()).toEqual([]);
 
     const { ZipReader, Uint8ArrayReader, TextWriter } = await import(
       '@zip.js/zip.js'
@@ -157,7 +165,7 @@ describe('downloadBackupToFile', () => {
     ).rejects.toThrow(/Failed to fetch config.json/);
 
     expect(existsSync(outPath)).toBe(false);
-    expect(existsSync(`${outPath}.partial`)).toBe(false);
+    expect(partialLeftovers()).toEqual([]);
   });
 
   test('aborting removes the partial file', async () => {
@@ -187,6 +195,6 @@ describe('downloadBackupToFile', () => {
     ).rejects.toThrow();
 
     expect(existsSync(outPath)).toBe(false);
-    expect(existsSync(`${outPath}.partial`)).toBe(false);
+    expect(partialLeftovers()).toEqual([]);
   });
 });

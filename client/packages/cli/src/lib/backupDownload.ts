@@ -1,5 +1,6 @@
 import { createWriteStream } from 'node:fs';
-import { rename, unlink } from 'node:fs/promises';
+import { open, rename, unlink } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { get as httpGet, type IncomingMessage } from 'node:http';
 import { get as httpsGet } from 'node:https';
@@ -106,8 +107,11 @@ export async function downloadBackupToFile(opts: {
     );
   }
 
-  const partialPath = `${opts.outPath}.partial`;
-  const fileStream = createWriteStream(partialPath);
+  // Randomized so a stale partial or a concurrent download of the same
+  // backup can't collide; 'wx' turns any remaining collision into an error
+  // instead of silently truncating another run's file.
+  const partialPath = `${opts.outPath}.partial-${randomBytes(4).toString('hex')}`;
+  const fileStream = createWriteStream(partialPath, { flags: 'wx' });
   const awaitFileClosed = async () => {
     if (!fileStream.closed) await once(fileStream, 'close');
   };
@@ -122,6 +126,14 @@ export async function downloadBackupToFile(opts: {
       onProgress: opts.onProgress,
     });
     await awaitFileClosed();
+    // Flush to disk before the rename so a crash right after can't leave a
+    // complete-looking zip with unwritten tails.
+    const fh = await open(partialPath, 'r+');
+    try {
+      await fh.sync();
+    } finally {
+      await fh.close();
+    }
     await rename(partialPath, opts.outPath);
     return result;
   } catch (e) {

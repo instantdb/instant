@@ -7,12 +7,18 @@ import { useBackupsManager } from '../../lib/backups.ts';
 export const formatBackupDate = (date: Date) =>
   `${date.toISOString().replace('T', ' ').slice(0, 16)} UTC`;
 
+// Backup descriptions are user-controlled text headed for the terminal;
+// strip control characters so a crafted value can't inject escape sequences.
+export const stripControlChars = (s: string) => s.replace(/\p{Cc}/gu, '');
+
 export const renderBackup = (backup: AppBackup) =>
   Effect.gen(function* () {
     yield* Effect.log(chalk.cyan(formatBackupDate(backup.backupAt)));
     yield* Effect.log(`  ID: ${backup.id}`);
     if (backup.description) {
-      yield* Effect.log(`  Description: ${backup.description}`);
+      yield* Effect.log(
+        `  Description: ${stripControlChars(backup.description)}`,
+      );
     }
     if (backup.dbSize != null) {
       yield* Effect.log(`  Database size: ${formatFileSize(backup.dbSize)}`);

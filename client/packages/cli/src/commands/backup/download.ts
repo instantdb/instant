@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import ansiEscapes from 'ansi-escapes';
 import chalk from 'chalk';
@@ -23,7 +23,7 @@ import {
 } from '../../lib/backupDownload.ts';
 import { promptOk, runUIEffect } from '../../lib/ui.ts';
 import { UI } from '../../ui/index.ts';
-import { formatBackupDate } from './list.ts';
+import { formatBackupDate, stripControlChars } from './list.ts';
 
 const pickBackup = (
   backups: AppBackup[],
@@ -31,6 +31,11 @@ const pickBackup = (
   opts: { latest?: boolean },
 ) =>
   Effect.gen(function* () {
+    if (backupId && opts.latest) {
+      return yield* BadArgsError.make({
+        message: 'Pass either a backup id or --latest, not both.',
+      });
+    }
     if (backupId) {
       const found = backups.find((b) => b.id === backupId);
       if (!found) {
@@ -62,7 +67,9 @@ const pickBackup = (
         options: sorted.map((backup) => ({
           label:
             formatBackupDate(backup.backupAt) +
-            (backup.description ? ` — ${backup.description}` : '') +
+            (backup.description
+              ? ` — ${stripControlChars(backup.description)}`
+              : '') +
             ` ${chalk.dim(`(${backup.id})`)}`,
           value: backup,
         })),
@@ -180,6 +187,12 @@ export const backupDownloadCmd = Effect.fn(function* (
 
   const outPath = path.resolve(opts.out ?? backupZipName(backup));
   if (existsSync(outPath)) {
+    // Catch this before the download runs, not at the final rename.
+    if (statSync(outPath).isDirectory()) {
+      return yield* BadArgsError.make({
+        message: `${outPath} is a directory.`,
+      });
+    }
     const overwrite = yield* promptOk({
       promptText: `${path.basename(outPath)} already exists. Overwrite?`,
     });
