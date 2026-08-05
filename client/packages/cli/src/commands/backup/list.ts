@@ -29,9 +29,9 @@ const relativeTime = (date: Date): string => {
   return diffMs < 0 ? `${label} ago` : `${label} from now`;
 };
 
-// One aligned row per backup, newest first, in the style of pscale's backup
-// listing: id first, relative times. `--json` carries the precise values.
-const renderBackupsTable = (backups: AppBackup[]) =>
+// One aligned row per backup, newest first: id first, relative times.
+// `--json` carries the precise values.
+export const renderBackupsTable = (backups: AppBackup[]) =>
   Effect.gen(function* () {
     const header = [
       'ID',

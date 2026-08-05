@@ -1,9 +1,7 @@
 import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
-import ansiEscapes from 'ansi-escapes';
 import chalk from 'chalk';
 import { Effect } from 'effect';
-import throttle from 'lodash.throttle';
 import {
   backupZipName,
   estimateZipSize,
@@ -22,8 +20,13 @@ import {
   type BackupDownloadResult,
 } from '../../lib/backupDownload.ts';
 import { promptOk, runUIEffect } from '../../lib/ui.ts';
+import { onTerminate, renderUnwrap } from '../../ui/lib.ts';
 import { UI } from '../../ui/index.ts';
-import { formatBackupDate, stripControlChars } from './list.ts';
+import {
+  formatBackupDate,
+  renderBackupsTable,
+  stripControlChars,
+} from './list.ts';
 
 const pickBackup = (
   backups: AppBackup[],
@@ -78,59 +81,45 @@ const pickBackup = (
     );
   });
 
-// Single-line progress on a TTY, nothing otherwise.
-function makeProgressRenderer() {
-  const stream = process.stderr;
-  if (!stream.isTTY) {
-    return { update: (_p: BackupDownloadProgress) => {}, done: () => {} };
-  }
-  let wrote = false;
-  const write = (p: BackupDownloadProgress) => {
-    const parts: string[] = [];
+// One compact line for the spinner as the pipeline ticks.
+function progressLine(p: BackupDownloadProgress): string {
+  const parts: string[] = [];
+  parts.push(
+    p.entitiesTotal == null
+      ? 'listing namespaces…'
+      : `namespaces ${p.entitiesCompleted}/${p.entitiesTotal}`,
+  );
+  if (p.filesTotal !== 0) {
     parts.push(
-      p.entitiesTotal == null
-        ? 'listing namespaces…'
-        : `namespaces ${p.entitiesCompleted}/${p.entitiesTotal}`,
+      p.filesTotal == null
+        ? 'listing storage files…'
+        : `storage files ${p.filesCompleted}/${p.filesTotal}`,
     );
-    if (p.filesTotal !== 0) {
-      parts.push(
-        p.filesTotal == null
-          ? 'listing storage files…'
-          : `storage files ${p.filesCompleted}/${p.filesTotal}`,
-      );
-    }
-    let bytes = formatFileSize(p.zipBytes);
-    if (p.bytesTotal != null && p.bytesTotal > 0) {
-      const pct = Math.min(100, Math.round((p.bytesRead / p.bytesTotal) * 100));
-      bytes += ` (${pct}%)`;
-    }
-    parts.push(bytes);
-    const currentEntry = p.currentEntity || p.currentFile;
-    if (currentEntry) {
-      parts.push(currentEntry);
-    }
-    let line = parts.join(' · ');
-    const width = stream.columns || 80;
-    if (line.length >= width) {
-      line = line.slice(0, Math.max(0, width - 2)) + '…';
-    }
-    stream.write(ansiEscapes.eraseLine + ansiEscapes.cursorLeft + line);
-    wrote = true;
-  };
-  const throttled = throttle(write, 100);
-  return {
-    update: throttled,
-    done: () => {
-      throttled.cancel();
-      if (wrote) {
-        stream.write(ansiEscapes.eraseLine + ansiEscapes.cursorLeft);
-      }
-    },
-  };
+  }
+  let bytes = formatFileSize(p.zipBytes);
+  if (p.bytesTotal != null && p.bytesTotal > 0) {
+    const pct = Math.min(100, Math.round((p.bytesRead / p.bytesTotal) * 100));
+    bytes += ` (${pct}%)`;
+  }
+  parts.push(bytes);
+  const currentEntry = p.currentEntity || p.currentFile;
+  if (currentEntry) {
+    parts.push(currentEntry);
+  }
+  let line = parts.join(' · ');
+  // The spinner prefixes a frame glyph; truncate so the line can't wrap.
+  const width = (process.stdout.columns || 80) - 4;
+  if (line.length > width) {
+    line = line.slice(0, Math.max(0, width - 1)) + '…';
+  }
+  return line;
 }
 
-// Returns null when the download was cancelled (ctrl-c). A second ctrl-c
-// falls through to Node's default handler and kills the process outright.
+// Returns null when the download was cancelled. While the spinner is
+// attached the terminal is raw, so ctrl-c arrives through the UI's
+// terminate hook rather than SIGINT; both routes abort the same controller
+// and the pipeline removes its partial file before we return. Outside the
+// spinner (non-TTY runs), SIGINT covers it.
 async function runDownload(
   manager: BackupsManager,
   backup: AppBackup,
@@ -139,23 +128,38 @@ async function runDownload(
   const controller = new AbortController();
   const onSigint = () => controller.abort();
   process.once('SIGINT', onSigint);
-  const progress = makeProgressRenderer();
+  onTerminate(() => controller.abort());
   try {
-    return await downloadBackupToFile({
+    let spinner: UI.Spinner<unknown> | null = null;
+    // Settled into a sentinel so the spinner always disappears cleanly and
+    // cancellation/error output stays with the command below.
+    const settled = downloadBackupToFile({
       manager,
       backup,
       outPath,
       signal: controller.signal,
-      onProgress: progress.update,
-    });
-  } catch (e) {
-    if ((e as { name?: string })?.name === 'AbortError') {
-      return null;
+      onProgress: (p) => spinner?.updateText(progressLine(p)),
+    }).then(
+      (result) => ({ result, error: null as unknown }),
+      (error: unknown) => ({ result: null, error }),
+    );
+    if (process.stdout.isTTY) {
+      spinner = new UI.Spinner({
+        promise: settled,
+        workingText: 'Preparing download…',
+        disappearWhenDone: true,
+      });
+      await renderUnwrap(spinner);
     }
-    throw e;
+    const { result, error } = await settled;
+    if (error) {
+      if ((error as { name?: string })?.name === 'AbortError') return null;
+      throw error;
+    }
+    return result;
   } finally {
     process.removeListener('SIGINT', onSigint);
-    progress.done();
+    onTerminate(undefined);
   }
 }
 
@@ -175,24 +179,27 @@ export const backupDownloadCmd = Effect.fn(function* (
 
   const backup = yield* pickBackup(backups, backupId, opts);
 
-  const sizes = estimateZipSize(backup);
-  const estimate = sizes
-    ? ` The zip file will be between ${formatFileSize(sizes.min)} and ${formatFileSize(sizes.max)}, depending on the compression ratio.`
-    : '';
+  const outPath = path.resolve(opts.out ?? backupZipName(backup));
+  // Catch this before the download runs, not at the final rename.
+  if (existsSync(outPath) && statSync(outPath).isDirectory()) {
+    return yield* BadArgsError.make({
+      message: `${outPath} is a directory.`,
+    });
+  }
 
-  const ok = yield* promptOk({
-    promptText: `Download the backup from ${formatBackupDate(backup.backupAt)}?${estimate}`,
-  });
+  yield* renderBackupsTable([backup]);
+  const sizes = estimateZipSize(backup);
+  if (sizes) {
+    yield* Effect.log(
+      `The zip file will be between ${formatFileSize(sizes.min)} and ${formatFileSize(sizes.max)}, depending on the compression ratio.`,
+    );
+  }
+  yield* Effect.log(chalk.dim(`Saving to ${outPath} (pass -o to change).`));
+
+  const ok = yield* promptOk({ promptText: 'Download this backup?' });
   if (!ok) return;
 
-  const outPath = path.resolve(opts.out ?? backupZipName(backup));
   if (existsSync(outPath)) {
-    // Catch this before the download runs, not at the final rename.
-    if (statSync(outPath).isDirectory()) {
-      return yield* BadArgsError.make({
-        message: `${outPath} is a directory.`,
-      });
-    }
     const overwrite = yield* promptOk({
       promptText: `${path.basename(outPath)} already exists. Overwrite?`,
     });
@@ -200,7 +207,6 @@ export const backupDownloadCmd = Effect.fn(function* (
   }
 
   const manager = yield* buildBackupsManager;
-  yield* Effect.log(`Downloading to ${outPath}`);
 
   const result = yield* Effect.tryPromise({
     try: () => runDownload(manager, backup, outPath),
