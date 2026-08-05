@@ -226,6 +226,11 @@
      (finally
        (.release ~semaphore))))
 
+(defprotocol IBlockingSubmit
+  (submitBlocking [this callable]
+    "Like submit, but blocks the calling thread until a concurrency slot is free
+     before enqueueing `callable`, providing backpressure to the caller."))
+
 (deftype LimitedConcurrencyVFutureExecutor [^ExecutorService executor
                                             ^Semaphore sem]
   ExecutorService
@@ -242,7 +247,33 @@
                                  (execute-with-semaphore sem (.run runnable)))))
 
   (shutdown [_]
-    (.shutdown executor)))
+    (.shutdown executor))
+
+  (shutdownNow [_]
+    (.shutdownNow executor))
+
+  (isShutdown [_]
+    (.isShutdown executor))
+
+  (isTerminated [_]
+    (.isTerminated executor))
+
+  (awaitTermination [_ timeout unit]
+    (.awaitTermination executor timeout unit))
+
+  IBlockingSubmit
+  (submitBlocking [_ callable]
+    (.acquire sem)
+    (try
+      (.submit executor
+               ^Callable (^{:once true} fn* []
+                          (try
+                            (.call ^Callable callable)
+                            (finally
+                              (.release sem)))))
+      (catch Throwable t
+        (.release sem)
+        (throw t)))))
 
 (defn make-limited-concurrency-executor ^ExecutorService [max-concurrency]
   (let [executor (Executors/newVirtualThreadPerTaskExecutor)

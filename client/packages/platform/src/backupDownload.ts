@@ -229,6 +229,14 @@ export async function downloadBackupArchive(
     if (files.length === 0) {
       throw new Error('No files found for this backup.');
     }
+    // We write entries in the order the server returns them, and restore
+    // requires config.json to be the first entry. Fail loudly rather than
+    // build a zip that can't be restored.
+    if (files[0].name !== 'config.json') {
+      throw new Error(
+        `Backup files came back in an unexpected order (expected config.json first, got "${files[0].name}").`,
+      );
+    }
     // config.json isn't a namespace — count only the entities/*.jsonl shards.
     entitiesTotal = files.filter((f) => f.name !== 'config.json').length;
     tick();

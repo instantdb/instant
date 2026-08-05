@@ -2,7 +2,11 @@
   (:require
    [clojure.core.async :as a]
    [clojure.test :refer [deftest is testing]]
-   [instant.util.async :refer [chunked-chan severed-vfuture tracked-future vfut-bg vfuture]]))
+   [instant.util.async :refer [chunked-chan make-limited-concurrency-executor
+                               severed-vfuture submitBlocking tracked-future
+                               vfut-bg vfuture]])
+  (:import
+   (java.util.concurrent ExecutionException Future)))
 
 (deftest vfuture-works
   (is (= 1 @(vfuture 1))))
@@ -258,3 +262,56 @@
 
       (is (not= :timeout (deref (future (a/<!! (shutdown))) 10 :timeout))))))
 
+(deftest submit-blocking-returns-the-task-result
+  (let [executor (make-limited-concurrency-executor 2)]
+    (is (= 3 (.get ^Future (submitBlocking executor (fn [] (+ 1 2))))))))
+
+(deftest submit-blocking-blocks-the-caller-when-at-capacity
+  (let [executor (make-limited-concurrency-executor 1)
+        a-started (promise)
+        release-a (promise)
+        ;; A takes the only permit and parks, holding it
+        a-fut (submitBlocking executor (fn []
+                                         (deliver a-started true)
+                                         @release-a
+                                         :a))]
+    (is (= true (deref a-started 1000 :timeout)))
+    (let [b-submitted (promise)
+          ;; B's submit must block on the calling thread until A frees the permit
+          b-fut (future
+                  (let [f (submitBlocking executor (fn [] :b))]
+                    (deliver b-submitted true)
+                    f))]
+      ;; the submit call itself hasn't returned yet — no permit available
+      (is (= :timeout (deref b-submitted 200 :timeout)))
+      ;; let A finish; its permit is released and B's submit proceeds
+      (deliver release-a true)
+      (is (= true (deref b-submitted 1000 :timeout)))
+      (is (= :a (.get ^Future a-fut)))
+      (is (= :b (.get ^Future (deref b-fut 1000 :timeout)))))))
+
+(deftest submit-blocking-never-exceeds-the-concurrency-limit
+  (let [max-concurrency 3
+        executor (make-limited-concurrency-executor max-concurrency)
+        running (atom 0)
+        peak (atom 0)
+        futs (doall
+              (for [_ (range 20)]
+                (submitBlocking executor
+                                (fn []
+                                  (swap! peak max (swap! running inc))
+                                  (Thread/sleep 20)
+                                  (swap! running dec)))))]
+    (doseq [^Future f futs]
+      (.get f))
+    (is (<= @peak max-concurrency))
+    (is (= 0 @running))))
+
+(deftest submit-blocking-releases-the-permit-when-a-task-throws
+  (let [executor (make-limited-concurrency-executor 1)
+        boom (submitBlocking executor (fn [] (throw (ex-info "boom" {}))))]
+    (is (thrown? ExecutionException (.get ^Future boom)))
+    ;; the failed task must have released its permit, so the next submit isn't
+    ;; blocked forever
+    (let [ok (future (.get ^Future (submitBlocking executor (fn [] :ok))))]
+      (is (= :ok (deref ok 1000 :timeout))))))

@@ -441,8 +441,8 @@ function DownloadInstance({
           <Content>
             The zip file will be between{' '}
             <strong>{formatFileSize(sizeEstimate.min)}</strong> and{' '}
-            <strong>{formatFileSize(sizeEstimate.max)}</strong>, depending on the
-            compression ratio.
+            <strong>{formatFileSize(sizeEstimate.max)}</strong>, depending on
+            the compression ratio.
           </Content>
         ) : null}
         {pickerError ? (
