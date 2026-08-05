@@ -20,7 +20,7 @@
   (:import
    (java.time Period ZonedDateTime)
    (java.time.temporal ChronoUnit)
-   (java.util Date UUID)))
+   (java.util Date)))
 
 (def ephemeral-creator-email (if (= (config/get-env) :dev)
                                "hello+ephemeralappsdev@instantdb.com"
