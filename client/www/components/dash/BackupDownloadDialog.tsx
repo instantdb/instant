@@ -264,9 +264,7 @@ async function downloadBackup(
     // Set once we see the server's terminal `done` sentinel. A backup with no
     // storage files still gets the sentinel (the server sends it even when
     // there's no $files shard), so if discovery ends without it and we weren't
-    // aborted, the stream was truncated by a server-side failure. A 404 here
-    // can only mean the backup record itself is missing or expired, so it goes
-    // through the error path instead of masquerading as "no files".
+    // aborted, the stream was truncated by a server-side failure.
     let storageComplete = false;
     try {
       const res = await fetch(
