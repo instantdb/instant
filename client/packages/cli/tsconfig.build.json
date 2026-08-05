@@ -3,6 +3,7 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "rewriteRelativeImportExtensions": true,
     "sourceMap": true,
     "verbatimModuleSyntax": true,

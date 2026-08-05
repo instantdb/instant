@@ -15,7 +15,7 @@ export const activeBackups = (
       const expiresAt = new Date(backup.expires_at).valueOf();
       return Number.isFinite(expiresAt) && expiresAt > now;
     })
-    .sort(
+    .toSorted(
       (a, b) =>
         new Date(b.backup_at).valueOf() - new Date(a.backup_at).valueOf(),
     );

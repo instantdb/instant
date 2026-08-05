@@ -3,6 +3,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "rewriteRelativeImportExtensions": true,
     "sourceMap": true,
     "skipLibCheck": true,
