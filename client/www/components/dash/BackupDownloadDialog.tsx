@@ -340,6 +340,14 @@ async function downloadBackup(
     if (files.length === 0) {
       throw new Error('No files found for this backup.');
     }
+    // We write entries in the order the server returns them, and restore
+    // requires config.json to be the first entry. Fail loudly rather than
+    // build a zip that can't be restored.
+    if (files[0].name !== 'config.json') {
+      throw new Error(
+        `Backup files came back in an unexpected order (expected config.json first, got "${files[0].name}").`,
+      );
+    }
   } catch (e) {
     // Entity discovery failed before we reached the zip pipeline's own
     // teardown. Stop the background storage-files discovery stream so it

@@ -16,7 +16,8 @@
    (software.amazon.awssdk.auth.credentials DefaultCredentialsProvider)
    (software.amazon.awssdk.http.nio.netty NettyNioAsyncHttpClient)
    (software.amazon.awssdk.regions Region)
-   (software.amazon.awssdk.services.s3 S3AsyncClient S3Client S3ClientBuilder S3CrtAsyncClientBuilder)
+   (software.amazon.awssdk.services.s3 S3AsyncClient S3AsyncClientBuilder S3Client S3ClientBuilder S3CrtAsyncClientBuilder)
+   (software.amazon.awssdk.services.s3.multipart MultipartConfiguration)
    (software.amazon.awssdk.transfer.s3 S3TransferManager)))
 
 (set! *warn-on-reflection* true)
@@ -37,6 +38,18 @@
       (.credentialsProvider builder credentials-provider))))
 
 (defn- configure-s3-endpoint-async-client ^S3CrtAsyncClientBuilder [^S3CrtAsyncClientBuilder builder]
+  (if-let [endpoint (config/s3-endpoint)]
+    (doto builder
+      (.endpointOverride (URI/create endpoint))
+      (.region (Region/of (config/s3-region)))
+      (.forcePathStyle Boolean/TRUE))
+    (let [credentials-provider (-> (DefaultCredentialsProvider/builder)
+                                   ;; Keeps credentials fresh in the background
+                                   (.asyncCredentialUpdateEnabled true)
+                                   (.build))]
+      (.credentialsProvider builder credentials-provider))))
+
+(defn- configure-s3-endpoint-async-export-client ^S3AsyncClientBuilder [^S3AsyncClientBuilder builder]
   (if-let [endpoint (config/s3-endpoint)]
     (doto builder
       (.endpointOverride (URI/create endpoint))
@@ -74,25 +87,35 @@
   ^S3AsyncClient []
   @s3-async-client*)
 
+(def multipart-part-size
+  "Minimum multipart part size for the export/transfer-manager client.
+   Matches the SDK default, but we set it to be explicit since upstream
+   callers may rely on it."
+  (* 8 1024 1024))
+
 (declare s3-async-export-client*)
 (def ^:private s3-async-export-client*
   (delay
     (when (and (bound? #'s3-async-export-client*)
                (realized? s3-async-export-client*))
       (.close ^S3AsyncClient @s3-async-export-client*))
-    (-> (S3AsyncClient/builder)
-        (.multipartEnabled true)
-        ;; Backups can keep an upload stream open for long
-        ;; stretches of time without producing bytes, do
-        ;; what we can to prevent the connection from closing
-        (.httpClientBuilder
-         (doto (NettyNioAsyncHttpClient/builder)
-           (.readTimeout Duration/ZERO)
-           (.writeTimeout Duration/ZERO)
-           (.tcpKeepAlive Boolean/TRUE)
-           (.maxConcurrency (int 1024)))) ;; default is 50
-        (configure-s3-endpoint-client)
-        (.build))))
+    (let [^MultipartConfiguration multipart-config (-> (MultipartConfiguration/builder)
+                                                       (.minimumPartSizeInBytes (long multipart-part-size))
+                                                       (.build))]
+      (-> (S3AsyncClient/builder)
+          (.multipartEnabled true)
+          (.multipartConfiguration multipart-config)
+          ;; Backups can keep an upload stream open for long
+          ;; stretches of time without producing bytes, do
+          ;; what we can to prevent the connection from closing
+          (.httpClientBuilder
+           (doto (NettyNioAsyncHttpClient/builder)
+             (.readTimeout Duration/ZERO)
+             (.writeTimeout Duration/ZERO)
+             (.tcpKeepAlive Boolean/TRUE)
+             (.maxConcurrency (int 1024)))) ;; default is 50
+          (configure-s3-endpoint-async-export-client)
+          (.build)))))
 
 (defn s3-async-export-client
   "Client used for running backups to s3.

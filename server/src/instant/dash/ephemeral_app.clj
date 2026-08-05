@@ -20,7 +20,7 @@
   (:import
    (java.time Period ZonedDateTime)
    (java.time.temporal ChronoUnit)
-   (java.util Date UUID)))
+   (java.util Date)))
 
 (def ephemeral-creator-email (if (= (config/get-env) :dev)
                                "hello+ephemeralappsdev@instantdb.com"
@@ -30,13 +30,19 @@
   (delay
     (instant-user-model/get-by-email {:email ephemeral-creator-email})))
 
-(defn create!
-  [{:keys [title]}]
+(defn create-with-id!
+  [{:keys [id title]}]
   (app-model/create!
-   {:id (UUID/randomUUID)
+   {:id id
     :title title
     :creator-id (:id @ephemeral-creator)
-    :admin-token (UUID/randomUUID)}))
+    :admin-token (random-uuid)}))
+
+
+(defn create!
+  [{:keys [title]}]
+  (create-with-id! {:id (random-uuid)
+                    :title title}))
 
 (def expiration-days 14)
 
