@@ -34,6 +34,18 @@ import {
 import { exchangeCodeForToken, exchangeRefreshToken } from './serverOAuth.ts';
 import { clerkDomainFromPublishableKey } from './clerk.ts';
 import {
+  BackupsManager,
+  BackupDownloadError,
+  backupZipName,
+  canonicalizeBackupFiles,
+  type InstantAppBackup,
+  type BackupFile,
+  type StorageFile,
+  type BackupEntry,
+  type BackupDownloadCallbacks,
+  type BackupsManagerConfig,
+} from './backup.ts';
+import {
   Webhooks,
   type WebhookAction,
   type WebhookStatus,
@@ -81,6 +93,16 @@ export {
   exchangeCodeForToken,
   exchangeRefreshToken,
   clerkDomainFromPublishableKey,
+  BackupsManager,
+  BackupDownloadError,
+  backupZipName,
+  canonicalizeBackupFiles,
+  type InstantAppBackup,
+  type BackupFile,
+  type StorageFile,
+  type BackupEntry,
+  type BackupDownloadCallbacks,
+  type BackupsManagerConfig,
   i,
   Webhooks,
   WebhooksManager,

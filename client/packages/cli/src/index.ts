@@ -51,6 +51,8 @@ import { webhooksEventsResendCmd } from './commands/webhooks/events/resend.ts';
 import { emailStatusCmd } from './commands/auth/email/status.ts';
 import { verifyCmd } from './commands/auth/email/verify.ts';
 import { resendEmailCmd } from './commands/auth/email/resend.ts';
+import { backupListCommand } from './commands/backup/list.ts';
+import { backupDownloadCommand } from './commands/backup/download.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -142,6 +144,58 @@ export const appDeleteDef = app
           AuthLayerLive({
             coerce: false,
             allowAdminToken: false,
+          }),
+        ),
+      ),
+    );
+  });
+
+const backup = program
+  .command('backup')
+  .description('List and download app backups');
+
+export const backupListDef = backup
+  .command('list')
+  .description('List backups available for download')
+  .option(
+    '-a --app <app-id>',
+    'App ID to list backups for. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option('--json', 'Output backups as JSON')
+  .action((opts) => {
+    return runCommandEffect(
+      backupListCommand(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }).pipe(Layer.annotateLogs('silent', !!opts.json)),
+        ),
+      ),
+    );
+  });
+
+export const backupDownloadDef = backup
+  .command('download')
+  .description('Download a backup as a restore-ready ZIP archive')
+  .argument('[backup-id]', 'Backup ID to download')
+  .option(
+    '-a --app <app-id>',
+    'App ID to download a backup for. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option('-o --output <path>', 'Path for the downloaded ZIP archive')
+  .option('--latest', 'Download the newest available backup')
+  .action((backupId, opts) => {
+    return runCommandEffect(
+      backupDownloadCommand(backupId, opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
           }),
         ),
       ),

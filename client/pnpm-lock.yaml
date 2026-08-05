@@ -93,6 +93,9 @@ importers:
       '@instantdb/version':
         specifier: workspace:*
         version: link:../version
+      '@zip.js/zip.js':
+        specifier: ^2.8.34
+        version: 2.8.34
       acorn:
         specifier: ^8.15.0
         version: 8.15.0

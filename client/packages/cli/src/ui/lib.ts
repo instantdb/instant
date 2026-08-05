@@ -372,7 +372,7 @@ let terminateHandler:
   | undefined;
 
 export function onTerminate(
-  callback: (stdin: ReadStream, stdout: WriteStream) => void | undefined,
+  callback: ((stdin: ReadStream, stdout: WriteStream) => void) | undefined,
 ) {
   terminateHandler = callback;
 }

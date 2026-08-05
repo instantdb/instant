@@ -1,5 +1,7 @@
 import { InstantIssue } from '@instantdb/core';
 
+export type { InstantAppBackup } from '@instantdb/platform';
+
 export type AppStatus = 'active' | 'read-only' | 'disabled';
 
 export type InstantApp = {
@@ -88,17 +90,6 @@ export type InstantWebhookPayloadRecord = {
 export type InstantWebhookPayload = {
   data: InstantWebhookPayloadRecord[] | null;
   idempotencyKey: string;
-};
-
-export type InstantAppBackup = {
-  id: string;
-  isn: string;
-  backup_at: string;
-  files_size: number | null;
-  db_size: number | null;
-  uncompressed_size: number | null;
-  description: string | null;
-  expires_at: string | null;
 };
 
 export type InstantMember = {

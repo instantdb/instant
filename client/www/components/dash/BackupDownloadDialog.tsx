@@ -9,18 +9,17 @@ import {
   type ReactNode,
 } from 'react';
 import { ArrowsPointingOutIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { BackupsManager, backupZipName } from '@instantdb/platform';
 
 import config from '@/lib/config';
-import { jsonFetch } from '@/lib/fetch';
 import { messageFromInstantError } from '@/lib/errors';
+import { trackingHeaders } from '@/lib/fetch';
 import { InstantApp, InstantAppBackup, InstantIssue } from '@/lib/types';
 
 import { Button, Content, Dialog, SubsectionHeading } from '@/components/ui';
 
 import { formatTimestamp } from '@/components/dash/shared';
 import { useDarkMode } from '@/components/dash/DarkModeToggle';
-
-type BackupFile = { name: string; size: number };
 
 type DownloadProgress = {
   entitiesCompleted: number;
@@ -41,11 +40,6 @@ type DownloadProgress = {
   outputFilename: string;
 };
 
-function backupZipName(backup: InstantAppBackup): string {
-  const safe = backup.backup_at.replace(/[:.]/g, '-');
-  return `instant-backup-${safe}.zip`;
-}
-
 function formatBytes(n: number): string {
   // Decimal (1000-based) units with SI labels, to match how macOS/Finder
   // reports file sizes so the number lines up with what lands on disk.
@@ -61,42 +55,6 @@ function formatBytes(n: number): string {
   return `${v.toFixed(digits)} ${units[i]}`;
 }
 
-async function fetchFiles(
-  token: string,
-  appId: string,
-  backupId: string,
-  signal: AbortSignal,
-): Promise<BackupFile[]> {
-  // XXX: Why are you using the authed fetch hook here?
-  const { files } = (await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/backups/${backupId}/files`,
-    { headers: { authorization: `Bearer ${token}` }, signal },
-  )) as { files: BackupFile[] };
-  return files;
-}
-
-async function fetchFileUrl(
-  token: string,
-  appId: string,
-  backupId: string,
-  name: string,
-  signal: AbortSignal,
-): Promise<string> {
-  // XXX: Why are you using the authed fetch hook here?
-  const url = `${config.apiURI}/dash/apps/${appId}/backups/${backupId}/file-url?name=${encodeURIComponent(name)}`;
-  const { url: signed } = (await jsonFetch(url, {
-    headers: { authorization: `Bearer ${token}` },
-    signal,
-  })) as { url: string };
-  return signed;
-}
-
-type StorageFileLine = {
-  locationId: string;
-  path: string;
-  url: string;
-};
-
 type DownloadResult =
   | { via: 'picker'; filename: string }
   | { via: 'browser-default'; filename: string };
@@ -104,12 +62,6 @@ type DownloadResult =
 type SaveFileHandle = Awaited<
   ReturnType<typeof import('native-file-system-adapter').showSaveFilePicker>
 >;
-
-type ZipEntry = {
-  name: string;
-  lastModified: Date;
-  input: ReadableStream<Uint8Array>;
-};
 
 async function registerDownloadServiceWorker(): Promise<void> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
@@ -162,28 +114,15 @@ async function downloadBackup(
     ],
   });
 
-  // ---- Shared progress state ----
-  // current = files (backup + storage) fully fetched.
-  // total = backup file count + storage files ever discovered.
-  // `storageQueue` is a FIFO of yet-to-fetch storage files only — dequeued as
-  // the generator processes them, so it stays bounded by (discovery rate -
-  // fetch rate). It's an object with head/tail indices rather than an array
-  // because discovery streams the whole list in up front: Array.shift() is O(n),
-  // so draining a large backup would be O(n²). Object access is O(1) and delete
-  // frees each slot as it's consumed.
-  // Two parallel counters surfaced in the dialog:
-  //   entities — the backup payload (config.json + per-etype JSONL shards).
-  //   files    — the user's $files (storage uploads).
-  // entitiesTotal is null until fetchFiles resolves; filesTotal is null
-  // until the discovery NDJSON returns at least one line OR completes
-  // (404/empty body sets it to 0 so the dialog shows "0 of 0 files").
+  // Two parallel counters surfaced in the dialog: namespaces from the backup
+  // payload, and the user's storage uploads.
   let entitiesCompleted = 0;
   let entitiesTotal: number | null = null;
   let filesCompleted = 0;
   let filesTotal: number | null = null;
   let currentEntity = '';
   let currentFile = '';
-  let outputFilename = pickerHandle?.name ?? filename;
+  const outputFilename = pickerHandle?.name ?? filename;
   let zipBytes = 0;
   let uncompressedRead = 0;
   // Denominator for the % bar: uncompressed entities + storage files, since we
@@ -193,18 +132,8 @@ async function downloadBackup(
     backup.uncompressed_size != null
       ? backup.uncompressed_size + (backup.files_size ?? 0)
       : null;
-  const storageQueue: Record<number, StorageFileLine> = {};
-  let queueHead = 0;
-  let queueTail = 0;
-  let storageDone = false;
-  let storageError: Error | null = null;
-  let waitResolve: (() => void) | null = null;
-
-  // The caller-supplied AbortController is shared across every fetch we
-  // own (the NDJSON discovery stream, backup file body fetches, storage
-  // file body fetches). The caller can abort it externally (e.g. dialog
-  // close) and we also abort it from our own catch so the discovery stops
-  // pulling from S3 if the zip pipeline throws.
+  // The caller-supplied AbortController is shared across every fetch owned by
+  // the backup manager and the zip writer.
   const signal = abortController.signal;
 
   const tick = () =>
@@ -236,12 +165,6 @@ async function downloadBackup(
       }),
     );
 
-  const notify = () => {
-    const w = waitResolve;
-    waitResolve = null;
-    w?.();
-  };
-
   // Throttle progress updates by time: a large backup pushes many small chunks
   // (and a large listing many discovery lines) and ticking (a React setState)
   // on every one would flood re-renders. Ticking at most every 100ms stays
@@ -257,171 +180,16 @@ async function downloadBackup(
     }
   };
 
-  // Kick off storage-files discovery in parallel with the backup file list.
-  // It pushes onto storagePending and bumps `storageDiscovered` as URLs
-  // stream in.
-  void (async () => {
-    // Set once we see the server's terminal `done` sentinel (or a 404, which
-    // means there's no $files shard at all). If discovery ends without it and
-    // we weren't aborted, the stream was truncated by a server-side failure.
-    let storageComplete = false;
-    try {
-      const res = await fetch(
-        `${config.apiURI}/dash/apps/${appId}/backups/${backup.id}/storage-files`,
-        { headers: { authorization: `Bearer ${token}` }, signal },
-      );
-      if (res.status === 404) {
-        filesTotal = 0;
-        storageComplete = true;
-        tick();
-        return;
-      }
-      if (!res.ok || !res.body) {
-        throw new Error(`Failed to list storage files: ${res.status}`);
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-      const consume = (line: string) => {
-        const trimmed = line.trim();
-        if (trimmed.length === 0) return;
-        const obj = JSON.parse(trimmed) as StorageFileLine & {
-          done?: boolean;
-        };
-        if (obj.done) {
-          storageComplete = true;
-          return;
-        }
-        if (!obj.locationId || !obj.url) return;
-        storageQueue[queueTail++] = obj;
-        filesTotal = (filesTotal ?? 0) + 1;
-        throttledTick();
-        notify();
-      };
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        let nl = buf.indexOf('\n');
-        while (nl !== -1) {
-          consume(buf.slice(0, nl));
-          buf = buf.slice(nl + 1);
-          nl = buf.indexOf('\n');
-        }
-      }
-      consume(buf);
-    } catch (e) {
-      // The abort path is expected when the zip pipeline failed and we
-      // tore the discovery down
-      if ((e as { name?: string })?.name !== 'AbortError') {
-        storageError = e as Error;
-      }
-    } finally {
-      // Discovery finished without ever calling consume (empty stream) —
-      // surface "0 of 0" so the dialog doesn't sit on "?" forever.
-      if (filesTotal == null) filesTotal = 0;
-      // No `done` sentinel and we weren't aborted → the server closed the
-      // pipe early. Fail loudly instead of building a partial zip. Don't
-      // clobber a more specific error already caught above.
-      if (!storageComplete && storageError == null && !signal.aborted) {
-        storageError = new Error(
-          'Storage file listing ended before it finished. Please retry the download.',
-        );
-      }
-      storageDone = true;
-      tick();
-      notify();
-    }
-  })();
-
-  let files: BackupFile[];
-  try {
-    files = await fetchFiles(token, appId, backup.id, signal);
-    if (files.length === 0) {
-      throw new Error('No files found for this backup.');
-    }
-  } catch (e) {
-    // Entity discovery failed before we reached the zip pipeline's own
-    // teardown. Stop the background storage-files discovery stream so it
-    // doesn't keep pulling from S3 after we bail.
-    abortController.abort();
-    throw e;
-  }
-  // config.json isn't a namespace — count only the entities/*.jsonl shards so
-  // the "N namespaces" label isn't off by one.
-  entitiesTotal = files.filter((f) => f.name !== 'config.json').length;
-  tick();
-
-  // Entry write order is significant for restore: config first, then the
-  // entities/*.jsonl shards, then files/${locationId}. In particular ALL entity
-  // files must be written before ANY storage file. This generator preserves
-  // that: it yields the entity `files` (config + entities/*.jsonl, in the order
-  // fetchFiles returns them) to completion, then drains the storage queue.
-  const entries = (async function* (): AsyncGenerator<ZipEntry> {
-    for (const f of files) {
-      currentEntity = f.name;
-      tick();
-      const url = await fetchFileUrl(token, appId, backup.id, f.name, signal);
-      const res = await fetch(url, { signal });
-      if (!res.ok) {
-        throw new Error(`Failed to fetch ${f.name}: ${res.status}`);
-      }
-      if (f.name !== 'config.json') entitiesCompleted++;
-      tick();
-      yield {
-        name: f.name,
-        lastModified: new Date(backup.backup_at),
-        input: countRead(res.body!),
-      };
-    }
-    // Entity phase done — clear so the dialog stops claiming we're still
-    // downloading an entity file once we move into storage.
-    currentEntity = '';
-    tick();
-
-    while (true) {
-      if (storageError) throw storageError;
-      let obj: StorageFileLine | undefined;
-      if (queueHead < queueTail) {
-        obj = storageQueue[queueHead];
-        delete storageQueue[queueHead];
-        queueHead++;
-      }
-      if (obj) {
-        currentFile = obj.path || obj.locationId;
-        tick();
-        const fileRes = await fetch(obj.url, { signal });
-        if (!fileRes.ok) {
-          throw new Error(
-            `Couldn't download storage file "${obj.path}" (HTTP ${fileRes.status}).`,
-          );
-        }
-        filesCompleted++;
-        tick();
-        yield {
-          name: `files/${obj.locationId}`,
-          lastModified: new Date(backup.backup_at),
-          input: countRead(fileRes.body!),
-        };
-      } else if (storageDone) {
-        break;
-      } else {
-        await new Promise<void>((resolve) => {
-          waitResolve = resolve;
-        });
-      }
-    }
-    // Storage phase done, clear so the dialog stops showing the last file.
-    currentFile = '';
-    tick();
-
-    if (storageError) throw storageError;
-  })();
+  const backups = new BackupsManager({
+    apiURI: config.apiURI,
+    token,
+    headers: trackingHeaders,
+  });
 
   let diskWriter: WritableStreamDefaultWriter<Uint8Array> | null = null;
   try {
-    // Load the zip encoder on demand (kept out of the shared bundle). Inside the
-    // try so a chunk-load failure aborts the background discovery too.
+    // Load the browser zip encoder on demand. The backup manager owns API
+    // enumeration, validation, and entry order; zip output stays browser-local.
     const { ZipWriter } = await import('@zip.js/zip.js');
     const writable = await pickerHandle.createWritable();
     const writer = writable.getWriter();
@@ -452,16 +220,52 @@ async function downloadBackup(
     // doesn't jank the tab), each degrading to an inline main-thread codec on
     // browsers that lack them — correctness (incl. zip64) is unaffected either way.
     const zipWriter = new ZipWriter(countingSink, { zip64: true, signal });
+    const entries = backups.downloadEntries(appId, backup, {
+      signal,
+      callbacks: {
+        onBackupFiles(files) {
+          // config.json isn't a namespace.
+          entitiesTotal = files.filter(
+            (file) => file.name !== 'config.json',
+          ).length;
+          tick();
+        },
+        onStorageFile() {
+          filesTotal = (filesTotal ?? 0) + 1;
+          tick();
+        },
+        onStorageComplete() {
+          filesTotal ??= 0;
+          tick();
+        },
+      },
+    });
     for await (const entry of entries) {
-      await zipWriter.add(entry.name, entry.input, {
+      if (entry.kind === 'storage') {
+        currentEntity = '';
+        currentFile = entry.sourceName;
+      } else {
+        currentFile = '';
+        currentEntity = entry.name;
+      }
+      tick();
+      await zipWriter.add(entry.name, countRead(entry.input), {
         lastModDate: entry.lastModified,
       });
+      if (entry.kind === 'storage') {
+        filesCompleted++;
+        currentFile = '';
+      }
+      if (entry.kind === 'entity') entitiesCompleted++;
+      if (entry.kind !== 'storage' && entitiesCompleted === entitiesTotal) {
+        currentEntity = '';
+      }
+      tick();
     }
     await zipWriter.close();
     return { via: 'picker', filename: pickerHandle.name ?? filename };
   } catch (e) {
-    // Tear down the background discovery and any in-flight body fetches so we
-    // don't keep pulling from S3, and discard the partial file on disk.
+    // Tear down any in-flight body fetch and discard the partial file on disk.
     abortController.abort();
     await diskWriter?.abort(e).catch(() => {});
     throw e;
