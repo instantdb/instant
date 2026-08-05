@@ -32,7 +32,7 @@
    (instant.util.async IBlockingSubmit)
    (java.io BufferedInputStream BufferedReader InputStream InputStreamReader)
    (java.nio.charset StandardCharsets)
-   (java.util.concurrent LinkedBlockingQueue TimeUnit)
+   (java.util.concurrent Callable LinkedBlockingQueue TimeUnit)
    (java.util.zip ZipEntry ZipFile)))
 
 (def triple-columns [{:name :app-id
@@ -384,11 +384,14 @@
 
 (def delete-app-triples-q
   (uhsql/preformat
-   {:delete-from :triples
+   {:with [[:to-delete {:select :ctid
+                        :from :triples
+                        :where [:= :app-id :?app-id]
+                        :limit :?batch-size
+                        :for :update}]]
+    :delete-from :triples
     :where [:in :ctid {:select :ctid
-                       :from :triples
-                       :where [:= :app-id :?app-id]
-                       :limit :?batch-size}]}))
+                       :from :to-delete}]}))
 
 (defn delete-app-triples!
   "Deletes an app's triples in batches so the per-statement delete trigger works
