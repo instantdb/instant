@@ -339,6 +339,20 @@
                                                      (.getNanosToWaitForRefill remaining))
                                          (.getRemainingTokens remaining)))))
 
+(defn consume-user-rate-limit-retry-at
+  "Like `consume-user-rate-limit`, but instead of throwing on exhaustion it
+   returns nil when the tokens were consumed, or the `Instant` at which the
+   caller may retry when the bucket is empty. Lets the caller craft its own
+   rate-limit message."
+  [{:keys [get-bucket-with-config]}
+   {:keys [app-id config tokens bucket-key bucket-name]
+    :or {tokens 1}}]
+  (let [key (user-key-hash app-id bucket-name config bucket-key)
+        ^Bucket bucket (get-bucket-with-config key (make-bucket-config-fn config))
+        remaining (.tryConsumeAndReturnRemaining bucket tokens)]
+    (when-not (.isConsumed remaining)
+      (.plusNanos (Instant/now) (.getNanosToWaitForRefill remaining)))))
+
 (defonce schedule (atom nil))
 
 (def sweep-q (uhsql/formatp

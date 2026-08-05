@@ -431,17 +431,33 @@
   (throw+ {::type ::rate-limited
            ::message "Too many verification codes requested for this email. Please try again later."}))
 
+(defn retry-after-seconds
+  "Whole seconds until `retry-at`, rounded up and floored at 0. Suitable for a
+   Retry-After hint."
+  [retry-at]
+  (-> (Duration/between (Instant/now) retry-at)
+      (.toMillis)
+      (/ 1000)
+      (Math/ceil)
+      (long)
+      (max 0)))
+
 (defn throw-permission-rate-limited! [retry-at remaining-tokens]
   (throw+ {::type ::rate-limited
            ::message "Your request exceeded the rate limit."
            ::hint {:retry-at retry-at
-                   :retry-after (-> (Duration/between (Instant/now) retry-at)
-                                    (.toMillis)
-                                    (/ 1000)
-                                    (Math/ceil)
-                                    (long)
-                                    (max 0))
+                   :retry-after (retry-after-seconds retry-at)
                    :remaining-tokens remaining-tokens}}))
+
+(defn throw-rate-limited-until!
+  "Rate-limited error with a caller-supplied message and a retry-at instant so
+   the client knows when it can try again (both as a human-readable retry time
+   in the message and a machine-readable `retry-after` in the hint)."
+  [message retry-at]
+  (throw+ {::type ::rate-limited
+           ::message message
+           ::hint {:retry-at retry-at
+                   :retry-after (retry-after-seconds retry-at)}}))
 
 ;; -------
 ;; Sockets

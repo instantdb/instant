@@ -524,6 +524,42 @@
   []
   (flag :backup-skip-app-ids #{}))
 
+(defn on-demand-backup-worker-count
+  "How many on-demand backups run concurrently per machine."
+  []
+  (flag :on-demand-backup-worker-count 3))
+
+(defn on-demand-backup-expiry-days
+  "How long an on-demand backup is retained before its S3 objects expire.
+   Hard-capped at 32 by the storage `expire` tag rule."
+  []
+  (flag :on-demand-backup-expiry-days 30))
+
+(defn on-demand-backup-max-triples
+  "Apps whose estimated triple count is at or above this can't run a self-serve
+   backup--they're too large to stream on-demand, so we route them to us in
+   Discord. A nil or non-positive value disables the ceiling."
+  []
+  (flag :on-demand-backup-max-triples 25000000))
+
+(defn on-demand-backup-app-rate-limit
+  "Per-app throttle for on-demand backups, as {:capacity n :window-minutes m}
+   (default 1 per 5 minutes). Set the flag to a JSON object like
+   {\"capacity\": 1, \"windowMinutes\": 5} to tune without a deploy."
+  []
+  (let [v (flag :on-demand-backup-app-rate-limit)]
+    {:capacity (get v "capacity" 1)
+     :window-minutes (get v "windowMinutes" 5)}))
+
+(defn on-demand-backup-ip-rate-limit
+  "Per-IP throttle for on-demand backups, as {:capacity n :window-minutes m}
+   (default 2 per 5 minutes). Set the flag to a JSON object like
+   {\"capacity\": 2, \"windowMinutes\": 5} to tune without a deploy."
+  []
+  (let [v (flag :on-demand-backup-ip-rate-limit)]
+    {:capacity (get v "capacity" 2)
+     :window-minutes (get v "windowMinutes" 5)}))
+
 (defn use-cloudfront-signed-url? [app-id]
   (when-not (toggled? :disable-cloudfront-signed-urls-globally)
     (or (toggled? :enable-cloudfront-signed-urls-globally)

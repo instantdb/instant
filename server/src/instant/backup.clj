@@ -106,15 +106,16 @@
                               :db-size :?db-size
                               :uncompressed-size :?uncompressed-size
                               :description :?description
-                              :expires-at :?expires-at}]}))
+                              :expires-at :?expires-at}]
+                    :returning :*}))
 
 (defn insert-app-backup!
   ([params] (insert-app-backup! (aurora/conn-pool :write) params))
   ([conn {:keys [id app-id isn backup-at storage-prefix files-size db-size uncompressed-size description expires-at]}]
-   (sql/do-execute! ::insert-app-backup!
-                    conn
-                    (uhsql/formatp insert-app-backup-q
-                                   {:id id
+   (sql/execute-one! ::insert-app-backup!
+                     conn
+                     (uhsql/formatp insert-app-backup-q
+                                    {:id id
                                     :app-id app-id
                                     :isn isn
                                     :backup-at backup-at
@@ -329,7 +330,9 @@
 (defn complete-streams [query-conn
                         {:keys [backup-id
                                 isn
-                                backup-at]}
+                                backup-at
+                                description
+                                expires-at]}
                         {:keys [streams app-id]}]
   ;; First, write the streams out
   (->> (mapv (fn [^Stream stream]
@@ -383,8 +386,9 @@
                          :files-size (get-storage-usage query-conn app-id)
                          :db-size (get-app-usage query-conn app-id)
                          :uncompressed-size uncompressed-size
-                         :description "Automated Daily Snapshot"
-                         :expires-at (.plus (Instant/now) (Duration/ofDays 7))})))
+                         :description (or description "Automated Daily Snapshot")
+                         :expires-at (or expires-at
+                                         (.plus (Instant/now) (Duration/ofDays 7)))})))
 
 ;; Then update the db with the app backup
 (defn update-entity
@@ -739,12 +743,26 @@
 
 (defn handle-app
   "Processes a single app. Delivers the result to `finished-promise` (either
-   a throwable or the {:triple-count <long>} with the number of triples)."
+   a throwable or {:triple-count <long> :app-backup <row>} where the row is the
+   inserted `app_backups` record, or nil when the app had no triples and
+   `ensure-config?` was not set).
+
+   `description` and `expires-at` override the defaults on the `app_backups`
+   row. When `ensure-config?` is true, an empty app still writes a config.json
+   and an `app_backups` row so the backup is restorable.
+
+   `on-triple`, if given, is called once per triple as the app is copied. It
+   runs on the copy thread, so keep it cheap and non-blocking (e.g. bump a
+   counter) and do any I/O elsewhere."
   [{:keys [clone-pool
            process-id
            isn
            backup-at
            app-id
+           description
+           expires-at
+           ensure-config?
+           on-triple
            finished-promise]}]
   (try
     (let [triples-queue (LinkedBlockingQueue. 5000)
@@ -755,7 +773,8 @@
                         (try
                           (with-open [conn (next.jdbc/get-connection clone-pool)]
                             (doseq [triple (app-triples-seq (.unwrap conn PgConnection) app-id)]
-                              (.put triples-queue triple))
+                              (.put triples-queue triple)
+                              (when on-triple (on-triple)))
                             (.put triples-queue done-signal))
                           (catch Throwable t
                             (deliver finished-promise t)
@@ -777,22 +796,70 @@
                               (throw t))))
           _ @copy-process
           _ @upload-process
+          ctx {:backup-id process-id
+               :isn isn
+               :backup-at backup-at
+               :description description
+               :expires-at expires-at}
           ;; This is a little awkward, since we'll only ever take 1 thing out of the queue,
           ;; but it allows us to use the same code as `process-with-copy`
           item (.take flush-streams-queue)]
       (if (= done-signal item)
         (when-not (realized? finished-promise)
-          (deliver finished-promise {:triple-count 0}))
+          (if ensure-config?
+            ;; The app had no triples, but we still want a restorable backup, so
+            ;; write a config.json with empty counts and record the row.
+            (with-open [conn (next.jdbc/get-connection clone-pool)]
+              (let [app-backup (complete-streams conn ctx {:streams {} :app-id app-id})]
+                (deliver finished-promise {:triple-count 0
+                                           :app-backup app-backup})))
+            (deliver finished-promise {:triple-count 0
+                                       :app-backup nil})))
         (with-open [conn (next.jdbc/get-connection clone-pool)]
-          (complete-streams conn
-                            {:backup-id process-id
-                             :isn isn
-                             :backup-at backup-at}
-                            item)
-          (deliver finished-promise
-                   {:triple-count (:triple-count (.take upload-progress-queue))}))))
+          (let [app-backup (complete-streams conn ctx item)]
+            (deliver finished-promise
+                     {:triple-count (:triple-count (.take upload-progress-queue))
+                      :app-backup app-backup})))))
     (catch Throwable t
       (deliver finished-promise t))))
+
+(defn backup-app-on-primary!
+  "Runs an on-demand backup of a single app against the primary.
+
+   Opens a repeatable-read, read-only snapshot connection and routes both the
+   triples COPY and the config.json reads through it (via `snapshot-datasource`)
+   so the whole backup sees a single consistent point in time. Because it reads
+   its own snapshot there's no clone and no replication slot.
+
+   `on-triple`, if given, is called once per triple as the app is copied (see
+   `handle-app`); keep it cheap and non-blocking.
+
+   Returns {:triple-count <long> :app-backup <row>} where the row is the
+   inserted `app_backups` record. Throws if the backup fails."
+  [{:keys [app-id description expires-at on-triple]}]
+  (let [backup-id (random-uuid)]
+    (with-open [conn (wal/get-pg-copy-ready-conn (config/get-aurora-config))]
+      (.setAutoCommit conn false)
+      ;; Fixes the snapshot for every read on this connection.
+      (sql/select conn ["set transaction isolation level repeatable read, read only"])
+      (tracer/with-span! {:name "backup/backup-app-on-primary"
+                          :attributes {:app-id app-id
+                                       :backup-id backup-id}}
+        (let [finished-promise (promise)]
+          (handle-app {:clone-pool (snapshot-datasource conn)
+                       :process-id backup-id
+                       :isn nil
+                       :backup-at (Instant/now)
+                       :app-id app-id
+                       :description description
+                       :expires-at expires-at
+                       :ensure-config? true
+                       :on-triple on-triple
+                       :finished-promise finished-promise})
+          (let [result @finished-promise]
+            (when (instance? Throwable result)
+              (throw result))
+            result))))))
 
 (defn log-retry-queue!
   "Logs the apps that failed during a backup. Records a top-level exception

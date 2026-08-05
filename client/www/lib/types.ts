@@ -101,6 +101,20 @@ export type InstantAppBackup = {
   expires_at: string | null;
 };
 
+export type InstantAppBackupJob = {
+  id: string;
+  app_id: string;
+  app_backup_id: string | null;
+  job_status: 'waiting' | 'processing' | 'completed' | 'errored';
+  description: string | null;
+  error: string | null;
+  work_estimate: number | null;
+  work_completed: number | null;
+  created_at: string;
+  updated_at: string;
+  done_at: string | null;
+};
+
 export type InstantMember = {
   id: string;
   email: string;
