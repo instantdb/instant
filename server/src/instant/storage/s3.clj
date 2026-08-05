@@ -245,12 +245,16 @@
 
 (defn copy-file [{:keys [app-id
                          location-id
-                         destination-bucket]}]
+                         destination-bucket
+                         access-key
+                         secret-key]}]
   (let [object-key (->object-key app-id location-id)]
     (s3-util/copy-object (s3-client) {:source-bucket-name bucket-name
                                       :destination-bucket-name destination-bucket
                                       :source-key object-key
-                                      :destination-key object-key})))
+                                      :destination-key object-key
+                                      :access-key access-key
+                                      :secret-key secret-key})))
 
 (defn format-object [{:keys [object-metadata]}]
   (-> object-metadata
