@@ -119,6 +119,7 @@ export {
   BackupsManager,
   backupZipName,
   estimateZipSize,
+  formatFileSize,
   toAppBackup,
   type AppBackup,
   type AppBackupFile,

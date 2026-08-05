@@ -7,6 +7,7 @@ import throttle from 'lodash.throttle';
 import {
   backupZipName,
   estimateZipSize,
+  formatFileSize,
   type AppBackup,
   type BackupsManager,
 } from '@instantdb/platform';
@@ -22,7 +23,7 @@ import {
 } from '../../lib/backupDownload.ts';
 import { promptOk, runUIEffect } from '../../lib/ui.ts';
 import { UI } from '../../ui/index.ts';
-import { formatBackupDate, formatBytes } from './list.ts';
+import { formatBackupDate } from './list.ts';
 
 const pickBackup = (
   backups: AppBackup[],
@@ -91,7 +92,7 @@ function makeProgressRenderer() {
           : `storage files ${p.filesCompleted}/${p.filesTotal}`,
       );
     }
-    let bytes = formatBytes(p.zipBytes);
+    let bytes = formatFileSize(p.zipBytes);
     if (p.bytesTotal != null && p.bytesTotal > 0) {
       const pct = Math.min(100, Math.round((p.bytesRead / p.bytesTotal) * 100));
       bytes += ` (${pct}%)`;
@@ -169,7 +170,7 @@ export const backupDownloadCmd = Effect.fn(function* (
 
   const sizes = estimateZipSize(backup);
   const estimate = sizes
-    ? ` The zip file will be between ${formatBytes(sizes.min)} and ${formatBytes(sizes.max)}, depending on the compression ratio.`
+    ? ` The zip file will be between ${formatFileSize(sizes.min)} and ${formatFileSize(sizes.max)}, depending on the compression ratio.`
     : '';
 
   const ok = yield* promptOk({
@@ -204,6 +205,6 @@ export const backupDownloadCmd = Effect.fn(function* (
       ? ` and ${result.files.toLocaleString()} storage files`
       : '';
   yield* Effect.log(
-    `Saved ${result.entities.toLocaleString()} namespaces${filesPart} (${formatBytes(result.zipBytes)})`,
+    `Saved ${result.entities.toLocaleString()} namespaces${filesPart} (${formatFileSize(result.zipBytes)})`,
   );
 });

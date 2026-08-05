@@ -85,6 +85,24 @@ export function backupZipName(backup: AppBackup): string {
 }
 
 /**
+ * Formats a byte count the way macOS/Finder reports file sizes: decimal
+ * (1000-based) units with SI labels, so the number lines up with what lands
+ * on disk.
+ */
+export function formatFileSize(n: number): string {
+  if (n < 1000) return `${n} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let i = -1;
+  let v = n;
+  do {
+    v /= 1000;
+    i++;
+  } while (v >= 1000 && i < units.length - 1);
+  const digits = v < 10 ? 2 : v < 100 ? 1 : 0;
+  return `${v.toFixed(digits)} ${units[i]}`;
+}
+
+/**
  * Estimated size range for a backup's zip archive, or null when the backup
  * row carries no sizes. Upper bound: everything stored uncompressed (STORE
  * mode and/or files that don't compress). Lower bound: everything compressed

@@ -14,6 +14,7 @@ import {
   BackupsManager,
   backupZipName,
   estimateZipSize,
+  formatFileSize,
   toAppBackup,
   type AppBackup,
   type BackupDownloadProgress,
@@ -33,21 +34,6 @@ type DownloadProgress = BackupDownloadProgress & {
   // and pill can label where the zip is going.
   outputFilename: string;
 };
-
-function formatBytes(n: number): string {
-  // Decimal (1000-based) units with SI labels, to match how macOS/Finder
-  // reports file sizes so the number lines up with what lands on disk.
-  if (n < 1000) return `${n} B`;
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let i = -1;
-  let v = n;
-  do {
-    v /= 1000;
-    i++;
-  } while (v >= 1000 && i < units.length - 1);
-  const digits = v < 10 ? 2 : v < 100 ? 1 : 0;
-  return `${v.toFixed(digits)} ${units[i]}`;
-}
 
 type DownloadResult =
   | { via: 'picker'; filename: string }
@@ -454,8 +440,8 @@ function DownloadInstance({
         {sizeEstimate ? (
           <Content>
             The zip file will be between{' '}
-            <strong>{formatBytes(sizeEstimate.min)}</strong> and{' '}
-            <strong>{formatBytes(sizeEstimate.max)}</strong>, depending on the
+            <strong>{formatFileSize(sizeEstimate.min)}</strong> and{' '}
+            <strong>{formatFileSize(sizeEstimate.max)}</strong>, depending on the
             compression ratio.
           </Content>
         ) : null}
@@ -525,7 +511,7 @@ function DownloadInstance({
             <span className="font-mono">{progress?.outputFilename ?? ''}</span>
           </span>
           <span className="shrink-0 tabular-nums">
-            {formatBytes(progress?.zipBytes ?? 0)}
+            {formatFileSize(progress?.zipBytes ?? 0)}
             {pct != null ? ` · ${Math.round(pct)}%` : ''}
           </span>
         </div>
@@ -576,7 +562,7 @@ function DownloadInstance({
                 </span>
               </span>
               <span className="shrink-0 tabular-nums">
-                {formatBytes(progress?.zipBytes ?? 0)}
+                {formatFileSize(progress?.zipBytes ?? 0)}
               </span>
             </div>
           </div>
