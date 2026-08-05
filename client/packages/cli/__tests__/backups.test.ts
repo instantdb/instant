@@ -114,14 +114,14 @@ beforeEach(() => {
 });
 
 describe('backup list', () => {
-  test('renders backups', async () => {
+  test('renders backups as a table', async () => {
     state.manager = buildManager([makeBackup()]);
     await run(backupListCmd({}), { yes: true });
     const output = logs.join('\n');
-    expect(output).toContain('2026-08-01 00:00 UTC');
-    expect(output).toContain('ID: backup-1');
-    expect(output).toContain('Description: Automated Daily Snapshot');
-    expect(output).toContain('Expires: 2026-08-08 00:00 UTC');
+    expect(output).toContain('BACKUP (UTC)');
+    expect(output).toContain('2026-08-01 00:00');
+    expect(output).toContain('backup-1');
+    expect(output).toContain('Automated Daily Snapshot');
   });
 
   test('outputs JSON with --json', async () => {

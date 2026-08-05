@@ -11,25 +11,45 @@ export const formatBackupDate = (date: Date) =>
 // strip control characters so a crafted value can't inject escape sequences.
 export const stripControlChars = (s: string) => s.replace(/\p{Cc}/gu, '');
 
-export const renderBackup = (backup: AppBackup) =>
+const formatExpiry = (expiresAt: Date): string => {
+  const hours = Math.round((expiresAt.getTime() - Date.now()) / 3_600_000);
+  if (hours <= 0) return 'expired';
+  if (hours < 48) return `in ${hours}h`;
+  return `in ${Math.round(hours / 24)}d`;
+};
+
+// One aligned row per backup, newest first, the way backup CLIs
+// conventionally render listings. Dates are UTC (noted in the header) and
+// expiry is relative; `--json` carries the precise values.
+const renderBackupsTable = (backups: AppBackup[]) =>
   Effect.gen(function* () {
-    yield* Effect.log(chalk.cyan(formatBackupDate(backup.backupAt)));
-    yield* Effect.log(`  ID: ${backup.id}`);
-    if (backup.description) {
-      yield* Effect.log(
-        `  Description: ${stripControlChars(backup.description)}`,
-      );
-    }
-    if (backup.dbSize != null) {
-      yield* Effect.log(`  Database size: ${formatFileSize(backup.dbSize)}`);
-    }
-    if (backup.filesSize != null) {
-      yield* Effect.log(
-        `  Storage files size: ${formatFileSize(backup.filesSize)}`,
-      );
-    }
-    if (backup.expiresAt) {
-      yield* Effect.log(`  Expires: ${formatBackupDate(backup.expiresAt)}`);
+    const header = [
+      'BACKUP (UTC)',
+      'DB SIZE',
+      'STORAGE',
+      'EXPIRES',
+      'ID',
+      'DESCRIPTION',
+    ];
+    const rows = backups.map((backup) => [
+      formatBackupDate(backup.backupAt).replace(' UTC', ''),
+      backup.dbSize != null ? formatFileSize(backup.dbSize) : '-',
+      backup.filesSize != null ? formatFileSize(backup.filesSize) : '-',
+      backup.expiresAt ? formatExpiry(backup.expiresAt) : '-',
+      backup.id,
+      backup.description ? stripControlChars(backup.description) : '',
+    ]);
+    const widths = header.map((h, i) =>
+      Math.max(h.length, ...rows.map((row) => row[i].length)),
+    );
+    const line = (cells: string[]) =>
+      cells
+        .map((cell, i) => cell.padEnd(widths[i]))
+        .join('  ')
+        .trimEnd();
+    yield* Effect.log(chalk.dim(line(header)));
+    for (const row of rows) {
+      yield* Effect.log(line(row));
     }
   });
 
@@ -51,7 +71,9 @@ export const backupListCmd = Effect.fn(function* (
     return;
   }
 
-  for (const backup of backups) {
-    yield* renderBackup(backup);
-  }
+  // The server returns newest first; sort anyway so the table can't lie.
+  const sorted = [...backups].sort(
+    (a, b) => b.backupAt.getTime() - a.backupAt.getTime(),
+  );
+  yield* renderBackupsTable(sorted);
 });
