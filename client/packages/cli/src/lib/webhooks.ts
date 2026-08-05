@@ -1,22 +1,13 @@
 import { Effect } from 'effect';
 import {
-  PlatformApi as InstantPlatformApi,
   type WebhookAction,
   type WebhookEventInfo,
   type WebhooksManager,
 } from '@instantdb/platform';
-import { AuthToken } from '../context/authToken.ts';
 import { CurrentApp } from '../context/currentApp.ts';
 import { PlatformApiError } from '../context/platformApi.ts';
 import { BadArgsError } from '../errors.ts';
-import { getBaseUrl } from './http.ts';
-
-const getAuthedPlatformApi = Effect.gen(function* () {
-  const apiURI = yield* getBaseUrl;
-  const authToken = yield* AuthToken;
-  const token = yield* authToken.getAuthToken;
-  return new InstantPlatformApi({ apiURI, auth: { token } });
-});
+import { getAuthedPlatformApi } from './platformApi.ts';
 
 export const WEBHOOK_ACTIONS: readonly WebhookAction[] = [
   'create',

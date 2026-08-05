@@ -93,7 +93,9 @@
                                       {:source-bucket-name instant-s3/bucket-name
                                        :destination-bucket-name dest
                                        :source-key object-key
-                                       :destination-key object-key})})))
+                                       :destination-key object-key
+                                       :access-key (config/s3-storage-access-key)
+                                       :secret-key (config/s3-storage-secret-key)})})))
                         files)]
     (reduce (fn [acc {:keys [id copy error]}]
               (if error
