@@ -150,20 +150,22 @@
    `on-demand-backup-max-triples` (too large to stream on-demand--we run those
    manually, so we point them to Discord). `estimate` is the app's already-
    computed work-estimate, threaded through so we don't recount."
-  [conn app-id estimate]
-  (when (ephemeral-app? conn app-id)
-    (ex/throw-validation-err! :app-backup-job
-                              {:app-id app-id}
-                              [{:message "Ephemeral apps can't be backed up."}]))
-  (let [max-triples (flags/on-demand-backup-max-triples)]
-    (when (and (pos-int? max-triples)
-               (>= estimate max-triples))
-      (ex/throw-validation-err!
-       :app-backup-job
-       {:app-id app-id}
-       [{:message (str "This app is too large to back up from the dashboard. "
-                       "Reach out in Discord and we'll run the backup for you: "
-                       discord-invite-url)}]))))
+  ([app-id] (assert-backup-allowed! (aurora/conn-pool :read) app-id))
+  ([conn app-id] (assert-backup-allowed! conn app-id (work-estimate conn app-id)))
+  ([conn app-id estimate]
+   (when (ephemeral-app? conn app-id)
+     (ex/throw-validation-err! :app-backup-job
+                               {:app-id app-id}
+                               [{:message "Ephemeral apps can't be backed up."}]))
+   (let [max-triples (flags/on-demand-backup-max-triples)]
+     (when (and (pos-int? max-triples)
+                (>= estimate max-triples))
+       (ex/throw-validation-err!
+        :app-backup-job
+        {:app-id app-id}
+        [{:message (str "This app is too large to back up from the dashboard. "
+                        "Reach out in Discord and we'll run the backup for you: "
+                        discord-invite-url)}])))))
 
 (defn create-job!
   ([params] (create-job! (aurora/conn-pool :write) params))

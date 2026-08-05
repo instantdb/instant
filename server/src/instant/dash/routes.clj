@@ -2004,6 +2004,10 @@
                                                                          :apps/write
                                                                          req)
         description (ex/get-optional-param! req [:body :description] string-util/coerce-non-blank-str)
+        ;; Reject too-large (and ephemeral) apps before spending the caller's
+        ;; rate-limit budget, so they get the "too big" message rather than a
+        ;; rate-limit error.
+        _ (app-backup-jobs/assert-backup-allowed! app-id)
         _ (check-backup-rate-limits! {:app-id app-id
                                       :ip (posthog/extract-client-ip req)})
         job (app-backup-jobs/enqueue! {:app-id app-id
