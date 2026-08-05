@@ -118,10 +118,11 @@ describe('backup list', () => {
     state.manager = buildManager([makeBackup()]);
     await run(backupListCmd({}), { yes: true });
     const output = logs.join('\n');
-    expect(output).toContain('BACKUP (UTC)');
-    expect(output).toContain('2026-08-01 00:00');
+    expect(output).toContain('CREATED AT');
+    expect(output).toContain('EXPIRES AT');
     expect(output).toContain('backup-1');
     expect(output).toContain('Automated Daily Snapshot');
+    expect(output).toMatch(/\d+ (minutes?|hours?|days?) ago/);
   });
 
   test('outputs JSON with --json', async () => {

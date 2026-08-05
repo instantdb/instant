@@ -11,32 +11,46 @@ export const formatBackupDate = (date: Date) =>
 // strip control characters so a crafted value can't inject escape sequences.
 export const stripControlChars = (s: string) => s.replace(/\p{Cc}/gu, '');
 
-const formatExpiry = (expiresAt: Date): string => {
-  const hours = Math.round((expiresAt.getTime() - Date.now()) / 3_600_000);
-  if (hours <= 0) return 'expired';
-  if (hours < 48) return `in ${hours}h`;
-  return `in ${Math.round(hours / 24)}d`;
+// Relative times in both directions: "3 hours ago", "6 days from now".
+const relativeTime = (date: Date): string => {
+  const diffMs = date.getTime() - Date.now();
+  const abs = Math.abs(diffMs);
+  if (abs < 60_000) return diffMs <= 0 ? 'just now' : 'now';
+  const minutes = Math.round(abs / 60_000);
+  const hours = Math.round(abs / 3_600_000);
+  const days = Math.round(abs / 86_400_000);
+  const [count, unit] =
+    minutes < 60
+      ? [minutes, 'minute']
+      : hours < 24
+        ? [hours, 'hour']
+        : [days, 'day'];
+  const label = `${count} ${unit}${count === 1 ? '' : 's'}`;
+  return diffMs < 0 ? `${label} ago` : `${label} from now`;
 };
 
-// One aligned row per backup, newest first, the way backup CLIs
-// conventionally render listings. Dates are UTC (noted in the header) and
-// expiry is relative; `--json` carries the precise values.
+// One aligned row per backup, newest first, in the style of pscale's backup
+// listing: id first, relative times. `--json` carries the precise values.
 const renderBackupsTable = (backups: AppBackup[]) =>
   Effect.gen(function* () {
     const header = [
-      'BACKUP (UTC)',
+      'ID',
+      'CREATED AT',
       'DB SIZE',
       'STORAGE',
-      'EXPIRES',
-      'ID',
+      'EXPIRES AT',
       'DESCRIPTION',
     ];
     const rows = backups.map((backup) => [
-      formatBackupDate(backup.backupAt).replace(' UTC', ''),
+      backup.id,
+      relativeTime(backup.backupAt),
       backup.dbSize != null ? formatFileSize(backup.dbSize) : '-',
       backup.filesSize != null ? formatFileSize(backup.filesSize) : '-',
-      backup.expiresAt ? formatExpiry(backup.expiresAt) : '-',
-      backup.id,
+      backup.expiresAt
+        ? backup.expiresAt.getTime() <= Date.now()
+          ? 'expired'
+          : relativeTime(backup.expiresAt)
+        : '-',
       backup.description ? stripControlChars(backup.description) : '',
     ]);
     const widths = header.map((h, i) =>
@@ -48,6 +62,7 @@ const renderBackupsTable = (backups: AppBackup[]) =>
         .join('  ')
         .trimEnd();
     yield* Effect.log(chalk.dim(line(header)));
+    yield* Effect.log(chalk.dim(widths.map((w) => '-'.repeat(w)).join('  ')));
     for (const row of rows) {
       yield* Effect.log(line(row));
     }
