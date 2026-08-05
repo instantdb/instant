@@ -43,6 +43,10 @@
 ;; How often a running job persists its progress (triples copied) to the db.
 (def progress-report-interval-ms 1000)
 
+;; How long we let a cancelled backup unwind (release its db connection, abort
+;; uploads) before abandoning the worker slot and letting it finish detached.
+(def cancel-unwind-timeout-ms 5000)
+
 (defn worker-count
   "Per-machine concurrency: the flag value, clamped to [1, max-worker-count]."
   []
@@ -321,11 +325,19 @@
     (let [copied (AtomicLong. 0)
           expires-at (.plus (Instant/now)
                             (Duration/ofDays (flags/on-demand-backup-expiry-days)))
+          ;; Delivered when the backup vthread actually finishes, including
+          ;; unwinding after an interrupt. `future-cancel` marks `fut` done
+          ;; immediately (so its deref would throw right away), so we wait on
+          ;; this instead to know the backup has really released its resources.
+          unwound (promise)
           fut (ua/vfuture
-               (backup/backup-app-on-primary! {:app-id app_id
-                                               :description (or description "On-demand backup")
-                                               :expires-at expires-at
-                                               :on-triple (fn [] (.incrementAndGet copied))}))]
+               (try
+                 (backup/backup-app-on-primary! {:app-id app_id
+                                                 :description (or description "On-demand backup")
+                                                 :expires-at expires-at
+                                                 :on-triple (fn [] (.incrementAndGet copied))})
+                 (finally
+                   (deliver unwound true))))]
       (try
         (loop []
           (let [result (deref fut progress-report-interval-ms ::pending)]
@@ -335,8 +347,14 @@
               ;; under us, so kill the backup and bail without touching the row.
               (if (report-progress! (aurora/conn-pool :write) id (.get copied))
                 (recur)
+                ;; Interrupt the backup and give it a bounded moment to unwind.
+                ;; If it's still running after that, abandon the worker slot and
+                ;; let it finish detached rather than block indefinitely.
                 (do (future-cancel fut)
-                    (tracer/add-data! {:attributes {:cancelled true}})))
+                    (let [unwound? (not= ::timeout
+                                         (deref unwound cancel-unwind-timeout-ms ::timeout))]
+                      (tracer/add-data! {:attributes {:cancelled true
+                                                      :unwound unwound?}}))))
               (let [{:keys [triple-count app-backup]} result]
                 (mark-completed! (aurora/conn-pool :write)
                                  id
