@@ -116,6 +116,14 @@ export {
 } from './migrations.ts';
 
 export {
+  BackupsManager,
+  backupZipName,
+  type AppBackup,
+  type AppBackupFile,
+  type AppBackupStorageFile,
+} from './backups.ts';
+
+export {
   DEFAULT_OAUTH_CALLBACK_URL,
   oauthCallbackURL,
   GOOGLE_AUTHORIZATION_ENDPOINT,

@@ -51,6 +51,8 @@ import { webhooksEventsResendCmd } from './commands/webhooks/events/resend.ts';
 import { emailStatusCmd } from './commands/auth/email/status.ts';
 import { verifyCmd } from './commands/auth/email/verify.ts';
 import { resendEmailCmd } from './commands/auth/email/resend.ts';
+import { backupListCmd } from './commands/backup/list.ts';
+import { backupDownloadCmd } from './commands/backup/download.ts';
 
 export type OptsFromCommand<C> =
   C extends Command<any, infer R, any> ? R : never;
@@ -634,6 +636,64 @@ export const webhooksEventsPayloadDef = webhooksEvents
             coerceAuth: false,
             appId: opts.app,
             allowAdminToken: false,
+          }),
+        ),
+      ),
+    );
+  });
+
+const backup = program
+  .command('backup')
+  .description('View and download backups of your app');
+
+export const backupListDef = backup
+  .command('list')
+  .description('List downloadable backups for an app')
+  .option(
+    '-a --app <app-id>',
+    'App ID to list backups for. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option('--json', 'Output backups as JSON')
+  .action((opts) => {
+    return runCommandEffect(
+      backupListCmd(opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
+          }).pipe(Layer.annotateLogs('silent', !!opts.json)),
+        ),
+      ),
+    );
+  });
+
+export const backupDownloadDef = backup
+  .command('download')
+  .description('Download a backup as a zip file')
+  .argument(
+    '[backup-id]',
+    'Backup ID to download. Defaults to an interactive picker',
+  )
+  .option(
+    '-a --app <app-id>',
+    'App ID to download a backup of. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option('--latest', 'Download the most recent backup')
+  .option(
+    '-o --out <path>',
+    'Output zip path. Defaults to instant-backup-<timestamp>.zip',
+  )
+  .action((backupId, opts) => {
+    return runCommandEffect(
+      backupDownloadCmd(backupId, opts).pipe(
+        Effect.provide(
+          WithAppLayer({
+            coerce: false,
+            coerceAuth: false,
+            appId: opts.app,
+            allowAdminToken: true,
           }),
         ),
       ),

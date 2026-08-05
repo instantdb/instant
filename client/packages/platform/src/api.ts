@@ -15,6 +15,7 @@ import {
   DataAttrDef,
 } from '@instantdb/core';
 import { Webhooks, type WithAuth } from '@instantdb/webhooks';
+import { BackupsManager } from './backups.ts';
 import version from './version.ts';
 import {
   attrFwdLabel,
@@ -1877,5 +1878,19 @@ export class PlatformApi {
       schema: opts?.schema,
       withAuth,
     });
+  }
+
+  /**
+   * Returns a {@link BackupsManager} scoped to `appId` for listing an app's
+   * backups and downloading their contents. Calls are routed through
+   * {@link withRetry}, so an expired access token is transparently refreshed.
+   */
+  backups(appId: string): BackupsManager {
+    const withAuth: WithAuth = (operation) =>
+      this.withRetry(
+        (_apiURI: string, token: string) => operation(token),
+        [this.#apiURI, this.token()],
+      );
+    return new BackupsManager({ appId, apiURI: this.#apiURI, withAuth });
   }
 }

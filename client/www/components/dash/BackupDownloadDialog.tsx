@@ -176,7 +176,7 @@ async function downloadBackup(
   //   files    — the user's $files (storage uploads).
   // entitiesTotal is null until fetchFiles resolves; filesTotal is null
   // until the discovery NDJSON returns at least one line OR completes
-  // (404/empty body sets it to 0 so the dialog shows "0 of 0 files").
+  // (an empty stream sets it to 0 so the dialog shows "0 of 0 files").
   let entitiesCompleted = 0;
   let entitiesTotal: number | null = null;
   let filesCompleted = 0;
@@ -261,21 +261,18 @@ async function downloadBackup(
   // It pushes onto storagePending and bumps `storageDiscovered` as URLs
   // stream in.
   void (async () => {
-    // Set once we see the server's terminal `done` sentinel (or a 404, which
-    // means there's no $files shard at all). If discovery ends without it and
-    // we weren't aborted, the stream was truncated by a server-side failure.
+    // Set once we see the server's terminal `done` sentinel. A backup with no
+    // storage files still gets the sentinel (the server sends it even when
+    // there's no $files shard), so if discovery ends without it and we weren't
+    // aborted, the stream was truncated by a server-side failure. A 404 here
+    // can only mean the backup record itself is missing or expired, so it goes
+    // through the error path instead of masquerading as "no files".
     let storageComplete = false;
     try {
       const res = await fetch(
         `${config.apiURI}/dash/apps/${appId}/backups/${backup.id}/storage-files`,
         { headers: { authorization: `Bearer ${token}` }, signal },
       );
-      if (res.status === 404) {
-        filesTotal = 0;
-        storageComplete = true;
-        tick();
-        return;
-      }
       if (!res.ok || !res.body) {
         throw new Error(`Failed to list storage files: ${res.status}`);
       }
