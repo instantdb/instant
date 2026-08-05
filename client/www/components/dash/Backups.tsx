@@ -434,7 +434,7 @@ export function Backups({ app }: { app: InstantApp }) {
         if (job?.job_status === 'completed') {
           successToast('Backup finished.');
         } else if (job?.job_status === 'errored') {
-          errorToast(job.error ?? 'Backup failed.', { autoClose: 8000 });
+          errorToast('Backup failed.', { autoClose: 8000 });
         }
       } catch {
         // Best-effort alert; ignore lookup failures.

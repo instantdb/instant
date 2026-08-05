@@ -531,9 +531,10 @@
 
 (defn on-demand-backup-expiry-days
   "How long an on-demand backup is retained before its S3 objects expire.
-   Hard-capped at 32 by the storage `expire` tag rule."
+   Capped at 30 here so every consumer stays under the storage `expire` tag
+   rule's 32-day hard limit."
   []
-  (flag :on-demand-backup-expiry-days 30))
+  (min 30 (flag :on-demand-backup-expiry-days 30)))
 
 (defn on-demand-backup-max-triples
   "Apps whose estimated triple count is at or above this can't run a self-serve

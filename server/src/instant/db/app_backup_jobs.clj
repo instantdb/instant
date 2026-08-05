@@ -60,12 +60,14 @@
                                  :where [:= :id job-id]}))))
 
 (defn job->client-format [job]
+  ;; Deliberately omits `error`: the raw failure is kept in the db (and the
+  ;; run-job! span) for debugging, but the client only needs `job_status` to
+  ;; know it failed.
   (select-keys job [:id
                     :app_id
                     :app_backup_id
                     :job_status
                     :description
-                    :error
                     :work_estimate
                     :work_completed
                     :created_at
