@@ -30,7 +30,7 @@ export async function uploadFile({
   contentDisposition?: string;
 }): Promise<UploadFileResponse> {
   const headers = {
-    app_id: appId,
+    'app-id': appId,
     path,
     authorization: `Bearer ${refreshToken}`,
     'content-type': contentType || file.type,
