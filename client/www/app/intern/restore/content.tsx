@@ -36,6 +36,17 @@ type RestoreJob = {
 
 const TERMINAL = new Set(['completed', 'errored', 'cancelled']);
 
+// A live restore bumps `updated_at` every second (see report-progress! on the
+// server). If a non-terminal job hasn't updated in this long, the machine
+// running it probably died/restarted -- the row will never finalize on its own,
+// so we surface a "may be stuck" hint and let the operator cancel + retry.
+const STALE_MS = 30_000;
+
+function isStale(job: RestoreJob) {
+  if (TERMINAL.has(job.job_status)) return false;
+  return Date.now() - new Date(job.updated_at).getTime() > STALE_MS;
+}
+
 function RestoreDialog({
   token,
   email,
@@ -229,60 +240,65 @@ function RecentRestores({
   return (
     <div className="flex flex-col divide-y divide-gray-200 rounded-md border border-gray-200 bg-white">
       {jobs.map((job) => (
-        <div
-          key={job.id}
-          className="flex items-center justify-between gap-4 p-3"
-        >
-          <div className="flex min-w-0 flex-col">
-            {job.job_status === 'completed' ? (
-              <a
-                href={`/dash?app=${job.app_id}`}
-                className="cursor-pointer truncate text-sm font-medium text-blue-600 hover:underline"
-              >
-                {job.title || 'Restored app'}
-              </a>
-            ) : (
-              <span className="truncate text-sm font-medium text-gray-700">
-                {job.title || 'Restored app'}
-              </span>
-            )}
-            <span className="truncate text-xs text-gray-500">
-              app id: {job.app_id}
-            </span>
-            <span className="text-xs text-gray-400">
-              {new Date(job.created_at).toLocaleString()}
-            </span>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <div className="flex flex-col items-end">
-              <span
-                className={
-                  job.job_status === 'errored'
-                    ? 'text-xs text-red-600'
-                    : job.job_status === 'completed'
-                      ? 'text-xs text-green-700'
-                      : 'text-xs text-gray-700'
-                }
-              >
-                {statusText(job)}
-              </span>
-              {job.job_status === 'errored' && job.error && (
-                <span className="max-w-xs truncate text-xs text-red-500">
-                  {job.error}
+        <div key={job.id} className="flex flex-col gap-2 p-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex min-w-0 flex-col">
+              {job.job_status === 'completed' ? (
+                <a
+                  href={`/dash?app=${job.app_id}`}
+                  className="cursor-pointer truncate text-sm font-medium text-blue-600 hover:underline"
+                >
+                  {job.title || 'Restored app'}
+                </a>
+              ) : (
+                <span className="truncate text-sm font-medium text-gray-700">
+                  {job.title || 'Restored app'}
                 </span>
               )}
+              <span className="truncate text-xs text-gray-500">
+                app id: {job.app_id}
+              </span>
+              <span className="text-xs text-gray-400">
+                {new Date(job.created_at).toLocaleString()}
+              </span>
             </div>
-            {!TERMINAL.has(job.job_status) && (
-              <Button
-                variant="destructive"
-                size="mini"
-                loading={cancellingId === job.id}
-                onClick={() => cancel(job.id)}
-              >
-                Cancel
-              </Button>
-            )}
+            <div className="flex shrink-0 items-center gap-3">
+              <div className="flex flex-col items-end">
+                <span
+                  className={
+                    job.job_status === 'errored'
+                      ? 'text-xs text-red-600'
+                      : job.job_status === 'completed'
+                        ? 'text-xs text-green-700'
+                        : 'text-xs text-gray-700'
+                  }
+                >
+                  {statusText(job)}
+                </span>
+                {job.job_status === 'errored' && job.error && (
+                  <span className="max-w-xs truncate text-xs text-red-500">
+                    {job.error}
+                  </span>
+                )}
+              </div>
+              {!TERMINAL.has(job.job_status) && (
+                <Button
+                  variant="destructive"
+                  size="mini"
+                  loading={cancellingId === job.id}
+                  onClick={() => cancel(job.id)}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
           </div>
+          {isStale(job) && (
+            <span className="text-xs text-amber-600">
+              This job hasn't updated in a while and may be stuck. You can
+              cancel it and try again.
+            </span>
+          )}
         </div>
       ))}
     </div>

@@ -1,10 +1,9 @@
 (ns instant.db.app-restore-jobs
   "Admin-only, on-demand app restores from an uploaded zip. The upload handler
-   validates params, streams the zip to local disk, inserts a row here, and kicks
-   off `instant.restore/restore-from-zip` in a background vfuture *on this
-   machine* -- there's no worker pool, since this is meant for the operator of a
-   self-hosted instance and only one restore runs at a time. The client polls the
-   row for `job_status`."
+   validates params, streams the zip to local disk, and kicks off a restore
+   in the background on this machine.
+   There's no worker pool, since this is meant for the operator of a
+   self-hosted instance."
   (:require
    [clojure.java.io :as io]
    [honey.sql :as hsql]
@@ -75,14 +74,18 @@
                     :done_at
                     :updated_at]))
 
-(defn mark-processing! [id]
-  (sql/execute-one! ::mark-processing!
-                    (aurora/conn-pool :write)
-                    (hsql/format {:update :app-restore-jobs
-                                  :set {:job-status "processing"}
-                                  :where [:and
-                                          [:= :id id]
-                                          [:= :job-status "waiting"]]})))
+(defn mark-processing!
+  "Claims a waiting job by flipping it to `processing`. Returns true if it
+   claimed the job, false if it was no longer `waiting` (e.g. already cancelled)."
+  [id]
+  (let [res (sql/do-execute! ::mark-processing!
+                             (aurora/conn-pool :write)
+                             (hsql/format {:update :app-restore-jobs
+                                           :set {:job-status "processing"}
+                                           :where [:and
+                                                   [:= :id id]
+                                                   [:= :job-status "waiting"]]}))]
+    (pos? (:next.jdbc/update-count (first res)))))
 
 (defn mark-completed! [id]
   (sql/execute-one! ::mark-completed!
@@ -160,40 +163,43 @@
   (tracer/with-span! {:name "app-restore-jobs/run-restore"
                       :attributes {:job-id id
                                    :app-id app-id}}
-    (mark-processing! id)
-    (let [triples (AtomicLong. 0)
-          files (AtomicLong. 0)
-          totals (atom nil)
-          fut (ua/vfuture
-               (restore/restore-from-zip
-                {:zip-file-path zip-path
-                 :app-id app-id
-                 :creator-id creator-id
-                 :org-id org-id
-                 :title title
-                 :on-totals (fn [t] (reset! totals t))
-                 :on-triples-copied (fn [n] (.addAndGet triples n))
-                 :on-file-uploaded (fn [] (.incrementAndGet files))}))]
-      (try
-        (loop []
-          (let [result (deref fut progress-report-interval-ms ::pending)]
-            (if (identical? ::pending result)
-              (if (report-progress! id (format-progress (.get triples) (.get files) @totals))
-                (recur)
-                (do (future-cancel fut)
-                    (tracer/add-data! {:attributes {:cancelled true}})))
-              (do (mark-completed! id)
-                  (tracer/add-data! {:attributes {:triples (.get triples)
-                                                  :files (.get files)}})))))
-        (catch Throwable t
-          ;; `fut` wraps the cause in an ExecutionException; unwrap it so the
-          ;; recorded error is the real failure.
-          (let [cause (or (ex-cause t) t)]
-            (tracer/record-exception-span! cause {:name "app-restore-jobs/run-restore-error"
-                                                  :escaping? false})
-            (mark-errored! id cause)))
-        (finally
-          (io/delete-file zip-path true))))))
+    (try
+      ;; Only start work if we actually claim the waiting job; if it was
+      ;; cancelled before we got here, mark-processing! updates nothing.
+      (when (mark-processing! id)
+        (let [triples (AtomicLong. 0)
+              files (AtomicLong. 0)
+              totals (atom nil)
+              fut (ua/vfuture
+                   (restore/restore-from-zip
+                    {:zip-file-path zip-path
+                     :app-id app-id
+                     :creator-id creator-id
+                     :org-id org-id
+                     :title title
+                     :on-totals (fn [t] (reset! totals t))
+                     :on-triples-copied (fn [n] (.addAndGet triples n))
+                     :on-file-uploaded (fn [] (.incrementAndGet files))}))]
+          (try
+            (loop []
+              (let [result (deref fut progress-report-interval-ms ::pending)]
+                (if (identical? ::pending result)
+                  (if (report-progress! id (format-progress (.get triples) (.get files) @totals))
+                    (recur)
+                    (do (future-cancel fut)
+                        (tracer/add-data! {:attributes {:cancelled true}})))
+                  (do (mark-completed! id)
+                      (tracer/add-data! {:attributes {:triples (.get triples)
+                                                      :files (.get files)}})))))
+            (catch Throwable t
+              ;; `fut` wraps the cause in an ExecutionException; unwrap it so the
+              ;; recorded error is the real failure.
+              (let [cause (or (ex-cause t) t)]
+                (tracer/record-exception-span! cause {:name "app-restore-jobs/run-restore-error"
+                                                      :escaping? false})
+                (mark-errored! id cause))))))
+      (finally
+        (io/delete-file zip-path true)))))
 
 (defn start-restore!
   "Stages the uploaded zip, inserts a job row, and kicks off the restore in a
