@@ -1498,6 +1498,7 @@ async function upload(
   apiUri: string,
 ): Promise<boolean> {
   const headers = {
+    'app-id': appId,
     app_id: appId,
     path: customFilename || file.name,
     authorization: `Bearer ${token}`,
