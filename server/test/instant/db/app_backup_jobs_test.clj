@@ -5,6 +5,7 @@
    [instant.data.constants :refer [test-user-id]]
    [instant.db.app-backup-jobs :as app-backup-jobs]
    [instant.model.app :as app-model]
+   [instant.util.async :as ua]
    [instant.util.test :refer [instant-ex-data wait-for]]))
 
 (def ^:private wait-timeout 10000)
@@ -117,3 +118,56 @@
             (finally
               (deliver release true)
               (.shutdown pool))))))))
+
+(deftest killing-the-pool-cancels-in-flight-work
+  ;; Just the pool mechanics--no db, no real backup. We run a task shaped like
+  ;; `run-job!` (a vfuture waited on in a deref loop, with a catch standing in
+  ;; for `mark-error!`) and confirm that killing the pool cancels the registered
+  ;; vfuture and that the cancellation propagates out of the deref loop so the
+  ;; catch runs.
+  (let [pool (app-backup-jobs/make-pool 1)
+        started (promise)
+        unwound (promise)
+        errored (promise)
+        caught (atom nil)
+        ;; The "backup" blocks here until it's interrupted.
+        block (promise)
+        task (fn []
+               (let [fut (ua/vfuture
+                          (try
+                            (deliver started true)
+                            @block
+                            (finally
+                              (deliver unwound true))))]
+                 (try
+                   ;; Stand-in for run-job!'s progress loop: wait on the backup.
+                   (loop []
+                     (when (identical? ::pending (deref fut 100 ::pending))
+                       (recur)))
+                   (catch Throwable t
+                     ;; Stand-in for mark-error!: the error propagated to us.
+                     (future-cancel fut)
+                     (deref unwound app-backup-jobs/cancel-unwind-timeout-ms ::timeout)
+                     (reset! caught t)
+                     (deliver errored true)))))]
+    (try
+      ;; Runs on a pool worker, so the vfuture registers with the pool's
+      ;; in-flight map via the worker's `*child-vfutures*` binding.
+      (.execute pool ^Runnable task)
+      (is (= true (deref started 5000 nil))
+          "the task's backup vfuture started (and registered with the pool)")
+      (is (not (realized? errored))
+          "nothing errored while the backup was still blocked")
+
+      ;; Kill the pool with a tiny grace so we don't wait out the real window.
+      (app-backup-jobs/shutdown-pool pool 100)
+
+      (is (= true (deref errored 5000 nil))
+          "the deref loop threw, so the mark-error! stand-in ran")
+      (is (instance? java.util.concurrent.CancellationException @caught)
+          "the propagated error was the vfuture's cancellation")
+      (is (realized? unwound)
+          "the backup vfuture unwound its resources")
+      (finally
+        (deliver block true)
+        (.shutdownNow pool)))))

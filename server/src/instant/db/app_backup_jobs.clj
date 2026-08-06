@@ -22,7 +22,8 @@
    (clojure.lang ExceptionInfo)
    (java.lang AutoCloseable)
    (java.time Duration Instant)
-   (java.util.concurrent LinkedBlockingQueue ThreadPoolExecutor ThreadPoolExecutor$DiscardPolicy TimeUnit)
+   (com.google.common.collect MapMaker)
+   (java.util.concurrent ConcurrentMap LinkedBlockingQueue ThreadFactory ThreadPoolExecutor ThreadPoolExecutor$DiscardPolicy TimeUnit)
    (java.util.concurrent.atomic AtomicLong)))
 
 ;; `pool` is the live worker pool (a ThreadPoolExecutor). Each task grabs and
@@ -414,18 +415,43 @@
        (tracer/add-data! {:attributes {:reclaimed-count reclaimed}})
        reclaimed))))
 
+;; Maps each pool to the set of backup vfutures currently running on it, so
+;; `stop` can cancel them at shutdown. Weak keys (via MapMaker) so a pool
+;; discarded by `restart` auto-evicts once its worker threads die and nothing
+;; else holds it.
+(defonce ^{:tag ConcurrentMap} pool->in-flight
+  (-> (MapMaker.)
+      (.weakKeys)
+      (.makeMap)))
+
 (defn make-pool ^ThreadPoolExecutor [n]
-  ;; core = max = n so exactly n tasks run at a time (n is the real cap). The
-  ;; queue is bounded at max-worker-count and DiscardPolicy drops `.execute`
+  ;; The queue is bounded at max-worker-count and DiscardPolicy drops `.execute`
   ;; when it's full (self-continuation re-drives dropped tasks).
-  ;; `allowCoreThreadTimeOut` lets idle threads die so shrinking the pool
-  ;; actually releases them.
-  (doto (ThreadPoolExecutor. (int n)
-                             (int n)
-                             60 TimeUnit/SECONDS
-                             (LinkedBlockingQueue. (int max-worker-count))
-                             (ThreadPoolExecutor$DiscardPolicy.))
-    (.allowCoreThreadTimeOut true)))
+  ;;
+  ;; Workers are virtual threads, and the factory binds `*child-vfutures*` to an
+  ;; `in-flight` map for each worker's whole lifetime. Every backup started with
+  ;; `ua/vfuture` inside a task therefore registers itself into that map, which
+  ;; we stash in `pool->in-flight` so `stop` can cancel the in-flight backups.
+  (let [in-flight (ua/new-child-vfutures)
+        vfactory (-> (Thread/ofVirtual)
+                     (.name "app-backup-worker-" 0)
+                     (.factory))
+        factory (reify ThreadFactory
+                  (newThread [_ r]
+                    (.newThread vfactory
+                                ^Runnable (fn []
+                                            (binding [ua/*child-vfutures* in-flight]
+                                              (.run ^Runnable r))))))
+        pool (doto (ThreadPoolExecutor. (int n)
+                                        (int n)
+                                        60 TimeUnit/SECONDS
+                                        (LinkedBlockingQueue. (int max-worker-count))
+                                        factory
+                                        (ThreadPoolExecutor$DiscardPolicy.))
+               ;; lets idle threads die so shrinking the pool actually releases them.
+               (.allowCoreThreadTimeOut true))]
+    (.put pool->in-flight pool in-flight)
+    pool))
 
 (defn resize-pool! [n]
   (when (bound? #'pool)
@@ -440,6 +466,21 @@
             (.setCorePoolSize p n))
         (do (.setCorePoolSize p n)
             (.setMaximumPoolSize p n))))))
+
+(defn shutdown-pool
+  "Stops taking new work and gives running backups `grace-ms` to finish on their
+   own, then force-cancels any stragglers. Each cancelled worker waits for its
+   backup to unwind and release its resources before it exits.
+   Don't rely on shutdown to finish in `grace-ms`, it may take twice the time."
+  [^ThreadPoolExecutor p grace-ms]
+  (.shutdown p)
+  (.awaitTermination p grace-ms TimeUnit/MILLISECONDS)
+  ;; Force-cancel whatever outlasted the grace window. `cancel-children` cascades
+  ;; the interrupt to each backup vfuture and its copy sub-tasks.
+  (when-let [in-flight (.get pool->in-flight p)]
+    (ua/cancel-children in-flight true))
+  (.awaitTermination p grace-ms TimeUnit/MILLISECONDS)
+  (.shutdownNow p))
 
 (defn start []
   (tracer/record-info! {:name "app-backup-jobs/start"})
@@ -467,8 +508,7 @@
   (when (and (bound? #'flag-unsub) flag-unsub)
     (flag-unsub))
   (when (bound? #'pool)
-    (.shutdown ^ThreadPoolExecutor pool)
-    (.awaitTermination ^ThreadPoolExecutor pool 5 TimeUnit/MINUTES)))
+    (shutdown-pool pool (.toMillis TimeUnit/MINUTES 1))))
 
 (defn restart []
   (stop)
