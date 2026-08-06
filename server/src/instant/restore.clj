@@ -212,7 +212,7 @@
 
 (def triples-copy-batch-size 1000)
 
-(defn process-triples [done-signal ^LinkedBlockingQueue triples-queue]
+(defn process-triples [done-signal ^LinkedBlockingQueue triples-queue on-triples-copied]
   (tracer/with-span! {:name "restore/process-triples"}
     (with-open [conn (wal/get-pg-copy-ready-conn (config/get-aurora-config))]
       ;; This looks a little odd, but it lets us stream the next batch of
@@ -220,8 +220,10 @@
       ;; to be ready.
       (loop [rs (seq (queue-seq triples-queue done-signal))]
         (when rs
-          (copy/copy-in-rows conn copy-query triple-columns
-                             (take triples-copy-batch-size rs))
+          (let [batch (take triples-copy-batch-size rs)]
+            (copy/copy-in-rows conn copy-query triple-columns batch)
+            (when on-triples-copied
+              (on-triples-copied (count batch))))
           (recur (seq (nthrest rs triples-copy-batch-size))))))))
 
 (defn memory-based-max-file-upload-concurrency
@@ -251,7 +253,7 @@
                                          ctx
                                          stream))))
 
-(defn process-files [app-id done-signal max-concurrency ^LinkedBlockingQueue files-queue error abort]
+(defn process-files [app-id done-signal max-concurrency ^LinkedBlockingQueue files-queue error abort on-file-uploaded]
   (tracer/with-span! {:name "restore/process-files"}
     (let [executor (ua/make-limited-concurrency-executor max-concurrency)]
       (try
@@ -262,6 +264,8 @@
              (call [_]
                (try
                  (upload-file app-id item)
+                 (when on-file-uploaded
+                   (on-file-uploaded))
                  (catch Throwable t
                    (abort t)
                    (throw t)))))))
@@ -308,7 +312,8 @@
    ^LinkedBlockingQueue triples-queue
    ^LinkedBlockingQueue files-queue
    ^LinkedBlockingQueue files-check-queue
-   title]
+   title
+   on-totals]
   (tracer/with-span! {:name "restore/read-zip-entries"}
     (loop [status :config
            attrs nil
@@ -324,6 +329,9 @@
                             app (initialize-app-from-config config {:id app-id
                                                                     :title (or title
                                                                                (str (:title config) " (Restored)"))})]
+                        (when on-totals
+                          (on-totals {:triples (:tripleCount config)
+                                      :files (get-in config [:counts :$files] 0)}))
                         (recur :entity
                                (attr-model/get-by-app-id (:id app))
                                (next entries))))
@@ -417,7 +425,10 @@
                                 app-id
                                 title
                                 org-id
-                                max-files-concurrency]
+                                max-files-concurrency
+                                on-triples-copied
+                                on-file-uploaded
+                                on-totals]
                          :as params}]
   (validate-restore-params! params)
   (let [max-concurrency (or max-files-concurrency
@@ -441,14 +452,14 @@
               triples-process (ua/vfuture
                                (try
                                  @start
-                                 (process-triples done-signal triples-queue)
+                                 (process-triples done-signal triples-queue on-triples-copied)
                                  (catch Throwable t
                                    (abort t)
                                    (throw t))))
               files-process (ua/vfuture
                              (try
                                @start
-                               (process-files app-id done-signal max-concurrency files-queue error abort)
+                               (process-files app-id done-signal max-concurrency files-queue error abort on-file-uploaded)
                                (catch Throwable t
                                  (abort t)
                                  (throw t))))
@@ -464,7 +475,7 @@
               zip-process (ua/vfuture
                            (try
                              @start
-                             (read-zip-entries! zin app-id done-signal triples-queue files-queue files-check-queue title)
+                             (read-zip-entries! zin app-id done-signal triples-queue files-queue files-check-queue title on-totals)
                              (.put triples-queue done-signal)
                              (.put files-queue done-signal)
                              (.put files-check-queue done-signal)

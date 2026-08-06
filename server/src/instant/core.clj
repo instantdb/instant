@@ -214,7 +214,8 @@
               wrap-multipart-params
               (wrap-json-body-except #{[:put #"/dash/apps/.*/storage/upload"]
                                        [:put #"/storage/upload"]
-                                       [:put #"/admin/storage/upload"]})
+                                       [:put #"/admin/storage/upload"]
+                                       [:post #"/dash/restores/zip"]})
 
               http-util/wrap-errors
 
