@@ -543,23 +543,29 @@
   []
   (flag :on-demand-backup-max-triples 25000000))
 
+(defn- rate-limit
+  "Builds a {:capacity n :window-minutes m} rate limit from a JSON flag value,
+   validating each field and falling back to the given defaults when it is
+   absent, non-integer, zero, or negative."
+  [v default-capacity default-window-minutes]
+  (let [capacity (get v "capacity")
+        window-minutes (get v "windowMinutes")]
+    {:capacity (if (pos-int? capacity) capacity default-capacity)
+     :window-minutes (if (pos-int? window-minutes) window-minutes default-window-minutes)}))
+
 (defn on-demand-backup-app-rate-limit
   "Per-app throttle for on-demand backups, as {:capacity n :window-minutes m}
    (default 1 per 5 minutes). Set the flag to a JSON object like
    {\"capacity\": 1, \"windowMinutes\": 5} to tune without a deploy."
   []
-  (let [v (flag :on-demand-backup-app-rate-limit)]
-    {:capacity (get v "capacity" 1)
-     :window-minutes (get v "windowMinutes" 5)}))
+  (rate-limit (flag :on-demand-backup-app-rate-limit) 1 5))
 
 (defn on-demand-backup-ip-rate-limit
   "Per-IP throttle for on-demand backups, as {:capacity n :window-minutes m}
    (default 2 per 5 minutes). Set the flag to a JSON object like
    {\"capacity\": 2, \"windowMinutes\": 5} to tune without a deploy."
   []
-  (let [v (flag :on-demand-backup-ip-rate-limit)]
-    {:capacity (get v "capacity" 2)
-     :window-minutes (get v "windowMinutes" 5)}))
+  (rate-limit (flag :on-demand-backup-ip-rate-limit) 2 5))
 
 (defn use-cloudfront-signed-url? [app-id]
   (when-not (toggled? :disable-cloudfront-signed-urls-globally)

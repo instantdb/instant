@@ -363,6 +363,8 @@
                 (tracer/add-data! {:attributes {:triple-count triple-count
                                                 :app-backup-id (:id app-backup)}})))))
         (catch Throwable t
+          (future-cancel fut)
+          (deref unwound cancel-unwind-timeout-ms ::timeout)
           (tracer/record-exception-span! t {:name "app-backup-jobs/run-job-error"
                                             :escaping? false})
           (mark-error! (aurora/conn-pool :write) id t))))))

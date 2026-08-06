@@ -405,16 +405,14 @@ export function Backups({ app }: { app: InstantApp }) {
   const jobIds = jobs.map((j) => j.id);
   const jobIdsKey = jobIds.join(',');
 
-  // While a backup is running, poll both the jobs and the backups list so
-  // progress advances and the finished snapshot shows up.
+  // While a backup is running, poll the jobs list so progress advances.
   useEffect(() => {
     if (!hasActive) return;
     const t = setInterval(() => {
       jobsRes.mutate();
-      backupsRes.mutate();
     }, 1000);
     return () => clearInterval(t);
-  }, [hasActive, jobsRes.mutate, backupsRes.mutate]);
+  }, [hasActive, jobsRes.mutate]);
 
   // Detect when a job we were watching leaves the active list and alert on its
   // outcome. `seenJobIds` starts empty, so we never alert for jobs that were

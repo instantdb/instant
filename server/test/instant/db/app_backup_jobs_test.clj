@@ -32,7 +32,10 @@
 
 (deftest runs-at-most-n-backups-at-a-time
   (let [n 2
-        total 5
+        ;; More jobs than the pool's queue can hold (`make-pool` bounds the queue
+        ;; at `max-worker-count`), so the extra `.execute` calls hit the
+        ;; DiscardPolicy path. Self-continuation still has to drain every job.
+        total (+ app-backup-jobs/max-worker-count 8)
         ;; A fresh pool sized `n` so we get a clean concurrency cap that doesn't
         ;; depend on the flag value the shared pool happened to start with.
         pool (app-backup-jobs/make-pool n)

@@ -1966,15 +1966,11 @@
       (let [mins (long (Math/ceil (/ secs 60.0)))]
         (str mins " minute" (when (not= 1 mins) "s"))))))
 
-(defn consume-backup-token!
-  "Consumes one backup token from the named bucket. On exhaustion throws a
-   rate-limited error telling the user when to try again."
-  [rate-limiter params]
-  (when-let [retry-at (rate-limit/consume-user-rate-limit-retry-at rate-limiter params)]
-    (ex/throw-rate-limited-until!
-     (str "You've hit the backup rate limit. Please try again in "
-          (humanize-retry-in retry-at) ".")
-     retry-at)))
+(defn throw-backup-rate-limited! [retry-at]
+  (ex/throw-rate-limited-until!
+   (str "You've hit the backup rate limit. Please try again in "
+        (humanize-retry-in retry-at) ".")
+   retry-at))
 
 (defn check-backup-rate-limits!
   "Throttles on-demand backups per app and per client IP, both flag-tunable
@@ -1983,18 +1979,29 @@
    when the rate limiter isn't running (e.g. tests)."
   [{:keys [app-id ip]}]
   (when-let [rate-limiter (eph/get-rate-limit)]
-    (consume-backup-token!
-     rate-limiter
-     {:app-id app-id
-      :bucket-name "on-demand-backup-app"
-      :config (->backup-rate-limit-config (flags/on-demand-backup-app-rate-limit))})
-    (when ip
-      (consume-backup-token!
-       rate-limiter
-       {:app-id backup-ip-rate-limit-app-id
-        :bucket-name "on-demand-backup-ip"
-        :bucket-key ip
-        :config (->backup-rate-limit-config (flags/on-demand-backup-ip-rate-limit))}))))
+    (let [bucket-params (cond-> [{:app-id app-id
+                                  :bucket-name "on-demand-backup-app"
+                                  :config (->backup-rate-limit-config (flags/on-demand-backup-app-rate-limit))}]
+                          ip (conj {:app-id backup-ip-rate-limit-app-id
+                                    :bucket-name "on-demand-backup-ip"
+                                    :bucket-key ip
+                                    :config (->backup-rate-limit-config (flags/on-demand-backup-ip-rate-limit))}))
+          ;; Peek every bucket before consuming from any, so a rejection on one
+          ;; bucket never wastes a token from another. Report the latest retry
+          ;; instant across the exhausted buckets, so a retry then isn't still
+          ;; blocked by another bucket.
+          retry-at (some->> bucket-params
+                            (keep #(rate-limit/peek-user-rate-limit-retry-at rate-limiter %))
+                            seq
+                            (reduce (fn [^Instant a ^Instant b] (if (.isAfter a b) a b))))]
+      (if retry-at
+        (throw-backup-rate-limited! retry-at)
+        ;; All buckets had capacity when peeked; consume one token from each.
+        ;; A concurrent request could still drain a bucket in the meantime, so
+        ;; honor a retry-at from the consume too.
+        (doseq [params bucket-params]
+          (when-let [retry-at (rate-limit/consume-user-rate-limit-retry-at rate-limiter params)]
+            (throw-backup-rate-limited! retry-at)))))))
 
 (defn app-backup-job-post
   "Kicks off an on-demand backup for the app. Returns the created job so the
