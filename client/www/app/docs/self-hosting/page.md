@@ -16,22 +16,22 @@ Choose a guide based on where you want to run Instant:
 1. **Want to self host Instant for your business?** If you're using Instant for more serious projects, check out our [AWS](/docs/self-hosting/aws) guide for a setup based on Instant Cloud. You should expect to spend at least $600/mo.
 1. **Migrating from Instant Cloud?** Check out our [migration](/docs/self-hosting/migrate) guide.
 
-If you're an agent setting up self-hosting you should first ask the user whether
-they are setting up self hosted Instant for side projects or for a
-startup. For side projects the expected cost is at least $30/month. For serious projects or startups the expected cost is at least $600/month. Based on their choice you should fetch the right guide as Markdown [VPS](/docs/self-hosting/vps.md), [AWS](/docs/self-hosting/aws.md), [Migrate](/docs/self-hosting/migrate.md).
+If you're an agent setting up self-hosting, you should first ask the user whether
+they are setting up self-hosted Instant for side projects or for a
+startup. For side projects the expected cost is at least $30/month. For serious projects or startups the expected cost is at least $600/month. Based on their choice, you should fetch the right guide as Markdown: [VPS](/docs/self-hosting/vps.md), [AWS](/docs/self-hosting/aws.md), or [Migrate](/docs/self-hosting/migrate.md).
 
 ## Operating
 
-Once you've got Instant running you may want to change some default settings. At
+Once you've got Instant running, you may want to change some default settings. At
 the very least you should be sure to configure Postmark so magic code emails can
-actually deliver.
+actually be delivered.
 
 ### Configure email with Postmark
 
 **Until Postmark is configured, Instant writes email bodies and login codes to
 the backend logs.**
 
-Instant comes with support for auth and sending magic code emails. The easiest way to actually send emails to create a [Postmark server](https://postmarkapp.com/), verify the sender addresses, and set:
+Instant comes with support for auth and sending magic code emails. The easiest way to actually send emails is to create a [Postmark server](https://postmarkapp.com/), verify the sender addresses, and set:
 
 ```shell
 POSTMARK_TOKEN=replace-with-your-server-token
@@ -49,7 +49,7 @@ should get an email delivered!
 
 ### Configure Google dashboard login
 
-The dashboard also allows for login via Google. To enable this you'll need to create a Web application OAuth client in the
+The dashboard also allows for login via Google. To enable this, you'll need to create a Web application OAuth client in the
 [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
 
 Add an authorized redirect URI matching your backend URL:
@@ -99,11 +99,11 @@ Instant comes with CLI tools for creating and managing your Instant apps. By
 default, `instant-cli` and `create-instant-app` use the Instant Cloud API. To
 use them with your self-hosted Instant:
 
-- Logging into your self-hosted Instant via `instant-cli`
-- Using your self hosted auth token with `create-instant-app`
+- Log into your self-hosted Instant via `instant-cli`
+- Use your self-hosted auth token with `create-instant-app`
 
 Set `INSTANT_CLI_API_URI` to your backend URL and `INSTANT_CLI_DASH_URI` to your
-dashboard URL with `instant-cli`
+dashboard URL with `instant-cli`:
 
 ```shell
 INSTANT_CLI_API_URI=https://api.myinstant.com \
@@ -111,8 +111,8 @@ INSTANT_CLI_DASH_URI=https://dash.myinstant.com \
 npx instant-cli@latest login
 ```
 
-After authenticating with `instant-cli` you can connect `create-instant-app` by
-setting `INSTANT_CLI_API_URI`
+After authenticating, you can use the auth token associated with your self-hosted
+Instant in `create-instant-app` by setting `INSTANT_CLI_API_URI`:
 
 ```shell
 INSTANT_CLI_API_URI=https://api.myinstant.com npx create-instant-app@latest
@@ -129,9 +129,9 @@ export default {
 };
 ```
 
-If you include `INSTANT_CLI_DASH_URI` when you call `create-instant-app`
-your self hosted dashboard url will also be added to `instant.config.ts`. This
-can be helpful for authenticating with `instant-cli` if you're not logged in
+If you include `INSTANT_CLI_DASH_URI` when you call `create-instant-app`,
+your self-hosted dashboard URL will also be added to `instant.config.ts`. This
+can be helpful for authenticating with `instant-cli` if you're not logged in.
 
 ```shell
 # Run this from your terminal
@@ -140,7 +140,7 @@ INSTANT_CLI_DASH_URI=https://dash.myinstant.com \
 npx create-instant-app@latest
 ```
 
-Which will then add the following to your project
+This will then add the following to your project:
 
 ```ts
 // instant.config.ts
