@@ -50,6 +50,7 @@ const main = async () => {
       project.base,
       projectDir,
       process.env.INSTANT_CLI_API_URI,
+      process.env.INSTANT_CLI_DASH_URI,
     );
   }
 

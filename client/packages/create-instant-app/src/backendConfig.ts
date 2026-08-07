@@ -8,6 +8,17 @@ import {
 
 const normalizeAPIURI = (apiURI: string) => apiURI.replace(/\/+$/, '');
 
+const instantConfigContents = (apiURI: string, dashURI?: string) => {
+  const entries = [
+    `  apiURI: ${JSON.stringify(apiURI)},`,
+    dashURI ? `  dashURI: ${JSON.stringify(dashURI)},` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return `export default {\n${entries}\n};\n`;
+};
+
 export const websocketURIFromAPIURI = (apiURI: string) => {
   let websocketURI: URL;
   try {
@@ -91,6 +102,7 @@ export const applyBackendConfig = (
   base: ProjectBase,
   projectDir: string,
   apiURI: string,
+  dashURI?: string,
 ) => {
   const normalizedAPIURI = normalizeAPIURI(apiURI);
   const websocketURI = websocketURIFromAPIURI(normalizedAPIURI);
@@ -112,4 +124,9 @@ export const applyBackendConfig = (
   for (const update of updates) {
     fs.writeFileSync(update.filePath, update.contents);
   }
+
+  fs.writeFileSync(
+    path.join(projectDir, 'instant.config.ts'),
+    instantConfigContents(normalizedAPIURI, dashURI),
+  );
 };
