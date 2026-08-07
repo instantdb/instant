@@ -12,6 +12,7 @@
             [instant.dash.ephemeral-app :as ephemeral-app]
             [instant.dash.get-a-db :as get-a-db]
             [instant.db.app-backup-jobs :as app-backup-jobs]
+            [instant.db.app-restore-jobs :as app-restore-jobs]
             [instant.db.indexing-jobs :as indexing-jobs]
             [instant.db.model.attr :as attr-model]
             [instant.db.transaction :as tx]
@@ -62,6 +63,7 @@
             [instant.postmark :as postmark]
             [instant.rate-limit :as rate-limit]
             [instant.reactive.ephemeral :as eph]
+            [instant.restore :as restore]
             [instant.runtime.magic-code-auth :as magic-code-auth
              :refer [check-send-rate-limit!
                      check-verify-rate-limit!
@@ -318,8 +320,17 @@
 ;; ---
 ;; Admin
 
+(defn superuser-email?
+  "True when `email` is the self-hosted deployment operator (the superuser). On
+   the hosted deployment INSTANT_SUPERUSER_EMAIL is unset, so this is always
+   false there."
+  [email]
+  (when-let [su (config/superuser-email)]
+    (= su (email/coerce email))))
+
 (defn assert-admin-email! [email]
-  (ex/assert-permitted! :admin? email (admin-email? email)))
+  (ex/assert-permitted! :admin? email (or (admin-email? email)
+                                          (superuser-email? email))))
 
 (defn admin-get [req]
   (let [{:keys [email]} (req->auth-user! req)]
@@ -420,6 +431,55 @@
                                                       :span-id span-id})}
                          (merge {:label "Search trace in Athena"}
                                 (tracer/athena-query {:trace-id trace-id}))]})))
+
+;; ---
+;; Restore
+
+(defn restore-zip-post
+  "Admin-only. Restores an app from an uploaded zip. Ownership (creator/org) and
+   an optional target app-id come from the query string; the raw zip is the
+   request body. Params are validated before the body is read, so a bad request
+   fails without transferring the zip. Returns the restore-job row to poll."
+  [req]
+  (let [{:keys [id email]} (req->auth-user! req)
+        _ (assert-admin-email! email)
+        app-id (or (ex/get-optional-param! req [:params :app_id] uuid-util/coerce)
+                   (random-uuid))
+        org-id (ex/get-optional-param! req [:params :org_id] uuid-util/coerce)
+        title (ex/get-optional-param! req [:params :title] string-util/coerce-non-blank-str)
+        ;; The restored app is owned by the admin running the restore, unless an
+        ;; org is given.
+        creator-id (when-not org-id id)
+        _ (restore/validate-restore-params! {:app-id app-id
+                                             :creator-id creator-id
+                                             :org-id org-id})
+        body (ex/get-param! req [:body] identity)
+        job (app-restore-jobs/start-restore! {:app-id app-id
+                                              :creator-id creator-id
+                                              :org-id org-id
+                                              :title title
+                                              :zip-stream body})]
+    (response/ok {:restore-job (app-restore-jobs/job->admin-format job)})))
+
+(defn restore-job-get [req]
+  (let [{:keys [email]} (req->auth-user! req)
+        _ (assert-admin-email! email)
+        id (ex/get-param! req [:params :id] uuid-util/coerce)
+        job (app-restore-jobs/get-by-id id)]
+    (response/ok {:restore-job (some-> job app-restore-jobs/job->admin-format)})))
+
+(defn restore-jobs-get [req]
+  (let [{:keys [email]} (req->auth-user! req)
+        _ (assert-admin-email! email)]
+    (response/ok {:restore-jobs (mapv app-restore-jobs/job->admin-format
+                                      (app-restore-jobs/get-recent))})))
+
+(defn restore-job-cancel [req]
+  (let [{:keys [email]} (req->auth-user! req)
+        _ (assert-admin-email! email)
+        id (ex/get-param! req [:params :id] uuid-util/coerce)]
+    (response/ok {:restore-job (some-> (app-restore-jobs/cancel-job! id)
+                                       app-restore-jobs/job->admin-format)})))
 
 ;; ---
 ;; Dash
@@ -2611,6 +2671,10 @@
   (GET "/dash/overview/daily" [] admin-overview-daily-get)
   (GET "/dash/overview/minute" [] admin-overview-minute-get)
   (GET "/dash/admin-debug-uri" [] admin-debug-uri-get)
+  (POST "/dash/restores/zip" [] restore-zip-post)
+  (GET "/dash/restore-jobs" [] restore-jobs-get)
+  (GET "/dash/restore-jobs/:id" [] restore-job-get)
+  (DELETE "/dash/restore-jobs/:id" [] restore-job-cancel)
 
   (GET "/dash" [] dash-get)
   (GET "/dash/me" [] me-get)

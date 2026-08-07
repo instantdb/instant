@@ -91,6 +91,13 @@ const tools: ToolCard[] = [
       'Preview all og:image cards across the site to make sure they look good before deploying.',
     category: 'Other',
   },
+  {
+    title: 'Restore App',
+    href: '/intern/restore',
+    description:
+      'Upload a backup zip to restore it into a new app. Runs in the background on the machine that receives the upload.',
+    category: 'Other',
+  },
 ];
 
 const categories = ['All', 'KPIs', 'Analytics', 'Comms', 'Other'];

@@ -2,9 +2,7 @@
   (:require [tool]
             [clojure.java.io :as io]
             [clojure.java.process :as process]
-            [clojure.string :as string]
             [instant.util.crypt :as crypt-util]
-            [instant.util.email :as email]
             [instant.config-edn :as config-edn]
             [instant.config :as config]
             [instant.config-app :as config-app]
@@ -122,15 +120,6 @@
                   "-path" "resources/migrations"
                   "up")))
 
-(defn superuser-email []
-  (when-let [value (some-> (System/getenv "INSTANT_SUPERUSER_EMAIL")
-                           string/trim
-                           not-empty)]
-    (or (email/coerce value)
-        (throw (ex-info
-                "INSTANT_SUPERUSER_EMAIL must be a valid email address."
-                {:value value})))))
-
 (def ^:private self-hosted-bundled-user-emails
   ["system-catalog-user@instantdb.com"
    "testuser@instantdb.com"
@@ -140,7 +129,7 @@
    "hello+getadbapps@instantdb.com"])
 
 (defn- disable-self-hosted-bundled-user-logins! []
-  (let [configured-superuser-email (superuser-email)]
+  (let [configured-superuser-email (config/superuser-email)]
     (next-jdbc/with-transaction [conn (config/get-aurora-config)]
       (doseq [user-email self-hosted-bundled-user-emails
               :when (not= user-email configured-superuser-email)]
@@ -169,7 +158,7 @@
      conn
      ["SELECT pg_advisory_xact_lock(hashtext(?))"
       "instant-config-bootstrap"])
-    (let [email (superuser-email)
+    (let [email (config/superuser-email)
           user (if email
                  (or (instant-user-model/get-by-email conn {:email email})
                      (instant-user-model/create!

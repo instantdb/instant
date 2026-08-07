@@ -4,6 +4,7 @@
             [instant.config-edn :as config-edn]
             [instant.util.crypt :as crypt-util]
             [instant.util.aws :as aws-util]
+            [instant.util.email :as email]
             [instant.aurora-config :as aurora-config]
             [lambdaisland.uri :as uri]
             [lambdaisland.uri.normalize :as normalize])
@@ -54,6 +55,19 @@
 
 (def instant-config-app-id
   #uuid "24a4d71b-7bb2-4630-9aee-01146af26239")
+
+(defn superuser-email
+  "The self-hosted deployment operator's email (INSTANT_SUPERUSER_EMAIL),
+   normalized. nil when unset (or blank), e.g. on the hosted deployment.
+   Throws when set to something that isn't a valid email."
+  []
+  (when-let [value (some-> (System/getenv "INSTANT_SUPERUSER_EMAIL")
+                           string/trim
+                           not-empty)]
+    (or (email/coerce value)
+        (throw (ex-info
+                "INSTANT_SUPERUSER_EMAIL must be a valid email address."
+                {:value value})))))
 
 (defonce instance-id
   (delay
