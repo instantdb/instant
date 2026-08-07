@@ -15,7 +15,7 @@ To get started, you need to log in to your Instant account. You can do this by r
 npx instant-cli@latest login
 ```
 
-This will open a browser window where you can authenticate with your Instant account. Once authenticated you'll be able to run commands that interact with your Instant apps!
+This will open a browser window where you can authenticate with your Instant account. Once authenticated, you'll be able to run commands that interact with your Instant apps!
 
 ## Logout
 
@@ -25,7 +25,7 @@ To log out of your Instant account and remove your authentication token from you
 npx instant-cli@latest logout
 ```
 
-This will clear your stored credentials. You'll need to login again to interact with your Instant apps.
+This will clear your stored credentials. You'll need to log in again to interact with your Instant apps.
 
 ## Init
 
@@ -48,7 +48,7 @@ npx instant-cli@latest init --temp
 
 This will create an ephemeral app that automatically deletes itself after 24 hours. You can later transfer a temporary app to your account with `instant-cli claim`.
 
-To learn how to change `instant.schema.ts`, check our [Modeling Data](/docs/modeling-data). For `instant.perms.ts`, check out the [permissions](/docs/permissions) page.
+To learn how to change `instant.schema.ts`, check out our [Modeling Data](/docs/modeling-data). For `instant.perms.ts`, check out the [permissions](/docs/permissions) page.
 
 ## Push
 
@@ -135,7 +135,7 @@ The results match what your client queries return, including cardinality. If you
 
 ## App ID
 
-Whenever you run a CLI command, we look up your app id. You can either provide an app id as an option:
+Whenever you run a CLI command, we look up your app ID. You can either provide an app ID as an option:
 
 ```shell
   npx instant-cli@latest init --app $MY_APP_ID
@@ -157,7 +157,7 @@ As a convenience, apart from `INSTANT_APP_ID`, we also check for:
 
 ## Where to save files
 
-By default, Instant will search for your `instant.schema.ts` and `instant.perms.ts` file in:
+By default, Instant will search for your `instant.schema.ts` and `instant.perms.ts` files in:
 
 1. The `root` directory: `./`
 2. The `src` directory: `./src`
@@ -178,7 +178,7 @@ INSTANT_PERMS_FILE_PATH=./src/db/instant.perms.ts
 
 In CI or similar environments, you may want to handle authentication without having to go through a web-based validation step each time.
 
-In these cases, you can provide a `INSTANT_CLI_AUTH_TOKEN` environment variable.
+In these cases, you can provide an `INSTANT_CLI_AUTH_TOKEN` environment variable.
 
 To obtain a token for later use, run:
 
@@ -196,7 +196,7 @@ Sometimes you want to create an Instant app without generating `instant.schema.t
 npx instant-cli@latest init-without-files --title "Hello World"
 ```
 
-The app's id and admin token are outputted to stdout as JSON:
+The app's ID and admin token are outputted to stdout as JSON:
 
 ```shell
 {
@@ -208,7 +208,7 @@ The app's id and admin token are outputted to stdout as JSON:
 }
 ```
 
-You can also make ephemeral apps that will clean up themselves after >24 hours
+You can also make ephemeral apps that will clean themselves up after more than 24 hours
 via the `--temp` flag:
 
 ```shell {% showCopy=true %}
@@ -286,7 +286,7 @@ const email = {
           Copy and paste this into the confirmation box, and you'll be on your way.
         </p>
         <p>
-          Note: This code will expire in {expiration}, and can only be used once. If
+          Note: This code will expire in {expiration} and can only be used once. If
           you didn't request this code, please reply to this email.
         </p>
       </div>

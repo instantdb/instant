@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
 export default App;
 ```
 
-If you haven't already, install the Expo Go app on iOS or Android. Once you have that installed you can run the app from your terminal.
+If you haven't already, install the Expo Go app on iOS or Android. Once you have that installed, you can run the app from your terminal.
 
 ```
 npm run start
@@ -136,7 +136,7 @@ Huzzah 🎉 You've got your first React Native Instant app running! Check out th
 
 ## Using MMKV for faster storage (optional)
 
-By default, Instant uses [AsyncStorage](https://react-native-async-storage.github.io/async-storage/) to persist data on device. If you want faster read/write performance, you can use [MMKV](https://github.com/mrousavy/react-native-mmkv) instead.
+By default, Instant uses [AsyncStorage](https://react-native-async-storage.github.io/async-storage/) to persist data on the device. If you want faster read/write performance, you can use [MMKV](https://github.com/mrousavy/react-native-mmkv) instead.
 
 ### Install the MMKV package
 
@@ -279,10 +279,10 @@ This video goes through core concepts of using Instant like setting up schema, w
 
 For more advanced features, check out [Simon Grimm](https://x.com/schlimmson) building a mobile app builder with Instant!
 
-In this video Simon builds on top of the concepts from Beto's video and shows off how to use Storage for uploading assets and the Platform API for programmatically spinning up databases.
+In this video, Simon builds on top of the concepts from Beto's video and shows off how to use Storage for uploading assets and the Platform API for programmatically spinning up databases.
 
 {% youtube src="https://www.youtube.com/watch?v=HRACNTmikZI" title="Use React Native + InstantDB to Build a Self-Building App" /%}
 
-If you prefer reading docs, you can also check out the [Working with data](/docs/init) section to learn more Instant concepts.
+If you prefer reading docs, you can also check out the [Working with data](/docs/init) section to learn more about Instant concepts.
 
 As you get more familiar with Instant, check out our [Recommended Workflow](/docs/workflow) docs for using Instant in your projects.

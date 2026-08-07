@@ -27,7 +27,7 @@ With that, you can use `db` to [write data](/docs/instaml), [make queries](/docs
 
 ## Typesafety
 
-If you're using typescript, `init` accepts a `schema` argument. Adding a schema provides auto-completion and typesafety for your queries and transactions.
+If you're using TypeScript, `init` accepts a `schema` argument. Adding a schema provides auto-completion and typesafety for your queries and transactions.
 
 ```typescript
 import { init, i } from '@instantdb/react';
@@ -62,7 +62,7 @@ To learn more about writing schemas, head on over to the [Modeling your data](/d
 Instant maintains a single connection regardless of where or how many times you
 call `init` with the same app ID. This means you can safely call `init` multiple
 times without worrying about creating multiple connections or
-performance overhead. However we do recommend the pattern of exporting a
+performance overhead. However, we do recommend the pattern of exporting a
 reference from a utility file like so:
 
 <!-- prettier-ignore-start -->
@@ -110,4 +110,4 @@ and `schema`. Here are all the options you can provide:
 
 - **queryCacheLimit?**: Maximum number of query subscriptions to cache for offline mode. Defaults to `10`. Cached queries provide instant data on app reload while fresh data loads in the background.
 
-- **useDateObjects?**: When `true`, all date columns in queries will return a Javascript `Date` object. Disabled by default.
+- **useDateObjects?**: When `true`, all date columns in queries will return a JavaScript `Date` object. Disabled by default.

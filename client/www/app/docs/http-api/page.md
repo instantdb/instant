@@ -5,21 +5,21 @@ nextjs:
     description: "Direct HTTP access to Instant's admin API for non-JavaScript environments."
 ---
 
-If your backend is written in Javascript, you can use the [`@instantdb/admin`](/docs/backend) SDK to connect your server to Instant.
+If your backend is written in JavaScript, you can use the [`@instantdb/admin`](/docs/backend) SDK to connect your server to Instant.
 
-But what if your backend isn't written in Javascript? That's where the HTTP API comes in.
+But what if your backend isn't written in JavaScript? That's where the HTTP API comes in.
 
 You can use the HTTP API in your favorite backend language to run scripts, create custom auth flows, or evaluate sensitive app logic.
 
 {% callout type="note" %}
 
-If you give this documentation to your AI agent, it can create a custom SDK for your backend language. Here's the [markdown](/docs/http-api.md).
+If you give this documentation to your AI agent, it can create a custom SDK for your backend language. Here's the [Markdown](/docs/http-api.md).
 
 {% /callout %}
 
 ## Auth
 
-First and foremost, grab your app's `APP_ID` and `ADMIN_TOKEN`. You can get this by going to your
+First and foremost, grab your app's `APP_ID` and `ADMIN_TOKEN`. You can get them by going to your
 [dashboard](https://instantdb.com/dash). To authenticate requests, include them in your HTTP headers:
 
 ```shell {% lineHighlight="3,4" %}
@@ -212,7 +212,7 @@ curl -X DELETE "https://api.instantdb.com/admin/users?refresh_token=$REFRESH_TOK
 
 ## Presence in the Backend
 
-If you use [rooms & presence](/docs/presence-and-topics), you may want to query for the data currently in a room. This can be especially useful if you are sending a notification for example, and want to skip it if the user is already online. To do get room data use `GET /admin/rooms/presence`. Make sure to pass in a `room-type` and a `room-id`:
+If you use [rooms & presence](/docs/presence-and-topics), you may want to query for the data currently in a room. This can be especially useful if you are sending a notification, for example, and want to skip it if the user is already online. To get room data, use `GET /admin/rooms/presence`. Make sure to pass in a `room-type` and a `room-id`:
 
 ```shell
 curl -X GET "https://api.instantdb.com/admin/rooms/presence?room-type=chat&room-id=room-123" \
@@ -222,7 +222,7 @@ curl -X GET "https://api.instantdb.com/admin/rooms/presence?room-type=chat&room-
 
 ## Sign Out
 
-`POST /admin/sign_out` allows you to log out users. You can log out a user out from every session by passing in their `email` or `id`. Or you can log a user out from a particular session by passing in a `refresh_token`:
+`POST /admin/sign_out` allows you to log out users. You can log a user out from every session by passing in their `email` or `id`. Or you can log a user out from a particular session by passing in a `refresh_token`:
 
 ```shell {% lineHighlight="6,13,20" %}
 # All sessions for this email sign out
@@ -270,7 +270,7 @@ curl -X POST "https://api.instantdb.com/admin/refresh_tokens" \
 ```
 
 If a user with the given `id` or `email` does not exist, Instant will create the
-user for you. You can pass `extra-fields` to set custom `$users` properties on creation. The response includes `user.refresh_token` and `"created": true` when a new user is created. You can pass this token onto your client, and use that to [log in](/docs/backend#2-frontend-db-auth-sign-in-with-token)
+user for you. You can pass `extra-fields` to set custom `$users` properties on creation. The response includes `user.refresh_token` and `"created": true` when a new user is created. You can pass this token on to your client and use it to [log in](/docs/backend#2-frontend-db-auth-sign-in-with-token).
 
 ## Custom magic codes
 

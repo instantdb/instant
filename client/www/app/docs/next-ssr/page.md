@@ -1,11 +1,11 @@
 ---
 nextjs:
   metadata:
-    title: '(Experimental) NextJS SSR'
-    description: 'Use server-side-rendering with InstantDB and Next.js.'
+    title: '(Experimental) Next.js SSR'
+    description: 'Use server-side rendering with InstantDB and Next.js.'
 ---
 
-If you use NextJS and want to do server-side rendering, we have an experimental library for you.
+If you use Next.js and want to do server-side rendering, we have an experimental library for you.
 
 `@instantdb/react/nextjs` can let you run Instant queries both on the server and the client, and for the first time, _share caches between them_. (If you don’t get what this means yet, no worries, we’ll explain in detail in the document! Suffice it to say it’s pretty cool.)
 
@@ -20,29 +20,29 @@ In this essay we’ll cover:
 
 ## What is server-side rendering?
 
-Server-side rendering lets you run your Javascript code in two environments.
+Server-side rendering lets you run your JavaScript code in two environments.
 
-First the server renders your React component. So as soon as a browser sees your website, your React component is there.
+First, the server renders your React component. So as soon as a browser sees your website, your React component is there.
 
-Once the browser loads Javascript, the same component runs on the client once more. This way if you have hover effects or other logic that needs to attach to your component, it can do that in the browser.
+Once the browser loads JavaScript, the same component runs on the client once more. This way, if you have hover effects or other logic that needs to attach to your component, it can do that in the browser.
 
 To get a sense for how this all works, imagine loading a todo app:
 
 ![SSR diagram](/img/docs/next-ssr-diagram.png)
 
-Without SSR, when you first load the site you’d see a blank page. Once Javascript gets loaded, React would kick in and you’d see your todos show up.
+Without SSR, when you first loaded the site, you’d see a blank page. Once JavaScript loaded, React would kick in and you’d see your todos show up.
 
-With SSR, your todo component would render on the server first. The _very_ first load in the browser would already show todos. Once Javascript loads, the todo component would re-attach and all the click handlers and effects would work.
+With SSR, your todo component would render on the server first. The _very_ first load in the browser would already show todos. Once JavaScript loaded, the todo component would reattach and all the click handlers and effects would work.
 
 ## When is server-side rendering a good idea?
 
-On first glance, server-side rendering can sound great. Why not run your code right away on the server? Well, there are two costs:
+At first glance, server-side rendering can sound great. Why not run your code right away on the server? Well, there are two costs:
 
 ### The costs
 
-**The biggest cost is complexity**: Your code runs in two environments. Once on the server, and once on the client. NextJS and Instant can do a good job of hiding the difference, but sometimes those differences leak out (as a basic example, there’s no `window` in the server). For many applications, you may not want the added complexity.
+**The biggest cost is complexity**: Your code runs in two environments. Once on the server, and once on the client. Next.js and Instant can do a good job of hiding the difference, but sometimes those differences leak out (as a basic example, there’s no `window` on the server). For many applications, you may not want the added complexity.
 
-**The second cost relates to client-heavy applications:** If you want your application to _feel_ like a desktop app, you’ll want to reduce the amount of times your application pauses while navigating. This means that you have to be proactive with fallback states when using `<Suspense />`, or prefetch anticipated queries more agressively.
+**The second cost relates to client-heavy applications:** If you want your application to _feel_ like a desktop app, you’ll want to reduce the number of times your application pauses while navigating. This means that you have to be proactive with fallback states when using `<Suspense />`, or prefetch anticipated queries more aggressively.
 
 {% callout type="note" %}
 
@@ -54,9 +54,9 @@ Tip: You can prefetch queries by `db.queryOnce()` from anywhere, or by using `db
 
 But there are also some clear benefits.
 
-**SSR can be great for search engines.** Web crawlers are getting better with Javascript, but they generally do the best job at indexing websites when the content is there on the first load. SSR can do this for you.
+**SSR can be great for search engines.** Web crawlers are getting better with JavaScript, but they generally do the best job at indexing websites when the content is there on the first load. SSR can do this for you.
 
-**SSR can remove loading screens, especially if you use NextJS Routes.** Sometimes you load an app and see _lots_ of loading spinners. SSR can help you remove those spinners. Since there’s content on the first load, you can often ignore loading states completely. You may wonder, won’t the first load be slower if you’re fetching data? Not by much, for two reasons. First If you use NextJS routing, it will try to pre-fetch as much as possible. By the time a user clicks a link, the data is often already there. Second, if you use Vercel, their servers are close to Instant servers, which means queries often take milliseconds to transfer.
+**SSR can remove loading screens, especially if you use Next.js Routes.** Sometimes you load an app and see _lots_ of loading spinners. SSR can help you remove those spinners. Since there’s content on the first load, you can often ignore loading states completely. You may wonder, won’t the first load be slower if you’re fetching data? Not by much, for two reasons. First, if you use Next.js routing, it will try to pre-fetch as much as possible. By the time a user clicks a link, the data is often already there. Second, if you use Vercel, their servers are close to Instant servers, which means queries often take milliseconds to transfer.
 
 Put these benefits together, and sometimes SSR really is worth it.
 
@@ -68,25 +68,25 @@ With `@instantdb/react/nextjs` you get a special package with a new hook: `db.us
 
 ![useSuspenseQuery diagram](/img/docs/next-ssr-suspense-query.png)
 
-When you use `db.useSuspenseQuery`. (1) On the server it will run a query once and get data. When loaded in the browser, (2) it will re-connect and subscribe to changes on the same query. **This means on the first load you have data, _and_ it becomes real-time in the browser.**
+When you use `db.useSuspenseQuery`, (1) it will run a query once and get data on the server. When loaded in the browser, (2) it will reconnect and subscribe to changes on the same query. **This means on the first load you have data, _and_ it becomes real-time in the browser.**
 
 ### What about offline caches?
 
 There's nothing faster than local data. If `useSuspenseQuery` is running on the client, it will use the local data and websocket connection instead.
 
-In addition, when the page first loads from SSR, it will update the local cache with the most up to date results.
+In addition, when the page first loads from SSR, it will update the local cache with the most up-to-date results.
 
 {% callout type="warning" %}
-Using SSR can make data fetching slower in one specific case: If you are using a `useSuspenseQuery` and there is not a `<Suspense>` anywhere higher in the component tree, the server will not send any HTML/JS at all until the query has resolved and the page has rendered. In some cases, this is desirable for things like SEO, but if the user already has the query result in their local cache, the page load is blocked, and they won't get a chance to load it and will have to wait.
+Using SSR can make data fetching slower in one specific case: If you are using `useSuspenseQuery` and there is not a `<Suspense>` anywhere higher in the component tree, the server will not send any HTML/JS at all until the query has resolved and the page has rendered. In some cases, this is desirable for things like SEO, but if the user already has the query result in their local cache, the page load is blocked, and they won't get a chance to load it and will have to wait.
 
-If the component that calls `useSuspenseQuery` is wrapped in a `<Suspense/>`, Then the data will be fetched at the same time in both the client and server and the user will see the result from whatever loaded fastest. For returning users, this usually ends up being the local data, but for non-cached queries, the server is often faster.
+If the component that calls `useSuspenseQuery` is wrapped in a `<Suspense/>`, then the data will be fetched at the same time on both the client and server, and the user will see whichever result loads fastest. For returning users, this usually ends up being the local data, but for non-cached queries, the server is often faster.
 {% /callout %}
 
 ## Adding SSR to your projects
 
 If this all sounds good to you, you can add SSR to your projects today.
 
-Here’s the step by step guide.
+Here’s the step-by-step guide.
 
 ### 1. Replace your `db` client
 
@@ -123,7 +123,7 @@ export const { POST } = createInstantRouteHandler({
 });
 ```
 
-Once we do this, Instant can start to detect the logged in user both in the browser and in the server.
+Once we do this, Instant can start to detect the logged-in user both in the browser and on the server.
 
 ### 3. Create an InstantProvider
 
@@ -172,7 +172,7 @@ export default async function RootLayout({ children }) {
 }
 ```
 
-If using the NextJS pages directory, you can use `getServerSideProps` to get the user and pass it to the provider via the PageProps.
+If using the Next.js pages directory, you can use `getServerSideProps` to get the user and pass it to the provider via the PageProps.
 
 This (a) fetches the current user, and (b) puts the Instant provider in the React tree.
 
@@ -192,7 +192,7 @@ export default function Page() {
 }
 ```
 
-Note how there’s no `isLoading` or `error` state from db.useSuspenseQuery! This is handled using [React Suspense](https://react.dev/reference/react/Suspense), and makes sure we have the data when we render this page.
+Note how there’s no `isLoading` or `error` state from db.useSuspenseQuery! This is handled using [React Suspense](https://react.dev/reference/react/Suspense), which makes sure we have the data when we render this page.
 
 If your code uses `useUser`, `useAuth`, or `db.SignedIn`/`db.SignedOut`, it will initially use the `user` value you provided to `InstantProvider` instead of a pending state. These hooks/components will continue to be reactive.
 

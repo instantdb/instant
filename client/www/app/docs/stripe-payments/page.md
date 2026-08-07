@@ -8,7 +8,7 @@ nextjs:
 The quickest way to add Stripe to your Instant app is to tell your LLM to do it. Just say "add Stripe payments" and follow along step by step.
 
 For more guidance we've put together three reference examples with tutorials you
-can follow along. Each example also has additional docs you can copy and paste for your agent.
+can follow along with. Each example also has additional docs you can copy and paste for your agent.
 
 ## Stripe Examples
 
@@ -21,7 +21,7 @@ instantly.
 ### One-off purchase
 
 This example is for a wallpaper store where users buy a pack and get immediate
-access to high-resolution downloads. It's a one-off payment and no user accounts required to minimize friction.
+access to high-resolution downloads. It's a one-off payment, and no user accounts are required to minimize friction.
 
 - [Example repo](https://github.com/instantdb/instant/tree/main/examples/stripe-one-off) with [step-by-step tutorial](https://github.com/instantdb/instant/tree/main/examples/stripe-one-off/tutorial.md)
 - [Strategy](https://raw.githubusercontent.com/instantdb/instant/main/examples/stripe-one-off/stripe-strategy.md) and [payment flow](https://raw.githubusercontent.com/instantdb/instant/main/examples/stripe-one-off/purchase.md) docs to help your agent implement the pattern

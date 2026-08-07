@@ -9,7 +9,7 @@ Once you know the basics of Instant, you may find it useful to be able to
 quickly scaffold a new Instant project. We built `create-instant-app` to do just
 that.
 
-We currently offer templates for Next.js, Vite + React, Expo, and Vanilla Typescript. Follow the quick start below to give it a spin!
+We currently offer templates for Next.js, Vite + React, Expo, and Vanilla TypeScript. Follow the quick start below to give it a spin!
 
 ## Quick start
 
@@ -24,7 +24,7 @@ This will open a browser window where you can log in or sign up for an account.
 Once you've authenticated, any app you create with `create-instant-app` will be
 associated with your Instant account!
 
-After authenticating you run the following command to scaffold a new Instant app.
+After authenticating, run the following command to scaffold a new Instant app.
 
 ```shell {% showCopy=true %}
 npx create-instant-app instant-demo

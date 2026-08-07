@@ -5,8 +5,8 @@ nextjs:
     description: 'How to use Instant from Python with the admin SDK.'
 ---
 
-Instant offers a Python admin SDK with an API that mirrors our javascript
-admin SDK. If you read the JS docs, you can mentally substitute Python syntax
+Instant offers a Python Admin SDK with an API that mirrors our JavaScript
+Admin SDK. If you read the JS docs, you can mentally substitute Python syntax
 and write working code.
 
 ## Install
@@ -40,7 +40,7 @@ Pythonic adjustments. A basic example looks like this:
 from instantdb import Instant, id
 
 db = Instant(
-    # You can pass these explicitly, by default they fall back to
+    # You can pass these explicitly; by default they fall back to
     # INSTANT_APP_ID and INSTANT_APP_ADMIN_TOKEN environment variables
     app_id="__APP_ID__",
     admin_token="__ADMIN_TOKEN__",
@@ -91,7 +91,7 @@ Everything else works on both the sync and async client.
 ## Schema and permissions
 
 The Python starter includes `instant.schema.ts` and `instant.perms.ts`
-so you can manage your app from your python project. Push changes with
+so you can manage your app from your Python project. Push changes with
 the Instant CLI as you would normally:
 
 ```shell {% showCopy=true %}
@@ -101,10 +101,10 @@ npx instant-cli push
 ## FastAPI with Pydantic
 
 At the moment the SDK doesn't generate Python types from your schema file.
-Queries return as dictionaries. If you want typed objects, define them in your
+Query results are returned as dictionaries. If you want typed objects, define them in your
 application and validate the returned data there.
 
-Here's an example of how you can use Pydantic models in a FastAPI app
+Here's an example of how you can use Pydantic models in a FastAPI app:
 
 ```python {% showCopy=true %}
 from fastapi import FastAPI
@@ -195,7 +195,7 @@ See [Writing data](/docs/instaml) for the full mutation reference.
 ## Subscribing to queries
 
 `AsyncInstant.subscribe_query` opens an SSE stream and yields payloads as
-the query result changes. Similar to our JS SDK:
+the query result changes. This is similar to our JS SDK:
 
 ```python {% showCopy=true %}
 import asyncio
@@ -335,7 +335,7 @@ db.auth.sign_out(email="alyssa@instantdb.com")
 
 ## Impersonation
 
-You can also use the impersonation api to run queries and transactions as if you
+You can also use the impersonation API to run queries and transactions as if you
 were a specific user or guest.
 
 ```python {% showCopy=true %}
@@ -483,7 +483,7 @@ Returned dicts keep camelCase wire-format keys (`webhookId`,
 
 ### Receiving webhooks
 
-Three primitives compose into framework integration:
+Three primitives compose into a framework integration:
 
 ```python
 # 1. Verify the Ed25519 signature and parse the signed body

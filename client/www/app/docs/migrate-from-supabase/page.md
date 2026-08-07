@@ -23,7 +23,7 @@ Ask the user for source and target directories.
 ## Process
 
 1. **Setup**: Run `npx instant-cli info` to check login. If not logged in,
-   direct user to https://instantdb.com then `npx instant-cli login`.
+   direct the user to https://instantdb.com then `npx instant-cli login`.
    Create app: `npx instant-cli init-without-files --title "<Name>"`
 
 2. **Copy project**: Copy source to target (excluding `node_modules`, `.next`).
@@ -45,7 +45,7 @@ Ask the user for source and target directories.
 
 6. **Migrate data**: Ask the user if they have data to migrate. If yes, ask for
    their Supabase service role key. Write and run export + import scripts.
-   If app uses Supabase Storage, migrate files too.
+   If the app uses Supabase Storage, migrate files too.
 
 7. **Verify**: Build must pass. Test all pages and auth flows.
 

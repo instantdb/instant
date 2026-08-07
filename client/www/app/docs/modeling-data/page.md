@@ -16,7 +16,7 @@ We’ll build a micro-blog to illustrate; we'll have authors, posts, comments, a
 
 ## Schema as Code
 
-With Instant you can define your schema and your permissions in code. If you haven't already, use the [CLI](/docs/cli) to generate an `instant.schema.ts`, and a `instant.perms.ts` file:
+With Instant you can define your schema and your permissions in code. If you haven't already, use the [CLI](/docs/cli) to generate an `instant.schema.ts` and an `instant.perms.ts` file:
 
 ```shell {% showCopy=true %}
 npx instant-cli@latest init
@@ -81,7 +81,7 @@ const _schema = i.schema({
   },
 });
 
-// This helps TypeScript display better intellisense
+// This helps TypeScript display better IntelliSense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
@@ -112,7 +112,7 @@ const _schema = i.schema({
 
 ## 2) Attributes
 
-Attributes are properties associated with namespaces. These are equivalent to a "column" in relational databases or a "field" in NoSQL. For the `posts` entity, we have the `title`, `body`, and `createdAt` attributes:
+Attributes are properties associated with namespaces. Each is equivalent to a "column" in relational databases or a "field" in NoSQL. For the `posts` entity, we have the `title`, `body`, and `createdAt` attributes:
 
 ```typescript
 // instant.schema.ts
@@ -155,7 +155,7 @@ const _schema = i.schema({
 });
 ```
 
-Instant will _make sure_ that all `title` attributes are strings, and you'll get the proper typescript hints to boot!
+Instant will _make sure_ that all `title` attributes are strings, and you'll get the proper TypeScript hints to boot!
 
 ### Required constraints
 
@@ -208,7 +208,7 @@ postAuthor: {
 },
 ```
 
-Finally, for legacy attributes that are treated as required on your front-end but you are not ready to enable back-end required checks yet, you can use `.clientRequired()`. That will produce TypeScript type without `null` but will not add back-end required check:
+Finally, for legacy attributes that are treated as required on your front-end but you are not ready to enable back-end required checks yet, you can use `.clientRequired()`. That will produce a TypeScript type without `null` but will not add a back-end required check:
 
 ```typescript
 const _schema = i.schema({
@@ -223,7 +223,7 @@ const _schema = i.schema({
 
 ### Unique constraints
 
-Sometimes you'll want to introduce a unique constraint. For example, say we wanted to add friendly URL's to posts. We could introduce a `slug` attribute:
+Sometimes you'll want to introduce a unique constraint. For example, say we wanted to add friendly URLs to posts. We could introduce a `slug` attribute:
 
 ```typescript
 // instant.schema.ts
@@ -335,7 +335,7 @@ const query2 = {
 };
 ```
 
-Links can have one of four relationship types: `many-to-many`, `many-to-one`, `one-to-many`, and `one-to-one`
+Links can have one of four relationship types: `many-to-many`, `many-to-one`, `one-to-many`, and `one-to-one`.
 
 Our micro-blog example has the following relationship types:
 
@@ -361,7 +361,7 @@ db.tx.profiles[user_id].delete();
 
 Without `onDelete: "cascade"`, deleting a profile would simply delete the links but not delete the underlying posts.
 
-If you prefer to model links in other direction, you can do it, too:
+If you prefer to model links in the other direction, you can do it, too:
 
 ```
 postAuthor: {
