@@ -18,6 +18,15 @@ create table custodian (
   -- as an owner tag. A worker heartbeats by bumping updated_at as it works; the
   -- reaper frees a row (clears worker_id) whose updated_at has gone stale.
   worker_id text,
+  -- 'waiting' (runnable) -> 'working' (claimed by a worker) and back to 'waiting'
+  -- on a failed attempt; set to 'failed' once processing has errored enough times
+  -- (see `attempts`) so it stops being retried and can be investigated.
+  status text not null default 'waiting',
+  -- How many times processing this row has errored. We retry a few times before
+  -- giving up and marking it 'failed', since some failures are transient.
+  attempts integer not null default 0,
+  -- The error message from the most recent failure.
+  error text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   -- At most one row per (app, type, attr). `nulls not distinct` so two whole-app
@@ -29,9 +38,15 @@ create index custodian_attr_id on custodian (attr_id);
 create index custodian_depends_on on custodian (depends_on);
 
 create index custodian_claimable on custodian (created_at)
-  where depends_on is null and worker_id is null;
+  where depends_on is null and worker_id is null and status = 'waiting';
 
 create trigger update_custodian_updated_at
 before update on custodian
 for each row
 execute function update_updated_at_column();
+
+-- Drop the trigger that cleaned up triples_size_updates on attr delete. The
+-- updater clears out the rows for us, so there's no need to delete them here.
+-- When we delete an app, it causes us to delete too much.
+drop trigger if exists clean_triples_size_updates_trigger on attrs;
+drop function if exists clean_triples_size_updates();

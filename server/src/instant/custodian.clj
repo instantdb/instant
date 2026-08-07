@@ -5,7 +5,7 @@
    The plan for a deletion is stored as a chain of `custodian` rows linked by
    `depends_on`:
 
-     app:  triples <- transactions <- app   (app depends on transactions depends on triples)
+     app:  triples <- transactions <- attrs <- app
      attr: triples <- attr
 
    `depends_on` points at the step that must finish first, so a row is runnable
@@ -19,8 +19,10 @@
    for `:custodian-idle-sleep-ms` when there isn't."
   (:require
    [chime.core :as chime-core]
+   [clojure.string]
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
+   [instant.db.transaction :as tx]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
@@ -31,6 +33,7 @@
    [instant.util.tracer :as tracer])
   (:import
    (clojure.lang ExceptionInfo)
+   (java.io PrintWriter StringWriter)
    (java.lang AutoCloseable)
    (java.time Duration Instant)))
 
@@ -40,9 +43,23 @@
 (defn- batch-size [] (flags/flag :custodian-batch-size 1000))
 (defn- idle-sleep-ms [] (flags/flag :custodian-idle-sleep-ms 5000))
 
+;; Attrs are deleted one at a time: each attr delete cascades to that attr's
+;; triples, and right after the triple sweep those are dead-but-not-yet-vacuumed
+;; index entries, so the cascade scan is slow. One attr per statement keeps each
+;; cascade bounded (and lets autovacuum catch up between batches).
+(defn- attr-batch-size [] (flags/flag :custodian-attr-batch-size 1))
+
 ;; Lease long enough that a batch (plus its lease renewal) comfortably finishes,
 ;; short enough that a dead worker's row gets picked up again reasonably soon.
 (defn- lease-timeout-seconds [] (flags/flag :custodian-lease-timeout-seconds 120))
+
+;; How many times processing a row may error before we give up and mark it
+;; 'failed'. Retries handle transient failures (a lost connection, a deadlock).
+(defn- max-attempts [] (flags/flag :custodian-max-attempts 3))
+
+;; How long a 'failed' row lingers before the reaper deletes it (and its stuck
+;; dependents): long enough to notice and investigate, not forever.
+(defn- failed-retention-seconds [] (flags/flag :custodian-failed-retention-seconds 86400))
 
 ;; ----------
 ;; Enqueue
@@ -59,11 +76,16 @@
                      :values [{:app-id :?app-id
                                :type [:inline "transactions"]
                                :depends-on {:select :id :from :triples-row}}]
-                     :returning :id}]]
+                     :returning :id}]
+           [:attrs-row {:insert-into :custodian
+                        :values [{:app-id :?app-id
+                                  :type [:inline "attrs"]
+                                  :depends-on {:select :id :from :tx-row}}]
+                        :returning :id}]]
     :insert-into :custodian
     :values [{:app-id :?app-id
               :type [:inline "app"]
-              :depends-on {:select :id :from :tx-row}}]}))
+              :depends-on {:select :id :from :attrs-row}}]}))
 
 (def enqueue-attr-deletion-q
   (uhsql/preformat
@@ -114,13 +136,14 @@
    {:with [[:claimed {:select :id
                       :from :custodian
                       :where [:and
+                              [:= :status [:inline "waiting"]]
                               [:is :depends-on nil]
                               [:is :worker-id nil]]
                       :order-by [:created-at]
                       :for [:update :skip-locked]
                       :limit [:inline 1]}]]
     :update :custodian
-    :set {:worker-id :?worker-id}
+    :set {:worker-id :?worker-id :status [:inline "working"]}
     :from :claimed
     :where [:= :custodian.id :claimed.id]
     :returning :custodian.*}))
@@ -131,14 +154,46 @@
 
 (def release-q
   (uhsql/preformat {:update :custodian
-                    :set {:worker-id nil}
+                    :set {:worker-id nil :status [:inline "waiting"]}
+                    :where [:and [:= :id :?id] [:= :worker-id :?worker-id]]}))
+
+;; Record a failed attempt: bump `attempts` and stash the error. Below
+;; `max-attempts` we hand the row back (status 'waiting', worker_id cleared) so
+;; it gets retried; once we hit the limit we flip it to 'failed' so it stops
+;; being retried and can be investigated.
+(def fail-q
+  (uhsql/preformat {:update :custodian
+                    :set {:attempts [:+ :attempts :1]
+                          :error :?error
+                          :worker-id [:case [:>= [:+ :attempts :1] :?max-attempts]
+                                      :worker-id :else nil]
+                          :status [:case [:>= [:+ :attempts :1] :?max-attempts]
+                                   [:inline "failed"] :else [:inline "waiting"]]}
                     :where [:and [:= :id :?id] [:= :worker-id :?worker-id]]}))
 
 (def reap-stuck-q
   (uhsql/preformat {:update :custodian
-                    :set {:worker-id nil}
-                    :where [:and [:is-not :worker-id nil] [:< :updated-at :?stale]]
+                    :set {:worker-id nil :status [:inline "waiting"]}
+                    :where [:and [:= :status [:inline "working"]]
+                            [:is-not :worker-id nil] [:< :updated-at :?stale]]
                     :returning :id}))
+
+;; Delete rows that have been 'failed' longer than the retention window, plus
+;; everything that (transitively) depends on them. We take the dependents too
+;; because `depends_on`'s `on delete set null` would otherwise make a failed
+;; step's dependent runnable, letting the plan skip a step that never finished.
+(def reap-failed-q
+  (uhsql/preformat
+   {:with-recursive [[:plan {:union [{:select :id
+                                      :from :custodian
+                                      :where [:and [:= :status [:inline "failed"]]
+                                              [:< :updated-at :?stale]]}
+                                     {:select :c.id
+                                      :from [[:custodian :c]]
+                                      :join [[:plan :p] [:= :c.depends-on :p.id]]}]}]]
+    :delete-from :custodian
+    :where [:in :id {:select :id :from :plan}]
+    :returning :id}))
 
 (defn claim-row!
   "Claims one runnable, unowned row (depends_on IS NULL, worker_id IS NULL) under
@@ -162,15 +217,34 @@
   ;; Give the row back (clear our worker_id) so another worker can reclaim it
   ;; immediately instead of waiting for the reaper. Ownership-guarded.
   (sql/do-execute! ::release! conn (uhsql/formatp release-q {:id id
-                                                            :worker-id @config/process-id})))
+                                                             :worker-id @config/process-id})))
+
+(defn- fail! [conn id error]
+  ;; Record a failed attempt: retry (hand the row back) until we've hit
+  ;; `max-attempts`, then mark it failed so it stops being retried and can be
+  ;; investigated. Ownership-guarded, so a worker that lost the row can't fail it.
+  (sql/do-execute! ::fail! conn (uhsql/formatp fail-q {:id id
+                                                       :error error
+                                                       :max-attempts (max-attempts)
+                                                       :worker-id @config/process-id})))
 
 (defn reap-stuck!
-  "Frees rows whose owner stopped heartbeating (updated_at older than the lease
-   timeout) so another worker can reclaim them. Returns the freed row ids."
+  "Frees 'working' rows whose owner stopped heartbeating (updated_at older than
+   the lease timeout), setting them back to 'waiting' so another worker can
+   reclaim them. Returns the freed row ids."
   ([] (reap-stuck! (aurora/conn-pool :write)))
   ([conn]
    (let [stale (.minusSeconds (Instant/now) (lease-timeout-seconds))]
      (sql/execute! ::reap-stuck! conn (uhsql/formatp reap-stuck-q {:stale stale})))))
+
+(defn reap-failed!
+  "Deletes plans that have been 'failed' longer than the retention window (the
+   failed row plus its stuck dependents). The app stays marked for deletion, so
+   the sweeper re-enqueues a fresh plan later. Returns the deleted row ids."
+  ([] (reap-failed! (aurora/conn-pool :write)))
+  ([conn]
+   (let [stale (.minusSeconds (Instant/now) (failed-retention-seconds))]
+     (sql/execute! ::reap-failed! conn (uhsql/formatp reap-failed-q {:stale stale})))))
 
 ;; ----------
 ;; Backpressure
@@ -186,11 +260,42 @@
              from pg_replication_slots
             where active and confirmed_flush_lsn is not null"])))
 
+(defn- nudge-slots-in-dev! [conn]
+  ;; When the db is idle the invalidator and aggregator replication slots never
+  ;; flush and the lag climbs until the worker parks. The aggregator only decodes
+  ;; `triples`, so we need a real triples change: add then delete a flag on the
+  ;; config app — it leaves nothing behind but produces the triples WAL (plus the
+  ;; transactions anchor) that advances both slots.
+  (when (clojure.string/includes? config/server-origin "localhost")
+    (let [attrs (attr-model/get-by-app-id conn config/instant-config-app-id)
+          id-attr (attr-model/resolve-attr-id attrs "flags" "id")
+          setting-attr (attr-model/resolve-attr-id attrs "flags" "setting")
+          value-attr (attr-model/resolve-attr-id attrs "flags" "value")
+          entity-id (random-uuid)]
+      (tx/transact! conn attrs config/instant-config-app-id
+                    [[:add-triple entity-id id-attr entity-id]
+                     [:add-triple entity-id setting-attr (str ::bump-slots)]
+                     [:add-triple entity-id value-attr "true"]])
+      (tx/transact! conn attrs config/instant-config-app-id
+                    [[:delete-entity entity-id]]))))
+
 (defn sample-lag! [backing-off?]
   (try
     (let [threshold (flags/flag :custodian-max-replication-lag-bytes (* 100 1024 1024))
-          lag (or (max-replication-lag-bytes (aurora/conn-pool :read)) 0)]
-      (reset! backing-off? (> lag threshold)))
+          lag (or (max-replication-lag-bytes (aurora/conn-pool :read)) 0)
+          paused? (> lag threshold)
+          [was-paused?] (reset-vals! backing-off? paused?)]
+      ;; Nudge once we're halfway to the limit so the slot keeps advancing and we
+      ;; ideally never actually cross it (in dev this is usually just an idle slot).
+      (when (> lag (quot threshold 2))
+        (try
+          (nudge-slots-in-dev! (aurora/conn-pool :write))
+          (catch Throwable _ nil)))
+      ;; Log the transition (once per pause/resume, not every sample).
+      (when (not= was-paused? paused?)
+        (tracer/record-info! {:name (if paused? "custodian/pause" "custodian/resume")
+                              :attributes {:lag-bytes lag
+                                           :threshold-bytes threshold}})))
     (catch Throwable t
       (tracer/record-exception-span! t {:name "custodian/sample-lag-error"}))))
 
@@ -253,28 +358,32 @@
 (def delete-app-triples-q (delete-batch-query :triples false))
 (def delete-attr-triples-q (delete-batch-query :triples true))
 (def delete-app-transactions-q (delete-batch-query :transactions false))
+(def delete-app-attrs-q (delete-batch-query :attrs false))
 
 (defn- drain!
-  "Deletes rows via `q` in bounded, committed batches, heartbeating and asserting
-   ownership per batch (see `delete-batch-query`). Returns ::completed when the
-   table is drained, or ::stopped if the worker was asked to stop mid-drain.
-   Losing ownership throws and unwinds the drain."
-  [stop? backing-off? conn id q params]
-  (loop []
-    (await-capacity! stop? backing-off?)
-    (if @stop?
-      ::stopped
-      (let [deleted (-> (sql/do-execute! ::drain!
-                                         conn
-                                         (uhsql/formatp q (assoc params
-                                                                 :id id
-                                                                 :worker-id @config/process-id
-                                                                 :limit (batch-size))))
-                        first
-                        :deleted)]
+  "Deletes rows via `q` in bounded, committed batches of `limit` (default
+   `batch-size`), heartbeating and asserting ownership per batch (see
+   `delete-batch-query`). `tag` labels the batch query (e.g. ::drain-app-attrs).
+   Returns ::completed when the table is drained, or ::stopped if the worker was
+   asked to stop mid-drain. Losing ownership throws and unwinds the drain."
+  ([tag stop? backing-off? conn id q params]
+   (drain! tag stop? backing-off? conn id q params (batch-size)))
+  ([tag stop? backing-off? conn id q params limit]
+   (loop []
+     (await-capacity! stop? backing-off?)
+     (if @stop?
+       ::stopped
+       (let [deleted (-> (sql/do-execute! tag
+                                          conn
+                                          (uhsql/formatp q (assoc params
+                                                                  :id id
+                                                                  :worker-id @config/process-id
+                                                                  :limit limit)))
+                         first
+                         :deleted)]
         (if (and deleted (pos? deleted))
           (recur)
-          ::completed)))))
+          ::completed))))))
 
 (defn- not-deleted-error?
   "True if `e` is the batch guard's raise for an app/attr that isn't marked for
@@ -296,15 +405,26 @@
     (sql/do-execute! ::abort-app-plan conn
                      ["delete from custodian where app_id = ?::uuid and attr_id is null" app-id])))
 
+(defn- error-string
+  "The exception's message plus its full stack trace (including causes), for the
+   custodian row's `error` column so a failure has enough context to investigate."
+  [^Throwable e]
+  (let [sw (StringWriter.)]
+    (.printStackTrace e (PrintWriter. sw))
+    (str sw)))
+
 (defn- process-row! [stop? backing-off? conn {:keys [id type app_id attr_id]}]
   (tracer/with-span! {:name "custodian/process-row"
                       :attributes {:id id :type type :app-id app_id :attr-id attr_id}}
     (try
       (let [outcome (case type
                       "triples" (if attr_id
-                                  (drain! stop? backing-off? conn id delete-attr-triples-q {:app-id app_id :attr-id attr_id})
-                                  (drain! stop? backing-off? conn id delete-app-triples-q {:app-id app_id}))
-                      "transactions" (drain! stop? backing-off? conn id delete-app-transactions-q {:app-id app_id})
+                                  (drain! ::drain-attr-triples stop? backing-off? conn id delete-attr-triples-q {:app-id app_id :attr-id attr_id})
+                                  (drain! ::drain-app-triples stop? backing-off? conn id delete-app-triples-q {:app-id app_id}))
+                      "transactions" (drain! ::drain-app-transactions stop? backing-off? conn id delete-app-transactions-q {:app-id app_id})
+                      ;; Delete the app's attrs one at a time so each attr's triples
+                      ;; cascade is its own bounded, committed statement.
+                      "attrs" (drain! ::drain-app-attrs stop? backing-off? conn id delete-app-attrs-q {:app-id app_id} (attr-batch-size))
                       ;; Terminal steps run to completion; they aren't interrupted mid-way.
                       "attr" (do (attr-model/hard-delete-multi! conn app_id #{attr_id}) ::completed)
                       "app" (do (app-model/delete-immediately-by-id! conn {:id app_id}) ::completed))]
@@ -314,12 +434,15 @@
           ::completed (finish! conn id)
           ::stopped (release! conn id)))
       (catch Throwable e
-        ;; The batch guard raises if the app/attr is no longer marked for deletion.
-        ;; If that's what happened, tear the plan down; otherwise let the error
-        ;; propagate so the row is retried.
+        ;; The batch guard raises if the app/attr is no longer marked for
+        ;; deletion — tear the plan down. Any other failure: record it and mark
+        ;; the job failed so it stops being retried and can be investigated.
         (if (not-deleted-error? e)
           (abort-plan! conn app_id attr_id e)
-          (throw e))))))
+          (do
+            (tracer/record-exception-span! e {:name "custodian/process-row-error"
+                                              :attributes {:id id :type type :app-id app_id :attr-id attr_id}})
+            (fail! conn id (error-string e))))))))
 
 (defn tick!
   "Claims and fully processes one runnable row. Returns true if it did (or
@@ -363,7 +486,11 @@
 (defn- reap-tick [_]
   (try
     (when-not (or (flags/failing-over?) (flags/custodian-disabled?))
-      (reap-stuck!))
+      (reap-stuck!)
+      (let [reaped (reap-failed!)]
+        (when (seq reaped)
+          (tracer/record-info! {:name "custodian/reap-failed"
+                                :attributes {:count (count reaped)}}))))
     (catch Throwable t
       (tracer/record-exception-span! t {:name "custodian/reap-error"}))))
 

@@ -57,6 +57,10 @@
                           ["select count(*)::int as count from attrs
                              where app_id = ?::uuid and id = ?::uuid" app-id attr-id])))
 
+(defn count-attrs [conn app-id]
+  (:count (sql/select-one ::count-attrs conn
+                          ["select count(*)::int as count from attrs where app_id = ?::uuid" app-id])))
+
 (defn mark-app-for-deletion! [conn app-id]
   (sql/do-execute! ::mark-app conn
                    ["update apps set deletion_marked_at = now() where id = ?::uuid" app-id]))
@@ -125,17 +129,19 @@
         (custodian/enqueue-app-deletion! conn {:app-id app-id})
         (let [triples (row-of-type conn app-id "triples")
               transactions (row-of-type conn app-id "transactions")
+              attrs (row-of-type conn app-id "attrs")
               app-row (row-of-type conn app-id "app")]
           (testing "one row per step, all unowned"
-            (is (= 3 (count (custodian-rows conn app-id))))
-            (is (every? (comp nil? :worker_id) [triples transactions app-row])))
-          (testing "chain is triples <- transactions <- app"
+            (is (= 4 (count (custodian-rows conn app-id))))
+            (is (every? (comp nil? :worker_id) [triples transactions attrs app-row])))
+          (testing "chain is triples <- transactions <- attrs <- app"
             (is (nil? (:depends_on triples)))
             (is (= (:id triples) (:depends_on transactions)))
-            (is (= (:id transactions) (:depends_on app-row)))))
+            (is (= (:id transactions) (:depends_on attrs)))
+            (is (= (:id attrs) (:depends_on app-row)))))
         (testing "re-enqueuing an in-flight plan is an idempotent no-op"
           (custodian/enqueue-app-deletion! conn {:app-id app-id})
-          (is (= 3 (count (custodian-rows conn app-id)))))))))
+          (is (= 4 (count (custodian-rows conn app-id)))))))))
 
 (deftest enqueue-attr-builds-the-chain
   (with-empty-app
@@ -179,6 +185,7 @@
         (mark-app-for-deletion! conn app-id)
         (is (pos? (count-triples conn app-id)))
         (is (pos? (count-transactions conn app-id)))
+        (is (pos? (count-attrs conn app-id)))
         (custodian/enqueue-app-deletion! conn {:app-id app-id})
         ;; small batch size so the drain loops over several committed batches
         (binding [flags/*flag-overrides* {:custodian-batch-size 2}]
@@ -186,7 +193,28 @@
         (testing "everything is gone"
           (is (zero? (count-triples conn app-id)))
           (is (zero? (count-transactions conn app-id)))
+          (is (zero? (count-attrs conn app-id)))
           (is (zero? (count-apps conn app-id)))
+          (is (empty? (custodian-rows conn app-id))))))))
+
+(deftest attrs-step-deletes-every-attr-and-leaves-the-app
+  (with-empty-app
+    (fn [app]
+      (let [app-id (:id app)
+            conn (aurora/conn-pool :write)]
+        (add-attr-with-triples! app-id "a")
+        (add-attr-with-triples! app-id "b")
+        (mark-app-for-deletion! conn app-id)
+        (is (pos? (count-attrs conn app-id)))
+        ;; the attrs step on its own (what the app chain runs before the app delete)
+        (sql/do-execute! ::insert-attrs-step conn
+                         ["insert into custodian (app_id, type) values (?::uuid, 'attrs')" app-id])
+        (binding [flags/*flag-overrides* {:custodian-attr-batch-size 1}]
+          (drain-all! conn))
+        (testing "every attr (and its triples) is gone, the app itself survives"
+          (is (zero? (count-attrs conn app-id)))
+          (is (zero? (count-triples conn app-id)))
+          (is (= 1 (count-apps conn app-id)))
           (is (empty? (custodian-rows conn app-id))))))))
 
 (deftest attr-deletion-deletes-only-the-target-attr
@@ -295,11 +323,39 @@
         ;; update_updated_at trigger and reset it to now (which is exactly why a
         ;; live worker's row never looks stale, and a dead one's does).
         (sql/do-execute! ::insert-stuck conn
-                         ["insert into custodian (app_id, type, worker_id, updated_at)
-                            values (?::uuid, 'triples', 'stuck-worker', now() - interval '10 minutes')" app-id])
+                         ["insert into custodian (app_id, type, status, worker_id, updated_at)
+                            values (?::uuid, 'triples', 'working', 'stuck-worker', now() - interval '10 minutes')" app-id])
         (custodian/reap-stuck! conn)
         (is (nil? (:worker_id (row-of-type conn app-id "triples")))
             "a stale owner is cleared so the row can be reclaimed")))))
+
+(deftest reaper-deletes-a-long-failed-job-and-its-dependents
+  (with-empty-app
+    (fn [app]
+      (let [app-id (:id app)
+            conn (aurora/conn-pool :write)
+            root (random-uuid)
+            dep (random-uuid)]
+        ;; A failed root two days old, plus a dependent still waiting on it. INSERT
+        ;; the old updated_at directly (an UPDATE would fire the update_updated_at
+        ;; trigger). The dependent's own updated_at is now: it's not itself failed,
+        ;; but it must go too so `depends_on`'s SET NULL can't make it runnable.
+        (sql/do-execute! ::insert-failed conn
+                         ["insert into custodian (id, app_id, type, status, updated_at)
+                            values (?::uuid, ?::uuid, 'triples', 'failed', now() - interval '2 days')" root app-id])
+        (sql/do-execute! ::insert-dep conn
+                         ["insert into custodian (id, app_id, type, depends_on)
+                            values (?::uuid, ?::uuid, 'transactions', ?::uuid)" dep app-id root])
+        (is (= 2 (count (custodian-rows conn app-id))))
+        (custodian/reap-failed! conn)
+        (testing "the whole job is gone: the failed row and its dependent"
+          (is (empty? (custodian-rows conn app-id))))
+        (testing "a plan that failed recently is left alone"
+          (sql/do-execute! ::insert-recent conn
+                           ["insert into custodian (app_id, type, status, updated_at)
+                              values (?::uuid, 'triples', 'failed', now())" app-id])
+          (custodian/reap-failed! conn)
+          (is (= 1 (count (custodian-rows conn app-id)))))))))
 
 (deftest drain-throws-if-we-no-longer-own-the-row
   (with-empty-app
@@ -313,8 +369,11 @@
           ;; another worker takes it over
           (sql/do-execute! ::steal conn
                            ["update custodian set worker_id = 'someone-else' where id = ?::uuid" (:id row)])
+          ;; the heartbeat's ownership guard raises, unwinding the drain. (process-row!
+          ;; deliberately swallows this to fail the job, so we test drain! directly.)
           (is (thrown? Exception
-                       (#'custodian/process-row! (atom false) (atom false) conn row))))))))
+                       (#'custodian/drain! ::drain (atom false) (atom false) conn (:id row)
+                                           custodian/delete-app-triples-q {:app-id app-id}))))))))
 
 ;; ----------
 ;; Backpressure
