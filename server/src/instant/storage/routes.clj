@@ -13,7 +13,7 @@
   content-length)
 
 (defn req->app-file! [req params]
-  (let [app-id (ex/get-param! params [:app_id] uuid-util/coerce)
+  (let [app-id (ex/get-some-param! params [[:app-id] [:app_id]] uuid-util/coerce)
         refresh-token (http-util/req->bearer-token req)
         current-user (app-user-model/get-by-refresh-token
                       {:app-id app-id

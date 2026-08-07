@@ -58,10 +58,16 @@
 
 (defn superuser-email
   "The self-hosted deployment operator's email (INSTANT_SUPERUSER_EMAIL),
-   normalized. nil when unset, e.g. on the hosted deployment."
+   normalized. nil when unset (or blank), e.g. on the hosted deployment.
+   Throws when set to something that isn't a valid email."
   []
-  (some-> (System/getenv "INSTANT_SUPERUSER_EMAIL")
-          email/coerce))
+  (when-let [value (some-> (System/getenv "INSTANT_SUPERUSER_EMAIL")
+                           string/trim
+                           not-empty)]
+    (or (email/coerce value)
+        (throw (ex-info
+                "INSTANT_SUPERUSER_EMAIL must be a valid email address."
+                {:value value})))))
 
 (defonce instance-id
   (delay

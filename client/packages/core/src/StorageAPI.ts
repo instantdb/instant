@@ -30,6 +30,7 @@ export async function uploadFile({
   contentDisposition?: string;
 }): Promise<UploadFileResponse> {
   const headers = {
+    'app-id': appId,
     app_id: appId,
     path,
     authorization: `Bearer ${refreshToken}`,

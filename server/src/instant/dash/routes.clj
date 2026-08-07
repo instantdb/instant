@@ -446,7 +446,7 @@
         app-id (or (ex/get-optional-param! req [:params :app_id] uuid-util/coerce)
                    (random-uuid))
         org-id (ex/get-optional-param! req [:params :org_id] uuid-util/coerce)
-        title (get-in req [:params :title])
+        title (ex/get-optional-param! req [:params :title] string-util/coerce-non-blank-str)
         ;; The restored app is owned by the admin running the restore, unless an
         ;; org is given.
         creator-id (when-not org-id id)
