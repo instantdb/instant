@@ -5,9 +5,9 @@ nextjs:
     description: 'Run Instant with multiple backend servers and Aurora PostgreSQL.'
 ---
 
-For more serious projects where you need higher availability and point in time
-restores we recommend starting with two backend servers and
-Aurora PostgreSQL. This is the same general architecture Instant Cloud used and
+For more serious projects where you need higher availability and point-in-time
+restores, we recommend starting with two backend servers and
+Aurora PostgreSQL. This is the same general architecture Instant Cloud uses and
 lets you scale the backend and database separately.
 
 The resources and instance types are up to you. The important parts are how the
@@ -178,14 +178,9 @@ Set a service name on every backend:
 SWARM_SERVICE_NAME=server
 ```
 
-Configure private DNS so that:
-
-```
-tasks.server
-```
-
-resolves to the private IP address of every backend task. Each task must be able
-to reach the others over TCP ports 5701–5708 and 5801–5808.
+Configure private DNS so that `tasks.server` resolves to the private IP address
+of every backend task. Each task must be able to reach the others over TCP ports
+5701–5708 and 5801–5808.
 
 ECS with AWS Cloud Map, Docker Swarm DNSRR, or another scheduler that provides
 equivalent private DNS can satisfy this requirement.

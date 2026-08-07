@@ -22,8 +22,7 @@ Before restoring your app:
 
 - [Configure Postmark](/docs/self-hosting#configure-email-with-postmark) so magic code emails work.
 - [Restrict dashboard signups](/docs/self-hosting#restrict-dashboard-signups) and [disable temporary apps](/docs/self-hosting#temporary-apps) to prevent unwanted app creation.
-- Similarly if your app uses webhooks you'll need to configure those for your
-  self-hosted app.
+- Configure webhooks for your self-hosted app if your app uses them.
 
 If your app uses OAuth for end-user sign-in, recreate each OAuth provider on
 the restored app. Copy its client ID, client secret, and any other provider
@@ -38,12 +37,12 @@ Keep the Instant Cloud callback configured until the migration is complete.
 ### Restore a test backup
 
 Migrating without data loss will require some downtime. To get a sense of how
-much time it will take we'll
+much time it will take, we'll do the following:
 
 1. Export a backup from Instant Cloud
-2. Restore the backup into your self hosted Instant.
+2. Restore the backup into your self-hosted Instant.
 
-After restoring verify the following look correct:
+After restoring, verify that the following look correct:
 
 - Schema and permissions
 - Application data
@@ -53,8 +52,8 @@ After restoring verify the following look correct:
 
 ### Prepare the client change
 
-After successfully restoring we can put up a PR to update our clients to point
-to our new self-hosted Instant app.
+After successfully restoring the test backup, we can put up a PR to update our
+clients to point to our new self-hosted Instant app.
 
 Choose a new app ID for the self-hosted app. The ID must be a valid UUID. You
 can generate one in the terminal with:
@@ -63,7 +62,7 @@ can generate one in the terminal with:
 uuidgen
 ```
 
-This will be the ID your app going forward.
+This will be your app ID going forward.
 
 Create a PR that points your app at self-hosted Instant, but do not merge it
 yet. Update the app ID, API URL, and WebSocket URL in every client `init` call:
@@ -88,11 +87,11 @@ Open the app's **Admin** page in the Instant Cloud dashboard. Turn on
 
 Reads, live queries, and presence will keep working. New writes will be
 rejected, including offline writes queued on user devices. We do this to ensure
-there is no data loss during cut over.
+there is no data loss during the cutover.
 
 ### Restore the final backup
 
-Create an on demand backup of the Instant Cloud app and restore it into self-hosted
+Create an on-demand backup of the Instant Cloud app and restore it into self-hosted
 Instant using the app ID from the rehearsal.
 
 Before merging our earlier PR to switch clients over:
@@ -109,7 +108,7 @@ use the restored app on self-hosted Instant. Users may need to sign in again.
 
 Watch the deployment and verify queries, writes, authentication, and file
 uploads. Once clients begin writing to self-hosted Instant, the Instant Cloud
-copy is no longer current. If you used OAuth you can remove the Instant Cloud
+copy is no longer current. If you use OAuth, you can remove the Instant Cloud
 callback URL from each OAuth provider.
 
 The migration should now be complete. Huzzah! 🎉
