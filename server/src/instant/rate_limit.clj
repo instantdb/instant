@@ -14,7 +14,7 @@
    (com.hazelcast.config EvictionConfig EvictionPolicy MapStoreConfig MapStoreConfig$InitialLoadMode MaxSizePolicy)
    (com.hazelcast.core HazelcastInstance)
    (com.hazelcast.map MapStore)
-   (io.github.bucket4j Bandwidth Bucket BucketConfiguration)
+   (io.github.bucket4j Bandwidth Bucket BucketConfiguration ConsumptionProbe EstimationProbe)
    (io.github.bucket4j.grid.hazelcast Bucket4jHazelcast)
    (java.lang AutoCloseable)
    (java.time Duration Instant)
@@ -325,19 +325,49 @@
         ^Bucket bucket (get-bucket-with-config key (make-bucket-config-fn config))]
     (.tryConsume bucket tokens)))
 
-(defn consume-user-rate-limit
+(defn try-consume-user-rate-limit-and-return-remaining
+  "Consumes tokens from the user's bucket and returns the bucket-4j
+   `ConsumptionProbe`, exposing `isConsumed`, `getRemainingTokens`, and
+   `getNanosToWaitForRefill`."
   [{:keys [get-bucket-with-config]}
-   {:keys [app-id config tokens
-           bucket-key bucket-name]
+   {:keys [app-id config tokens bucket-key bucket-name]
     :or {tokens 1}}]
   (let [key (user-key-hash app-id bucket-name config bucket-key)
-        ^Bucket bucket (get-bucket-with-config key (make-bucket-config-fn config))
-        remaining (.tryConsumeAndReturnRemaining bucket tokens)]
+        ^Bucket bucket (get-bucket-with-config key (make-bucket-config-fn config))]
+    (.tryConsumeAndReturnRemaining bucket tokens)))
+
+(defn consume-user-rate-limit
+  [store args]
+  (let [^ConsumptionProbe remaining (try-consume-user-rate-limit-and-return-remaining store args)]
     (if (.isConsumed remaining)
       true
       (ex/throw-permission-rate-limited! (.plusNanos (Instant/now)
                                                      (.getNanosToWaitForRefill remaining))
                                          (.getRemainingTokens remaining)))))
+
+(defn consume-user-rate-limit-retry-at
+  "Like `consume-user-rate-limit`, but instead of throwing on exhaustion it
+   returns nil when the tokens were consumed, or the `Instant` at which the
+   caller may retry when the bucket is empty. Lets the caller craft its own
+   rate-limit message."
+  [store args]
+  (let [^ConsumptionProbe remaining (try-consume-user-rate-limit-and-return-remaining store args)]
+    (when-not (.isConsumed remaining)
+      (.plusNanos (Instant/now) (.getNanosToWaitForRefill remaining)))))
+
+(defn peek-user-rate-limit-retry-at
+  "Checks whether the user's bucket has enough tokens *without consuming any*.
+   Returns nil when the tokens are available, or the `Instant` at which the
+   caller may retry when the bucket is empty. Lets a caller probe several
+   buckets before deciding to consume from any of them."
+  [{:keys [get-bucket-with-config]}
+   {:keys [app-id config tokens bucket-key bucket-name]
+    :or {tokens 1}}]
+  (let [key (user-key-hash app-id bucket-name config bucket-key)
+        ^Bucket bucket (get-bucket-with-config key (make-bucket-config-fn config))
+        ^EstimationProbe estimate (.estimateAbilityToConsume bucket tokens)]
+    (when-not (.canBeConsumed estimate)
+      (.plusNanos (Instant/now) (.getNanosToWaitForRefill estimate)))))
 
 (defonce schedule (atom nil))
 

@@ -11,6 +11,7 @@
             [instant.dash.admin :as dash-admin]
             [instant.dash.ephemeral-app :as ephemeral-app]
             [instant.dash.get-a-db :as get-a-db]
+            [instant.db.app-backup-jobs :as app-backup-jobs]
             [instant.db.indexing-jobs :as indexing-jobs]
             [instant.db.model.attr :as attr-model]
             [instant.db.transaction :as tx]
@@ -59,6 +60,8 @@
             [instant.model.webhook :as webhook-model]
             [instant.plans :as plans]
             [instant.postmark :as postmark]
+            [instant.rate-limit :as rate-limit]
+            [instant.reactive.ephemeral :as eph]
             [instant.runtime.magic-code-auth :as magic-code-auth
              :refer [check-send-rate-limit!
                      check-verify-rate-limit!
@@ -1941,6 +1944,129 @@
                "X-Accel-Buffering" "no"}
      :body pipe-in}))
 
+;; Hack to let us use the existing rate-limit machinery across apps
+(def backup-ip-rate-limit-app-id #uuid "00000000-0000-0000-0000-000000000000")
+
+(defn ->backup-rate-limit-config
+  "Turns a {:capacity n :window-minutes m} flag value into a bucket4j config
+   that refills `capacity` tokens over the window."
+  [{:keys [capacity window-minutes]}]
+  {"limits" [{"capacity" capacity
+              "refill" {"period" (str window-minutes " minutes")
+                        "amount" capacity
+                        "type" "greedy"}}]})
+
+(defn humanize-retry-in
+  "Human-readable \"try again\" duration until `retry-at`, e.g. \"45 seconds\"
+   or \"3 minutes\"."
+  [retry-at]
+  (let [secs (max 1 (ex/retry-after-seconds retry-at))]
+    (if (< secs 60)
+      (str secs " second" (when (not= 1 secs) "s"))
+      (let [mins (long (Math/ceil (/ secs 60.0)))]
+        (str mins " minute" (when (not= 1 mins) "s"))))))
+
+(defn throw-backup-rate-limited! [retry-at]
+  (ex/throw-rate-limited-until!
+   (str "You've hit the backup rate limit. Please try again in "
+        (humanize-retry-in retry-at) ".")
+   retry-at))
+
+(defn check-backup-rate-limits!
+  "Throttles on-demand backups per app and per client IP, both flag-tunable
+   (`on-demand-backup-app-rate-limit`, `on-demand-backup-ip-rate-limit`). Throws
+   a rate-limited error (with a retry time) when a bucket is exhausted. No-op
+   when the rate limiter isn't running (e.g. tests)."
+  [{:keys [app-id ip]}]
+  (when-let [rate-limiter (eph/get-rate-limit)]
+    (let [bucket-params (cond-> [{:app-id app-id
+                                  :bucket-name "on-demand-backup-app"
+                                  :config (->backup-rate-limit-config (flags/on-demand-backup-app-rate-limit))}]
+                          ip (conj {:app-id backup-ip-rate-limit-app-id
+                                    :bucket-name "on-demand-backup-ip"
+                                    :bucket-key ip
+                                    :config (->backup-rate-limit-config (flags/on-demand-backup-ip-rate-limit))}))
+          ;; Peek every bucket before consuming from any, so a rejection on one
+          ;; bucket never wastes a token from another. Report the latest retry
+          ;; instant across the exhausted buckets, so a retry then isn't still
+          ;; blocked by another bucket.
+          retry-at (some->> bucket-params
+                            (keep #(rate-limit/peek-user-rate-limit-retry-at rate-limiter %))
+                            seq
+                            (reduce (fn [^Instant a ^Instant b] (if (.isAfter a b) a b))))]
+      (if retry-at
+        (throw-backup-rate-limited! retry-at)
+        ;; All buckets had capacity when peeked; consume one token from each.
+        ;; A concurrent request could still drain a bucket in the meantime, so
+        ;; honor a retry-at from the consume too.
+        (doseq [params bucket-params]
+          (when-let [retry-at (rate-limit/consume-user-rate-limit-retry-at rate-limiter params)]
+            (throw-backup-rate-limited! retry-at)))))))
+
+(defn app-backup-job-post
+  "Kicks off an on-demand backup for the app. Returns the created job so the
+   client can poll its progress."
+  [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :apps/write
+                                                                         req)
+        description (ex/get-optional-param! req [:body :description] string-util/coerce-non-blank-str)
+        ;; Reject too-large (and ephemeral) apps before spending the caller's
+        ;; rate-limit budget, so they get the "too big" message rather than a
+        ;; rate-limit error.
+        _ (app-backup-jobs/assert-backup-allowed! app-id)
+        _ (check-backup-rate-limits! {:app-id app-id
+                                      :ip (posthog/extract-client-ip req)})
+        job (app-backup-jobs/enqueue! {:app-id app-id
+                                       :description description})]
+    (response/ok {:job (app-backup-jobs/job->client-format job)})))
+
+(defn app-backup-job-get [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :apps/read
+                                                                         req)
+        job-id (ex/get-param! req [:params :job_id] uuid-util/coerce)
+        job (app-backup-jobs/get-by-id-for-client app-id job-id)]
+    (response/ok {:job job})))
+
+(defn app-backup-jobs-get
+  "Lists the app's in-progress backup jobs so the dashboard can show them even
+   without a job id (e.g. after a page reload or from another session)."
+  [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :apps/read
+                                                                         req)
+        jobs (app-backup-jobs/get-active-for-client app-id)]
+    (response/ok {:jobs jobs})))
+
+(defn app-backup-job-cancel
+  "Cancels an in-progress backup job. A waiting job never runs; a processing
+   job's worker notices at its next progress checkpoint and aborts the backup.
+   Whoever can start a backup can cancel one."
+  [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
+                                                                         :apps/write
+                                                                         req)
+        job-id (ex/get-param! req [:params :job_id] uuid-util/coerce)]
+    (ex/assert-record! (app-backup-jobs/cancel-job! app-id job-id)
+                       :app-backup-job
+                       {:id job-id})
+    (response/ok {:id job-id})))
+
+(defn app-backup-delete
+  "Soft-deletes a backup (admins only). The row is marked deleted, not removed;
+   its S3 objects expire on their own."
+  [req]
+  (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :admin
+                                                                         :apps/write
+                                                                         req)
+        backup-id (ex/get-param! req [:params :backup_id] uuid-util/coerce)]
+    (ex/assert-record! (backup/mark-app-backup-deleted! {:id backup-id
+                                                         :app-id app-id})
+                       :app-backup
+                       {:id backup-id})
+    (response/ok {:id backup-id})))
+
 (defn webhook-row->response [webhook]
   (select-keys webhook [:id :sink :namespaces :actions :status
                         :disabled_reason :created_at :updated_at]))
@@ -2588,6 +2714,11 @@
 
   ;; Backups
   (GET "/dash/apps/:app_id/backups" [] app-backups-get)
+  (POST "/dash/apps/:app_id/backups" [] app-backup-job-post)
+  (DELETE "/dash/apps/:app_id/backups/:backup_id" [] app-backup-delete)
+  (GET "/dash/apps/:app_id/backup-jobs" [] app-backup-jobs-get)
+  (GET "/dash/apps/:app_id/backup-jobs/:job_id" [] app-backup-job-get)
+  (DELETE "/dash/apps/:app_id/backup-jobs/:job_id" [] app-backup-job-cancel)
   (GET "/dash/apps/:app_id/backups/:backup_id/files" [] app-backup-files-get)
   (GET "/dash/apps/:app_id/backups/:backup_id/file-url" [] app-backup-file-url-get)
   (GET "/dash/apps/:app_id/backups/:backup_id/storage-files" [] app-backup-storage-files-get)

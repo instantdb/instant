@@ -14,6 +14,7 @@
    [instant.config :as config]
    [instant.dash.ephemeral-app :as ephemeral-app]
    [instant.dash.routes :as dash-routes]
+   [instant.db.app-backup-jobs :as app-backup-jobs]
    [instant.db.indexing-jobs :as indexing-jobs]
    [instant.db.hint-testing :as hint-testing]
    [instant.db.model.wal-log :as wal-log-model]
@@ -352,6 +353,9 @@
         (tracer/with-span! {:name "stop-indexing-jobs"}
           (indexing-jobs/stop)))
       (future
+        (tracer/with-span! {:name "stop-app-backup-jobs"}
+          (app-backup-jobs/stop)))
+      (future
         (tracer/with-span! {:name "stop-join-room-logger"}
           (join-room-logger/stop)))
       (future
@@ -467,6 +471,8 @@
         (join-room-logger/start))
       (with-log-init :indexing-jobs
         (indexing-jobs/start))
+      (with-log-init :app-backup-jobs
+        (app-backup-jobs/start))
       (with-log-init :storage-sweeper
         (storage-sweeper/start))
       (with-log-init :hard-deletion-sweeper
