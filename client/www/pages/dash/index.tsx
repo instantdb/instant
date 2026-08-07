@@ -78,7 +78,6 @@ import {
 } from '@/components/ui';
 import { SearchFilter, useSchemaQuery } from '@/lib/hooks/explorer';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
-import { useFlag } from '@/lib/hooks/useFlag';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 import clsx from 'clsx';
 import { createPortal } from 'react-dom';
@@ -269,7 +268,6 @@ function Dashboard() {
   const router = useReadyRouter();
   const fetchedDash = useFetchedDash();
   const posthog = usePostHog();
-  const showBackups = useFlag('backups');
   const apps = fetchedDash.data.apps;
 
   const appId =
@@ -561,7 +559,6 @@ function Dashboard() {
   // Role is the max between the org and the app
   const role = getRole(dashResponse.data, app);
   const availableTabs: TabItem[] = mainTabs
-    .filter((t) => t.id !== 'backups' || showBackups)
     .filter((t) => isTabAvailable(t, role))
     .map((t) => {
       return {
