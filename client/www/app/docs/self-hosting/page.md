@@ -5,10 +5,8 @@ nextjs:
     description: 'Operate Instant on your own infrastructure.'
 ---
 
-Instant is fully open source! Below we have guides on how to locally hack
-on Instant, set up self hosting, and migrate from Instant Cloud. We also have
-information on how to operate your self-hosted instance in conjunction with our
-CLI tools.
+Instant is fully open source! Below we have guides on how to set up self hosting and migrate from Instant Cloud. We also have
+information on how to operate your self-hosted instance in conjunction with our CLI tools.
 
 ## Hosting Guides
 
