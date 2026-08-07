@@ -320,8 +320,17 @@
 ;; ---
 ;; Admin
 
+(defn superuser-email?
+  "True when `email` is the self-hosted deployment operator (the superuser). On
+   the hosted deployment INSTANT_SUPERUSER_EMAIL is unset, so this is always
+   false there."
+  [email]
+  (when-let [su (config/superuser-email)]
+    (= su (email/coerce email))))
+
 (defn assert-admin-email! [email]
-  (ex/assert-permitted! :admin? email (admin-email? email)))
+  (ex/assert-permitted! :admin? email (or (admin-email? email)
+                                          (superuser-email? email))))
 
 (defn admin-get [req]
   (let [{:keys [email]} (req->auth-user! req)]
