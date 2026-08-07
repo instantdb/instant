@@ -203,6 +203,38 @@
           (is (empty? (custodian-rows conn app-id))))))))
 
 ;; ----------
+;; Stop
+
+(deftest stopping-mid-drain-releases-the-row-and-keeps-progress
+  (with-empty-app
+    (fn [app]
+      (let [app-id (:id app)
+            conn (aurora/conn-pool :write)]
+        (seed-app! app-id)
+        (let [total (count-triples conn app-id)]
+          (is (> total 1))
+          (custodian/enqueue-app-deletion! conn {:app-id app-id})
+          (let [row (custodian/claim-row! conn)
+                ;; drain! reads @stop? once per batch: false on the first check
+                ;; (do one batch), true on the second (stop before the next).
+                checks (atom 0)
+                stop? (reify clojure.lang.IDeref
+                        (deref [_] (> (swap! checks inc) 1)))]
+            (is (= "triples" (:type row)))
+            (binding [flags/*flag-overrides* {:custodian-batch-size 1}]
+              (#'custodian/process-row! stop? (atom false) conn row))
+            (testing "one batch ran, then it stopped"
+              (is (= (dec total) (count-triples conn app-id))))
+            (testing "the row is released (not finished) so it can be reclaimed"
+              (let [triples-row (row-of-type conn app-id "triples")]
+                (is (some? triples-row))
+                (is (nil? (:worker_id triples-row)))))
+            (testing "a fresh worker reclaims it and finishes the deletion"
+              (drain-all! conn)
+              (is (zero? (count-triples conn app-id)))
+              (is (zero? (count-apps conn app-id))))))))))
+
+;; ----------
 ;; Ownership / reaper
 
 (deftest reaper-frees-rows-with-a-stale-owner
