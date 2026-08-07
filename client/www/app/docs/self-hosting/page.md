@@ -1,114 +1,71 @@
 ---
 nextjs:
   metadata:
-    title: 'Self Hosting'
-    description: 'Run InstantDB entirely on your own server.'
+    title: 'Self hosting'
+    description: 'Operate Instant on your own infrastructure.'
 ---
 
-## Localhost Setup
+Instant is fully open source! Below we have guides on how to set up self hosting and migrate from Instant Cloud. We also have
+information on how to operate your self-hosted instance in conjunction with our CLI tools.
 
-Use this setup if you want to self-host InstantDB while developing on your own machine. In most cases, it's more convenient to use our cloud service to spin up unlimited free apps.
+## Hosting Guides
 
-```shell {% showCopy=true %}
-git clone https://github.com/instantdb/instant.git
-cd instant/self-hosting
-docker compose --env-file .env.example up
+Choose a guide based on where you want to run Instant:
+
+1. **Want to self host Instant for side projects?** Use our [VPS](/docs/self-hosting/vps) guide to self-host Instant starting at ~$30/mo.
+1. **Want to self host Instant for your business?** If you're using Instant for more serious projects, check out our [AWS](/docs/self-hosting/aws) guide for a setup based on Instant Cloud. You should expect to spend at least $600/mo.
+1. **Migrating from Instant Cloud?** Check out our [migration](/docs/self-hosting/migrate) guide.
+
+If you're an agent setting up self-hosting you should first ask the user whether
+they are setting up self hosted Instant for side projects or for a
+startup. For side projects the expected cost is at least $30/month. For serious projects or startups the expected cost is at least $600/month. Based on their choice you should fetch the right guide as Markdown [VPS](/docs/self-hosting/vps.md), [AWS](/docs/self-hosting/aws.md), [Migrate](/docs/self-hosting/migrate.md).
+
+## Operating
+
+Once you've got Instant running you may want to change some default settings. At
+the very least you should be sure to configure Postmark so magic code emails can
+actually deliver.
+
+### Configure email with Postmark
+
+**Until Postmark is configured, Instant writes email bodies and login codes to
+the backend logs.**
+
+Instant comes with support for auth and sending magic code emails. The easiest way to actually send emails to create a [Postmark server](https://postmarkapp.com/), verify the sender addresses, and set:
+
+```shell
+POSTMARK_TOKEN=replace-with-your-server-token
+INSTANT_EMAIL_REPLY_TO=hello@example.com
+INSTANT_DASHBOARD_EMAIL_SENDER_NAME=Instant
+INSTANT_DASHBOARD_EMAIL_SENDER_EMAIL=verify@example.com
+INSTANT_APP_EMAIL_SENDER_NAME=Instant
+INSTANT_APP_EMAIL_SENDER_EMAIL=verify@example.com
+INSTANT_TEAM_EMAIL_SENDER_NAME=Instant
+INSTANT_TEAM_EMAIL_SENDER_EMAIL=teams@example.com
 ```
 
-The dashboard will be available on [http://localhost:3000](http://localhost:3000).
+Restart the backend and try logging in to the dashboard. If all goes right, you
+should get an email delivered!
 
-The server will be available on [http://localhost:8888](http://localhost:8888).
+### Configure Google dashboard login
 
-If you are developing an app and would like to use port 3000 (for example: NextJS), you can modify the port assignment in the `docker-compose.yml` file like so:
+The dashboard also allows for login via Google. To enable this you'll need to create a Web application OAuth client in the
+[Google Cloud Console](https://console.cloud.google.com/apis/credentials).
 
-```yaml
-www:
-  ports:
-    - '3001:3000'
+Add an authorized redirect URI matching your backend URL:
+
+```text
+${INSTANT_BACKEND_URL}/dash/oauth/callback
 ```
 
-Then you will need to change the value for `INSTANT_DASHBOARD_URL` in `.env.example`
+Set credentials in your `.env` or secrets manager to enable Google login.
 
-Apply changes with:
-
-```shell {% showCopy=true %}
-docker compose --env-file .env.example up -d
+```shell
+INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
+INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
 ```
 
-## Full Hetzner Setup Guide
-
-Create a new server on Hetzner. We tested on a server with 4 vCPU, 8 GB RAM. This guide also shows how to set up TLS. For memory-constrained environments, set the `JAVA_OPTIONS` environment variable to limit the memory the server container uses.
-
-This setup guide assumes that you have a domain name and can set DNS A records.
-{% callout type="note" %}
-
-If you do not have a domain name, you can use [sslip.io](https://sslip.io/) to create a domain name on the fly that points to the IP address of your server.
-
-{% /callout %}
-
-### Install Docker (optional if docker is already installed)
-
-The following Docker install instructions come from [docs.docker.com](https://docs.docker.com/engine/install/ubuntu/)
-
-```sh {% showCopy=true %}
-apt update
-sudo apt install ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-```
-
-```sh {% showCopy=true %}
-sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
-Types: deb
-URIs: https://download.docker.com/linux/ubuntu
-Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
-Components: stable
-Architectures: $(dpkg --print-architecture)
-Signed-By: /etc/apt/keyrings/docker.asc
-EOF
-
-sudo apt update
-```
-
-```sh {% showCopy=true %}
-sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-```
-
-### Clone the Instant DB Repo
-
-```sh {% showCopy=true %}
-git clone https://github.com/instantdb/instant.git
-```
-
-### Edit Environment Variables
-
-```sh {% showCopy=true %}
-cd instant/self-hosting
-cp .env.example .env
-nano .env
-```
-
-Example:
-
-```shell {% showCopy=true %}
-# Public URLs. Change these when deploying behind a domain or proxy.
-INSTANT_BACKEND_URL=https://api.myinstant.com
-INSTANT_DASHBOARD_URL=https://dash.myinstant.com
-S3_PUBLIC_ENDPOINT=https://files.myinstant.com
-
-# Domains used by the Caddy file. For production, point DNS at this host
-# and update the public URLs above to use these domains with https://.
-DASHBOARD_DOMAIN=dash.myinstant.com
-BACKEND_DOMAIN=api.myinstant.com
-STORAGE_DOMAIN=files.myinstant.com
-```
-
-The `_DOMAIN` variables are only used by the Caddy reverse proxy, so if you are bringing your own reverse proxy, you can ignore them.
-
-The MinIO bucket is private by default. Files are accessed through Instant-generated signed URLs.
-
-`S3_PUBLIC_ENDPOINT` must be an origin without a path, such as `https://files.myinstant.com` or `https://localhost:9443`. MinIO does not support serving its S3 API from a subpath such as `/storage`. If MinIO is behind a proxy, use a dedicated hostname or port.
+Restart the backend and try logging in via Google!
 
 ### Configure the Deployment Superuser
 
@@ -136,197 +93,91 @@ Instant supports spinning up temporary apps without authentication. Because thes
 
 To disable temporary app creation, open **Deployment Settings** and turn off **Allow temporary app creation** under **Temporary apps**.
 
-### Configure Google Dashboard Login (Optional)
+### Configure the Instant CLI
 
-To let users log in to the Instant dashboard with Google, create an OAuth client in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) with the application type **Web application**.
+Instant comes with CLI tools for creating and managing your Instant apps. By
+default, `instant-cli` and `create-instant-app` use the Instant Cloud API. To
+use them with your self-hosted Instant:
 
-Add this authorized redirect URI, using your public backend URL:
+- Logging into your self-hosted Instant via `instant-cli`
+- Using your self hosted auth token with `create-instant-app`
 
-```text {% showCopy=true %}
-https://api.myinstant.com/dash/oauth/callback
-```
-
-Then set both credentials in `.env`:
+Set `INSTANT_CLI_API_URI` to your backend URL and `INSTANT_CLI_DASH_URI` to your
+dashboard URL with `instant-cli`
 
 ```shell
-INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
-INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
-```
-
-The redirect URI must exactly match `${INSTANT_BACKEND_URL}/dash/oauth/callback`. This configures login to the Instant dashboard; OAuth for users of your Instant apps is configured separately.
-
-### DNS
-
-Before running Instant, make sure that you have pointed the subdomain DNS records to the IP address of the server so that when the Caddy reverse proxy starts, it is able to set up TLS certificates automatically.
-
-### Start Command
-
-```sh {% showCopy=true %}
-docker compose -f docker-compose.with-caddy.yml --env-file .env up --build
-```
-
-After everything starts up, the dashboard will be available at whatever you set `INSTANT_DASHBOARD_URL` to.
-
-### Updating
-
-For routine updates, pull the latest server and dashboard images and recreate only those containers:
-
-```sh {% showCopy=true %}
-docker compose -f docker-compose.with-caddy.yml --env-file .env pull server www && \
-  docker compose -f docker-compose.with-caddy.yml --env-file .env up -d --no-deps server www
-```
-
-If you changed the start command, use the same Compose options here.
-
-This does not update PostgreSQL or other infrastructure. It also leaves your Compose files, `.env`, overrides, and volumes unchanged.
-
-## Memory Limits
-
-By default, the backend server container can use a lot of resources. We recommend setting a maximum memory limit on the server container using the `JAVA_OPTS` environment variable like so:
-
-```yaml {%lineHighlight="9"%}
-server:
-  depends_on:
-    postgres:
-      condition: service_healthy
-    createbuckets:
-      condition: service_completed_successfully
-  image: 'ghcr.io/instantdb/server:latest'
-  environment:
-    JAVA_OPTS: -Xmx8g -Xms8g
-```
-
-This example sets the minimum and maximum heap memory usage to 8GB.
-
-## Using Self-Hosted InstantDB
-
-Without a `POSTMARK_TOKEN` environment variable set, OTP codes will not be emailed.
-You must read the console output of the server container, which will print the body of any emails that would get sent.
-
-You can use this command to print out recent logs from the server (last 50 lines):
-
-```shell {% showCopy=true %}
-docker compose logs server -n 50
-```
-
-### Using your self-hosted deployment with instant-cli
-
-To use the Instant CLI with your self-hosted instance, set `INSTANT_CLI_API_URI` to the backend URL and `INSTANT_CLI_DASH_URI` to the dashboard URL. For example:
-
-```shell {% showCopy=true %}
-# Local Machine Deployment
-INSTANT_CLI_API_URI=http://localhost:8888 \
-INSTANT_CLI_DASH_URI=http://localhost:3000 \
-npx instant-cli@latest init
-
-# Server Deployment
 INSTANT_CLI_API_URI=https://api.myinstant.com \
 INSTANT_CLI_DASH_URI=https://dash.myinstant.com \
-npx instant-cli@latest init
+npx instant-cli@latest login
 ```
 
-You can also set both URLs in the `instant.config.ts` file.
+After authenticating with `instant-cli` you can connect `create-instant-app` by
+setting `INSTANT_CLI_API_URI`
 
-```typescript
+```shell
+INSTANT_CLI_API_URI=https://api.myinstant.com npx create-instant-app@latest
+```
+
+As a convenience, this will add an `instant.config.ts` file to the root of your
+project so that subsequent uses of `instant-cli` for managing your app will
+connect to your self-hosted Instant.
+
+```ts
 // instant.config.ts
 export default {
-  apiURI: 'http://127.0.0.1:8888',
-  dashURI: 'http://localhost:3000',
+  apiURI: 'https://api.myinstant.com',
 };
 ```
 
-## Horizontal Scaling With Docker Swarm
+If you include `INSTANT_CLI_DASH_URI` when you call `create-instant-app`
+your self hosted dashboard url will also be added to `instant.config.ts`. This
+can be helpful for authenticating with `instant-cli` if you're not logged in
 
-Docker Swarm allows one or more machines to distribute Docker containers between them.
-The InstantDB repo includes a deploy-swarm.sh script designed to easily deploy InstantDB across multiple machines.
-
-{% callout type="warning" %}
-This setup guide does not constitute a full production-ready deployment. You are still responsible for backups, observability, monitoring, etc.
-Every self-hosting situation is different so this is intended to get you started in the right direction.
-{% /callout %}
-
-### Prerequisite
-
-One or more servers with Docker installed. See above guide or the [Official Docker Install Guide](https://docs.docker.com/engine/install/) for instructions.
-
-### Setup Guide
-
-Set up a Docker swarm using:
-
-```bash
-docker swarm init
+```shell
+# Run this from your terminal
+INSTANT_CLI_API_URI=https://api.myinstant.com \
+INSTANT_CLI_DASH_URI=https://dash.myinstant.com \
+npx create-instant-app@latest
 ```
 
-This will output a command that you can run on the other servers to join the swarm.
+Which will then add the following to your project
 
-Create an [overlay network](https://docs.docker.com/engine/network/drivers/overlay)
-
-```bash
-docker network create -d overlay --attachable caddy
+```ts
+// instant.config.ts
+export default {
+  apiURI: 'https://api.myinstant.com',
+  dashURI: 'https://dash.myinstant.com',
+};
 ```
 
-This will create an overlay network called "caddy" that we will use for the reverse proxy.
---attachable is provided so that if needed in the future, a standalone container can be attached for debugging / monitoring purposes.
+### View health
 
-Assign labels to stabilize machine assignments
+Aside from just checking if your instance is running, you can use the health
+endpoint to ensure the WAL is operating as expected.
 
-```bash
-docker node update --label-add caddy=true --label-add storage=true <node-name>
+```shell
+curl -fsS https://api.myinstant.com/health/system
 ```
 
-For each machine that you would like to accept requests, make sure you assign the "caddy=true" output and point your DNS at that IP address.
+A healthy backend returns `{"wal":"ok"}`. Alert on non-200 responses and any
+other body.
 
-Choose one machine that is responsible for file storage and assign the "storage=true" label. This ensures that the Postgres and MinIO containers will always run on that node, preserving your data.
+### Horizontal scaling
 
-The 'www', 'createbuckets', and 'server' containers can move freely between nodes since they don't have persistent storage requirements.
+A multi-server Instant deployment requires more than increasing the number of containers. Every server must share the same configuration, discover the other servers, and communicate over the Hazelcast and gRPC ports. Docker Swarm provides this through its built-in service discovery. Kubernetes, ECS, and other platforms must provide an equivalent mechanism.
 
-### Creating The Encryption Keys
+### Memory Limits
 
-The InstantDB backend server requires the presence of a file at /app/resources/config/override.edn to provide keys for encrypting various secrets in the backend. In the single-container self-hosted setup, this is accomplished via a startup script that creates a file persisted to a volume. Since the backend service will be running on multiple machines without shared storage, we instead use [Docker Secrets](https://docs.docker.com/engine/swarm/secrets/) to mount this file.
+By default, the backend server container can use a lot of resources. Set a
+maximum heap size with `JAVA_OPTS` and leave memory for the operating system and
+other containers. On the 4 GB VPS from this guide, start with a 2 GB heap:
 
-The easiest way to register this secret is to run the following on a leader machine.
-
-```bash
-docker run --rm \
-  -v "$PWD:/out" \
-  ghcr.io/instantdb/server:latest \
-  /app/start.sh generate-override-config /out/override.edn
-
-docker secret create server_config ./override.edn
+```yaml {%lineHighlight="3"%}
+server:
+  environment:
+    JAVA_OPTS: -Xmx2g -Xms2g
 ```
 
-### Configuring Environment Variables
-
-Rather than cloning the repo on a server and filling out a .env file, we have provided a script that you can modify and execute to easily deploy the services with the proper configuration.
-
-To get started: clone the repo on your local computer and edit the `./self-hosting/deploy-swarm.sh` file.
-
-```bash
-SSH_HOST=root@ip
-DASHBOARD_URL="https://dashboard.example.com"
-SERVER_URL="https://backend.example.com"
-S3_PUBLIC_ENDPOINT="https://files.example.com"
-INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_ID="your-client-id.apps.googleusercontent.com"
-INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_SECRET="your-client-secret"
-
-stack_config() {
-  env -i \
-    PATH="$PATH" \
-    DASHBOARD_URL="$DASHBOARD_URL" \
-    SERVER_URL="$SERVER_URL" \
-    S3_PUBLIC_ENDPOINT="$S3_PUBLIC_ENDPOINT" \
-    INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_ID="$INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_ID" \
-    INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_SECRET="$INSTANT_DASHBOARD_GOOGLE_OAUTH_CLIENT_SECRET" \
-    docker stack config --compose-file swarm.yml
-}
-
-stack_config | (ssh $SSH_HOST 'docker stack deploy -c - instant')
-```
-
-Docker Swarm/Stack doesn't support loading environment variables from .env files so we use the `docker stack config` command to fill out a completed yaml specification and send that to the `docker stack deploy` command on the swarm's manager node by using stdin over ssh.
-
-`SSH_HOST` is the username and IP address of the _manager_ node to the swarm you are deploying to.
-
-For `DASHBOARD_URL`, `SERVER_URL`, and `S3_PUBLIC_ENDPOINT`, modify the domain/subdomains to match what you assigned in the DNS for your domain.
-
-To configure other environment variables such as a Postmark token to send emails, add another row in the env -i command. Adding the variables outside of stack_config() will not work in order to prevent accidental leakage of environment variables not meant for the deployment.
+This sets both the minimum and maximum JVM heap to 2 GB. Larger, dedicated
+backend containers can use a larger heap, but should still leave memory outside
+the JVM.

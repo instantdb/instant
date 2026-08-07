@@ -135,7 +135,6 @@ module.exports = [
         href: '/docs/platform-api',
         optionalLLM: true,
       },
-      { title: 'Self Hosting', href: '/docs/self-hosting' },
       {
         title: 'Explorer Component',
         href: '/docs/explorer-component',
@@ -149,6 +148,18 @@ module.exports = [
       { title: 'Stripe Payments', href: '/docs/stripe-payments' },
       { title: 'Admin HTTP API', href: '/docs/http-api' },
       { title: '(Experimental) Next.js SSR', href: '/docs/next-ssr' },
+    ],
+  },
+  {
+    title: 'Self hosting',
+    links: [
+      { title: 'Overview', href: '/docs/self-hosting' },
+      { title: 'VPS', href: '/docs/self-hosting/vps' },
+      { title: 'AWS', href: '/docs/self-hosting/aws' },
+      {
+        title: 'Migrate from Instant Cloud',
+        href: '/docs/self-hosting/migrate',
+      },
     ],
   },
   {
