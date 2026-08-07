@@ -129,6 +129,11 @@
   (uhsql/preformat {:delete-from :custodian
                     :where [:and [:= :id :?id] [:= :worker-id :?worker-id]]}))
 
+(def release-q
+  (uhsql/preformat {:update :custodian
+                    :set {:worker-id nil}
+                    :where [:and [:= :id :?id] [:= :worker-id :?worker-id]]}))
+
 (def reap-stuck-q
   (uhsql/preformat {:update :custodian
                     :set {:worker-id nil}
@@ -152,6 +157,12 @@
   ;; the row is already gone via cascade, so this is a no-op.
   (sql/do-execute! ::finish! conn (uhsql/formatp finish-q {:id id
                                                            :worker-id @config/process-id})))
+
+(defn- release! [conn id]
+  ;; Give the row back (clear our worker_id) so another worker can reclaim it
+  ;; immediately instead of waiting for the reaper. Ownership-guarded.
+  (sql/do-execute! ::release! conn (uhsql/formatp release-q {:id id
+                                                            :worker-id @config/process-id})))
 
 (defn reap-stuck!
   "Frees rows whose owner stopped heartbeating (updated_at older than the lease
@@ -228,14 +239,15 @@
 (def delete-app-transactions-q (delete-batch-query :transactions false))
 
 (defn- drain!
-  "Deletes rows via `q` in bounded, committed batches. Each batch heartbeats and
-   asserts ownership as part of the same statement (see `delete-batch-query`) and
-   returns the number deleted; losing ownership throws and unwinds the drain."
+  "Deletes rows via `q` in bounded, committed batches, heartbeating and asserting
+   ownership per batch (see `delete-batch-query`). Returns ::completed when the
+   table is drained, or ::stopped if the worker was asked to stop mid-drain.
+   Losing ownership throws and unwinds the drain."
   [stop? backing-off? conn id q params]
   (loop []
     (await-capacity! stop? backing-off?)
-    (when-not @stop?
-      (tool/def-locals)
+    (if @stop?
+      ::stopped
       (let [deleted (-> (sql/do-execute! ::drain!
                                          conn
                                          (uhsql/formatp q (assoc params
@@ -244,20 +256,26 @@
                                                                  :limit (batch-size))))
                         first
                         :deleted)]
-        (when (and deleted (pos? deleted))
-          (recur))))))
+        (if (and deleted (pos? deleted))
+          (recur)
+          ::completed)))))
 
 (defn- process-row! [stop? backing-off? conn {:keys [id type app_id attr_id]}]
   (tracer/with-span! {:name "custodian/process-row"
                       :attributes {:id id :type type :app-id app_id :attr-id attr_id}}
-    (case type
-      "triples" (if attr_id
-                  (drain! stop? backing-off? conn id delete-attr-triples-q {:app-id app_id :attr-id attr_id})
-                  (drain! stop? backing-off? conn id delete-app-triples-q {:app-id app_id}))
-      "transactions" (drain! stop? backing-off? conn id delete-app-transactions-q {:app-id app_id})
-      "attr" (attr-model/hard-delete-multi! conn app_id #{attr_id})
-      "app" (app-model/delete-immediately-by-id! conn {:id app_id}))
-    (finish! conn id)))
+    (let [outcome (case type
+                    "triples" (if attr_id
+                                (drain! stop? backing-off? conn id delete-attr-triples-q {:app-id app_id :attr-id attr_id})
+                                (drain! stop? backing-off? conn id delete-app-triples-q {:app-id app_id}))
+                    "transactions" (drain! stop? backing-off? conn id delete-app-transactions-q {:app-id app_id})
+                    ;; Terminal steps run to completion; they aren't interrupted mid-way.
+                    "attr" (do (attr-model/hard-delete-multi! conn app_id #{attr_id}) ::completed)
+                    "app" (do (app-model/delete-immediately-by-id! conn {:id app_id}) ::completed))]
+      ;; ::stopped means the drain exited mid-way — hand the row back rather than
+      ;; marking a half-done step finished.
+      (case outcome
+        ::completed (finish! conn id)
+        ::stopped (release! conn id)))))
 
 (defn tick!
   "Claims and fully processes one runnable row. Returns true if it did (or
@@ -325,9 +343,12 @@
 (defn stop-worker [w]
   (tracer/record-info! {:name "custodian/stop"})
   (reset! (:stop? w) true)
-  (future-cancel (:future w))
   (.close ^AutoCloseable (:reaper w))
-  (.close ^AutoCloseable (:lag-sampler w)))
+  (.close ^AutoCloseable (:lag-sampler w))
+  ;; Give the worker a chance to finish its current batch, release its claimed
+  ;; row, and exit before we force-cancel it.
+  (when (= ::timeout (deref (:future w) 10000 ::timeout))
+    (future-cancel (:future w))))
 
 (defn start []
   (swap! worker
