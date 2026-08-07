@@ -67,6 +67,33 @@ describe('applyBackendConfig', () => {
         '  appId: "app-id",\n' +
         '});\n',
     );
+    expect(fs.readFileSync(path.join(dir, 'instant.config.ts'), 'utf8')).toBe(
+      `export default {
+  apiURI: "http://localhost:8888",
+};
+`,
+    );
+  });
+
+  it('adds the dashboard URI to instant.config.ts when provided', () => {
+    const dir = createTempDir();
+    const filePath = path.join(dir, 'src/lib/db.ts');
+    fs.outputFileSync(filePath, 'export const db = init({\n});\n');
+
+    applyBackendConfig(
+      'next-js-app-dir',
+      dir,
+      'https://api.instant.example',
+      'https://dash.instant.example',
+    );
+
+    expect(fs.readFileSync(path.join(dir, 'instant.config.ts'), 'utf8')).toBe(
+      `export default {
+  apiURI: "https://api.instant.example",
+  dashURI: "https://dash.instant.example",
+};
+`,
+    );
   });
 
   it('adds only the API URI to admin init', () => {
@@ -96,6 +123,7 @@ describe('applyBackendConfig', () => {
       applyBackendConfig('tanstack-start', dir, 'https://instant.example'),
     ).toThrow('Could not find init({ in scaffolded database file');
     expect(fs.readFileSync(clientPath, 'utf8')).toBe(clientContents);
+    expect(fs.pathExistsSync(path.join(dir, 'instant.config.ts'))).toBe(false);
   });
 
   it('configures the Python client', () => {

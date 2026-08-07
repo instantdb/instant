@@ -30,7 +30,12 @@ function randomInRange(min: number, max: number) {
   return Math.random() * (max - min) + min;
 }
 
+function shellQuote(value: string) {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
 type Framework = 'nextjs' | 'expo';
+type CliBackend = { apiURI: string; dashURI: string };
 
 type Step = {
   id: string;
@@ -68,8 +73,12 @@ function getSteps(
   dirName: string,
   appId: string,
   adminToken: string,
+  backend?: CliBackend,
 ): Step[] {
   const config = frameworkConfig[framework];
+  const backendEnv = backend
+    ? `INSTANT_CLI_API_URI=${shellQuote(backend.apiURI)} INSTANT_CLI_DASH_URI=${shellQuote(backend.dashURI)} `
+    : '';
   const viewStep: Step =
     config.viewStep.type === 'link'
       ? {
@@ -89,7 +98,7 @@ function getSteps(
       id: 'start_guide_create_project',
       title: 'Create your project',
       description: `Scaffold a new ${framework === 'nextjs' ? 'Next.js' : 'Expo'} app with Instant pre-configured`,
-      command: `npx create-instant-app ${dirName} --app ${appId} --token ${adminToken} ${config.flag} --rules`,
+      command: `${backendEnv}npx create-instant-app ${dirName} --app ${appId} --token ${adminToken} ${config.flag} --rules`,
     },
     {
       id: 'start_guide_start_server',
@@ -101,12 +110,18 @@ function getSteps(
   ];
 }
 
-export function AppStart({ app }: { app: InstantApp }) {
+export function AppStart({
+  app,
+  backend,
+}: {
+  app: InstantApp;
+  backend?: CliBackend;
+}) {
   const { id: appId, title: appTitle, admin_token: adminToken } = app;
   const posthog = usePostHog();
   const [framework, setFramework] = useState<Framework>('nextjs');
   const dirName = toDirectoryName(appTitle);
-  const steps = getSteps(framework, dirName, appId, adminToken);
+  const steps = getSteps(framework, dirName, appId, adminToken, backend);
 
   const trackCopy = (stepId: string) => {
     posthog.capture(stepId, {

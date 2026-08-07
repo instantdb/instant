@@ -32,7 +32,7 @@ import NextLink from 'next/link';
 import { ReactElement, useContext, useEffect, useRef, useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
 
-import config, { cliOauthParamName } from '@/lib/config';
+import config, { cliOauthParamName, isSelfHosted } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import { successToast } from '@/lib/toast';
@@ -796,11 +796,14 @@ function Home({ app, token }: { app: InstantApp; token: string }) {
   const sortedOrigins = stats?.origins
     ? Object.entries(stats.origins).sort(([, a], [, b]) => b - a)
     : [];
+  const cliBackend = isSelfHosted
+    ? { apiURI: config.apiURI, dashURI: window.location.origin }
+    : undefined;
 
   return (
     <div className="max-w-2xl p-4 text-sm md:text-base">
       <div className="pb-10">
-        <AppStart app={app} />
+        <AppStart app={app} backend={cliBackend} />
       </div>
 
       <SectionHeading>Next Steps</SectionHeading>
