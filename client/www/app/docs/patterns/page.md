@@ -35,7 +35,7 @@ You can use the [`fields`](/docs/instaql#select-fields) clause to restrict which
 are returned from the server, but this will not prevent a client from doing
 another query to get the full entity.
 
-You can set special permission rules for [`fields`](/docs/instaql/#fields) to make sure only certain attributes
+You can set special permission rules for [`fields`](/docs/instaql#select-fields) to make sure only certain attributes
 are visible to certain users.
 
 ## Find entities with no links.
