@@ -57,6 +57,15 @@
                           ["select count(*)::int as count from attrs
                              where app_id = ?::uuid and id = ?::uuid" app-id attr-id])))
 
+(defn mark-app-for-deletion! [conn app-id]
+  (sql/do-execute! ::mark-app conn
+                   ["update apps set deletion_marked_at = now() where id = ?::uuid" app-id]))
+
+(defn mark-attr-for-deletion! [conn app-id attr-id]
+  (sql/do-execute! ::mark-attr conn
+                   ["update attrs set deletion_marked_at = now()
+                      where app_id = ?::uuid and id = ?::uuid" app-id attr-id]))
+
 (defn seed-app!
   "Adds an attr and a handful of triples across two transactions, so there's
    something for custodian to delete. Returns the attr id."
@@ -167,6 +176,7 @@
       (let [app-id (:id app)
             conn (aurora/conn-pool :write)]
         (seed-app! app-id)
+        (mark-app-for-deletion! conn app-id)
         (is (pos? (count-triples conn app-id)))
         (is (pos? (count-transactions conn app-id)))
         (custodian/enqueue-app-deletion! conn {:app-id app-id})
@@ -186,6 +196,7 @@
             conn (aurora/conn-pool :write)
             attr-a (add-attr-with-triples! app-id "a")
             attr-b (add-attr-with-triples! app-id "b")]
+        (mark-attr-for-deletion! conn app-id attr-a)
         (is (pos? (count-triples-for-attr conn app-id attr-a)))
         (is (pos? (count-triples-for-attr conn app-id attr-b)))
         (custodian/enqueue-attr-deletion! conn {:app-id app-id :attr-id attr-a})
@@ -203,6 +214,42 @@
           (is (empty? (custodian-rows conn app-id))))))))
 
 ;; ----------
+;; Marked-for-deletion guard
+
+(deftest an-unmarked-app-is-left-alone
+  (with-empty-app
+    (fn [app]
+      (let [app-id (:id app)
+            conn (aurora/conn-pool :write)]
+        (seed-app! app-id) ;; deliberately NOT marked for deletion
+        (custodian/enqueue-app-deletion! conn {:app-id app-id})
+        (let [row (custodian/claim-row! conn)]
+          ;; processing catches the not-marked guard, tears down the plan, and logs
+          (#'custodian/process-row! (atom false) (atom false) conn row)
+          (testing "nothing is deleted"
+            (is (pos? (count-triples conn app-id)))
+            (is (pos? (count-transactions conn app-id)))
+            (is (pos? (count-apps conn app-id))))
+          (testing "the deletion plan is torn down"
+            (is (empty? (custodian-rows conn app-id)))))))))
+
+(deftest an-unmarked-attr-is-left-alone
+  (with-empty-app
+    (fn [app]
+      (let [app-id (:id app)
+            conn (aurora/conn-pool :write)
+            attr-id (seed-app! app-id)] ;; attr deliberately NOT marked for deletion
+        (custodian/enqueue-attr-deletion! conn {:app-id app-id :attr-id attr-id})
+        (let [row (custodian/claim-row! conn)]
+          ;; processing catches the not-marked guard, tears down the plan, and logs
+          (#'custodian/process-row! (atom false) (atom false) conn row)
+          (testing "the attr and its triples survive"
+            (is (pos? (count-triples-for-attr conn app-id attr-id)))
+            (is (pos? (count-attr conn app-id attr-id))))
+          (testing "the deletion plan is torn down"
+            (is (empty? (custodian-rows conn app-id)))))))))
+
+;; ----------
 ;; Stop
 
 (deftest stopping-mid-drain-releases-the-row-and-keeps-progress
@@ -211,6 +258,7 @@
       (let [app-id (:id app)
             conn (aurora/conn-pool :write)]
         (seed-app! app-id)
+        (mark-app-for-deletion! conn app-id)
         (let [total (count-triples conn app-id)]
           (is (> total 1))
           (custodian/enqueue-app-deletion! conn {:app-id app-id})
@@ -259,6 +307,7 @@
       (let [app-id (:id app)
             conn (aurora/conn-pool :write)]
         (seed-app! app-id)
+        (mark-app-for-deletion! conn app-id)
         (custodian/enqueue-app-deletion! conn {:app-id app-id})
         (let [row (custodian/claim-row! conn)]
           ;; another worker takes it over

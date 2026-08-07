@@ -204,35 +204,51 @@
 ;; ----------
 ;; Processing
 
+;; Message the batch guard raises when the app/attr is no longer marked for
+;; deletion. Shared so the query and the error check can't drift.
+(def not-deleted-message "not marked for deletion")
+
 ;; Each batch, in one statement: heartbeat the custodian row (bump updated_at)
-;; while asserting we still own it, delete up to :limit rows, and report the count.
-;; If we no longer own the row it raises (wrong owner) or the final select raises
-;; (row gone), unwinding the drain instead of silently deleting or looking done.
+;; while asserting we still own it, check the app/attr is still marked for
+;; deletion, delete up to :limit rows, and report the count. If we lost ownership,
+;; the row is gone, or the app/attr is no longer marked, it raises and unwinds the
+;; drain. The marked check is its own CTE (referenced once in the final select),
+;; so it doesn't slow the per-row scan that finds rows to delete.
 (defn- delete-batch-query [table attr-scoped?]
-  (uhsql/preformat
-   {:with [[:heartbeat {:update :custodian
-                        :set {:updated-at :%now}
-                        :where [:and
-                                [:= :id :?id]
-                                [:case [:= :worker-id :?worker-id] true
-                                 :else [:raise_exception_message
-                                        [:inline "custodian row not owned by this worker"]]]]
-                        :returning :id}]
-           [:to-delete {:select :ctid
-                        :from table
-                        :where (if attr-scoped?
-                                 [:and [:= :app-id :?app-id] [:= :attr-id :?attr-id]]
-                                 [:= :app-id :?app-id])
-                        :limit :?limit
-                        :for :update}]
-           [:deleted {:delete-from table
-                      :where [:in :ctid {:select :ctid :from :to-delete}]
-                      :returning :*}]]
-    :select [[{:select :%count.* :from :deleted} :deleted]
-             [[:case [:exists {:select :id :from :heartbeat}] true
-               :else [:raise_exception_message
-                      [:inline "custodian row no longer exists"]]]
-              :present]]}))
+  (let [marked-for-deletion
+        [:case (if attr-scoped?
+                 [:exists {:select :id :from :attrs
+                           :where [:and [:= :id :?attr-id] [:is-not :deletion-marked-at nil]]}]
+                 [:exists {:select :id :from :apps
+                           :where [:and [:= :id :?app-id] [:is-not :deletion-marked-at nil]]}])
+         true
+         :else [:raise_exception_message [:inline not-deleted-message]]]]
+    (uhsql/preformat
+     {:with [[:heartbeat {:update :custodian
+                          :set {:updated-at :%now}
+                          :where [:and
+                                  [:= :id :?id]
+                                  [:case [:= :worker-id :?worker-id] true
+                                   :else [:raise_exception_message
+                                          [:inline "custodian row not owned by this worker"]]]]
+                          :returning :id}]
+             [:marked {:select [[marked-for-deletion :ok]]}]
+             [:to-delete {:select :ctid
+                          :from table
+                          :where (if attr-scoped?
+                                   [:and [:= :app-id :?app-id] [:= :attr-id :?attr-id]]
+                                   [:= :app-id :?app-id])
+                          :limit :?limit
+                          :for :update}]
+             [:deleted {:delete-from table
+                        :where [:in :ctid {:select :ctid :from :to-delete}]
+                        :returning :*}]]
+      :select [[{:select :%count.* :from :deleted} :deleted]
+               [[:case [:exists {:select :id :from :heartbeat}] true
+                 :else [:raise_exception_message
+                        [:inline "custodian row no longer exists"]]]
+                :present]
+               [{:select :ok :from :marked} :marked]]})))
 
 (def delete-app-triples-q (delete-batch-query :triples false))
 (def delete-attr-triples-q (delete-batch-query :triples true))
@@ -260,22 +276,50 @@
           (recur)
           ::completed)))))
 
+(defn- not-deleted-error?
+  "True if `e` is the batch guard's raise for an app/attr that isn't marked for
+   deletion (vs. some other failure like losing ownership)."
+  [e]
+  (= not-deleted-message (-> e ex-data ::ex/pg-error-data :server-message)))
+
+(defn- abort-plan!
+  "The app/attr has a deletion plan but isn't marked for deletion (a bug, or a
+   restore that raced the sweeper). Log an error and delete the plan instead of
+   deleting live data."
+  [conn app-id attr-id e]
+  (tracer/with-new-trace-root
+    (tracer/record-exception-span! e {:name "custodian/plan-not-marked-for-deletion"
+                                      :attributes {:app-id app-id :attr-id attr-id}}))
+  (if attr-id
+    (sql/do-execute! ::abort-attr-plan conn
+                     ["delete from custodian where app_id = ?::uuid and attr_id = ?::uuid" app-id attr-id])
+    (sql/do-execute! ::abort-app-plan conn
+                     ["delete from custodian where app_id = ?::uuid and attr_id is null" app-id])))
+
 (defn- process-row! [stop? backing-off? conn {:keys [id type app_id attr_id]}]
   (tracer/with-span! {:name "custodian/process-row"
                       :attributes {:id id :type type :app-id app_id :attr-id attr_id}}
-    (let [outcome (case type
-                    "triples" (if attr_id
-                                (drain! stop? backing-off? conn id delete-attr-triples-q {:app-id app_id :attr-id attr_id})
-                                (drain! stop? backing-off? conn id delete-app-triples-q {:app-id app_id}))
-                    "transactions" (drain! stop? backing-off? conn id delete-app-transactions-q {:app-id app_id})
-                    ;; Terminal steps run to completion; they aren't interrupted mid-way.
-                    "attr" (do (attr-model/hard-delete-multi! conn app_id #{attr_id}) ::completed)
-                    "app" (do (app-model/delete-immediately-by-id! conn {:id app_id}) ::completed))]
-      ;; ::stopped means the drain exited mid-way — hand the row back rather than
-      ;; marking a half-done step finished.
-      (case outcome
-        ::completed (finish! conn id)
-        ::stopped (release! conn id)))))
+    (try
+      (let [outcome (case type
+                      "triples" (if attr_id
+                                  (drain! stop? backing-off? conn id delete-attr-triples-q {:app-id app_id :attr-id attr_id})
+                                  (drain! stop? backing-off? conn id delete-app-triples-q {:app-id app_id}))
+                      "transactions" (drain! stop? backing-off? conn id delete-app-transactions-q {:app-id app_id})
+                      ;; Terminal steps run to completion; they aren't interrupted mid-way.
+                      "attr" (do (attr-model/hard-delete-multi! conn app_id #{attr_id}) ::completed)
+                      "app" (do (app-model/delete-immediately-by-id! conn {:id app_id}) ::completed))]
+        ;; ::stopped means the drain exited mid-way — hand the row back rather than
+        ;; marking a half-done step finished.
+        (case outcome
+          ::completed (finish! conn id)
+          ::stopped (release! conn id)))
+      (catch Throwable e
+        ;; The batch guard raises if the app/attr is no longer marked for deletion.
+        ;; If that's what happened, tear the plan down; otherwise let the error
+        ;; propagate so the row is retried.
+        (if (not-deleted-error? e)
+          (abort-plan! conn app_id attr_id e)
+          (throw e))))))
 
 (defn tick!
   "Claims and fully processes one runnable row. Returns true if it did (or
