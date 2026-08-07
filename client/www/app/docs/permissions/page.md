@@ -53,7 +53,7 @@ npx instant-cli@latest push perms
 
 ## Permissions in the dashboard
 
-For each app in your dashboard, you’ll see a permissions editor. Permissions are expressed as JSON. Each top-level key represents one of your namespaces — for example `goals`, `todos`, and the like. There is also a special top-level key `attrs` for defining permissions on creating new types of namespaces and attributes.
+For each app in your dashboard, you’ll see a permissions editor. Permissions are expressed as JSON. Each top-level key represents one of your namespaces — for example `goals`, `todos`, and the like. There is also a special top-level key `attrs` for defining permissions for creating new types of namespaces and attributes.
 
 ## Namespaces
 
