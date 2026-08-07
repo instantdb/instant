@@ -45,7 +45,7 @@ With Instant you can define your permissions in code. If you haven't already, us
 npx instant-cli@latest init
 ```
 
-The CLI will guide you through picking an Instant app and generate these files for you. Once you've made changes to `instant.perms.ts`, you can use the CLI to push those changes to production:
+The CLI will guide you through picking an Instant app and generate this file for you. Once you've made changes to `instant.perms.ts`, you can use the CLI to push those changes to production:
 
 ```shell {% showCopy=true %}
 npx instant-cli@latest push perms
@@ -53,7 +53,7 @@ npx instant-cli@latest push perms
 
 ## Permissions in the dashboard
 
-For each app in your dashboard, you’ll see a permissions editor. Permissions are expressed as JSON. Each top level key represents one of your namespaces — for example `goals`, `todos`, and the like. There is also a special top-level key `attrs` for defining permissions on creating new types of namespaces and attributes.
+For each app in your dashboard, you’ll see a permissions editor. Permissions are expressed as JSON. Each top-level key represents one of your namespaces — for example `goals`, `todos`, and the like. There is also a special top-level key `attrs` for defining permissions on creating new types of namespaces and attributes.
 
 ## Namespaces
 
@@ -61,7 +61,7 @@ For each namespace you can define `allow` rules for `view`, `create`, `update`, 
 
 If a rule is not set then by default it evaluates to true. The following three rulesets are all equivalent:
 
-In this example we explicitly set each action for `todos` to true
+In this example we explicitly set each action for `todos` to true:
 
 ```json
 {
@@ -77,7 +77,7 @@ In this example we explicitly set each action for `todos` to true
 ```
 
 In this example we explicitly set `view` to be true. However, all the remaining
-actions for `todo` also default to true.
+actions for `todos` also default to true.
 
 ```json
 {
@@ -133,7 +133,7 @@ You can also define field-level permissions. For example, you may want to make t
 
 ### Default permissions
 
-By default, all permissions are considered to be `"true"`. To change that, use `"$default"` key. This:
+By default, all permissions are considered to be `"true"`. To change that, use the `"$default"` key. This:
 
 ```json
 {
@@ -207,9 +207,9 @@ Finally, the ultimate default:
 Attrs are a special kind of namespace for creating new types of data on the fly.
 Currently we only support create rules on attrs. During development you likely don't
 need to lock this rule down, but once you ship you will likely want to set this
-permission to `false`
+permission to `false`.
 
-Suppose our data model looks like this
+Suppose our data model looks like this:
 
 ```json
 {
@@ -217,7 +217,7 @@ Suppose our data model looks like this
 }
 ```
 
-And we have rules defined as
+And we have rules defined as:
 
 ```json
 {
@@ -266,7 +266,7 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
 
 ### bind
 
-`bind` allows you to alias logic. The following are equivalent
+`bind` allows you to alias logic. The following are equivalent:
 
 ```json
 {
@@ -289,7 +289,7 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
 }
 ```
 
-`bind` is useful for not repeating yourself and tidying up rules
+`bind` is useful for not repeating yourself and tidying up rules.
 
 ```json
 {
@@ -336,7 +336,7 @@ See [managing users](/docs/users) to learn more about that.
 
 ### ruleParams
 
-Imagine you have a `documents` namespace, and want to implement a rule like _"Only people who know my document's id can access it."_
+Imagine you have a `documents` namespace and want to implement a rule like _"Only people who know my document's id can access it."_
 
 You can use `ruleParams` to write that rule. `ruleParams` let you pass extra options to your queries and transactions.
 
@@ -380,7 +380,7 @@ With that, you've implemented the rule _"Only people who know my document's id c
 
 ### request.time
 
-The timestamp when the rules were run. You might use this in an update or create rule to ensure that a time is valid:
+The timestamp when the rules are run. You might use this in an update or create rule to ensure that a time is valid:
 
 ```json
 {
@@ -500,7 +500,7 @@ This rule allows non-owners to update `likes` and `title`, but only if `likes` i
 
 **Here are some more patterns**
 
-If you want to: access a document and _all related comments_ by one `knownDocId`:
+If you want to access a document and _all related comments_ with one `knownDocId`:
 
 ```json
 {

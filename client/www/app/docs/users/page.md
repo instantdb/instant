@@ -94,7 +94,7 @@ const _schema = i.schema({
   },
 });
 
-// This helps TypeScript display nicer intellisense
+// This helps TypeScript display nicer IntelliSense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
@@ -105,7 +105,7 @@ export default schema;
 
 ### Links
 
-We created two links `userRoles`, `todoOwner`:
+We created two links, `userRoles` and `todoOwner`:
 
 ```typescript
 // instant.schema.ts
@@ -315,7 +315,7 @@ export default {
 ```
 
 You can also traverse the `$users` namespace directly from the `auth` object via
-`auth.ref`. When using `auth.ref` the arg must start with `$user`. Here's the
+`auth.ref`. When using `auth.ref`, the arg must start with `$user`. Here's the
 equivalent rule to the one above using `auth.ref`:
 
 ```javascript

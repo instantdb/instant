@@ -6,12 +6,12 @@ nextjs:
 ---
 
 Below are some common patterns for working with InstantDB. We'll add more
-patterns over time and if you have a pattern you'd like to share, please feel
+patterns over time, and if you have a pattern you'd like to share, please feel
 free to submit a PR for this page.
 
 ## You can expose your app id to the client.
 
-Similar to Firebase, the app id is a unique identifier for your application.
+As with Firebase, the app id is a unique identifier for your application.
 If you want to secure your data, you'll want to add
 [permissions](/docs/permissions) for the app.
 
@@ -32,17 +32,17 @@ This will prevent any new attributes from being created.
 
 When you query a namespace, it will return all the attributes for an entity.
 You can use the [`fields`](/docs/instaql#select-fields) clause to restrict which attributes
-are returned from the server but this will not prevent a client from doing
+are returned from the server, but this will not prevent a client from doing
 another query to get the full entity.
 
-You can set special permission rules for [`fields`](/docs/instaql/#fields), to make sure only certain attributes
+You can set special permission rules for [`fields`](/docs/instaql/#fields) to make sure only certain attributes
 are visible to certain users.
 
 ## Find entities with no links.
 
 If you want to find entities that have no links, you can use the `$isNull`
 query filter. For example, if you want to find all posts that are not linked to
-an author you can do
+an author, you can do the following:
 
 ```javascript
 const { isLoading, error, data } = db.useQuery({
@@ -95,7 +95,7 @@ const _schema = i.schema({
   },
 });
 
-// This helps TypeScript display nicer intellisense
+// This helps TypeScript display nicer IntelliSense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
@@ -111,8 +111,8 @@ import type { InstantRules } from '@instantdb/react';
 // instant.perms.ts
 // And now we reference the `owner` link for todos to check the number
 // of todos a user has created.
-// (Note): Make sure the `owner` link is already defined in the schema.
-// before you can reference it in the permissions.
+// (Note): Make sure the `owner` link is already defined in the schema
+// before you reference it in the permissions.
 const rules = {
   todos: {
     allow: {
@@ -126,9 +126,9 @@ export default rules;
 
 ## Listen to InstantDB connection status.
 
-Sometimes you want to let clients know when they are connected or disconnected
-to the DB. You can use `db.subscribeConnectionStatus` in vanilla JS or
-`db.useConnectionStatus` in React to listen to connection changes
+Sometimes you want to let clients know when they are connected to or disconnected
+from the DB. You can use `db.subscribeConnectionStatus` in vanilla JS or
+`db.useConnectionStatus` in React to listen to connection changes.
 
 ```javascript
 // Vanilla JS
@@ -234,13 +234,13 @@ console.log(
 );
 ```
 
-Once you have an ID, you can pass it around in your transactions and queries, and use them in [ruleParams](/docs/permissions#rule-params).
+Once you have an ID, you can pass it around in your transactions and queries and use it in [ruleParams](/docs/permissions#rule-params).
 
-## Making admin queries work with NextJS Caching
+## Making admin queries work with Next.js caching
 
-NextJS caches fetch requests and lets you revalidate them. [`adminDB.query`](/docs/backend#query) uses fetch under the hood, so NextJS caching will work by default.
+Next.js caches fetch requests and lets you revalidate them. [`adminDB.query`](/docs/backend#query) uses fetch under the hood, so Next.js caching will work by default.
 
-If you want to finely control how the query caches, you can pass in the same kind of [fetch options](https://nextjs.org/docs/app/building-your-application/caching#fetch) for NextJS. For example, to revalidate a query every hour:
+If you want to finely control how the query caches, you can pass in the same kind of [fetch options](https://nextjs.org/docs/app/building-your-application/caching#fetch) for Next.js. For example, to revalidate a query every hour:
 
 ```js
 await adminDB.query(
@@ -364,12 +364,12 @@ follow this workflow:
 
 Complicated queries or large transactions may fail due to timeouts. Right now we
 have a hard limit of 5 seconds for both queries and transactions. We do this to
-ensure real-time doesn't suffer from long-running operations.
+ensure realtime updates don't suffer from long-running operations.
 
 To get a sense for how long a query or transaction takes, you can use the
 `Sandbox` tab in the dashboard. Using `await db.query` or `await db.transact` will
 show you the time it took to run the operation in the console. Queries and
-transactions in the sandbox can run for up to 30 seconds,
+transactions in the sandbox can run for up to 30 seconds.
 
 Once you have a sense of how long your queries and transactions take, you can
 iteratively optimize them. For example, you can use pagination or add indexes

@@ -30,7 +30,7 @@ You can have additional claims as long as the `email` claim is set to `{{user.pr
 
 On the Clerk dashboard, navigate to [`API keys`](https://dashboard.clerk.com/last-active?path=api-keys), then copy the `Publishable key`. It should start with `pk_`.
 
-**Step 3: Register your Clerk Publishable key with your instant app**
+**Step 3: Register your Clerk Publishable key with your Instant app**
 
 {% setup-paths %}
 
@@ -55,9 +55,9 @@ npx instant-cli@latest auth client add \
 
 Use Clerk's `getToken` helper to get a session JWT for your signed-in user. Then call Instant's `db.auth.signInWithIdToken` with the JWT and the client name you set on the Instant dashboard.
 
-When you call `db.auth.signInWithIdToken`, Instant will verify that the JWT was signed by your Clerk app. If verified, Instant will use the email in the JWT's claims to lookup your user or create a new one and create a long-lived session. Be sure to call Instant's `db.auth.signOut` when you want to sign the user out.
+When you call `db.auth.signInWithIdToken`, Instant will verify that the JWT was signed by your Clerk app. If verified, Instant will use the email in the JWT's claims to look up your user or create a new one and create a long-lived session. Be sure to call Instant's `db.auth.signOut` when you want to sign the user out.
 
-Here is a full example using clerk's next.js library:
+Here is a full example using Clerk's Next.js library:
 
 ```javascript {% showCopy=true %}
 'use client';

@@ -40,13 +40,13 @@ Choose the option that sounds best to you, and the rest of the document will sho
 
 There are three main steps:
 
-1. **LinkedIn Developer Console**: Create an Oauth client.
-2. **Instant Dashboard**: Connect your Oauth client to Instant
+1. **LinkedIn Developer Console**: Create an OAuth client.
+2. **Instant Dashboard**: Connect your OAuth client to Instant
 3. **Your app**: Add some code to log in with LinkedIn!
 
-Let's dive deeper in each step:
+Let's dive deeper into each step:
 
-## 1. Create an Oauth client
+## 1. Create an OAuth client
 
 1. Head to the [LinkedIn developer portal](https://www.linkedin.com/developers/apps) and create a new application (or open an existing one).
 2. In the **Auth** tab enable **Sign In with LinkedIn**.
@@ -58,13 +58,13 @@ https://api.instantdb.com/runtime/oauth/callback
 
 {% callout type="note" %}
 
-Save your Client ID and your Client Secret -- you'll need it for the next step!
+Save your Client ID and your Client Secret -- you'll need them for the next step!
 
 {% /callout %}
 
-## 2. Connect your Oauth client to Instant
+## 2. Connect your OAuth client to Instant
 
-**Add your Oauth Client on Instant**
+**Add your OAuth Client on Instant**
 
 {% setup-paths %}
 
@@ -126,7 +126,7 @@ And voila, you are connected!
 
 **Method: Web Redirect**
 
-Create an authorization URL via `db.auth.createAuthorizationURL` and then use the url to create a link. Here's a full example:
+Create an authorization URL via `db.auth.createAuthorizationURL` and then use the URL to create a link. Here's a full example:
 
 ```jsx {% showCopy=true %}
 'use client';
@@ -209,7 +209,7 @@ Update your app.json with your scheme:
 
 **Register your app with Instant**
 
-Now that you have your App Scheme, it's time to tell Instant about it. For development with expo, add `exp://` and your scheme (e.g. `mycoolredirect://`) as redirect origins.
+Now that you have your App Scheme, it's time to tell Instant about it. For development with Expo, add `exp://` and your scheme (e.g. `mycoolredirect://`) as redirect origins.
 
 {% setup-paths %}
 
@@ -234,7 +234,7 @@ npx instant-cli@latest auth origin add --type custom-scheme --scheme mycoolredir
 
 **Use AuthSession to log in with LinkedIn!**
 
-And from here you're ready to add a login button to your expo app! Here's a full example
+And from here you're ready to add a login button to your Expo app! Here's a full example:
 
 ```jsx {% showCopy=true %}
 import { View, Text, Button, StyleSheet } from 'react-native';

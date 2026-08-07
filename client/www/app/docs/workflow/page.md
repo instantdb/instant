@@ -19,7 +19,7 @@ At a high level, here is the recommended workflow for developing with Instant:
 ## Authenticating with Instant in your terminal
 
 Use the [Instant CLI](/docs/instant-cli) to authenticate with Instant in your
-terminal. After authenticating you'll be able to create new projects
+terminal. After authenticating, you'll be able to create new projects
 and have them associated with your Instant account. This will also enable you to
 push and pull changes to your projects. To authenticate, run:
 
@@ -32,12 +32,12 @@ This will open a browser window where you can log in or sign up for an account.
 ## Starting a new project
 
 After authenticating, you can create a new project with
-[create-instant-app](/docs/create-instant-app). This will give you some starter code, and set up rules for your LLM
+[create-instant-app](/docs/create-instant-app). This will give you some starter code and set up rules for your LLM
 agent. If your agent supports it, we also recommend setting up the [Instant MCP Server](/docs/using-llms#instant-mcp-server).
 
 The default rules cover the basics of using InstantDB. But if you want to add
 more docs for specific functionality, you can append `.md` to the end of any doc
-page URL to get the raw markdown. For example, here are the docs for
+page URL to get the raw Markdown. For example, here are the docs for
 [adding auth](/docs/auth/magic-codes.md).
 
 ## Updating schema and permissions
@@ -74,7 +74,7 @@ Some examples of debug info you can see in the sandbox:
 InstantDB has the following timeouts for queries and transactions:
 
 - 5 seconds for queries and transactions with the client SDK.
-- 30 seconds for queries and transactions in the admin SDK and sandbox.
+- 30 seconds for queries and transactions in the Admin SDK and sandbox.
 
 We set these timeouts intentionally for performance and reliability. We do not
 allow timeouts to be configured. Sometimes fixing a timeout is as simple as
@@ -96,13 +96,13 @@ you run a query or transaction in the sandbox, you can see all the permission
 checks that were run, and whether they passed or failed.
 
 If it's unclear why a permission is returning false, re-run the transaction with the permission broken
-down into smaller pieces. For example, if you have a permission rule like
+down into smaller pieces. For example, if you have a permission rule like:
 
 ```
 "view": "auth.id in data.ref('members.id')"
 ```
 
-It can be helpful to re-run the sandbox with the permission rule changed to
+It can be helpful to re-run the sandbox with the permission rule changed to:
 
 ```
 "view": "data.ref('members.id')"

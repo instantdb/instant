@@ -21,19 +21,19 @@ A room represents a temporary context for realtime events. Users in the same roo
 
 **Presence**
 
-Presence is an object that each peer shares with every other peer. When a user updates their presence, it's instantly replicated to all users in that room. Presence persists throughout the remainder of a user's connection, and is automatically cleaned up when a user leaves the room.
+Presence is an object that each peer shares with every other peer. When a user updates their presence, it's instantly replicated to all users in that room. Presence persists throughout the remainder of a user's connection and is automatically cleaned up when a user leaves the room.
 
 You can use presence to build features like "who's online." Instant's cursor and typing indicator are both built on top of the presence API.
 
 **Topics**
 
-Topics have "fire and forget" semantics, and are better suited for data that doesn't need any sort of persistence. When a user publishes a topic, a callback is fired for every other user in the room listening for that topic.
+Topics have "fire-and-forget" semantics and are better suited for data that doesn't need any sort of persistence. When a user publishes a topic, a callback is fired for every other user in the room listening for that topic.
 
 You can use topics to build features like "live reactions." The real-time emoji button panel on Instant's homepage is built using the topics API.
 
 **Transact vs. Ephemeral**
 
-You may be thinking when would I use `transact` vs `presence` vs `topics`? Here's a simple breakdown:
+You may be thinking: when would I use `transact` vs `presence` vs `topics`? Here's a simple breakdown:
 
 - Use `transact` when you need to persist data to the db. For example, when a user sends a message in a chat app.
 - Use `presence` when you need to persist data in a room but not to the db. For example, showing
@@ -42,7 +42,7 @@ You may be thinking when would I use `transact` vs `presence` vs `topics`? Here'
 
 ## Setup
 
-To obtain a room reference, call `db.room(roomType, roomId)`
+To obtain a room reference, call `db.room(roomType, roomId)`:
 
 ```typescript
 import { init } from '@instantdb/react';
@@ -105,7 +105,7 @@ const _schema = i.schema({
   },
 });
 
-// This helps TypeScript display better intellisense
+// This helps TypeScript display better IntelliSense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
@@ -114,7 +114,7 @@ export type { AppSchema };
 export default schema;
 ```
 
-Once you've updated your schema, you'll start seeing types in your intellisense:
+Once you've updated your schema, you'll start seeing types in your IntelliSense:
 
 {% screenshot src="/img/docs/presence-intellisense.png" /%}
 
@@ -122,7 +122,7 @@ Once you've updated your schema, you'll start seeing types in your intellisense:
 
 One common use case for presence is to show who's online.
 
-Instant's `usePresence` is similar in feel to `useState`. It returns an object containing the current user's presence state, the presence state of every other user in the room, and a function (`publishPresence`) to update the current user's presence. `publishPresence` is similar to React's `setState`, and will merge the current and new presence objects.
+Instant's `usePresence` is similar in feel to `useState`. It returns an object containing the current user's presence state, the presence state of every other user in the room, and a function (`publishPresence`) to update the current user's presence. `publishPresence` is similar to React's `setState` and will merge the current and new presence objects.
 
 ```tsx
 import { init } from '@instantdb/react';
@@ -501,7 +501,7 @@ function UserAvatar({ peer }: { peer: ChatPeer }) {
 }
 
 function OnlineAvatars({ name, avatar }: { name: string; avatar: string }) {
-  // Subcribe and publish initial presence
+  // Subscribe and publish initial presence
   const { user: myPresence, peers } = db.rooms.usePresence(room, {
     initialPresence: { name, avatar },
   });

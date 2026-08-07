@@ -16,7 +16,7 @@ We currently offer two server-side SDKs:
 
 ## Admin SDK
 
-`@instantdb/admin` is the JavaScript admin SDK for using Instant in a
+`@instantdb/admin` is the JavaScript Admin SDK for using Instant in a
 non-browser context. This library is similar to our client SDK with a few
 tweaks.
 
@@ -33,7 +33,7 @@ const db = init({
 });
 ```
 
-Similar to `@instantdb/react`, you must `init` before doing any queries or
+As with `@instantdb/react`, you must `init` before doing any queries or
 writes. Running `init` authenticates you against our admin API. In addition to
 providing your `appId`, you can provide your `adminToken`.
 
@@ -57,7 +57,7 @@ const data = await db.query({ goals: {}, todos: {} });
 const { goals, todos } = data;
 ```
 
-In react we use `db.useQuery` to enable "live queries", queries that will
+In React we use `db.useQuery` to enable "live queries", queries that will
 automatically update when data changes.
 
 In the admin SDK we instead use an async `db.query` function that simply fires a
@@ -70,7 +70,7 @@ const res = await db.transact([db.tx.todos[id()].update({ title: 'Get fit' })]);
 console.log('New todo entry made for with tx-id', res['tx-id']);
 ```
 
-`db.transact` is an async function that behaves nearly identical to `db.transact`
+`db.transact` is an async function that behaves nearly identically to `db.transact`
 from `@instantdb/react`. It returns a `tx-id` on success.
 
 ## Subscriptions on the backend
@@ -145,7 +145,7 @@ To learn more about writing schemas, head on over to the [Modeling your data](/d
 ## Impersonating users
 
 When you use the admin SDK, you can make _any_ query or transaction. As an admin, you bypass permissions.
-But, sometimes you want to make queries on behalf of your users, and would like to respect permissions.
+But sometimes you want to make queries on behalf of your users and would like to respect permissions.
 
 You can do this with the `db.asUser` function.
 
@@ -184,7 +184,7 @@ const guestDB = db.asUser({
   guest: true,
 });
 
-// Queries and transactions will work with respective permissions
+// Queries and transactions will work with the respective permissions
 await userDB.query({ todos: {} });
 await guestDB.query({ publicData: {} });
 ```
@@ -227,7 +227,7 @@ const deletedUser = await db.auth.deleteUser({
 });
 ```
 
-Note, this _only_ deletes the user record and any associated data with cascade on delete. If there's additional data you need to clean up you'll need to do it manually:
+Note that this _only_ deletes the user record and any associated data with cascade on delete. If there's additional data you need to clean up, you'll need to do it manually:
 
 ```typescript {% showCopy=true %}
 const { goals, todos } = await db.query({
@@ -245,9 +245,9 @@ await db.auth.deleteUser({ id: userId });
 
 ## Presence in the Backend
 
-If you use [rooms & presence](/docs/presence-and-topics), you may want to query for the data currently in a room with the admin API. This can be especially useful if you are sending a notification for example, and want to skip it if the user is already online.
+If you use [rooms & presence](/docs/presence-and-topics), you may want to query for the data currently in a room with the admin API. This can be especially useful if you are sending a notification, for example, and want to skip it if the user is already online.
 
-To do get room data from the admin API, use `db.rooms.getPresence`:
+To get room data from the admin API, use `db.rooms.getPresence`:
 
 ```typescript {% showCopy=true %}
 const data = await db.rooms.getPresence('chat', 'room-123');
@@ -387,7 +387,7 @@ function Login() {
 
 ## Custom magic codes
 
-We support a [magic code flow](/docs/auth) out of the box. However, if you'd like to use your own email provider to send the code, you can do this with `db.auth.generateMagicCode` function:
+We support a [magic code flow](/docs/auth) out of the box. However, if you'd like to use your own email provider to send the code, you can do this with the `db.auth.generateMagicCode` function:
 
 ```typescript {% showCopy=true %}
 app.post('/custom-send-magic-code', async (req, res) => {
@@ -422,7 +422,7 @@ if (created) {
 
 ## Authenticated Endpoints
 
-You can also use the admin SDK to authenticate users in your custom endpoints. This would have two steps:
+You can also use the Admin SDK to authenticate users in your custom endpoints. This would have two steps:
 
 ### 1. Frontend: user.refresh_token
 
@@ -464,7 +464,7 @@ Sometimes you want to get the logged in user in the backend without needing to e
 
 Instant provides a `createInstantRouteHandler` function that generates a web standard endpoint that can be used to sync the refresh token to a cookie that your server can read.
 
-To use it in NextJS:
+To use it in Next.js:
 
 ```typescript {% showCopy=true %}
 // src/app/api/instant/route.ts
@@ -475,9 +475,9 @@ export const { POST } = createInstantRouteHandler({
 });
 ```
 
-The GET and POST functions accept a [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) and return a [Response](https://developer.mozilla.org/en-US/docs/Web/API/Request) so they should be able to be used in any framework.
+The GET and POST functions accept a [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) and return a [Response](https://developer.mozilla.org/en-US/docs/Web/API/Request), so they should be able to be used in any framework.
 
-Then, provide your mounted api url to the `init` function.
+Then, provide your mounted API URL to the `init` function.
 
 ```typescript {% showCopy=true %}
 import { init } from '@instantdb/react';
@@ -490,7 +490,7 @@ export const db = init({
 });
 ```
 
-If using NextJS you can call getUnverifiedUserFromInstantCookie with the app id to retrieve the user in any server component, or route handler.
+If using Next.js, you can call getUnverifiedUserFromInstantCookie with the app ID to retrieve the user in any server component or route handler.
 
 ```typescript
 import { getUnverifiedUserFromInstantCookie } from "@instantdb/react/nextjs";

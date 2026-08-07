@@ -26,7 +26,7 @@ Choose the platform you're building for to see a full example.
   value="react-native" /%}
 {% nav-button
   title="Vanilla JS"
-  description="For non-react based frameworks"
+  description="For non-React-based frameworks"
   param="platform"
   value="vanilla" /%}
 {% /div %}
@@ -414,11 +414,11 @@ Make sure you have a `<div id="app"></div>` element in your HTML.
 
 **Let's dig deeper.**
 
-We created a login flow to handle magic code auth. Of note is `auth.sendMagicCode`
+We created a login flow to handle magic code auth. Of note are `auth.sendMagicCode`
 and `auth.signInWithMagicCode`.
 
 On successful validation, Instant's backend will return a user object with a refresh token.
-The client SDK will then restart the websocket connection with Instant's sync layer and provide the refresh token.
+The client SDK will then restart the WebSocket connection with Instant's sync layer and provide the refresh token.
 
 When doing queries or transactions, the refresh token will be used to hydrate `auth`
 on the backend during permission checks.
@@ -434,7 +434,7 @@ db.auth.sendMagicCode({ email }).catch((err) => {
 });
 ```
 
-Use `auth.sendMagicCode` to generate a magic code on instant's backend and email it to the user.
+Use `auth.sendMagicCode` to generate a magic code on Instant's backend and email it to the user.
 
 ## Sign in with Magic Code
 

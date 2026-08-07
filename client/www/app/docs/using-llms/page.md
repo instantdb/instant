@@ -19,9 +19,9 @@ This will give your agent the context it needs to work with InstantDB.
 
 You can verify you set up the rules correctly by asking your LLM "How do you
 make queries and transactions in InstantDB?" If everything is set up correctly,
-you should see a response with information about `db.useQuery` and `db.transact`
+you should see a response with information about `db.useQuery` and `db.transact`.
 
-If you'd prefer to manually install the rules instead see the section below.
+If you'd prefer to manually install the rules instead, see the section below.
 
 ## Instant Rules
 
@@ -39,8 +39,8 @@ You may need to restart your editor for the rules to take effect.
 
 ### Markdown Docs and llms.txt
 
-You can attach `.md` to the end of any doc page url to get raw markdown. This can be helpful to paste into your LLM if you're stuck on
-particular functionality. For example, here's the recommended docs for [adding auth](/docs/auth/magic-codes.md)
+You can attach `.md` to the end of any doc page URL to get raw Markdown. This can be helpful to paste into your LLM if you're stuck on
+particular functionality. For example, here are the recommended docs for [adding auth](/docs/auth/magic-codes.md).
 
 We recommend starting with the rules files above and adding more docs as needed.
 If you want though you can get all our docs at once in markdown format via
@@ -78,7 +78,7 @@ Or edit your `~/.cursor/mcp.json` directly:
 
 ### Claude Code
 
-If you're on a paid Claude plan, you can add the server via the command line
+If you're on a paid Claude plan, you can add the server via the command line:
 
 ```text {% showCopy="true" %}
 claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp
@@ -86,11 +86,11 @@ claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp
 
 Now you can run `claude` to start Claude Code and then run `/mcp` to see your list
 of MCP servers. `instant` should be listed there. Select it and go through the
-auth flow to enable the Instant MCP server in your claude code sessions!
+auth flow to enable the Instant MCP server in your Claude Code sessions!
 
 ### Codex
 
-If you're on a paid OpenAI plan, you can add the server via the command line
+If you're on a paid OpenAI plan, you can add the server via the command line:
 
 Edit your `~/.codex/config.toml` to include the [`rmcp_client` feature](https://developers.openai.com/codex/mcp/):
 
@@ -99,7 +99,7 @@ Edit your `~/.codex/config.toml` to include the [`rmcp_client` feature](https://
 rmcp_client = true
 ```
 
-Tell codex to add the MCP server:
+Tell Codex to add the MCP server:
 
 ```text {% showCopy="true" %}
 codex mcp add instant --url "https://mcp.instantdb.com/mcp"
@@ -111,7 +111,7 @@ Now run `codex` to start Codex. You can run `/mcp` to see Instant in your list.
 
 ### Gemini
 
-If you're on a paid Google AI plan, you can add the server via the command line
+If you're on a paid Google AI plan, you can add the server via the command line:
 
 ```text {% showCopy="true" %}
 gemini mcp add --transport http instant https://mcp.instantdb.com/mcp
@@ -123,15 +123,15 @@ Now run `gemini` to start Gemini. You can run `/mcp` to see Instant in your list
 
 ### Windsurf
 
-You can add the Instant MCP server through the Windsurf UI
+You can add the Instant MCP server through the Windsurf UI:
 
 1. Open Windsurf Settings.
 2. Under Cascade, you'll find Model Context Protocol Servers.
 3. Select Add Server and paste the relevant snippet for your OS.
 
-Alternatively you can directly edit your `~/.codeium/windsurf/mcp_config.json`
+Alternatively, you can directly edit your `~/.codeium/windsurf/mcp_config.json`:
 
-**MacOS/Linux**
+**macOS/Linux**
 
 ```json {% showCopy="true" %}
 {
@@ -172,7 +172,7 @@ Alternatively you can directly edit your `~/.codeium/windsurf/mcp_config.json`
 
 ### Zed
 
-Open your Zed settings and add the following
+Open your Zed settings and add the following:
 
 ```json {% showCopy="true" %}
 {
@@ -192,13 +192,13 @@ Open your Zed settings and add the following
 ### Other Tools
 
 For other tools that support MCP servers, you can configure Instant using either our streamable HTTP
-endpoint (recommended if your tool supports it)
+endpoint (recommended if your tool supports it):
 
 ```text {% showCopy="true" %}
 https://mcp.instantdb.com/mcp
 ```
 
-Or our SSE endpoint
+or our SSE endpoint:
 
 ```text {% showCopy="true" %}
 https://mcp.instantdb.com/sse
@@ -206,7 +206,7 @@ https://mcp.instantdb.com/sse
 
 ## Local MCP server
 
-We recommend using our hosted MCP server but we also support running [`@instantdb/mcp`](https://github.com/instantdb/instant/tree/main/client/packages/mcp) locally
+We recommend using our hosted MCP server, but we also support running [`@instantdb/mcp`](https://github.com/instantdb/instant/tree/main/client/packages/mcp) locally
 via `stdio`. This will avoid OAuth but requires you to manage your personal
 access token.
 
@@ -223,7 +223,7 @@ favorite editor with MCP support.
 You can set up the Instant MCP server in Cursor, Windsurf, or Cline by adding
 the following configuration to your MCP settings:
 
-**MacOS/Linux**
+**macOS/Linux**
 
 ```json {% showCopy="true" %}
 {
@@ -262,12 +262,12 @@ the following configuration to your MCP settings:
 }
 ```
 
-Replacing `<token>` with your personal access token. Save the file and reload
+Replace `<token>` with your personal access token. Save the file and reload
 the editor! You should now see the Instant MCP server active and enabled!
 
 ### Zed
 
-Open your Zed settings and add the following
+Open your Zed settings and add the following:
 
 ```json {% showCopy="true" %}
 {
@@ -284,7 +284,7 @@ Open your Zed settings and add the following
 }
 ```
 
-Replacing `<token>` with your personal access token. Save the file and reload the editor.
+Replace `<token>` with your personal access token. Save the file and reload the editor.
 You should now see the Instant MCP server active and enabled!
 
 ### Claude Desktop
@@ -306,12 +306,12 @@ steps:
 }
 ```
 
-Replacing `<token>` with your personal access token. Save the file and restart
+Replace `<token>` with your personal access token. Save the file and restart
 Claude Desktop. You should now see the Instant MCP server active and enabled!
 
 ## MCP Tools
 
-Below is a list of the current tools we expose
+Below is a list of the current tools we expose:
 
 - `learn` Fetch rules files if needed to help the LLM understand InstantDB.
 - `get-schema` Retrieves the schema for a specific app.

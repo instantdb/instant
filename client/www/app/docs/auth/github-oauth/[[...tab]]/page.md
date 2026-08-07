@@ -123,7 +123,7 @@ And voila, you are connected!
 
 **Method: Web Redirect**
 
-Create an authorization URL via `db.auth.createAuthorizationURL` and then use the url to create a link. Here's a full example:
+Create an authorization URL via `db.auth.createAuthorizationURL` and then use the URL to create a link. Here's a full example:
 
 ```jsx {% showCopy=true %}
 'use client';
@@ -204,7 +204,7 @@ Update your app.json with your scheme:
 
 **Register your app with Instant**
 
-Now that you have your App Scheme, it's time to tell Instant about it. For development with expo, add `exp://` and your scheme (e.g. `mycoolredirect://`) as redirect origins.
+Now that you have your App Scheme, it's time to tell Instant about it. For development with Expo, add `exp://` and your scheme (e.g. `mycoolredirect://`) as redirect origins.
 
 {% setup-paths %}
 
@@ -229,7 +229,7 @@ npx instant-cli@latest auth origin add --type custom-scheme --scheme mycoolredir
 
 **Use AuthSession to log in with GitHub!**
 
-And from here you're ready to add a login button to your expo app! Here's a full example:
+And from here you're ready to add a login button to your Expo app! Here's a full example:
 
 ```jsx {% showCopy=true %}
 import { View, Text, Button } from 'react-native';
