@@ -361,6 +361,9 @@
         (tracer/with-span! {:name "stop-join-room-logger"}
           (join-room-logger/stop)))
       (future
+        (tracer/with-span! {:name "stop-hard-deletion-sweeper"}
+          (hard-deletion-sweeper/stop)))
+      (future
         (tracer/with-span! {:name "stop-custodian"}
           (custodian/stop)))
       (future
