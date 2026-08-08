@@ -65,6 +65,7 @@
    [instant.util.posthog :as posthog]
    [instant.util.tracer :as tracer]
    [instant.hard-deletion-sweeper :as hard-deletion-sweeper]
+   [instant.custodian :as custodian]
    [instant.webhook-routes :as webhook-routes]
    [instant.webhook-processor :as webhook-processor]
    [ring.middleware.cookies :refer [CookieDateTime]]
@@ -360,6 +361,12 @@
         (tracer/with-span! {:name "stop-join-room-logger"}
           (join-room-logger/stop)))
       (future
+        (tracer/with-span! {:name "stop-hard-deletion-sweeper"}
+          (hard-deletion-sweeper/stop)))
+      (future
+        (tracer/with-span! {:name "stop-custodian"}
+          (custodian/stop)))
+      (future
         (when (posthog/enabled?)
           (tracer/with-span! {:name "stop-posthog"}
             (posthog/flush!)
@@ -478,6 +485,8 @@
         (storage-sweeper/start))
       (with-log-init :hard-deletion-sweeper
         (hard-deletion-sweeper/start))
+      (with-log-init :custodian
+        (custodian/start))
       (with-log-init :rate-limit-sweeper
         (rate-limit/start))
       (with-log-init :wal-log-truncator

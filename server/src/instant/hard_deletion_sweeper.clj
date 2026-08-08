@@ -1,8 +1,8 @@
 (ns instant.hard-deletion-sweeper
   (:require
    [chime.core :as chime-core]
+   [instant.custodian :as custodian]
    [instant.flags :as flags]
-   [instant.grab :as grab]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.util.date :as date-util]
@@ -74,14 +74,10 @@
           (tracer/add-data! {:attributes {:attrs-count (count attrs-to-delete)
                                           :apps-count (count apps-to-delete)}})
 
-          (doseq [{:keys [id] :as attr} attrs-to-delete]
-            (grab/run-once!
-             (format "delete-attr-%s-%s" id (date-util/numeric-date-str maximum-marked-date))
-             (fn [] (straight-jacket-delete-attr! attr))))
-          (doseq [{:keys [id] :as app} apps-to-delete]
-            (grab/run-once!
-             (format "delete-app-%s-%s" id (date-util/numeric-date-str maximum-marked-date))
-             (fn [] (straight-jacket-delete-app! app)))))))))
+          (doseq [{:keys [id app_id]} attrs-to-delete]
+            (custodian/enqueue-attr-deletion! {:app-id app_id :attr-id id}))
+          (doseq [{:keys [id]} apps-to-delete]
+            (custodian/enqueue-app-deletion! {:app-id id})))))))
 
 (defn start []
   (tracer/record-info! {:name "app-deletion-sweeper/schedule"})

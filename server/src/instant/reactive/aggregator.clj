@@ -151,7 +151,7 @@
                    (config/get-aurora-config)
                    slot-name))]
       (with-open [connection ^PgConnection connection]
-        (doseq [sketches (partition-all 1000 (initial-sketch-seq connection copy-sql))]
+        (doseq [sketches (partition-all 100 (initial-sketch-seq connection copy-sql))]
           (tracer/with-span! {:name "aggregator/insert-initial-sketches"
                               :attributes {:pid process-id
                                            :slot-name slot-name}}
