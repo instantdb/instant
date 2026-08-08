@@ -26,7 +26,6 @@
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.model.app :as app-model]
    [instant.util.async :as ua]
    [instant.util.exception :as ex]
    [instant.util.hsql :as uhsql]
@@ -385,6 +384,20 @@
           (recur)
           ::completed))))))
 
+(defn- delete-app!
+  "Deletes the app at the final stage, but checks if it is still marked as deleted first."
+  [conn app-id]
+  (sql/do-execute! ::delete-app!
+                   conn
+                   ["delete from apps where id = ? and deletion_marked_at is not null" app-id]))
+
+(defn- delete-attr!
+  "Deletes the attr at the final stage, but checks if it is still marked as deleted first."
+  [conn app-id attr-id]
+  (sql/do-execute! ::delete-app!
+                   conn
+                   ["delete from attrs where app_id = ? and id = ? and deletion_marked_at is not null" app-id attr-id]))
+
 (defn- not-deleted-error?
   "True if `e` is the batch guard's raise for an app/attr that isn't marked for
    deletion (vs. some other failure like losing ownership)."
@@ -426,8 +439,8 @@
                       ;; cascade is its own bounded, committed statement.
                       "attrs" (drain! ::drain-app-attrs stop? backing-off? conn id delete-app-attrs-q {:app-id app_id} (attr-batch-size))
                       ;; Terminal steps run to completion; they aren't interrupted mid-way.
-                      "attr" (do (attr-model/hard-delete-multi! conn app_id #{attr_id}) ::completed)
-                      "app" (do (app-model/delete-immediately-by-id! conn {:id app_id}) ::completed))]
+                      "attr" (do (delete-attr! conn app_id attr_id) ::completed)
+                      "app" (do (delete-app! conn app_id) ::completed))]
         ;; ::stopped means the drain exited mid-way — hand the row back rather than
         ;; marking a half-done step finished.
         (case outcome
