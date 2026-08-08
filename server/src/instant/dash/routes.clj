@@ -383,9 +383,15 @@
 (defn admin-overview-minute-get [req]
   (let [{:keys [email]} (req->auth-user! req)
         _ (assert-admin-email! email)
-        session-reports (machine-summaries/get-session-reports-cached)]
+        session-reports (machine-summaries/get-session-reports-cached)
+        ;; Gate the cross-machine task behind a flag: older machines that
+        ;; predate proxied-connections-task can't run it, so only fan out once
+        ;; every machine has been updated and the flag is flipped on.
+        proxied-connections (when (flags/flag :proxied-connections-overview-enabled false)
+                              (machine-summaries/get-proxied-connections-cached))]
     (response/ok
-     {:session-reports session-reports})))
+     {:session-reports session-reports
+      :proxied-connections proxied-connections})))
 
 (defn app-stats-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)

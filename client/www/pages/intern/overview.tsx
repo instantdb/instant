@@ -33,7 +33,12 @@ type AppSessions = {
 };
 type MachineSessions = Record<AppId, AppSessions>;
 type SessionReports = Record<MachineId, MachineSessions>;
-type MinuteOverview = { 'session-reports': SessionReports };
+type ProxiedConnection = { count: number; target: string | null };
+type ProxiedConnections = Record<MachineId, Record<AppId, ProxiedConnection>>;
+type MinuteOverview = {
+  'session-reports': SessionReports;
+  'proxied-connections': ProxiedConnections | null;
+};
 
 async function fetchMinuteOverview(token: string): Promise<MinuteOverview> {
   return jsonFetch(`${config.apiURI}/dash/overview/minute`, {
@@ -169,6 +174,29 @@ function flattenedSessionReports(machineToReport: SessionReports) {
   }
   const items = Object.values(res);
   return items;
+}
+
+type FlatProxiedConnection = {
+  'app-id': AppId;
+  target: string | null;
+  count: number;
+};
+
+function flattenedProxiedConnections(
+  machineToConnections: ProxiedConnections | null,
+): FlatProxiedConnection[] {
+  const res: Record<AppId, FlatProxiedConnection> = {};
+  for (const machineId in machineToConnections) {
+    const machineConnections = machineToConnections[machineId];
+    for (const appId in machineConnections) {
+      const curr = machineConnections[appId];
+      const prev = res[appId];
+      res[appId] = prev
+        ? { ...prev, count: prev.count + curr.count }
+        : { 'app-id': appId, target: curr.target, count: curr.count };
+    }
+  }
+  return Object.values(res).toSorted((a, b) => b.count - a.count);
 }
 
 function makeMachineSummary(
@@ -390,6 +418,14 @@ const MinuteStatsSection = ({
   );
   const totalApps = Object.keys(sessions).length;
 
+  const proxiedConnections = flattenedProxiedConnections(
+    minute.data['proxied-connections'],
+  );
+  const totalProxied = proxiedConnections.reduce(
+    (acc: number, x) => acc + x.count,
+    0,
+  );
+
   return (
     <div className={wrapperClass}>
       <button
@@ -428,6 +464,33 @@ const MinuteStatsSection = ({
           <div>Active Apps</div>
         </div>
       </div>
+      {proxiedConnections.length > 0 && (
+        <div className="flex flex-col">
+          <div className="flex items-baseline space-x-2">
+            <h3 className="font-bold">Proxied Connections</h3>
+            <span className="text-gray-500">
+              {Intl.NumberFormat().format(totalProxied)} across{' '}
+              {proxiedConnections.length} app
+              {proxiedConnections.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="mt-1 max-h-48 overflow-y-scroll border">
+            <table className="w-full">
+              <tbody>
+                {proxiedConnections.map((conn) => (
+                  <tr key={conn['app-id']}>
+                    <td className="px-4 py-2 text-right">
+                      {Intl.NumberFormat().format(conn.count)}
+                    </td>
+                    <td className="px-4 py-2">{conn['app-id']}</td>
+                    <td className="px-4 py-2">{conn.target || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       <div className="mt-4 overflow-y-scroll border">
         <table className="w-full">
           <tbody>
