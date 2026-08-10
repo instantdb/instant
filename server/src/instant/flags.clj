@@ -457,6 +457,9 @@
 (defn hard-deletion-sweeper-disabled? []
   (toggled? :hard-deletion-sweeper-disabled?))
 
+(defn custodian-disabled? []
+  (toggled? :custodian-disabled?))
+
 (defn conn-tx-reset-disabled? []
   (toggled? :conn-tx-reset-disabled?))
 

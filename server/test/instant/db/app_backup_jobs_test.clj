@@ -92,9 +92,11 @@
               (testing "we never exceeded n concurrent backups"
                 (is (= n @max-running))))
             (finally
-              ;; Make sure nothing stays blocked if an assertion threw.
+              ;; Make sure nothing stays blocked if an assertion threw, and wait
+              ;; for the pool to fully terminate so no straggler worker drains the
+              ;; shared table in the next test.
               (deliver release true)
-              (.shutdown pool))))))))
+              (app-backup-jobs/shutdown-pool pool wait-timeout))))))))
 
 (deftest rejects-a-second-in-flight-backup-for-the-same-app
   (let [pool (app-backup-jobs/make-pool 1)
@@ -116,8 +118,10 @@
               (is (re-find #"already in progress"
                            (:instant.util.exception/message err))))
             (finally
+              ;; Wait for the pool to fully terminate so this test's worker can't
+              ;; still be draining the shared table when the next test starts.
               (deliver release true)
-              (.shutdown pool))))))))
+              (app-backup-jobs/shutdown-pool pool wait-timeout))))))))
 
 (deftest killing-the-pool-cancels-in-flight-work
   ;; Just the pool mechanics--no db, no real backup. We run a task shaped like
@@ -170,4 +174,4 @@
           "the backup vfuture unwound its resources")
       (finally
         (deliver block true)
-        (.shutdownNow pool)))))
+        (app-backup-jobs/shutdown-pool pool wait-timeout)))))
