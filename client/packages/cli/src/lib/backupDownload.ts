@@ -13,6 +13,13 @@ import type {
   BackupDownloadResult,
   BackupsManager,
 } from '@instantdb/platform';
+import version from '../version.js';
+
+// node:http(s) send no User-Agent by default, and the presigned URLs sit behind
+// CloudFront whose WAF blocks requests with no UA (the NoUserAgent_HEADER rule),
+// returning a 403 "Request blocked" page. The browser and the CLI's fetch-based
+// API calls carry a UA and pass; this raw request must set one too.
+const userAgent = `instant-cli/${version}`;
 
 export type {
   BackupDownloadProgress,
@@ -32,7 +39,11 @@ function fetchStream(
 ): Promise<IncomingMessage> {
   return new Promise((resolve, reject) => {
     const get = url.startsWith('https:') ? httpsGet : httpGet;
-    const req = get(url, { signal }, resolve);
+    const req = get(
+      url,
+      { signal, headers: { 'user-agent': userAgent } },
+      resolve,
+    );
     req.on('error', reject);
   });
 }
@@ -42,6 +53,30 @@ function fetchStream(
 function pipe(src: Readable, dst: Duplex): Duplex {
   src.on('error', (e) => dst.destroy(e));
   return src.pipe(dst);
+}
+
+// S3/CloudFront answer a rejected presigned URL with a short XML body naming
+// the actual cause (SignatureDoesNotMatch, AccessDenied, expired, …). Read a
+// bounded prefix so the error surfaces the reason instead of a bare status.
+async function readErrorBody(res: IncomingMessage): Promise<string> {
+  try {
+    const chunks: Buffer[] = [];
+    let total = 0;
+    for await (const chunk of res) {
+      chunks.push(chunk as Buffer);
+      total += (chunk as Buffer).length;
+      if (total >= 2048) break;
+    }
+    return Buffer.concat(chunks)
+      .toString('utf8')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 500);
+  } catch {
+    return '';
+  } finally {
+    res.destroy();
+  }
 }
 
 // Fetches a presigned URL with node:http(s), decompressing explicitly: the
@@ -54,8 +89,8 @@ async function fetchBody(
 ): Promise<ReadableStream<Uint8Array>> {
   const res = await fetchStream(url, signal);
   if (res.statusCode !== 200) {
-    res.resume();
-    throw new Error(`HTTP ${res.statusCode}`);
+    const body = await readErrorBody(res);
+    throw new Error(`HTTP ${res.statusCode}${body ? ` — ${body}` : ''}`);
   }
   const encoding = res.headers['content-encoding'];
   let stream: Readable = res;
