@@ -444,3 +444,32 @@ test('IndexedDBStorage explicitly commits write transactions', async () => {
     commitSpy.mockRestore();
   }
 });
+
+test('waitForAllKeysToLoad loads every key listed in meta', async () => {
+  const appId = randomUUID();
+  const opts = {
+    merge: (_k, storage, memory) => memory || storage,
+    serialize: (_k, x) => x,
+    parse: (_k, x) => x,
+    objectSize: (_v) => 0,
+    logger: devNullLogger,
+    saveThrottleMs: 0,
+    gc: null,
+  };
+  const PO = new PersistedObject<string, string, string>({
+    persister: new IndexedDBStorage(appId, 'mutations'),
+    ...opts,
+  });
+  PO.updateInPlace((prev) => {
+    prev.a = 'one';
+    prev.b = 'two';
+  });
+  await PO.flush();
+
+  const PO2 = new PersistedObject<string, string, string>({
+    persister: new IndexedDBStorage(appId, 'mutations'),
+    ...opts,
+  });
+  const value = await PO2.waitForAllKeysToLoad();
+  expect(value).toStrictEqual({ a: 'one', b: 'two' });
+});

@@ -171,22 +171,8 @@ function querySubToStorage(_key, sub) {
   return jsonSub;
 }
 
-function kvFromStorage(key, x) {
-  switch (key) {
-    case 'pendingMutations':
-      return new Map(typeof x === 'string' ? JSON.parse(x) : x);
-    default:
-      return x;
-  }
-}
-
-function kvToStorage(key, x) {
-  switch (key) {
-    case 'pendingMutations':
-      return [...x.entries()];
-    default:
-      return x;
-  }
+function identity(_key, x) {
+  return x;
 }
 
 function onMergeQuerySub(_k, storageSub, inMemorySub) {
@@ -226,6 +212,9 @@ export default class Reactor {
 
   /** @type {PersistedObject} */
   kv;
+
+  /** @type {PersistedObject} */
+  mutations;
 
   /** @type {SyncTable} */
   _syncTable;
@@ -282,6 +271,17 @@ export default class Reactor {
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
   _beforeUnloadCbs = [];
   _dataForQueryCache = {};
+  // True once the mutations store has loaded (or a local write happened),
+  // which gates optimistic query results the way the old single
+  // `pendingMutations` kv key did.
+  _pendingMutationsReady = false;
+  /** @type {{version: number, muts: Map<string, any>} | null} */
+  _pendingMutationsCache = null;
+  /** @type {Promise<void>} */
+  _pendingMutationsLoaded = Promise.resolve();
+  // eventIds found in storage during load that no in-memory write claimed;
+  // unconfirmed ones are re-sent once the full set has loaded.
+  _recoveredMutationIds = new Set();
   /** @type {Logger} */
   _log;
   _pendingTxCleanupTimeout;
@@ -449,9 +449,7 @@ export default class Reactor {
   }
 
   _onQuerySubLoaded(hash) {
-    this.kv
-      .waitForKeyToLoad('pendingMutations')
-      .then(() => this.notifyOne(hash));
+    this._pendingMutationsLoaded.then(() => this.notifyOne(hash));
   }
 
   _initStorage(Storage) {
@@ -475,8 +473,8 @@ export default class Reactor {
     this.kv = new PersistedObject({
       persister: new Storage(this.config.appId, 'kv'),
       merge: this._onMergeKv,
-      serialize: kvToStorage,
-      parse: kvFromStorage,
+      serialize: identity,
+      parse: identity,
       objectSize: () => 0,
       logger: this._log,
       saveThrottleMs: 100,
@@ -484,16 +482,30 @@ export default class Reactor {
       // Don't GC the kv store
       gc: null,
     });
-    this.kv.onKeyLoaded = (k) => {
-      if (k === 'pendingMutations') {
-        this.notifyAll();
-      }
-    };
+    // One key per pending mutation so each save writes a single small row
+    // instead of rewriting the whole map. A frozen tab can otherwise park
+    // the store lock mid-save and block sibling tabs from booting.
+    this.mutations = new PersistedObject({
+      persister: new Storage(this.config.appId, 'mutations'),
+      merge: this._onMergeMutation,
+      serialize: identity,
+      parse: identity,
+      objectSize: () => 0,
+      logger: this._log,
+      saveThrottleMs: 100,
+      idleCallbackMaxWaitMs: 100,
+      // Don't GC the mutations store
+      gc: null,
+    });
     // Trigger immediate load for pendingMutations and currentUser
-    this.kv.waitForKeyToLoad('pendingMutations');
+    this._pendingMutationsLoaded = this.mutations
+      .waitForAllKeysToLoad()
+      .catch((e) => this._log.error('Failed to load pending mutations', e))
+      .then(() => this._onPendingMutationsLoaded());
     this.kv.waitForKeyToLoad(currentUserKey);
     this._beforeUnloadCbs.push(() => {
       this.kv.flush();
+      this.mutations.flush();
       this.querySubs.flush();
     });
   }
@@ -554,26 +566,40 @@ export default class Reactor {
     this._instantStream.onConnectionStatusChange(status);
   }
 
-  _onMergeKv = (key, storageV, inMemoryV) => {
-    switch (key) {
-      case 'pendingMutations': {
-        const storageEntries = storageV?.entries() ?? [];
-        const inMemoryEntries = inMemoryV?.entries() ?? [];
-        const muts = new Map([...storageEntries, ...inMemoryEntries]);
-        const rewrittenStorageMuts = storageV
-          ? this._rewriteMutationsSorted(this.attrs, storageV)
-          : [];
-        rewrittenStorageMuts.forEach(([k, mut]) => {
-          if (!inMemoryV?.pendingMutations?.has(k) && !mut['tx-id']) {
-            this._sendMutation(k, mut);
-          }
-        });
-        return muts;
-      }
-      default:
-        return inMemoryV || storageV;
-    }
+  _onMergeKv = (_key, storageV, inMemoryV) => {
+    return inMemoryV || storageV;
   };
+
+  _onMergeMutation = (eventId, storageV, inMemoryV) => {
+    // A mutation in storage that no in-memory write claimed came from a
+    // previous session (or another tab). If the server never confirmed it,
+    // re-send it once the full set has loaded.
+    if (storageV && !inMemoryV && !storageV['tx-id']) {
+      this._recoveredMutationIds.add(eventId);
+    }
+    return inMemoryV || storageV;
+  };
+
+  _onPendingMutationsLoaded() {
+    this._pendingMutationsReady = true;
+    // Loading keys doesn't bump the store version, so bump it here to
+    // invalidate caches keyed on it (dataForQuery, _pendingMutations).
+    this.mutations.updateInPlace(() => {});
+    const recovered = this._recoveredMutationIds;
+    this._recoveredMutationIds = new Set();
+    if (recovered.size) {
+      const rewritten = this._rewriteMutationsSorted(
+        this.attrs,
+        this._pendingMutations(),
+      );
+      rewritten.forEach(([eventId, mut]) => {
+        if (recovered.has(eventId) && !mut['tx-id']) {
+          this._sendMutation(eventId, mut);
+        }
+      });
+    }
+    this.notifyAll();
+  }
 
   _flushEnqueuedRoomData(roomId) {
     const enqueuedUserPresence = this._presence[roomId]?.result?.user;
@@ -749,9 +775,7 @@ export default class Reactor {
           // We know we've changed the mutations to fix the attr ids and removed
           // processed attrs, so we'll persist those changes to prevent optimisticAttrs
           // from using old attr definitions
-          this.kv.updateInPlace((prev) => {
-            prev.pendingMutations = rewrittenMutations;
-          });
+          this._setPendingMutations(rewrittenMutations);
         }
 
         const mutations = sortedMutationEntries(rewrittenMutations.entries());
@@ -828,11 +852,11 @@ export default class Reactor {
 
         // update pendingMutation with server-side tx-id
         this._updatePendingMutations((prev) => {
-          prev.set(eventId, {
-            ...prev.get(eventId),
+          prev[eventId] = {
+            ...prev[eventId],
             'tx-id': txId,
             confirmed: Date.now(),
-          });
+          };
         });
 
         const newAttrs = [];
@@ -943,15 +967,44 @@ export default class Reactor {
     return this._instantStream.createReadStream(opts);
   }
 
+  // Read-only Map view over the mutations store, cached per store version.
+  // Mutate through _updatePendingMutations, never through this Map.
   _pendingMutations() {
-    return this.kv.currentValue.pendingMutations ?? new Map();
+    const version = this.mutations.version();
+    if (
+      !this._pendingMutationsCache ||
+      this._pendingMutationsCache.version !== version
+    ) {
+      this._pendingMutationsCache = {
+        version,
+        muts: new Map(Object.entries(this.mutations.currentValue)),
+      };
+    }
+    return this._pendingMutationsCache.muts;
   }
 
   _updatePendingMutations(f) {
-    this.kv.updateInPlace((prev) => {
-      const muts = prev.pendingMutations ?? new Map();
-      prev.pendingMutations = muts;
-      f(muts);
+    this._pendingMutationsReady = true;
+    this.mutations.updateInPlace((prev) => {
+      f(prev);
+    });
+  }
+
+  // Replaces the pending mutations with a rewritten map. Only entries whose
+  // tx-steps actually changed get reassigned, so we only persist those rows.
+  _setPendingMutations(muts) {
+    this._updatePendingMutations((prev) => {
+      for (const eventId of Object.keys(prev)) {
+        if (!muts.has(eventId)) {
+          delete prev[eventId];
+        }
+      }
+      for (const [eventId, mut] of muts) {
+        const prevMut = prev[eventId];
+        if (!prevMut || prevMut['tx-steps'] !== mut['tx-steps']) {
+          prev[eventId] = mut;
+        }
+      }
     });
   }
 
@@ -965,8 +1018,7 @@ export default class Reactor {
 
     if (mut && (status !== 'timeout' || !mut['tx-id'])) {
       this._updatePendingMutations((prev) => {
-        prev.delete(eventId);
-        return prev;
+        delete prev[eventId];
       });
       this._inFlightMutationEventIds.delete(eventId);
       const errDetails = {
@@ -1407,10 +1459,10 @@ export default class Reactor {
       return { error: errorMessage };
     }
     if (!this.querySubs) return;
-    if (!this.kv.currentValue.pendingMutations) return;
+    if (!this._pendingMutationsReady) return;
     const querySubVersion = this.querySubs.version();
     const querySubs = this.querySubs.currentValue;
-    const pendingMutationsVersion = this.kv.version();
+    const pendingMutationsVersion = this.mutations.version();
     const pendingMutations = this._pendingMutations();
 
     const { q, result } = querySubs[hash] || {};
@@ -1504,10 +1556,7 @@ export default class Reactor {
   }
 
   loadedNotifyAll() {
-    this.kv
-      .waitForKeyToLoad('pendingMutations')
-      .then(() => this.notifyAll())
-      .catch(() => this.notifyAll());
+    this._pendingMutationsLoaded.then(() => this.notifyAll());
   }
 
   /** Applies transactions locally and sends transact message to server */
@@ -1564,7 +1613,7 @@ export default class Reactor {
       order,
     };
     this._updatePendingMutations((prev) => {
-      prev.set(eventId, mutation);
+      prev[eventId] = mutation;
     });
 
     const dfd = new Deferred();
@@ -1655,9 +1704,7 @@ export default class Reactor {
     );
     if (rewrittenMutations !== this._pendingMutations()) {
       // Persist rewritten mutations to avoid stale attr ids in future txs.
-      this.kv.updateInPlace((prev) => {
-        prev.pendingMutations = rewrittenMutations;
-      });
+      this._setPendingMutations(rewrittenMutations);
     }
 
     const muts = sortedMutationEntries(rewrittenMutations.entries());
@@ -1682,9 +1729,9 @@ export default class Reactor {
     }
 
     this._updatePendingMutations((prev) => {
-      for (const [eventId, mut] of Array.from(prev.entries())) {
+      for (const [eventId, mut] of Object.entries(prev)) {
         if (mut['tx-id'] && mut['tx-id'] <= minProcessedTxId) {
-          prev.delete(eventId);
+          delete prev[eventId];
         }
       }
     });
@@ -1703,12 +1750,12 @@ export default class Reactor {
     const now = Date.now();
 
     this._updatePendingMutations((prev) => {
-      for (const [eventId, mut] of Array.from(prev.entries())) {
+      for (const [eventId, mut] of Object.entries(prev)) {
         if (
           mut.confirmed &&
           mut.confirmed + this._pendingTxCleanupTimeout < now
         ) {
-          prev.delete(eventId);
+          delete prev[eventId];
         }
       }
     });
@@ -2258,6 +2305,7 @@ export default class Reactor {
       // Make sure everything is written to storage before we tell the
       // other tab to refetch
       await this.kv.flush();
+      await this.mutations.flush();
       this._broadcastChannel?.postMessage({ type: 'auth' });
     } catch (error) {
       console.error('Error posting message to broadcast channel', error);
@@ -2322,17 +2370,17 @@ export default class Reactor {
     this._updatePendingMutations((prev) => {
       // Mark all pending mutations with an error, since we won't be able to
       // deliver the result
-      for (const [eventId, _v] of prev.entries()) {
+      for (const eventId of Object.keys(prev)) {
         if (this.mutationDeferredStore.get(eventId)) {
           this._finishTransaction('error', eventId, {
             message: 'User changed while transaction was in progress.',
             type: 'user-changed',
           });
         }
+        delete prev[eventId];
       }
-
-      prev.clear();
     });
+    this.mutations.clearUnloadedKeys();
 
     this._reconnectTimeoutMs = 0;
     this._transport.close();

@@ -26,9 +26,10 @@ const zenecaAttrsStore = new AttrsStoreClass(
 async function waitForLoaded(reactor) {
   await reactor.querySubs.waitForMetaToLoad();
   await reactor.kv.waitForMetaToLoad();
-  await reactor.kv.waitForKeyToLoad('pendingMutations');
+  await reactor._pendingMutationsLoaded;
   await reactor.querySubs.flush();
   await reactor.kv.flush();
+  await reactor.mutations.flush();
 }
 
 test('querySubs round-trips', async () => {
@@ -183,8 +184,7 @@ test('rewrite mutations works with multiple transactions', () => {
       'tx-steps': steps,
     };
     reactor._updatePendingMutations((prev) => {
-      prev.set(k, mut);
-      return prev;
+      prev[k] = mut;
     });
   }
 
@@ -477,4 +477,193 @@ test('getLocalId always returns the same id', async () => {
   const id = await reactor2.getLocalId('id');
 
   expect(id).toStrictEqual([...ids][0]);
+});
+
+async function makeLegacyDb(name, stores, fill) {
+  const db = await new Promise((resolve, reject) => {
+    const req = indexedDB.open(name, 1);
+    req.onupgradeneeded = () => {
+      for (const storeName of stores) {
+        req.result.createObjectStore(storeName);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(stores, 'readwrite');
+    fill(tx);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+test('pending mutations persist as one row per mutation', async () => {
+  const appId = uuid();
+  const reactor = new Reactor({ appId });
+  reactor._initStorage(IndexedDBStorage);
+  reactor._setAttrs(zenecaAttrs);
+  await waitForLoaded(reactor);
+
+  reactor.pushTx([instatx.tx.books[uuid()].update({ title: 'one' })]);
+  reactor.pushTx([instatx.tx.books[uuid()].update({ title: 'two' })]).catch(
+    () => {},
+  );
+  const [ev1, ev2] = [...reactor._pendingMutations().keys()];
+  await reactor.mutations.flush();
+
+  const mutationStore = new IndexedDBStorage(appId, 'mutations');
+  const keys = await mutationStore.getAllKeys();
+  expect(keys).toContain(ev1);
+  expect(keys).toContain(ev2);
+  expect(await mutationStore.getItem(ev1)).toMatchObject({ op: 'transact' });
+
+  // The kv store no longer holds the old blob
+  const kvStore = new IndexedDBStorage(appId, 'kv');
+  expect(await kvStore.getItem('pendingMutations')).toBeNull();
+
+  // Deleting a mutation removes just its row
+  reactor._handleMutationError('error', ev2, { message: 'test' });
+  await reactor.mutations.flush();
+  const keysAfter = await mutationStore.getAllKeys();
+  expect(keysAfter).toContain(ev1);
+  expect(keysAfter).not.toContain(ev2);
+});
+
+test('pending mutations round-trip across reloads and unconfirmed ones are re-sent', async () => {
+  const appId = uuid();
+  const reactor = new Reactor({ appId });
+  reactor._initStorage(IndexedDBStorage);
+  reactor._setAttrs(zenecaAttrs);
+  await waitForLoaded(reactor);
+
+  reactor.pushTx([instatx.tx.books[uuid()].update({ title: 'offline' })]);
+  const [eventId] = [...reactor._pendingMutations().keys()];
+  await reactor.mutations.flush();
+
+  const reactor2 = new Reactor({ appId });
+  const sent = [];
+  reactor2._sendMutation = (evId, _mut) => {
+    sent.push(evId);
+  };
+  reactor2._initStorage(IndexedDBStorage);
+  await waitForLoaded(reactor2);
+
+  expect([...reactor2._pendingMutations().keys()]).toEqual([eventId]);
+  expect(sent).toEqual([eventId]);
+});
+
+test('upgrades v6 databases, splitting pending mutations into rows', async () => {
+  const appId = uuid();
+  const mutA = { op: 'transact', 'tx-steps': [], created: 1, order: 1 };
+  const mutB = {
+    op: 'transact',
+    'tx-steps': [],
+    created: 2,
+    order: 2,
+    'tx-id': 5,
+  };
+  await makeLegacyDb(
+    `instant_${appId}_6`,
+    ['kv', 'querySubs', 'syncSubs'],
+    (tx) => {
+      const kv = tx.objectStore('kv');
+      kv.put(
+        [
+          ['evA', mutA],
+          ['evB', mutB],
+        ],
+        'pendingMutations',
+      );
+      kv.put({ id: 'u1' }, 'currentUser');
+      kv.put(
+        {
+          objects: {
+            pendingMutations: { createdAt: 1, updatedAt: 1, size: 0 },
+            currentUser: { createdAt: 1, updatedAt: 1, size: 0 },
+          },
+        },
+        '__meta',
+      );
+      tx.objectStore('querySubs').put({ some: 'sub' }, 'hash1');
+    },
+  );
+
+  const mutationStore = new IndexedDBStorage(appId, 'mutations');
+  expect(await mutationStore.getItem('evA')).toEqual(mutA);
+  expect(await mutationStore.getItem('evB')).toEqual(mutB);
+  // The migration writes a meta row so boot can enumerate the mutations
+  expect((await mutationStore.getItem('__meta')).objects).toHaveProperty(
+    'evA',
+  );
+
+  const kvStore = new IndexedDBStorage(appId, 'kv');
+  expect(await kvStore.getItem('pendingMutations')).toBeNull();
+  expect(await kvStore.getItem('currentUser')).toEqual({ id: 'u1' });
+  expect(
+    (await kvStore.getItem('__meta')).objects.pendingMutations,
+  ).toBeUndefined();
+
+  const querySubStore = new IndexedDBStorage(appId, 'querySubs');
+  expect(await querySubStore.getItem('hash1')).toEqual({ some: 'sub' });
+});
+
+test('a reactor booting on migrated v6 data adopts and re-sends unconfirmed mutations', async () => {
+  const appId = uuid();
+  const mutA = { op: 'transact', 'tx-steps': [], created: 1, order: 1 };
+  const mutB = {
+    op: 'transact',
+    'tx-steps': [],
+    created: 2,
+    order: 2,
+    'tx-id': 5,
+  };
+  await makeLegacyDb(
+    `instant_${appId}_6`,
+    ['kv', 'querySubs', 'syncSubs'],
+    (tx) => {
+      tx.objectStore('kv').put(
+        [
+          ['evA', mutA],
+          ['evB', mutB],
+        ],
+        'pendingMutations',
+      );
+    },
+  );
+
+  const reactor = new Reactor({ appId });
+  const sent = [];
+  reactor._sendMutation = (evId, _mut) => {
+    sent.push(evId);
+  };
+  reactor._initStorage(IndexedDBStorage);
+  await waitForLoaded(reactor);
+
+  expect([...reactor._pendingMutations().keys()].sort()).toEqual([
+    'evA',
+    'evB',
+  ]);
+  // evA was never confirmed by the server, so it gets re-sent; evB has a
+  // tx-id and does not
+  expect(sent).toEqual(['evA']);
+});
+
+test('upgrades v5 databases through to per-mutation rows', async () => {
+  const appId = uuid();
+  const mutOld = { op: 'transact', 'tx-steps': [], created: 1, order: 1 };
+  await makeLegacyDb(`instant_${appId}_5`, ['kv'], (tx) => {
+    const kv = tx.objectStore('kv');
+    // v5 JSON.stringified values before storing
+    kv.put(JSON.stringify([['evOld', mutOld]]), 'pendingMutations');
+    kv.put({ id: 'u5' }, 'currentUser');
+  });
+
+  const mutationStore = new IndexedDBStorage(appId, 'mutations');
+  expect(await mutationStore.getItem('evOld')).toEqual(mutOld);
+
+  const kvStore = new IndexedDBStorage(appId, 'kv');
+  expect(await kvStore.getItem('pendingMutations')).toBeNull();
+  expect(await kvStore.getItem('currentUser')).toEqual({ id: 'u5' });
 });

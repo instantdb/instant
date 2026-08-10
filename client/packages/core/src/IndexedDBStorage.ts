@@ -14,9 +14,9 @@ import {
 // using their built-in versioning because they have no ability
 // to roll back and if multiple tabs are active, then you'll just
 // be stuck.
-const version = 6;
+const version = 7;
 
-const storeNames = ['kv', 'querySubs', 'syncSubs'] as const;
+const storeNames = ['kv', 'querySubs', 'syncSubs', 'mutations'] as const;
 
 // Check that we're not missing a store name in storeNames
 type MissingStoreNames = Exclude<
@@ -177,6 +177,112 @@ async function upgrade5To6(appId: string, v6Db: IDBDatabase): Promise<void> {
   });
 }
 
+async function readAllEntries(
+  db: IDBDatabase,
+  storeName: string,
+): Promise<Array<[string, any]>> {
+  if (!db.objectStoreNames.contains(storeName)) {
+    return [];
+  }
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([storeName], 'readonly');
+    const cursorReq = tx.objectStore(storeName).openCursor();
+    const data: Array<[string, any]> = [];
+    cursorReq.onerror = (event) => {
+      reject(event);
+    };
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result;
+      if (cursor) {
+        data.push([cursor.key as string, cursor.value]);
+        cursor.continue();
+      } else {
+        resolve(data);
+      }
+    };
+  });
+}
+
+function parsePendingMutationsBlob(value: any): Array<[string, any]> {
+  // Older clients stored the pending mutations map as `[...map.entries()]`,
+  // and clients before version 6 JSON.stringified it first.
+  const entries = typeof value === 'string' ? JSON.parse(value) : value;
+  return Array.isArray(entries) ? entries : [];
+}
+
+// Moves the single `pendingMutations` blob out of the kv store and into
+// one row per mutation in the `mutations` store. Bounding each write to a
+// single mutation keeps write transactions small, so a frozen tab can't
+// park the kv lock mid-save and block sibling tabs.
+async function splitPendingMutations(db: IDBDatabase): Promise<void> {
+  const tx = db.transaction(['kv', 'mutations'], 'readwrite');
+  const kvStore = tx.objectStore('kv');
+  const mutationStore = tx.objectStore('mutations');
+
+  const blobReq = kvStore.get('pendingMutations');
+  const metaReq = kvStore.get(META_KEY);
+  blobReq.onsuccess = () => {
+    const entries = blobReq.result
+      ? parsePendingMutationsBlob(blobReq.result)
+      : [];
+    if (entries.length) {
+      const meta: Meta<string> = { objects: {} };
+      for (const [eventId, mutation] of entries) {
+        mutationStore.put(mutation, eventId);
+        meta.objects[eventId] = {
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          size: 0,
+        };
+      }
+      mutationStore.put(meta, META_KEY);
+    }
+    kvStore.delete('pendingMutations');
+  };
+  metaReq.onsuccess = () => {
+    const kvMeta = metaReq.result;
+    if (kvMeta?.objects?.pendingMutations) {
+      delete kvMeta.objects.pendingMutations;
+      kvStore.put(kvMeta, META_KEY);
+    }
+  };
+
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = (e) => reject(e);
+    tx.onabort = (e) => reject(e);
+  });
+}
+
+async function upgrade6To7(appId: string, v7Db: IDBDatabase): Promise<void> {
+  const v6Db = await existingDb(`instant_${appId}_6`);
+  if (v6Db) {
+    const stores = ['kv', 'querySubs', 'syncSubs'] as const;
+    const entriesByStore: Array<[string, Array<[string, any]>]> = [];
+    for (const storeName of stores) {
+      entriesByStore.push([storeName, await readAllEntries(v6Db, storeName)]);
+    }
+    const tx = v7Db.transaction([...stores], 'readwrite');
+    for (const [storeName, entries] of entriesByStore) {
+      const store = tx.objectStore(storeName);
+      for (const [key, value] of entries) {
+        store.put(value, key);
+      }
+    }
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = (e) => resolve(e);
+      tx.onerror = (e) => reject(e);
+      tx.onabort = (e) => reject(e);
+    });
+  } else {
+    // No version 6 db. If a version 5 db exists, bring its data over
+    // first; it lands in the old shape with the pending mutations blob
+    // in kv, which the split below moves to the mutations store.
+    await upgrade5To6(appId, v7Db);
+  }
+  await splitPendingMutations(v7Db);
+}
+
 // We create many IndexedDBStorage instances that talk to the same
 // underlying db, but we only get one `onupgradeneeded` event. This holds
 // the upgrade promises so that we wait until upgrade finishes before
@@ -189,6 +295,7 @@ export default class IndexedDBStorage extends StoreInterface {
   _appId: string;
   _prefix: string;
   _dbPromise: Promise<IDBDatabase>;
+  _resolveUpgradeDone: (() => void) | null = null;
 
   constructor(appId: string, storeName: StoreInterfaceStoreName) {
     super(appId, storeName);
@@ -204,6 +311,8 @@ export default class IndexedDBStorage extends StoreInterface {
       const request = indexedDB.open(this.dbName, 1);
 
       request.onerror = (event) => {
+        // Unblock any siblings waiting on our upgrade
+        this._resolveUpgradeDone?.();
         reject(event);
       };
 
@@ -227,10 +336,10 @@ export default class IndexedDBStorage extends StoreInterface {
             p.then(() => resolve(db)).catch(() => resolve(db));
           }
         } else {
-          const p = upgrade5To6(this._appId, db).catch((e) => {
-            logErrorCb('Error upgrading store from version 5 to 6.')(e);
+          const p = upgrade6To7(this._appId, db).catch((e) => {
+            logErrorCb('Error upgrading store to version 7.')(e);
           });
-          upgradePromises.set(this.dbName, p);
+          p.then(() => this._resolveUpgradeDone?.());
           p.then(() => resolve(db)).catch(() => resolve(db));
         }
       };
@@ -250,6 +359,14 @@ export default class IndexedDBStorage extends StoreInterface {
         db.createObjectStore(storeName);
       }
     }
+    // Register the upgrade barrier now: `onupgradeneeded` runs before any
+    // other connection's open can succeed, so every sibling instance is
+    // guaranteed to find this promise and wait for the data migration that
+    // runs in our `onsuccess`.
+    const done = new Promise<void>((resolve) => {
+      this._resolveUpgradeDone = resolve;
+    });
+    upgradePromises.set(this.dbName, done);
   }
 
   // Browsers can close IndexedDB connections unexpectedly (backgrounded tabs,
