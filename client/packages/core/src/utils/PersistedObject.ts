@@ -35,7 +35,11 @@ export type Meta<K extends string> = {
   objects: Record<K, ObjectMeta>;
 };
 
-export type StoreInterfaceStoreName = 'kv' | 'querySubs' | 'syncSubs';
+export type StoreInterfaceStoreName =
+  | 'kv'
+  | 'querySubs'
+  | 'syncSubs'
+  | 'mutations';
 
 export abstract class StoreInterface {
   constructor(appId: string, storeName: StoreInterfaceStoreName) {}
@@ -208,6 +212,16 @@ export class PersistedObject<K extends string, T, SerializedT> {
     }
     await (this._loadingKeys[k] || this._loadKey(k));
     return this.currentValue[k];
+  }
+
+  // Loads every key we know about from meta and resolves once they have
+  // all been merged into currentValue. Used by stores that need their full
+  // contents at boot, like pending mutations.
+  public async waitForAllKeysToLoad(): Promise<Record<K, T>> {
+    const meta = await this._getMeta();
+    const keys = Object.keys(meta?.objects ?? {}) as K[];
+    await Promise.all(keys.map((k) => this.waitForKeyToLoad(k)));
+    return this.currentValue;
   }
 
   // Used for tests
