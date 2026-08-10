@@ -318,7 +318,10 @@ export async function downloadBackupArchive(
       ? backup.uncompressedSize + (backup.filesSize ?? 0)
       : null;
 
-  const retryAttempts = Math.max(1, opts.retry?.attempts ?? DEFAULT_FETCH_ATTEMPTS);
+  const retryAttempts = Math.max(
+    1,
+    opts.retry?.attempts ?? DEFAULT_FETCH_ATTEMPTS,
+  );
   const retryDelayMs = opts.retry?.delayMs ?? DEFAULT_RETRY_DELAY_MS;
 
   const tick = () =>
