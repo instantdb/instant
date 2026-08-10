@@ -76,13 +76,199 @@ export type DownloadBackupArchiveOpts = {
   ) => Promise<BackupArchiveWriter>;
   signal?: AbortSignal;
   onProgress?: (progress: BackupDownloadProgress) => void;
+  /**
+   * How many entries to fetch ahead of the one currently being written into
+   * the archive. Each backup entry needs a presigned URL and a fresh HTTP
+   * connection before its bytes flow; writing entries strictly one at a time
+   * pays that whole round-trip latency between every file. Fetching a few
+   * ahead overlaps the next files' latency with the current file's transfer,
+   * which is the dominant cost for backups with many small storage blobs.
+   *
+   * Only fetch *initiation* is parallelised — the bodies are still written in
+   * order and consumed one at a time, so an in-flight prefetched body buffers
+   * only to its stream's high-water mark and memory stays bounded. Defaults to
+   * {@link DEFAULT_PREFETCH}.
+   */
+  prefetch?: number;
+  /**
+   * Retry policy for *opening* an entry's body (fetching its presigned URL and
+   * getting a live response). Prefetching keeps body connections open, paused,
+   * while earlier entries write, so a queued connection can be reset before we
+   * read it — retrying the open recovers from that and other transient
+   * failures. `attempts` is the total number of tries (default
+   * {@link DEFAULT_FETCH_ATTEMPTS}); `delayMs` is the base for exponential
+   * backoff (default {@link DEFAULT_RETRY_DELAY_MS}).
+   *
+   * This only covers failures *before* the writer starts consuming the body:
+   * once bytes have been written into the archive entry there's no way to
+   * restart it without HTTP range/resume support, so a mid-stream failure
+   * still fails the download.
+   */
+  retry?: { attempts?: number; delayMs?: number };
 };
+
+const DEFAULT_PREFETCH = 4;
+const DEFAULT_FETCH_ATTEMPTS = 3;
+const DEFAULT_RETRY_DELAY_MS = 500;
+const MAX_RETRY_DELAY_MS = 5000;
 
 const isAbortError = (e: unknown): boolean =>
   (e as { name?: string })?.name === 'AbortError';
 
 const errorMessage = (e: unknown): string =>
   e instanceof Error ? e.message : String(e);
+
+// A cancellable sleep: resolves after `ms`, or rejects if the signal aborts
+// first so backoff between retries doesn't outlive a cancelled download.
+const delay = (ms: number, signal: AbortSignal): Promise<void> =>
+  new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason ?? new DOMException('Aborted', 'AbortError'));
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+
+/**
+ * Opens a body via `open`, retrying on transient failure with abortable
+ * exponential backoff. `open` is re-invoked from scratch each attempt, so an
+ * entity file re-mints its presigned URL. An abort propagates immediately; any
+ * other final failure is wrapped by `describe` into a user-facing message
+ * naming the entry.
+ */
+async function openWithRetry(
+  open: () => Promise<ReadableStream<Uint8Array>>,
+  opts: {
+    signal: AbortSignal;
+    attempts: number;
+    delayMs: number;
+    describe: (e: unknown) => string;
+  },
+): Promise<ReadableStream<Uint8Array>> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= opts.attempts; attempt++) {
+    opts.signal.throwIfAborted();
+    try {
+      return await open();
+    } catch (e) {
+      if (isAbortError(e)) throw e;
+      lastError = e;
+      if (attempt < opts.attempts) {
+        const backoff = Math.min(
+          opts.delayMs * 2 ** (attempt - 1),
+          MAX_RETRY_DELAY_MS,
+        );
+        await delay(backoff, opts.signal);
+      }
+    }
+  }
+  throw new Error(opts.describe(lastError));
+}
+
+/**
+ * One archive entry whose body fetch has already been started. `onWriting`
+ * runs when the encoder begins consuming it (so progress reflects the entry
+ * actually streaming, not one prefetched ahead); `onAdded` runs once it's
+ * fully written.
+ */
+type PreparedEntry = {
+  name: string;
+  input: ReadableStream<Uint8Array>;
+  onWriting: () => void;
+  onAdded: () => void;
+};
+
+/**
+ * A thunk that starts fetching one entry (presigned URL + body) and resolves
+ * once the body stream is available — not once it's fully downloaded.
+ */
+type EntrySpec = () => Promise<PreparedEntry>;
+
+/**
+ * Wraps an ordered stream of entry specs, keeping up to `lookahead` fetches
+ * in flight while yielding the prepared entries in their original order. A
+ * background producer pulls specs and starts their fetches as space frees up;
+ * the consumer awaits each in turn. Preserves order and backpressure: at most
+ * `lookahead` bodies are ever in flight, and the producer parks when the
+ * pipeline is full or the source is waiting for more work.
+ */
+async function* prefetchEntries(
+  specs: AsyncIterable<EntrySpec>,
+  lookahead: number,
+): AsyncGenerator<PreparedEntry> {
+  const pipeline: Promise<PreparedEntry>[] = [];
+  const state: {
+    done: boolean;
+    producerError: unknown;
+    // Woken when the producer pushes an entry (or finishes).
+    onItem: (() => void) | null;
+    // Woken when the consumer frees a pipeline slot.
+    onSpace: (() => void) | null;
+  } = { done: false, producerError: null, onItem: null, onSpace: null };
+
+  const wakeItem = () => {
+    const w = state.onItem;
+    state.onItem = null;
+    if (w) w();
+  };
+  const wakeSpace = () => {
+    const w = state.onSpace;
+    state.onSpace = null;
+    if (w) w();
+  };
+
+  // Never rejects: a failure to produce the next spec (or start its fetch)
+  // lands in state.producerError for the consumer to throw in order.
+  const producer = (async () => {
+    try {
+      for await (const spec of specs) {
+        while (pipeline.length >= lookahead) {
+          await new Promise<void>((resolve) => {
+            state.onSpace = resolve;
+          });
+        }
+        const started = spec();
+        // The consumer awaits `started` in order; attach a no-op catch so a
+        // fetch that rejects before then isn't reported as unhandled.
+        started.catch(() => {});
+        pipeline.push(started);
+        wakeItem();
+      }
+    } catch (e) {
+      state.producerError = e;
+    } finally {
+      state.done = true;
+      wakeItem();
+    }
+  })();
+
+  try {
+    while (true) {
+      if (pipeline.length === 0) {
+        if (state.done) {
+          if (state.producerError) throw state.producerError;
+          break;
+        }
+        await new Promise<void>((resolve) => {
+          state.onItem = resolve;
+        });
+        continue;
+      }
+      const entry = await pipeline.shift()!;
+      wakeSpace();
+      yield entry;
+    }
+  } finally {
+    // On early exit (abort/error), let the producer unwind — its own signal
+    // teardown resolves the source's waits — without blocking here.
+    wakeSpace();
+    producer.catch(() => {});
+  }
+}
 
 /**
  * Downloads a backup into a single archive written to `opts.sink`: entries
@@ -131,6 +317,9 @@ export async function downloadBackupArchive(
     backup.uncompressedSize != null
       ? backup.uncompressedSize + (backup.filesSize ?? 0)
       : null;
+
+  const retryAttempts = Math.max(1, opts.retry?.attempts ?? DEFAULT_FETCH_ATTEMPTS);
+  const retryDelayMs = opts.retry?.delayMs ?? DEFAULT_RETRY_DELAY_MS;
 
   const tick = () =>
     onProgress?.({
@@ -221,16 +410,11 @@ export async function downloadBackupArchive(
   // Entry write order is significant for restore: config.json first, then the
   // entities/*.jsonl shards, then files/<locationId>. In particular ALL entity
   // files must be written before ANY storage file. listFiles returns the
-  // entity files in write order; this generator yields them to completion,
-  // then drains the storage queue.
-  type ArchiveEntry = {
-    name: string;
-    input: ReadableStream<Uint8Array>;
-    // Fired after the writer finishes consuming the entry, so completion
-    // counters reflect fully-written files rather than started fetches.
-    onAdded: () => void;
-  };
-  const entries = (async function* (): AsyncGenerator<ArchiveEntry> {
+  // entity files in write order; this generator yields specs for them in
+  // order, then drains the storage queue. The specs are consumed through
+  // prefetchEntries, which starts a bounded number of the fetches ahead of the
+  // encoder while keeping this order and one-at-a-time writing.
+  const specs = (async function* (): AsyncGenerator<EntrySpec> {
     const files = await manager.listFiles(backup.id, { signal });
     if (files.length === 0) {
       throw new Error('No files found for this backup.');
@@ -248,27 +432,34 @@ export async function downloadBackupArchive(
     tick();
 
     for (const f of files) {
-      currentEntity = f.name;
-      tick();
-      const url = await manager.getFileUrl(backup.id, f.name, { signal });
-      let body: ReadableStream<Uint8Array>;
-      try {
-        body = await fetchBody(url, signal);
-      } catch (e) {
-        if (isAbortError(e)) throw e;
-        throw new Error(`Failed to fetch ${f.name}: ${errorMessage(e)}.`);
-      }
-      yield {
-        name: f.name,
-        input: countBytes(body),
-        onAdded: () => {
-          if (f.name !== 'config.json') entitiesCompleted++;
-          tick();
-        },
+      yield async () => {
+        const body = await openWithRetry(
+          async () => {
+            const url = await manager.getFileUrl(backup.id, f.name, { signal });
+            return fetchBody(url, signal);
+          },
+          {
+            signal,
+            attempts: retryAttempts,
+            delayMs: retryDelayMs,
+            describe: (e) => `Failed to fetch ${f.name}: ${errorMessage(e)}.`,
+          },
+        );
+        return {
+          name: f.name,
+          input: countBytes(body),
+          onWriting: () => {
+            currentEntity = f.name;
+            currentFile = '';
+            tick();
+          },
+          onAdded: () => {
+            if (f.name !== 'config.json') entitiesCompleted++;
+            tick();
+          },
+        };
       };
     }
-    currentEntity = '';
-    tick();
 
     while (true) {
       if (storageError) throw storageError;
@@ -284,25 +475,32 @@ export async function downloadBackupArchive(
         queueHead++;
       }
       if (file) {
-        const label = file.path || file.locationId;
-        currentFile = label;
-        tick();
-        let body: ReadableStream<Uint8Array>;
-        try {
-          body = await fetchBody(file.url, signal);
-        } catch (e) {
-          if (isAbortError(e)) throw e;
-          throw new Error(
-            `Couldn't download storage file "${label}" (${errorMessage(e)}).`,
+        const storageFile = file;
+        const label = storageFile.path || storageFile.locationId;
+        yield async () => {
+          const body = await openWithRetry(
+            () => fetchBody(storageFile.url, signal),
+            {
+              signal,
+              attempts: retryAttempts,
+              delayMs: retryDelayMs,
+              describe: (e) =>
+                `Couldn't download storage file "${label}" (${errorMessage(e)}).`,
+            },
           );
-        }
-        yield {
-          name: `files/${file.locationId}`,
-          input: countBytes(body),
-          onAdded: () => {
-            filesCompleted++;
-            tick();
-          },
+          return {
+            name: `files/${storageFile.locationId}`,
+            input: countBytes(body),
+            onWriting: () => {
+              currentEntity = '';
+              currentFile = label;
+              tick();
+            },
+            onAdded: () => {
+              filesCompleted++;
+              tick();
+            },
+          };
         };
       } else if (storageDone) {
         break;
@@ -312,11 +510,15 @@ export async function downloadBackupArchive(
         });
       }
     }
-    currentFile = '';
-    tick();
 
     if (storageError) throw storageError;
   })();
+
+  const prefetch =
+    opts.prefetch != null && opts.prefetch > 0
+      ? opts.prefetch
+      : DEFAULT_PREFETCH;
+  const entries = prefetchEntries(specs, prefetch);
 
   const sinkWriter = opts.sink.getWriter();
   try {
@@ -341,11 +543,15 @@ export async function downloadBackupArchive(
 
     const writer = await createWriter(countingSink, signal);
     for await (const entry of entries) {
+      entry.onWriting();
       await writer.add(entry.name, entry.input, {
         lastModDate: backup.backupAt,
       });
       entry.onAdded();
     }
+    currentEntity = '';
+    currentFile = '';
+    tick();
     // A caller abort that lands after the last entry lets the generator
     // finish cleanly; don't close and return a complete-looking archive.
     signal.throwIfAborted();
