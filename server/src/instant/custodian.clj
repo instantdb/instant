@@ -297,11 +297,23 @@
     (catch Throwable t
       (tracer/record-exception-span! t {:name "custodian/sample-lag-error"}))))
 
+(defn- should-pause?
+  "Whether the worker should hold off on writes right now: replication is lagging
+   (`backing-off?`), we're failing over and must leave the old primary alone, or
+   the custodian is disabled. A pause is not a quit — it's released once the
+   condition clears; only `@stop?` exits the worker loop."
+  [backing-off?]
+  (or @backing-off?
+      (flags/failing-over?)
+      (flags/custodian-disabled?)))
+
 (defn- await-capacity!
-  "Blocks while replication is lagging so we don't outrun the WAL consumers.
-   Returns early if the worker is stopping."
+  "Blocks while `should-pause?` (replication lag or failover) so we don't outrun
+   the WAL consumers or write to a primary we're failing away from. Returns early
+   if the worker is stopping. A paused drain resumes where it left off once the
+   condition clears, without ever exiting the worker loop."
   [stop? backing-off?]
-  (while (and @backing-off? (not @stop?))
+  (while (and (should-pause? backing-off?) (not @stop?))
     (Thread/sleep (long (idle-sleep-ms)))))
 
 ;; ----------

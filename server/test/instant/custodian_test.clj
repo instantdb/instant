@@ -389,3 +389,56 @@
       (with-redefs [custodian/max-replication-lag-bytes (fn [_] 0)]
         (custodian/sample-lag! backing-off?))
       (is (false? @backing-off?)))))
+
+;; ----------
+;; Failover / disabled pause
+
+(deftest should-pause-covers-lag-failover-and-disabled
+  (let [not-lagging (atom false)]
+    (testing "no lag and no flags set -> don't pause"
+      (is (not (#'custodian/should-pause? not-lagging))))
+    (testing "replication lag -> pause"
+      (is (#'custodian/should-pause? (atom true))))
+    (testing "failing over -> pause even without lag"
+      (binding [flags/*toggle-overrides* {:failing-over true}]
+        (is (#'custodian/should-pause? not-lagging))))
+    (testing "custodian disabled -> pause even without lag"
+      (binding [flags/*toggle-overrides* {:custodian-disabled? true}]
+        (is (#'custodian/should-pause? not-lagging))))))
+
+(deftest failing-over-parks-an-in-flight-drain-then-resumes
+  (with-empty-app
+    (fn [app]
+      (let [app-id (:id app)
+            conn (aurora/conn-pool :write)]
+        (seed-app! app-id)
+        (mark-app-for-deletion! conn app-id)
+        (let [total (count-triples conn app-id)
+              ;; Delivered the moment the drain hits its park loop, so the
+              ;; assertions below run deterministically without a fixed sleep.
+              parked (promise)]
+          (is (pos? total))
+          (custodian/enqueue-app-deletion! conn {:app-id app-id})
+          (let [row (custodian/claim-row! conn)
+                stop? (atom false)]
+            (is (= "triples" (:type row)))
+            ;; The idle sleep both signals that the drain reached the park and
+            ;; keeps the interval tiny so stopping unparks it right away.
+            (with-redefs [custodian/idle-sleep-ms (fn [] (deliver parked true) 1)]
+              (let [fut (future
+                          (binding [flags/*toggle-overrides* {:failing-over true}]
+                            (#'custodian/process-row! stop? (atom false) conn row)))]
+                (testing "while failing over the drain parks and deletes nothing"
+                  @parked
+                  (is (not (realized? fut)))
+                  (is (= total (count-triples conn app-id))))
+                (testing "stopping unparks it; the untouched row is handed back"
+                  (reset! stop? true)
+                  @fut
+                  (let [triples-row (row-of-type conn app-id "triples")]
+                    (is (some? triples-row))
+                    (is (nil? (:worker_id triples-row)))))))
+            (testing "once we're no longer failing over the deletion finishes"
+              (drain-all! conn)
+              (is (zero? (count-triples conn app-id)))
+              (is (zero? (count-apps conn app-id))))))))))
