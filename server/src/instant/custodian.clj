@@ -257,7 +257,7 @@
          conn
          ["select max(pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn)) as lag
              from pg_replication_slots
-            where active and confirmed_flush_lsn is not null"])))
+            where confirmed_flush_lsn is not null"])))
 
 (defn- nudge-slots-in-dev! [conn]
   ;; When the db is idle the invalidator and aggregator replication slots never
