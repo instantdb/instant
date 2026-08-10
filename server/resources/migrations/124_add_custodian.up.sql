@@ -6,7 +6,7 @@ create table custodian (
   -- Set when a unit of work is scoped to a single attr (e.g. deleting one
   -- attr's triples). Null means the whole app.
   attr_id uuid references attrs(id) on delete cascade,
-  -- What this row deletes: 'triples' | 'transactions' | 'attr' | 'app'
+  -- What this row deletes: 'triples' | 'transactions' | 'attrs' | 'attr' | 'app'
   type text not null,
   -- The step this one depends on: it can't run until that step is done. Forms a
   -- chain, e.g. for an app: app depends on transactions depends on triples. A
