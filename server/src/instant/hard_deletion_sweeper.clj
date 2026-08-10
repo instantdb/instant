@@ -3,18 +3,16 @@
    [chime.core :as chime-core]
    [instant.custodian :as custodian]
    [instant.flags :as flags]
-   [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.util.date :as date-util]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
-   [instant.db.model.attr :as attr-model]
-   [instant.jdbc.aurora :as aurora])
+   [instant.db.model.attr :as attr-model])
   (:import
    (java.time Duration Period ZonedDateTime)))
 
-;; -------- 
-;; Config 
+;; ------
+;; Config
 
 (def grace-period-days 2)
 
@@ -35,30 +33,8 @@
 
 (def delete-timeout-seconds (.getSeconds (Duration/ofMinutes 5)))
 
-;; ---------- 
-;; Sweep 
-
-(defn straight-jacket-delete-app! [{:keys [id] :as app}]
-  (tracer/with-span! {:name "hard-deletion-sweeper/delete-app"
-                      :attributes app}
-    (try
-      (binding [sql/*query-timeout-seconds* delete-timeout-seconds]
-        (app-model/delete-immediately-by-id!
-         {:id id}))
-      (catch Throwable e
-        (tracer/add-exception! e {:escaping? false})))))
-
-(defn straight-jacket-delete-attr! [{app-id :app_id id :id :as attr}]
-  (tracer/with-span! {:name "hard-deletion-sweeper/delete-attr"
-                      :attributes attr}
-    (try
-      (binding [sql/*query-timeout-seconds* delete-timeout-seconds]
-        (attr-model/hard-delete-multi!
-         (aurora/conn-pool :write)
-         app-id
-         #{id}))
-      (catch Throwable e
-        (tracer/add-exception! e {:escaping? false})))))
+;; ----------
+;; Sweep
 
 (defn handle-sweep [_]
   (when-not (flags/failing-over?)
@@ -97,4 +73,3 @@
 (defn restart []
   (stop)
   (start))
-
