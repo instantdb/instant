@@ -172,6 +172,19 @@
                      (into [] cat (vals @proxied-websockets))
                      opts))
 
+(defn local-proxied-connections
+  "Summarizes the WebSocket connections this instance is currently proxying to
+   another backend, keyed by app id. The target comes from the live routing
+   table so it reflects the current config."
+  []
+  (let [table (flags/app-proxy-targets)]
+    (reduce-kv
+     (fn [acc app-id connections]
+       (assoc acc app-id {:count (count connections)
+                          :target (some-> ^URI (get table app-id) str)}))
+     {}
+     @proxied-websockets)))
+
 (defn- changed-app-ids [old-targets new-targets]
   ;; Includes apps that were added or removed as well as apps whose target
   ;; origin changed.

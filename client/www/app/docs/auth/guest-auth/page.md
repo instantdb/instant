@@ -9,7 +9,7 @@ Instant supports guest authentication. This allows your users to try your app be
 
 ## Signing in as a Guest
 
-Use `db.auth.signInAsGuest()` to create a new guest user. This will create a new guest user with an id, but no email address.
+Use `db.auth.signInAsGuest()` to create a new guest user. This will create a new guest user with an ID but no email address.
 
 You can set custom `$users` properties when creating the guest by passing `extraFields`:
 

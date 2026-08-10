@@ -47,7 +47,7 @@ const _schema = i.schema({
 
 ## Common mistakes with permissions
 
-Sometimes you want to express permissions based on an attribute in a linked entity. For those instances you can use `data.ref`.
+Sometimes you want to express permissions based on an attribute in a linked entity. For those instances, you can use `data.ref`.
 
 ❌ **Common mistake**: Not using `data.ref` to reference linked data
 
@@ -73,7 +73,7 @@ Sometimes you want to express permissions based on an attribute in a linked enti
 }
 ```
 
-When using `data.ref` the last part of the string is the attribute you want to access. If you do not specify an attribute an error will occur.
+When using `data.ref`, the last part of the string is the attribute you want to access. If you do not specify an attribute, an error will occur.
 
 ❌ **Common mistake**: Not specifying an attribute when using data.ref
 
@@ -143,7 +143,7 @@ Be careful when checking whether there are no linked entities. Here are a few co
 "view": "data.ref('owner.id') != []"
 ```
 
-Use `auth.ref` to reference the authenticated user's linked data. This behaves similar to `data.ref` but you _MUST_ use the `$user` prefix when referencing auth data:
+Use `auth.ref` to reference the authenticated user's linked data. This behaves similarly to `data.ref`, but you _MUST_ use the `$user` prefix when referencing auth data:
 
 ❌ **Common mistake**: Missing `$user` prefix with `auth.ref`
 
@@ -357,7 +357,7 @@ const query = { goals: {}, todos: {} };
 const query = { goals: { todos: {} } };
 ```
 
-Use `where` operator to filter entities:
+Use the `where` operator to filter entities:
 
 ❌ **Common mistake**: Placing `where` at the wrong level
 
@@ -385,7 +385,7 @@ const query = {
 };
 ```
 
-`where` operators support filtering entities based on associated values
+`where` operators support filtering entities based on associated values.
 
 ❌ **Common mistake**: Incorrect syntax for filtering on associated values
 
@@ -522,7 +522,7 @@ const query = {
 };
 ```
 
-Use the `order` operator to sort results
+Use the `order` operator to sort results.
 
 ❌ **Common mistake**: Using `orderBy` instead of `order`
 
@@ -571,7 +571,7 @@ const query = {
 
 ## Common mistakes with Instant on the backend
 
-Use `db.query` in the admin SDK instead of `db.useQuery`. It is an async API without loading states. We wrap queries in try catch blocks to handle errors. Unlike the client SDK, queries in the admin SDK bypass permission checks
+Use `db.query` in the Admin SDK instead of `db.useQuery`. It is an async API without loading states. We wrap queries in try-catch blocks to handle errors. Unlike the client SDK, queries in the Admin SDK bypass permission checks.
 
 ❌ **Common mistake**: Using `db.useQuery` in the admin SDK
 
@@ -603,7 +603,7 @@ InstantDB does not provide built-in username/password authentication.
 
 ❌ **Common mistake**: Using password-based authentication in client-side code
 
-✅ **Correction**: Use Instant's magic code or OAuth flows instead in client-side code
+✅ **Correction**: Use Instant's magic code or OAuth flows in client-side code instead
 
 If you need traditional password-based authentication, you must implement it as a custom auth flow using the Admin SDK.
 

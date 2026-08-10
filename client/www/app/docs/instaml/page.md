@@ -5,7 +5,7 @@ nextjs:
     description: 'How to write data with Instant using InstaML.'
 ---
 
-Instant uses a **Firebase-inspired** interface for mutations. We call our mutation language **InstaML**
+Instant uses a **Firebase-inspired** interface for mutations. We call our mutation language **InstaML**.
 
 ## Creating data
 
@@ -39,7 +39,7 @@ db.transact(
 
 ## Update data
 
-The `update` action is used for updating entities. Suppose we had created the following goal
+The `update` action is used for updating entities. Suppose we had created the following goal:
 
 ```javascript
 const eatId = id();
@@ -56,7 +56,7 @@ db.transact(db.tx.goals[eatId].update({ lastTimeEaten: 'Today' }));
 
 This will only update the value of the `lastTimeEaten` attribute for entity `eat`.
 
-Similar to NoSQL, you don't need to use the same schema for each entity in a namespace. After creating the previous goal you can run the following:
+As with NoSQL, you don't need to use the same schema for each entity in a namespace. After creating the previous goal, you can run the following:
 
 ```javascript
 db.transact(
@@ -70,9 +70,9 @@ db.transact(
 );
 ```
 
-`update` function works as create or update depending on whether the entity already exists or not (so called "upsert" mode). If entity doesn’t exist yet, calling `update` will create it, otherwise it will update.
+The `update` function creates or updates an entity depending on whether it already exists (so-called "upsert" mode). If the entity doesn’t exist yet, calling `update` will create it; otherwise, it will update it.
 
-To force “strict update” mode, pass `{ upsert: false }` option:
+To force “strict update” mode, pass the `{ upsert: false }` option:
 
 ```javascript
 db.transact(
@@ -84,12 +84,12 @@ db.transact(
 
 When you `update` an attribute, you overwrite it. This is fine for updating
 values of strings, numbers, and booleans. But if you use `update` to overwrite
-json objects you may encounter two problems:
+JSON objects, you may encounter two problems:
 
 1. You lose any data you didn't specify.
-2. You risk clobbering over changes made by other clients.
+2. You risk clobbering changes made by other clients.
 
-For example, imagine we had a `game` entity, that stored a `state` of favorite colors:
+For example, imagine we had a `game` entity that stored a `state` of favorite colors:
 
 ```javascript
 // User 1 saves {'0-0': 'red'}
@@ -98,11 +98,11 @@ db.transact(db.tx.games[gameId].update({ state: { '0-0': 'red' } }));
 // User 2 saves {'0-1': 'blue'}
 db.transact(db.tx.games[gameId].update({ state: { '0-1': 'blue' } }));
 
-// 🤔 Uh oh! User 2 overwrite User 1:
+// 🤔 Uh oh! User 2 overwrites User 1's changes:
 // Final State: {'0-1': 'blue' }
 ```
 
-To make working with deeply-nested, document-style JSON values a breeze, we created `merge`.
+To make working with deeply nested, document-style JSON values a breeze, we created `merge`.
 Similar to [lodash's `merge` function](https://lodash.com/docs/4.17.15#merge),
 `merge` allows you to specify the slice of data you want to update:
 
@@ -139,7 +139,7 @@ The `delete` action is used for deleting entities.
 db.transact(db.tx.goals[eatId].delete());
 ```
 
-You can generate an array of `delete` txs to delete all entities in a namespace
+You can generate an array of `delete` txs to delete all entities in a namespace:
 
 ```javascript
 const { isLoading, error, data } = db.useQuery({ goals: {} });
@@ -194,13 +194,13 @@ db.transact([
 ]);
 ```
 
-Links are bi-directional. Say we link `healthId` to `workoutId`
+Links are bi-directional. Say we link `healthId` to `workoutId`:
 
 ```javascript
 db.transact(db.tx.goals[healthId].link({ todos: workoutId }));
 ```
 
-We can query associations in both directions
+We can query associations in both directions:
 
 ```javascript
 const { isLoading, error, data } = db.useQuery({
@@ -215,7 +215,7 @@ console.log('todos with nested goals', todos);
 
 ## Unlink data
 
-Links can be removed via `unlink.`
+Links can be removed via `unlink`.
 
 ```javascript
 db.transact(db.tx.goals[healthId].unlink({ todos: workoutId }));
@@ -298,7 +298,7 @@ const _schema = i.schema({
 // ...
 ```
 
-Instant will enforce that `todos.dueDate` are actually dates, and you'll get some nice intellisense to boot:
+Instant will enforce that `todos.dueDate` values are actually dates, and you'll get some nice IntelliSense to boot:
 
 {% screenshot src="/img/docs/instaml-due-date.png" /%}
 
@@ -325,7 +325,7 @@ function myCustomUpdate<EType extends EntityTypes>(
 }
 ```
 
-And the `LinkParams` utility do the same for links:
+And the `LinkParams` utility can do the same for links:
 
 ```typescript
 import { LinkParams } from '@instantdb/react';
@@ -346,7 +346,7 @@ To learn more about writing schemas, check out the [Modeling Data](/docs/modelin
 ## Batching transactions
 
 If you have a large number of transactions to commit, you'll want to batch them
-to avoid hitting transaction limits and time outs.
+to avoid hitting transaction limits and timeouts.
 
 Suppose we want to create 3000 goals. Here's how we can batch them into 30 transactions of 100 goals each.
 
@@ -384,7 +384,7 @@ const createGoals = async (total) => {
 
 ## Using the tx proxy object
 
-`db.tx` is a [proxy object](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy) which creates transaction chunks to be committed via `db.transact`. It follows the format
+`db.tx` is a [proxy object](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy) which creates transaction chunks to be committed via `db.transact`. It follows the format:
 
 ```
 db.tx.NAMESPACE_LABEL[ENTITY_IDENTIFIER].ACTION(ACTION_SPECIFIC_DATA)
@@ -396,5 +396,5 @@ db.tx.NAMESPACE_LABEL[ENTITY_IDENTIFIER].ACTION(ACTION_SPECIFIC_DATA)
 - `ACTION_SPECIFIC_DATA` depends on the action
   - `create` and `update` take in an object of information to commit
   - `merge` takes in an object to deep merge with the existing data
-  - `delete` is the only action that doesn't take in any data,
-  - `link` and `unlink` takes an object of label-entity pairs to create/delete associations
+  - `delete` is the only action that doesn't take in any data
+  - `link` and `unlink` take an object of label-entity pairs to create/delete associations

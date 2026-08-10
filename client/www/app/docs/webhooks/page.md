@@ -29,7 +29,7 @@ Each request carries an `Instant-Signature` header and a small body. The body ho
 }
 ```
 
-`before` is `null` on `create`, `after` is `null` on `delete`. The `idempotencyKey` is stable across redeliveries — use it to dedupe if your handler isn't idempotent on its own.
+`before` is `null` on `create`; `after` is `null` on `delete`. The `idempotencyKey` is stable across redeliveries — use it to dedupe if your handler isn't idempotent on its own.
 
 The `before` and `after` fields include all of the data attributes on an entity, but none of its links.
 
@@ -43,7 +43,7 @@ Instant retries failed deliveries with backoff. An event moves through these sta
 - `error` — an attempt failed; another retry is scheduled
 - `failed` — all retries exhausted; will not be retried automatically
 
-Each delivery attempt has a **15-second timeout** — if your endpoint hasn't responded by then the attempt is recorded as a `timeout` error and Instant retries. Do any slow work (sending emails, calling third-party APIs, etc.) asynchronously, and respond with `2xx` as soon as you've durably enqueued the work.
+Each delivery attempt has a **15-second timeout** — if your endpoint hasn't responded by then, the attempt is recorded as a `timeout` error and Instant retries. Do any slow work (sending emails, calling third-party APIs, etc.) asynchronously, and respond with `2xx` as soon as you've durably enqueued the work.
 
 A webhook that fails too many times in a row is automatically disabled. You can re-enable it from the dashboard or via the SDK once you've fixed the receiver.
 
@@ -51,7 +51,7 @@ A webhook that fails too many times in a row is automatically disabled. You can 
 
 The easiest way to create a webhook is from the **Webhooks** tab in the dashboard: pick the namespaces, the actions, and the URL Instant should POST to.
 
-You can also manage webhooks programmatically with `npx instant-cli webhook` or through the admin SDK:
+You can also manage webhooks programmatically with `npx instant-cli webhook` or through the Admin SDK:
 
 ```ts {% showCopy=true %}
 // scripts/create-webhook.ts
@@ -218,7 +218,7 @@ const payload = await db.webhooks.fetchPayloads({ payloadUrl, token });
 
 ## Managing webhooks programmatically
 
-`db.webhooks.manager` exposes CRUD on webhooks and access to their delivery history. Use it from the admin SDK when you want to provision webhooks from code (e.g. during onboarding) rather than from the dashboard.
+`db.webhooks.manager` exposes CRUD on webhooks and access to their delivery history. Use it from the Admin SDK when you want to provision webhooks from code (e.g. during onboarding) rather than from the dashboard.
 
 ```ts {% showCopy=true %}
 // List
@@ -263,7 +263,7 @@ do {
   cursor = pageInfo.hasNextPage ? pageInfo.endCursor : null;
 } while (cursor);
 
-// Fetch one event by its isn (Instant Sequence Number)
+// Fetch one event by its ISN (Instant Sequence Number)
 const event = await db.webhooks.manager.getEvent(hook.id, isn);
 
 // Fetch the full payload for an event
@@ -275,7 +275,7 @@ await db.webhooks.manager.resendEvent(hook.id, isn);
 
 Each `event.attempts` entry records the HTTP status, response body (first 256 bytes), duration, and an `errorType` tag (`timeout`, `dns`, `connect`, `tls`, `protocol`, `network`, `unknown`) when delivery failed — usually enough to tell whether the receiver is the problem or the network is.
 
-`resendEvent` is rate-limited per event; if you call it twice in quick succession the second call will return a validation error and ask you to wait about a minute.
+`resendEvent` is rate-limited per event; if you call it twice in quick succession, the second call will return a validation error and ask you to wait about a minute.
 
 ## Verifying and fetching from any language
 
@@ -292,7 +292,7 @@ Every webhook arrives as a `POST` with two things you care about:
   ```
 
   - `t` — Unix timestamp (seconds) of when Instant signed the request
-  - `kid` — id of the signing key
+  - `kid` — ID of the signing key
   - `v1` — hex-encoded Ed25519 signature
 
 - A JSON body containing a short-lived URL and JWT:
@@ -528,6 +528,6 @@ Authorization: Bearer <token>
 Accept: application/json
 ```
 
-The response contains `data` array of records, plus a top-level `idempotencyKey`. The `token` is short-lived and will only fetch the single payload.
+The response contains a `data` array of records, plus a top-level `idempotencyKey`. The `token` is short-lived and will only fetch the single payload.
 
 Respond `2xx` once you've durably enqueued the records. Anything else (or no response within 15 seconds) is treated as a failure and the event is retried.

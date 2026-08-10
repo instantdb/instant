@@ -184,7 +184,7 @@ const data = {goals: _goals.map(g => (
 ))
 ```
 
-Now compare these two approaches with `InstaQL`
+Now compare these two approaches with `InstaQL`:
 
 ```javascript
 const query = {
@@ -195,13 +195,13 @@ const query = {
 const { isLoading, error, data } = db.useQuery(query);
 ```
 
-Modern applications often need to render nested relations, `InstaQL` really starts to shine for these use cases.
+Modern applications often need to render nested relations. `InstaQL` really starts to shine for these use cases.
 
 ## Fetch specific associations
 
 ### A) Fetch associations for filtered namespace
 
-We can fetch a specific entity in a namespace as well as it's related associations.
+We can fetch a specific entity in a namespace as well as its related associations.
 
 ```javascript
 const query = {
@@ -217,7 +217,7 @@ const query = {
 const { isLoading, error, data } = db.useQuery(query);
 ```
 
-Which returns
+This returns:
 
 ```javascript
 console.log(data)
@@ -247,7 +247,7 @@ console.log(data)
 
 ### B) Filter namespace by associated values
 
-We can filter namespaces **by their associations**
+We can filter namespaces **by their associations**:
 
 ```javascript
 const query = {
@@ -263,7 +263,7 @@ const query = {
 const { isLoading, error, data } = db.useQuery(query);
 ```
 
-Returns
+This returns:
 
 ```javascript
 console.log(data)
@@ -310,7 +310,7 @@ const query = {
 const { isLoading, error, data } = db.useQuery(query);
 ```
 
-This will return goals and filtered todos
+This will return goals and filtered todos:
 
 ```javascript
 console.log(data)
@@ -414,7 +414,7 @@ const {
 
 ## Pagination
 
-You can limit the number of items from a top level namespace by adding a `limit` to the option map:
+You can limit the number of items from a top-level namespace by adding a `limit` to the option map:
 
 ```javascript
 const query = {
@@ -671,7 +671,7 @@ console.log(data)
 
 The `where` clause supports `and` queries which are useful when you want to filter entities that match multiple associated values.
 
-In this example we want to find goals that have todos with the titles `Drink protein` and `Go on a run`
+In this example, we want to find goals that have todos with the titles `Drink protein` and `Go on a run`:
 
 ```javascript
 const query = {
@@ -981,9 +981,9 @@ console.log(data)
 
 The `where` clause supports `$like` on fields that are indexed with a checked `string` type.
 
-`$like` queries will return entities that match a **case sensitive** substring of the provided value for the field.
+`$like` queries will return entities that match a **case-sensitive** substring of the provided value for the field.
 
-For **case insensitive** matching use `$ilike` in place of `$like`.
+For **case-insensitive** matching, use `$ilike` in place of `$like`.
 
 Here's how you can do queries like `startsWith`, `endsWith` and `includes`.
 
@@ -1022,7 +1022,7 @@ console.log(data)
 }
 ```
 
-You can use `$like` in nested queries as well
+You can use `$like` in nested queries as well:
 
 ```javascript
 // Find goals that have todos with the word "standup" in their title
@@ -1038,7 +1038,7 @@ const query = {
 const { isLoading, error, data } = db.useQuery(query);
 ```
 
-Returns
+This returns:
 
 ```javascript
 console.log(data)
@@ -1160,7 +1160,7 @@ selected fields.
 {% callout type="warning" %}
 
 Using `fields` doesn't restrict a client from doing a full query. If you have sensitive data on your entities that you
-don't want to expose you'll want to use [permissions](/docs/permissions#fields) to restrict access.
+don't want to expose, you'll want to use [permissions](/docs/permissions#fields) to restrict access.
 
 {% /callout %}
 
@@ -1205,7 +1205,7 @@ const _schema = i.schema({
   },
 });
 
-// This helps TypeScript display better intellisense
+// This helps TypeScript display better IntelliSense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
@@ -1214,7 +1214,7 @@ export type { AppSchema };
 export default schema;
 ```
 
-Instant will start giving you intellisense for your queries. For example, if you're querying for goals, you'll see that only `todos` can be associated:
+Instant will start giving you IntelliSense for your queries. For example, if you're querying for goals, you'll see that only `todos` can be associated:
 
 {% screenshot src="/img/docs/instaql-todos-goals-autocomplete.png" /%}
 
@@ -1266,7 +1266,7 @@ To learn more about writing schemas, check out the [Modeling Data](/docs/modelin
 
 ## Query once
 
-Sometimes, you don't want a subscription, and just want to fetch data once. For example, you might want to fetch data before rendering a page or check whether a user name is available.
+Sometimes, you don't want a subscription and just want to fetch data once. For example, you might want to fetch data before rendering a page or check whether a username is available.
 
 In these cases, you can use `queryOnce` instead of `useQuery`. `queryOnce` returns a promise that resolves with the data once the query is complete.
 

@@ -29,7 +29,7 @@ App team members can have one of three roles: collaborator, admin or owner.
 
 #### Inviting a team member
 
-A pro app's admin or owner simply needs to navigate to the [Dashboard Admin tab](https://instantdb.com/dash?s=main&t=admin) and click "Invite a team member". This will open a dialog that accepts an email and role. This will send an email with instructions to the specified address.
+A Pro app's admin or owner simply needs to navigate to the [Dashboard Admin tab](https://instantdb.com/dash?s=main&t=admin) and click "Invite a team member". This will open a dialog that accepts an email address and a role. This will send an email with instructions to the specified address.
 
 #### Accepting an invite
 

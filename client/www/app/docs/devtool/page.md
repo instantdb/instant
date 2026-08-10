@@ -5,7 +5,7 @@ nextjs:
     description: 'Use the Instant devtool to inspect your app in development.'
 ---
 
-When you load your app in development, you'll notice a little "Instant" Icon show up:
+When you load your app in development, you'll notice a little "Instant" icon show up:
 
 {% screenshot src="/img/docs/devtool-pointer.jpg" /%}
 
@@ -37,7 +37,7 @@ const db = init({
 });
 ```
 
-You can set `bottom-left`, `top-left`, `top-right`, `bottom-right`.
+You can set it to `bottom-left`, `top-left`, `top-right`, or `bottom-right`.
 
 ## Custom Hosts
 
@@ -79,4 +79,4 @@ To quickly toggle the window, you can use the shortcut `ctrl` + `shift` + `0` (z
 
 ## Feedback?
 
-If you have any feedback, let us know on [Discord](https://discord.com/invite/VU53p7uQcE)
+If you have any feedback, let us know on [Discord](https://discord.com/invite/VU53p7uQcE).

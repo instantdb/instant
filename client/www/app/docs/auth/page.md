@@ -5,7 +5,7 @@ nextjs:
     description: 'Instant supports magic code, OAuth, Clerk, and custom auth.'
 ---
 
-Instant comes with support for auth. We currently offer [Magic Codes](/docs/auth/magic-codes), [Guest Auth](/docs/auth/guest-auth), [Google OAuth](/docs/auth/google-oauth), [Sign In with Apple](/docs/auth/apple), [Github OAuth](/docs/auth/github-oauth), [LinkedIn OAuth](/docs/auth/linkedin-oauth), and [Clerk](/docs/auth/clerk). If you want to build your own flow, you can use the [Admin SDK](/docs/backend#custom-auth).
+Instant comes with support for auth. We currently offer [Magic Codes](/docs/auth/magic-codes), [Guest Auth](/docs/auth/guest-auth), [Google OAuth](/docs/auth/google-oauth), [Sign In with Apple](/docs/auth/apple), [GitHub OAuth](/docs/auth/github-oauth), [LinkedIn OAuth](/docs/auth/linkedin-oauth), and [Clerk](/docs/auth/clerk). If you want to build your own flow, you can use the [Admin SDK](/docs/backend#custom-auth).
 
 ## Auth Overview
 
@@ -21,7 +21,7 @@ function Dashboard() {
 }
 ```
 
-The `useUser` hook will throw an error if it is accessed while the user is not logged in, so it should be gated behind `<db.SignedIn>`
+The `useUser` hook will throw an error if it is accessed while the user is not logged in, so it should be gated behind `<db.SignedIn>`.
 
 ```tsx
 import db from '../lib/db';
@@ -102,7 +102,7 @@ function Login() {
 }
 ```
 
-To implement a login flow use one of the authentication method guides below.
+To implement a login flow, use one of the authentication method guides below.
 
 ## Authentication Methods
 
@@ -124,8 +124,8 @@ To implement a login flow use one of the authentication method guides below.
             description="Sign In to native apps with Apple ID."
             /%}
 {% nav-button href="/docs/auth/github-oauth"
-            title="Github OAuth"
-            description="Log in with Github on both Web and React Native."
+            title="GitHub OAuth"
+            description="Log in with GitHub on both Web and React Native."
             /%}
 {% nav-button href="/docs/auth/linkedin-oauth"
             title="LinkedIn OAuth"
@@ -148,12 +148,12 @@ To implement a login flow use one of the authentication method guides below.
 
 ## Additional Auth APIs
 
-Sometimes you need finer control over the state of auth in your application. In those cases, you can use some of the lower-level API.
+Sometimes you need finer control over the state of auth in your application. In those cases, you can use some of the lower-level APIs.
 
 ### useAuth
 
 Use `useAuth` to fetch the current user. In this example we guard against loading
-our `Main` component until a user is logged in
+our `Main` component until a user is logged in:
 
 ```javascript
 function App() {

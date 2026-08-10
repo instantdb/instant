@@ -41,6 +41,22 @@
                   x)
                 config)))
 
+(deftest env-override-naming
+  (is (= "INSTANT_CONFIG_S3_ENDPOINT"
+         (config-edn/config-env-var-name :s3-endpoint)))
+  (is (= "INSTANT_CONFIG_POSTMARK_TOKEN"
+         (config-edn/config-env-var-name :postmark-token))))
+
+(deftest env-overrides-obfuscate-secrets-only
+  ;; With no INSTANT_CONFIG_* env vars set, there's nothing to override.
+  (is (= {} (config-edn/env-overrides crypt-util/obfuscate)))
+  ;; A string-valued config key is overridable; a structured one is not.
+  (let [overridable? #(some? (#'config-edn/overridable-key-type %))]
+    (is (overridable? :s3-endpoint))
+    (is (overridable? :postmark-token))
+    (is (not (overridable? :google-oauth-client)))
+    (is (not (overridable? :aead-keyset)))))
+
 (deftest config-smoketest
   (testing "dev config"
     ;; If this test fails, then there is either something wrong

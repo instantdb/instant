@@ -5,7 +5,7 @@ nextjs:
     description: 'Use the Explorer Component in your own apps'
 ---
 
-The explorer page from the Instant Dashboard is available as an installable React component that you can use in your own apps. This is especially useful if you're building **a platform or app builder** powered by Instant
+The explorer page from the Instant Dashboard is available as an installable React component that you can use in your own apps. This is especially useful if you're building **a platform or app builder** powered by Instant.
 
 ```tsx
 import './App.css';

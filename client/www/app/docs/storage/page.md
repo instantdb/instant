@@ -10,7 +10,7 @@ You can store images, videos, documents, and any other file type.
 
 ## Storage quick start
 
-Let's build a full example of how to upload and display a grid of images
+Let's build a full example of how to upload and display a grid of images:
 
 ```shell {% showCopy=true %}
 npx create-next-app instant-storage --tailwind --yes
@@ -18,7 +18,7 @@ cd instant-storage
 npm i @instantdb/react
 ```
 
-Initialize your schema and permissions via the [cli tool](/docs/cli)
+Initialize your schema and permissions via the [CLI tool](/docs/cli):
 
 ```
 npx instant-cli@latest init
@@ -43,7 +43,7 @@ const _schema = i.schema({
   rooms: {},
 });
 
-// This helps TypeScript display nicer intellisense
+// This helps TypeScript display nicer IntelliSense
 type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
@@ -52,7 +52,7 @@ export type { AppSchema };
 export default schema;
 ```
 
-Similarly open `instant.perms.ts` and replace the contents with the following
+Similarly, open `instant.perms.ts` and replace the contents with the following:
 
 ```javascript {% showCopy=true %}
 import type { InstantRules } from "@instantdb/react";
@@ -72,7 +72,7 @@ const rules = {
 export default rules;
 ```
 
-Push up both the schema and permissions to your Instant app with the following command
+Push up both the schema and permissions to your Instant app with the following command:
 
 ```shell {% showCopy=true %}
 npx instant-cli@latest push
@@ -94,7 +94,7 @@ const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID;
 const db = init({ appId: APP_ID, schema });
 
 // `uploadFile` is what we use to do the actual upload!
-// the `$files` will automatically update once the upload is complete
+// The `$files` query will automatically update once the upload is complete
 async function uploadImage(file: File) {
   try {
     // Optional metadata you can set for uploads
@@ -250,13 +250,13 @@ upload and delete images!
 ## Storage client SDK
 
 Below you'll find a more detailed guide on how to use the Storage API from
-react.
+React.
 
 ### Upload files
 
 Use `db.storage.uploadFile(path, file, opts?)` to upload a file.
 
-- `path` determines where the file will be stored, and can be used with permissions to restrict access to certain files.
+- `path` determines where the file will be stored and can be used with permissions to restrict access to certain files.
 - `file` should be a [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File) type, which will likely come from a [file-type input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/file).
 - `opts` can be used to set additional metadata like `contentType` and `contentDisposition`
 
@@ -431,7 +431,7 @@ await db.transact(
 );
 ```
 
-`path` is a unique attribute so if another file exists with that path, then the transaction
+`path` is a unique attribute, so if another file exists with that path, then the transaction
 will fail.
 
 At the moment we only allow updating the `path` attribute of `$files`, as well as any custom columns you've created. If you
@@ -439,7 +439,7 @@ try to update another attribute like `content-type` the transaction will fail.
 
 ### Link files
 
-When the upload succeeds, `uploadFile` returns a `data` object containing a file ID associated with the uploaded file. You can use this id to link the file to other namespaces.
+When the upload succeeds, `uploadFile` returns a `data` object containing a file ID associated with the uploaded file. You can use this ID to link the file to other namespaces.
 
 ```javascript
 async function uploadImage(file: File) {
@@ -454,7 +454,7 @@ async function uploadImage(file: File) {
 ```
 
 [Check out this repo](https://github.com/jsventures/instant-storage-avatar-example)
-for a more detailed example showing how you may leverage links to implement an avatar upload feature
+for a more detailed example showing how you may leverage links to implement an avatar upload feature.
 
 ## Using Storage with React Native
 
@@ -486,7 +486,7 @@ const file = new File([blob], 'my_file.m4a', { type: 'audio/x-m4a' });
 await db.storage.uploadFile('my_file.m4a', file);
 ```
 
-## Storage admin SDK
+## Storage Admin SDK
 
 The Admin SDK offers a similar API for managing storage on the server. Permission
 checks are not enforced when using the Admin SDK, so you can use it to manage
@@ -495,7 +495,7 @@ files without worrying about authentication.
 ### Uploading files
 
 `db.storage.uploadFile(path, file, opts?)` is also available to upload a file
-on the backend. In the admin SDK, the `file` argument must either be a buffer
+on the backend. In the Admin SDK, the `file` argument must either be a buffer
 or a stream.
 
 ```tsx
@@ -551,8 +551,8 @@ await db.transact(fileIds.map((id) => db.tx.$files[id].delete()));
 
 ### Link files
 
-Similar to the client SDK, after uploading a file, you can use the response to
-link the upload to other entities.
+As with the client SDK, you can use the response after uploading a file to link
+the upload to other entities.
 
 ```typescript
 // Assume we have a user ID and a buffer for the file
@@ -568,11 +568,11 @@ By default, Storage permissions are disabled. This means that until you explicit
 - _view_ permissions enable viewing `$files`
 - _update_ permissions enable updating `$files`
 - _delete_ permissions enable deleting `$files`
-- _view_ permissions on `$files` and _update_ permissions on the forward entity enabling linking and unlinking `$files`
+- _view_ permissions on `$files` and _update_ permissions on the forward entity enable linking and unlinking `$files`
 
 In your permissions rules, you can use `auth` to access the currently authenticated user, and `data` to access the file metadata.
 
-At the moment, the only available file metadata is `data.path`, which represents the file's path in Storage. Here are some example permissions
+At the moment, the only available file metadata is `data.path`, which represents the file's path in Storage. Here are some example permissions:
 
 Allow anyone to upload and retrieve files (easy to play with but not recommended for production):
 
@@ -601,7 +601,7 @@ Allow all authenticated users to view and upload files:
 }
 ```
 
-Authenticated users may only upload, view, update files from their own subdirectory:
+Authenticated users may only upload, view, and update files from their own subdirectory:
 
 ```json
 {

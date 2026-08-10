@@ -9,7 +9,7 @@ nextjs:
 
 The fastest way to get started with Instant on TanStack Start is to use npx create-instant-app to scaffold a new project with Instant already set up.
 
-To get started run:
+To get started, run:
 
 ```shell
 npx create-instant-app -b tanstack-start
@@ -17,7 +17,7 @@ npx create-instant-app -b tanstack-start
 
 ## Manual Setup
 
-The following guide demonstrates the basics for manually scaffolding a new tanstack project with Instant and managing data. In general we recommend the automatic setup above which includes all of this and a basic auth flow and other useful full-stack utilities.
+The following guide demonstrates the basics for manually scaffolding a new TanStack project with Instant and managing data. In general, we recommend the automatic setup above, which includes all of this, a basic auth flow, and other useful full-stack utilities.
 
 Create a blank TanStack Start app:
 
@@ -31,7 +31,7 @@ Add the InstantDB React Library:
 npm i @instantdb/react
 ```
 
-Use `instant-cli` to set up a new Instant project. This will prompt you to log in if you haven't already. It will then create a schema file, permissions file, and update your `.env` file.
+Use `instant-cli` to set up a new Instant project. This will prompt you to log in if you haven't already. It will then create schema and permissions files and update your `.env` file.
 
 ```shell
 npx instant-cli init
@@ -52,7 +52,7 @@ export const db = init({
 });
 ```
 
-You're now ready to make queries and transactions to your database!
+You're now ready to run queries and transactions against your database!
 
 ### Creating a To-Do List App
 
@@ -260,6 +260,6 @@ Want to dive deeper on how this todo app works? Check out our step-by-step [Todo
 
 For the advanced use case of integrating with TanStack Query and enabling SSR, refer to our [tanstack-start-with-tanstack-query](https://github.com/instantdb/instant/tree/main/examples/tanstack-start-with-tanstack-query) example. It can be scaffolded using `npx create-instant-app -b tanstack-start-with-tanstack-query`.
 
-You can also check out the [Working with data](/docs/init) section to learn more Instant concepts.
+You can also check out the [Working with data](/docs/init) section to learn more about Instant concepts.
 
 As you get more familiar with Instant, check out our [Recommended Workflow](/docs/workflow) docs for using Instant in your projects.

@@ -7,9 +7,9 @@ nextjs:
 
 ## Automatic Setup With Create Instant App
 
-The fastest way to get started with Instant with SolidJS is to use create-instant-app to scaffold a new project with Instant already set up.
+The fastest way to get started with Instant and SolidJS is to use create-instant-app to scaffold a new project with Instant already set up.
 
-To get started run:
+To get started, run:
 
 ```shell
 npx create-instant-app -b solidjs-vite
@@ -29,7 +29,7 @@ Add the InstantDB SolidJS Library:
 npm i @instantdb/solidjs
 ```
 
-Use `instant-cli` to set up a new Instant project. This will prompt you to log in if you haven't already. It will then create a schema file, permissions file, and update your `.env` file.
+Use `instant-cli` to set up a new Instant project. This will prompt you to log in if you haven't already. It will then create schema and permissions files and update your `.env` file.
 
 ```shell
 npx instant-cli init
@@ -50,7 +50,7 @@ export const db = init({
 });
 ```
 
-You're now ready to make queries and transactions to your database!
+You're now ready to run queries and transactions against your database!
 
 ### Creating a To-Do List App
 
@@ -296,7 +296,7 @@ In Solid, query results are returned as [Signals](https://docs.solidjs.com/conce
 Incorrect Usage:
 
 ```typescript
-// ❌ Data cannot be destructed from an Accessor
+// ❌ Data cannot be destructured from an Accessor
 const { data } = db.useQuery({ todos: {} });
 
 // ❌ state().data() must be called from a Tracking Scope
@@ -331,4 +331,4 @@ const TodoCount = () => {
 }
 ```
 
-Transactions in Solid work the same way they do in React via `db.transact`. To learn more see our [writing data](/docs/instaml) docs.
+Transactions in Solid work the same way they do in React via `db.transact`. To learn more, see our [writing data](/docs/instaml) docs.

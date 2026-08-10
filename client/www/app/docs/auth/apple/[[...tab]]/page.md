@@ -12,7 +12,7 @@ Instant supports Sign In with Apple on the Web and in native applications.
 {% nav-group %}
 {% nav-button param="method" value="web-popup" title="Web Popup (recommended)" description="Use Apple-provided popup to authenticate users" /%}
 {% nav-button param="method" value="web-redirect" title="Web Redirect" description="Use redirect flow to authenticate users" /%}
-{% nav-button param="method" value="native" title="React Native" description="Authenticating in React Native app" /%}
+{% nav-button param="method" value="native" title="React Native" description="Authenticate in a React Native app" /%}
 {% /nav-group %}
 
 ## Step 1: Create App ID
@@ -38,12 +38,12 @@ Instant supports Sign In with Apple on the Web and in native applications.
 
 ## Step 3: Configure Services ID (Web Popup flow)
 
-- Select newly created Services ID
+- Select the newly created Services ID
 - Enable _Sign In with Apple_
 - Click _Configure_
 - Select _Primary App ID_ from Step 1
 - To _Domains_, add your app domain (e.g. `myapp.com`)
-- To _Return URLs_, add URL of your app where authentication happens (e.g. `https://myapp.com/signin`)
+- To _Return URLs_, add the URL of your app where authentication happens (e.g. `https://myapp.com/signin`)
 - Click _Continue_ → _Save_
 
 {% /conditional %}
@@ -52,7 +52,7 @@ Instant supports Sign In with Apple on the Web and in native applications.
 
 ## Step 3: Configure Services ID (Web Redirect flow)
 
-- Select newly created Services ID
+- Select the newly created Services ID
 - Enable _Sign In with Apple_
 - Click _Configure_
 - Select _Primary App ID_ from Step 1
@@ -231,7 +231,7 @@ const authUrl = db.auth.createAuthorizationURL({
 });
 ```
 
-Add a link uses `authUrl`:
+Add a link that uses `authUrl`:
 
 ```
 <a href={ authUrl }>Sign In with Apple</a>
@@ -244,7 +244,7 @@ That’s it!
 
 ## Step 5: Add Sign In code to your app (React Native flow)
 
-Instant comes with support for [Expo AppleAuthentication library](https://docs.expo.dev/versions/latest/sdk/apple-authentication/).
+Instant comes with support for the [Expo AppleAuthentication library](https://docs.expo.dev/versions/latest/sdk/apple-authentication/).
 
 Add dependency:
 

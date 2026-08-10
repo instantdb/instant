@@ -188,7 +188,7 @@ export async function POST(req) {
 
 ### resumable-stream
 
-[`@instantdb/resumable-stream`](https://www.npmjs.com/package/@instantdb/resumable-stream) is a drop-in replacement for Vercel's `resumable-stream` library that supports resuming ongoing streams after page reloads. It requires no Redis instance and your streams never expire.
+[`@instantdb/resumable-stream`](https://www.npmjs.com/package/@instantdb/resumable-stream) is a drop-in replacement for Vercel's `resumable-stream` library that supports resuming ongoing streams after page reloads. It requires no Redis instance, and your streams never expire.
 
 #### Client-side: Enable stream resumption
 

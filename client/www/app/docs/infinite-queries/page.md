@@ -7,7 +7,7 @@ nextjs:
 
 It is a common pattern to show users a long list of items that gets larger as they interact. Instant supports this pattern with the `useInfiniteQuery` hook.
 
-The useInfiniteQuery hook is designed to work just like the useQuery hook. You make the same kind of queries and it returns the same kind of data. But now you get a canLoadNextPage variable, and a loadNextPage function to load more items.
+The useInfiniteQuery hook is designed to work just like the useQuery hook. You make the same kind of queries, and it returns the same kind of data. But now you get a canLoadNextPage variable and a loadNextPage function to load more items.
 
 ## Example
 
@@ -51,11 +51,11 @@ function HomePage() {
 }
 ```
 
-Any new posts that get created will automatically appear at the top, and as the user scrolls, the `loadNextPage` can load older posts as needed.
+Any new posts that get created will automatically appear at the top, and as the user scrolls, the `loadNextPage` function can load older posts as needed.
 
 ## Reactivity
 
-Just like `useQuery`, all data returned is fully reactive. Updating and deleting items will react immediately. New items added to the "start" of the query will show up automatically as well as items anywhere in the middle. Items that _would_ be ordered at the very end of the results will show up if the limit for that page has not yet been reached.
+Just like `useQuery`, all data returned is fully reactive. Updates and deletions will appear immediately. New items added to the "start" of the query will show up automatically, as will items added anywhere in the middle. Items that _would_ be ordered at the very end of the results will show up if the limit for that page has not yet been reached.
 
 For example, with `{todos: {$: {limit: 20, order: createdAt: "asc"}}}` (showing oldest todos first)
 

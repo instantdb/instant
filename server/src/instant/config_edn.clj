@@ -2,6 +2,7 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
+            [clojure.string]
             [clojure.walk :as w]
             [clojure.tools.logging :as log])
   (:import (org.apache.commons.codec.binary Hex)))
@@ -148,6 +149,53 @@
 
 (def associated-data (.getBytes "config"))
 
+(defn- keys-spec-keys
+  "Returns the unqualified config keys declared by an `s/keys` spec."
+  [spec-kw]
+  (let [opts (apply hash-map (rest (s/form spec-kw)))]
+    (map (comp keyword name)
+         (concat (:req-un opts) (:opt-un opts)))))
+
+(def config-keys
+  "Every config key known to the spec, whether it's required in dev or prod."
+  (delay (distinct (concat (keys-spec-keys ::config)
+                           (keys-spec-keys ::config-prod)))))
+
+(defn- overridable-key-type
+  "Classifies a config key as :secret (a `::config-value`, stored obfuscated),
+   :plain (a bare string), or nil for structured keys we can't represent as a
+   single env var (keysets, oauth clients, etc.)."
+  [config-key]
+  (let [spec-kw (keyword (namespace ::config) (name config-key))]
+    (when (s/get-spec spec-kw)
+      (let [form (s/form spec-kw)]
+        (cond
+          (= form 'clojure.core/string?) :plain
+          (= form (s/form ::config-value)) :secret)))))
+
+(defn config-env-var-name
+  "The env var that overrides `config-key`, e.g. :s3-endpoint ->
+   INSTANT_CONFIG_S3_ENDPOINT."
+  [config-key]
+  (str "INSTANT_CONFIG_"
+       (-> (name config-key)
+           (clojure.string/upper-case)
+           (clojure.string/replace "-" "_"))))
+
+(defn env-overrides
+  "Reads INSTANT_CONFIG_* env vars for every string-valued config key, so any
+   such setting in the edn file can be overridden from the environment. Secrets
+   are obfuscated so they read back like the decrypted config."
+  [obfuscate]
+  (reduce (fn [acc k]
+            (if-let [t (overridable-key-type k)]
+              (if-let [v (System/getenv (config-env-var-name k))]
+                (assoc acc k (if (= t :secret) (obfuscate v) v))
+                acc)
+              acc))
+          {}
+          @config-keys))
+
 (defn decrypted-config
   "Given a config edn, decrypts the config and obfsucates the secrets
   Takes `obfuscate`, `get-hybrid-decrypt-primitive`, and `hybrid-decrypt`
@@ -165,18 +213,22 @@
                   (hybrid-decrypt hybrid
                                   {:ciphertext (Hex/decodeHex ^String hex-string)
                                    :associated-data associated-data}))]
-    (w/postwalk
-     (fn [x]
-       (if-not (and (vector? x)
-                    (keyword? (first x))
-                    (= (namespace (first x))
-                       (namespace ::test)))
-         x
-         (case (first x)
-           ::plain (obfuscate (second x))
-           ::encoded (-> ^bytes (decrypt (-> x second :enc))
-                         (String.)
-                         obfuscate)
-           ::encoded-bytes (-> ^bytes (decrypt (-> x second :enc-bytes))
-                               obfuscate))))
-     (s/conform ::config config-edn))))
+    (merge
+     (w/postwalk
+      (fn [x]
+        (if-not (and (vector? x)
+                     (keyword? (first x))
+                     (= (namespace (first x))
+                        (namespace ::test)))
+          x
+          (case (first x)
+            ::plain (obfuscate (second x))
+            ::encoded (-> ^bytes (decrypt (-> x second :enc))
+                          (String.)
+                          obfuscate)
+            ::encoded-bytes (-> ^bytes (decrypt (-> x second :enc-bytes))
+                                obfuscate))))
+      (s/conform ::config config-edn))
+     ;; Any string-valued config key can be overridden from the environment
+     ;; via INSTANT_CONFIG_<SNAKE_CASE_KEY>.
+     (env-overrides obfuscate))))

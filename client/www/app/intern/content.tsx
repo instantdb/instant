@@ -11,6 +11,7 @@ import {
 } from '@/components/marketingUi';
 import { Button, FullscreenLoading } from '@/components/ui';
 import { useAdmin } from '@/lib/auth';
+import { isSelfHosted } from '@/lib/config';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { Footer } from '@/components/new-landing/Footer';
 
@@ -19,6 +20,8 @@ type ToolCard = {
   href: string;
   description: string;
   category: string;
+  availableOnSelfHosted?: boolean;
+  selfHostedOnly?: boolean;
 };
 
 const tools: ToolCard[] = [
@@ -55,6 +58,7 @@ const tools: ToolCard[] = [
     description:
       'Quick overview of who is using storage and how much data they are using',
     category: 'Analytics',
+    availableOnSelfHosted: true,
   },
   {
     title: 'Investor Updates',
@@ -97,6 +101,16 @@ const tools: ToolCard[] = [
     description:
       'Upload a backup zip to restore it into a new app. Runs in the background on the machine that receives the upload.',
     category: 'Other',
+    availableOnSelfHosted: true,
+  },
+  {
+    title: 'Deployment Settings',
+    href: '/intern/deployment-settings',
+    description:
+      'Manage access and instance-wide configuration for this self-hosted deployment.',
+    category: 'Other',
+    availableOnSelfHosted: true,
+    selfHostedOnly: true,
   },
 ];
 
@@ -165,7 +179,18 @@ export default function InternIndexPage() {
         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
     }`;
 
-  const filteredTools = tools.filter((tool) => {
+  const visibleTools = isSelfHosted
+    ? tools.filter((tool) => tool.availableOnSelfHosted)
+    : tools.filter((tool) => !tool.selfHostedOnly);
+  const visibleCategories = isSelfHosted
+    ? categories.filter(
+        (category) =>
+          category === 'All' ||
+          visibleTools.some((tool) => tool.category === category),
+      )
+    : categories;
+
+  const filteredTools = visibleTools.filter((tool) => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
       !searchTerm ||
@@ -185,15 +210,22 @@ export default function InternIndexPage() {
             <H2>Internal Tools</H2>
           </div>
           <div className="space-y-2 text-gray-700">
-            <p>
-              Below are various dashboards and tools we've built to help us
-              manage Instant. We've got things like our main metrics overview, a
-              generator for investor updates, an email previewer, and more.
-            </p>
-            <p>
-              Got an idea for something useful? Build it on intern and add it
-              here!
-            </p>
+            {isSelfHosted ? (
+              <p>Manage this Instant installation with the tools below.</p>
+            ) : (
+              <>
+                <p>
+                  Below are various dashboards and tools we've built to help us
+                  manage Instant. We've got things like our main metrics
+                  overview, a generator for investor updates, an email
+                  previewer, and more.
+                </p>
+                <p>
+                  Got an idea for something useful? Build it on intern and add
+                  it here!
+                </p>
+              </>
+            )}
           </div>
         </div>
 
@@ -209,7 +241,7 @@ export default function InternIndexPage() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
+            {visibleCategories.map((category) => (
               <button
                 key={category}
                 onClick={() => setActiveCategory(category)}

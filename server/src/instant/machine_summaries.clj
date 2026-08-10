@@ -1,5 +1,6 @@
 (ns instant.machine-summaries
   (:require
+   [instant.app-proxy :as app-proxy]
    [instant.flags :as flags]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.store :as rs]
@@ -58,6 +59,32 @@
                :session-reports
                (fn [_]
                  (get-session-reports (eph/get-hz))))))
+
+;; proxied connections
+
+(defn proxied-connections-task
+  []
+  (app-proxy/local-proxied-connections))
+
+(defn get-proxied-connections [hz]
+  (let [executor (HazelcastInstance/.getExecutorService hz "proxied-connections-executor")
+        futures (IExecutorService/.submitToAllMembers executor (hz/->Task #'proxied-connections-task))]
+    (into {} (for [[member fut] futures]
+               [(str (or (Member/.getAttribute member "instance-id")
+                         (Member/.getAddress member)))
+                @fut]))))
+
+(comment
+  (get-proxied-connections (eph/get-hz)))
+
+(def proxied-connections-cache
+  (cache/make
+   {:ttl 5000
+    :value-fn (fn [_]
+                (get-proxied-connections (eph/get-hz)))}))
+
+(defn get-proxied-connections-cached []
+  (cache/get proxied-connections-cache :proxied-connections))
 
 ;; num sessions
 
