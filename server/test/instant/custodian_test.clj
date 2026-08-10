@@ -428,16 +428,20 @@
               (let [fut (future
                           (binding [flags/*toggle-overrides* {:failing-over true}]
                             (#'custodian/process-row! stop? (atom false) conn row)))]
-                (testing "while failing over the drain parks and deletes nothing"
-                  @parked
-                  (is (not (realized? fut)))
-                  (is (= total (count-triples conn app-id))))
-                (testing "stopping unparks it; the untouched row is handed back"
-                  (reset! stop? true)
-                  @fut
-                  (let [triples-row (row-of-type conn app-id "triples")]
-                    (is (some? triples-row))
-                    (is (nil? (:worker_id triples-row)))))))
+                (try
+                  (testing "while failing over the drain parks and deletes nothing"
+                    (is (true? (deref parked 2000 ::timeout)) "drain reached its park loop")
+                    (is (not (realized? fut)))
+                    (is (= total (count-triples conn app-id))))
+                  (testing "stopping unparks it; the untouched row is handed back"
+                    (reset! stop? true)
+                    (is (not= ::timeout (deref fut 5000 ::timeout)) "drain returned after stop")
+                    (let [triples-row (row-of-type conn app-id "triples")]
+                      (is (some? triples-row))
+                      (is (nil? (:worker_id triples-row)))))
+                  (finally
+                    (reset! stop? true)
+                    (future-cancel fut)))))
             (testing "once we're no longer failing over the deletion finishes"
               (drain-all! conn)
               (is (zero? (count-triples conn app-id)))
