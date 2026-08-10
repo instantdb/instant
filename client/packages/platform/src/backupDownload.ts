@@ -78,13 +78,9 @@ export type DownloadBackupArchiveOpts = {
   onProgress?: (progress: BackupDownloadProgress) => void;
   /**
    * How many entries to fetch ahead of the one currently being written into
-   * the archive. Each backup entry needs a presigned URL and a fresh HTTP
-   * connection before its bytes flow; writing entries strictly one at a time
-   * pays that whole round-trip latency between every file. Fetching a few
-   * ahead overlaps the next files' latency with the current file's transfer,
-   * which is the dominant cost for backups with many small storage blobs.
+   * the archive.
    *
-   * Only fetch *initiation* is parallelised — the bodies are still written in
+   * Only fetch *initiation* is parallelised, the bodies are still written in
    * order and consumed one at a time, so an in-flight prefetched body buffers
    * only to its stream's high-water mark and memory stays bounded. Defaults to
    * {@link DEFAULT_PREFETCH}.
@@ -94,13 +90,12 @@ export type DownloadBackupArchiveOpts = {
    * Retry policy for *opening* an entry's body (fetching its presigned URL and
    * getting a live response). Prefetching keeps body connections open, paused,
    * while earlier entries write, so a queued connection can be reset before we
-   * read it — retrying the open recovers from that and other transient
-   * failures. `attempts` is the total number of tries (default
-   * {@link DEFAULT_FETCH_ATTEMPTS}); `delayMs` is the base for exponential
-   * backoff (default {@link DEFAULT_RETRY_DELAY_MS}).
+   * read it.
+   * `attempts` is the total number of tries (default {@link DEFAULT_FETCH_ATTEMPTS});
+   * `delayMs` is the base for exponential backoff (default {@link DEFAULT_RETRY_DELAY_MS}).
    *
-   * This only covers failures *before* the writer starts consuming the body:
-   * once bytes have been written into the archive entry there's no way to
+   * This only covers failures before the writer starts consuming the body.
+   * Once bytes have been written into the archive entry there's no way to
    * restart it without HTTP range/resume support, so a mid-stream failure
    * still fails the download.
    */
@@ -186,18 +181,18 @@ type PreparedEntry = {
  * A thunk that starts fetching one entry (presigned URL + body) and resolves
  * once the body stream is available — not once it's fully downloaded.
  */
-type EntrySpec = () => Promise<PreparedEntry>;
+type EntryThunk = () => Promise<PreparedEntry>;
 
 /**
- * Wraps an ordered stream of entry specs, keeping up to `lookahead` fetches
+ * Wraps an ordered stream of entry thunks, keeping up to `lookahead` fetches
  * in flight while yielding the prepared entries in their original order. A
- * background producer pulls specs and starts their fetches as space frees up;
+ * background producer pulls thunks and starts their fetches as space frees up;
  * the consumer awaits each in turn. Preserves order and backpressure: at most
  * `lookahead` bodies are ever in flight, and the producer parks when the
  * pipeline is full or the source is waiting for more work.
  */
 async function* prefetchEntries(
-  specs: AsyncIterable<EntrySpec>,
+  thunks: AsyncIterable<EntryThunk>,
   lookahead: number,
 ): AsyncGenerator<PreparedEntry> {
   const pipeline: Promise<PreparedEntry>[] = [];
@@ -221,17 +216,17 @@ async function* prefetchEntries(
     if (w) w();
   };
 
-  // Never rejects: a failure to produce the next spec (or start its fetch)
+  // Never rejects: a failure to produce the next thunk (or start its fetch)
   // lands in state.producerError for the consumer to throw in order.
   const producer = (async () => {
     try {
-      for await (const spec of specs) {
+      for await (const thunk of thunks) {
         while (pipeline.length >= lookahead) {
           await new Promise<void>((resolve) => {
             state.onSpace = resolve;
           });
         }
-        const started = spec();
+        const started = thunk();
         // The consumer awaits `started` in order; attach a no-op catch so a
         // fetch that rejects before then isn't reported as unhandled.
         started.catch(() => {});
@@ -413,11 +408,11 @@ export async function downloadBackupArchive(
   // Entry write order is significant for restore: config.json first, then the
   // entities/*.jsonl shards, then files/<locationId>. In particular ALL entity
   // files must be written before ANY storage file. listFiles returns the
-  // entity files in write order; this generator yields specs for them in
-  // order, then drains the storage queue. The specs are consumed through
+  // entity files in write order; this generator yields thunks for them in
+  // order, then drains the storage queue. The thunks are consumed through
   // prefetchEntries, which starts a bounded number of the fetches ahead of the
   // encoder while keeping this order and one-at-a-time writing.
-  const specs = (async function* (): AsyncGenerator<EntrySpec> {
+  const thunks = (async function* (): AsyncGenerator<EntryThunk> {
     const files = await manager.listFiles(backup.id, { signal });
     if (files.length === 0) {
       throw new Error('No files found for this backup.');
@@ -521,7 +516,7 @@ export async function downloadBackupArchive(
     opts.prefetch != null && opts.prefetch > 0
       ? opts.prefetch
       : DEFAULT_PREFETCH;
-  const entries = prefetchEntries(specs, prefetch);
+  const entries = prefetchEntries(thunks, prefetch);
 
   const sinkWriter = opts.sink.getWriter();
   try {

@@ -15,10 +15,7 @@ import type {
 } from '@instantdb/platform';
 import version from '../version.js';
 
-// node:http(s) send no User-Agent by default, and the presigned URLs sit behind
-// CloudFront whose WAF blocks requests with no UA (the NoUserAgent_HEADER rule),
-// returning a 403 "Request blocked" page. The browser and the CLI's fetch-based
-// API calls carry a UA and pass; this raw request must set one too.
+// Set a user-agent or else cloudfront might block the request
 const userAgent = `instant-cli/${version}`;
 
 export type {
