@@ -9,11 +9,10 @@
      attr: triples <- attr
 
    `depends_on` points at the step that must finish first, so a row is runnable
-   once the row it depends on is `done_at`. Each worker claims one runnable row
-   with a lease, drains it in `batch-size` chunks (each chunk its own committed
-   transaction), then marks it done — which makes its dependent runnable. The
-   terminal `app`/`attr` step deletes the app/attr itself; the `app_id`/`attr_id`
-   cascades then sweep the whole chain away.
+   once it no longer depends on any previous step. Each worker claims one runnable
+   row, drains it in `batch-size` chunks (each chunk its own committed transaction),
+   then deletes it, makes its dependent runnable. The terminal `app`/`attr` step
+   deletes the app/attr itself.
 
    One worker runs per machine. It loops while there is runnable work and pauses
    for `:custodian-idle-sleep-ms` when there isn't."
