@@ -81,7 +81,7 @@ function AppleCredentialsEditor({
         oauthClientID: client.id,
         body: {
           client_id: servicesId,
-          meta: { teamId, keyId },
+          ...(teamId && keyId ? { meta: { teamId, keyId } } : {}),
           ...(privateKey ? { client_secret: privateKey } : {}),
         },
       });

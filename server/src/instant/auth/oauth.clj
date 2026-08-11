@@ -10,7 +10,8 @@
    [instant.util.lang :as lang]
    [instant.util.json :as json]
    [instant.util.tracer :as tracer]
-   [instant.util.url :as url])
+   [instant.util.url :as url]
+   [instant.webhook-sender :as webhook-sender])
   (:import
    (clojure.lang PersistentHashSet)
    (instant.util.crypt Secret)
@@ -293,13 +294,15 @@
        :imageURL imageURL})))
 
 (defn fetch-discovery [endpoint]
-  (let [resp (clj-http/get endpoint {:throw-exceptions false
-                                     :as :json
-                                     ;; for https://account.apple.com/.well-known/openid-configuration
-                                     :headers {"User-Agent" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"}})]
-    (if (clj-http/success? resp)
+  ;; Uses the webhook-sender client so discovery fetches are SSRF-guarded: the
+  ;; endpoint is user-supplied, so a plain fetch could target internal hosts.
+  (let [resp (webhook-sender/safe-get
+              endpoint
+              ;; for https://account.apple.com/.well-known/openid-configuration
+              :headers {"User-Agent" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"})]
+    (if (:success? resp)
       {:date (Instant/now)
-       :data (:body resp)}
+       :data (json/<-json (:body resp) true)}
       (do
         (tracer/record-exception-span! (ex-info "Error fetching discovery"
                                                 {:status   (:status resp)

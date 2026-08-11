@@ -189,3 +189,23 @@
         (throw (Exception. "Could not resolve URL.")))
       (catch Exception _
         (ex/throw-validation-err! :webhook {:url input-url} [{:message "Could not resolve URL."}])))))
+
+(defn safe-get
+  "SSRF-safe HTTP GET using the guarded client (SSRF-defending DNS resolver plus
+   literal-IP check, no redirects). Returns {:success? bool :status int :body
+   string}. Throws for an unparseable URL, an unsafe host, or a network error."
+  [^String url & {:keys [headers]}]
+  (let [parsed-url (HttpUrl/parse url)]
+    (when (nil? parsed-url)
+      (ex/throw-validation-err! :url {:url url} [{:message "Invalid URL."}]))
+    (ensure-safe-host! parsed-url)
+    (let [builder (doto (Request$Builder.)
+                    (.url parsed-url))]
+      (doseq [[k v] headers]
+        (.header builder ^String k ^String v))
+      (with-open [response (.. client
+                               (newCall (.build builder))
+                               (execute))]
+        {:success? (.isSuccessful response)
+         :status (.code response)
+         :body (some-> (.body response) (.string))}))))
