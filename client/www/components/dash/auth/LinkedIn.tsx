@@ -27,6 +27,7 @@ import {
   RedirectUrlInput,
   EditableRedirectUrl,
   RedirectForwardingNote,
+  OAuthCredentialsEditor,
 } from './shared';
 import { errorToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
@@ -215,7 +216,39 @@ export function LinkedInClient({
   return (
     <div className="flex flex-col gap-4">
       <Copyable label="Client name" value={client.client_name} />
-      <Copyable label="LinkedIn client ID" value={client.client_id || ''} />
+      <OAuthCredentialsEditor
+        app={app}
+        client={client}
+        token={token}
+        onUpdateClient={onUpdateClient}
+        clientIdCopyLabel="LinkedIn client ID"
+        clientIdLabel={
+          <>
+            Client ID from{' '}
+            <a
+              className="underline"
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://www.linkedin.com/developers/apps"
+            >
+              LinkedIn developer portal
+            </a>
+          </>
+        }
+        clientSecretLabel={
+          <>
+            Client secret from{' '}
+            <a
+              className="underline"
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://www.linkedin.com/developers/apps"
+            >
+              LinkedIn developer portal
+            </a>
+          </>
+        }
+      />
       <EditableRedirectUrl
         app={app}
         client={client}

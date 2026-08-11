@@ -1,13 +1,11 @@
 import { FormEventHandler, useContext, useState } from 'react';
-import { errorToast } from '@/lib/toast';
+import { errorToast, successToast } from '@/lib/toast';
 import { TokenContext } from '@/lib/contexts';
 import { Button, Copyable, TextInput, TextArea } from '@/components/ui';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
-import logo from '../../../public/img/apple_logo_black.svg';
-import Image from 'next/image';
 import { messageFromInstantError } from '@/lib/errors';
-import { addProvider, addClient, findName } from './shared';
+import { addProvider, addClient, findName, updateClient } from './shared';
 import {
   InstantApp,
   InstantIssue,
@@ -20,20 +18,213 @@ import {
   APPLE_TOKEN_ENDPOINT,
 } from '@instantdb/platform';
 
-export function AppleClient({ client }: { client: OAuthClient }) {
+// Editor for an Apple client's credentials. The Services ID, Team ID, and Key
+// ID are readable and prefilled; the Private Key is write-only (never returned
+// to the dashboard), so leaving it blank keeps the current key. The private key
+// and the Team/Key IDs are combined server-side only at web sign-in time, so
+// each can be updated independently.
+function AppleCredentialsEditor({
+  app,
+  client,
+  onUpdateClient,
+}: {
+  app: InstantApp;
+  client: OAuthClient;
+  onUpdateClient: (client: OAuthClient) => void;
+}) {
+  const token = useContext(TokenContext);
+  const [isEditing, setIsEditing] = useState(false);
+  const [servicesId, setServicesId] = useState<string>(client.client_id || '');
+  const [teamId, setTeamId] = useState<string>(client.meta?.teamId || '');
+  const [keyId, setKeyId] = useState<string>(client.meta?.keyId || '');
+  const [privateKey, setPrivateKey] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const resetFields = () => {
+    setServicesId(client.client_id || '');
+    setTeamId(client.meta?.teamId || '');
+    setKeyId(client.meta?.keyId || '');
+    setPrivateKey('');
+  };
+
+  const openEditor = () => {
+    resetFields();
+    setIsEditing(true);
+  };
+
+  const cancel = () => {
+    setIsEditing(false);
+    resetFields();
+  };
+
+  const validationError = () => {
+    if (!servicesId) {
+      return 'Missing Apple Services ID';
+    }
+    // Team ID and Key ID are only meaningful together (web redirect flow).
+    if ((teamId || keyId) && !(teamId && keyId)) {
+      return 'Both Team ID and Key ID are required for the Web redirect flow.';
+    }
+  };
+
+  const handleSave = async () => {
+    const err = validationError();
+    if (err) {
+      errorToast(err, { autoClose: 5000 });
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const resp = await updateClient({
+        token,
+        appId: app.id,
+        oauthClientID: client.id,
+        body: {
+          client_id: servicesId,
+          meta: { teamId, keyId },
+          ...(privateKey ? { client_secret: privateKey } : {}),
+        },
+      });
+      onUpdateClient(resp.client);
+      cancel();
+      successToast('Credentials updated');
+    } catch (e) {
+      console.error(e);
+      const msg =
+        messageFromInstantError(e as InstantIssue) ||
+        'Error updating credentials.';
+      errorToast(msg, { autoClose: 5000 });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isEditing) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Copyable label="Services ID" value={client.client_id || ''} />
+
+        {client.meta?.teamId ? (
+          <Copyable label="Team ID" value={client.meta?.teamId} />
+        ) : null}
+
+        {client.meta?.keyId ? (
+          <Copyable label="Key ID" value={client.meta?.keyId} />
+        ) : null}
+
+        <div className="flex justify-end">
+          <Button variant="secondary" size="mini" onClick={openEditor}>
+            Update credentials
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSave();
+      }}
+      autoComplete="off"
+      data-lpignore="true"
+      data-1p-ignore="true"
+      data-bwignore="true"
+      data-form-type="other"
+    >
+      <TextInput
+        value={servicesId}
+        onChange={setServicesId}
+        label={
+          <>
+            Services ID from{' '}
+            <a
+              className="underline"
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://developer.apple.com/account/resources/identifiers/list/serviceId"
+            >
+              Identifiers
+            </a>
+          </>
+        }
+      />
+      <TextInput
+        value={teamId}
+        onChange={setTeamId}
+        label={
+          <>
+            Team ID from{' '}
+            <a
+              className="underline"
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://developer.apple.com/account#MembershipDetailsCard"
+            >
+              Membership details
+            </a>
+          </>
+        }
+      />
+      <TextInput
+        value={keyId}
+        onChange={setKeyId}
+        label={
+          <>
+            Key ID from{' '}
+            <a
+              className="underline"
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://developer.apple.com/account/resources/authkeys/list"
+            >
+              Keys
+            </a>
+          </>
+        }
+      />
+      <TextArea
+        value={privateKey}
+        onChange={setPrivateKey}
+        label="Private Key"
+        rows={6}
+        placeholder={'-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----'}
+      />
+      <p className="text-sm text-gray-500 dark:text-neutral-400">
+        Leave the private key blank to keep the current one.
+      </p>
+      <div className="flex gap-2">
+        <Button loading={isSaving} type="submit">
+          Save
+        </Button>
+        <Button variant="secondary" onClick={cancel}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function AppleClient({
+  app,
+  client,
+  onUpdateClient,
+}: {
+  app: InstantApp;
+  client: OAuthClient;
+  onUpdateClient: (client: OAuthClient) => void;
+}) {
   return (
     <div className="flex flex-col gap-4">
       <Copyable label="Client Name" value={client.client_name} />
 
-      <Copyable label="Services ID" value={client.client_id || ''} />
-
-      {client.meta?.teamId ? (
-        <Copyable label="Team ID" value={client.meta?.teamId} />
-      ) : null}
-
-      {client.meta?.keyId ? (
-        <Copyable label="Key ID" value={client.meta?.keyId} />
-      ) : null}
+      <AppleCredentialsEditor
+        app={app}
+        client={client}
+        onUpdateClient={onUpdateClient}
+      />
 
       <a
         className="underline"

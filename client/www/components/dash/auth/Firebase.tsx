@@ -1,9 +1,8 @@
 import { FormEventHandler, useContext, useState } from 'react';
-import { errorToast } from '@/lib/toast';
+import { errorToast, successToast } from '@/lib/toast';
 import { TokenContext } from '@/lib/contexts';
 import {
   Button,
-  Checkbox,
   Content,
   Copyable,
   Fence,
@@ -11,7 +10,7 @@ import {
   TextInput,
 } from '@/components/ui';
 import { messageFromInstantError } from '@/lib/errors';
-import { addClient, findName } from './shared';
+import { addClient, findName, updateClient } from './shared';
 import {
   InstantApp,
   InstantIssue,
@@ -60,18 +59,132 @@ function App() {
 }`;
 }
 
-export function FirebaseClient({
+// Firebase clients have no client id/secret; the project ID is encoded in the
+// discovery endpoint. Editing the project ID rewrites that endpoint (same shape
+// as the add form).
+function FirebaseProjectEditor({
   app,
   client,
+  onUpdateClient,
 }: {
   app: InstantApp;
   client: OAuthClient;
+  onUpdateClient: (client: OAuthClient) => void;
+}) {
+  const token = useContext(TokenContext);
+  const currentProjectId =
+    client.discovery_endpoint?.match(
+      /^https:\/\/securetoken\.google\.com\/(.+)\/\.well-known\/openid-configuration$/,
+    )?.[1] || '';
+  const [isEditing, setIsEditing] = useState(false);
+  const [projectId, setProjectId] = useState<string>(currentProjectId);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const openEditor = () => {
+    setProjectId(currentProjectId);
+    setIsEditing(true);
+  };
+
+  const cancel = () => {
+    setIsEditing(false);
+    setProjectId(currentProjectId);
+  };
+
+  const handleSave = async () => {
+    if (!projectId) {
+      errorToast('Missing Firebase project ID', { autoClose: 5000 });
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const resp = await updateClient({
+        token,
+        appId: app.id,
+        oauthClientID: client.id,
+        body: {
+          discovery_endpoint: `https://securetoken.google.com/${projectId}/.well-known/openid-configuration`,
+        },
+      });
+      onUpdateClient(resp.client);
+      cancel();
+      successToast('Firebase project ID updated');
+    } catch (e) {
+      console.error(e);
+      const msg =
+        messageFromInstantError(e as InstantIssue) ||
+        'Error updating project ID.';
+      errorToast(msg, { autoClose: 5000 });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isEditing) {
+    return (
+      <div className="flex flex-col gap-2">
+        {currentProjectId ? (
+          <Copyable label="Firebase Project ID" value={currentProjectId} />
+        ) : null}
+        <div className="flex justify-end">
+          <Button variant="secondary" size="mini" onClick={openEditor}>
+            Update project ID
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSave();
+      }}
+      autoComplete="off"
+      data-lpignore="true"
+    >
+      <TextInput
+        value={projectId}
+        onChange={setProjectId}
+        label={
+          <>
+            Firebase <code>Project ID</code> from your Project Settings page on
+            the{' '}
+            <a
+              className="underline"
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://console.firebase.google.com/"
+            >
+              Firebase dashboard
+            </a>
+            .
+          </>
+        }
+      />
+      <div className="flex gap-2">
+        <Button loading={isSaving} type="submit">
+          Save
+        </Button>
+        <Button variant="secondary" onClick={cancel}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function FirebaseClient({
+  app,
+  client,
+  onUpdateClient,
+}: {
+  app: InstantApp;
+  client: OAuthClient;
+  onUpdateClient: (client: OAuthClient) => void;
 }) {
   const { darkMode } = useDarkMode();
-
-  const projectId = client.discovery_endpoint?.match(
-    /^https:\/\/securetoken\.google\.com\/(.+)\/\.well-known\/openid-configuration$/,
-  )?.[1];
 
   const exampleCode = firebaseExampleCode({
     appId: app.id,
@@ -81,9 +194,11 @@ export function FirebaseClient({
   return (
     <div className="flex flex-col gap-4">
       <Copyable label="Client name" value={client.client_name} />
-      {projectId ? (
-        <Copyable label="Firebase Project ID" value={projectId} />
-      ) : null}
+      <FirebaseProjectEditor
+        app={app}
+        client={client}
+        onUpdateClient={onUpdateClient}
+      />
 
       <SubsectionHeading>Setup and usage</SubsectionHeading>
 

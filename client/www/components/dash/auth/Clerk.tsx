@@ -1,6 +1,6 @@
 import { FormEventHandler, useContext, useState } from 'react';
 import { clerkDomainFromPublishableKey } from '@instantdb/platform';
-import { errorToast } from '@/lib/toast';
+import { errorToast, successToast } from '@/lib/toast';
 import { TokenContext } from '@/lib/contexts';
 import {
   Button,
@@ -12,7 +12,7 @@ import {
   TextInput,
 } from '@/components/ui';
 import { messageFromInstantError } from '@/lib/errors';
-import { addClient, findName, updateClientMeta } from './shared';
+import { addClient, findName, updateClient, updateClientMeta } from './shared';
 import {
   InstantApp,
   InstantIssue,
@@ -118,6 +118,136 @@ function App() {
 export default App;`;
 }
 
+// Editor for a Clerk client's publishable key. Updating the key also rewrites
+// the discovery endpoint, which is derived from the key's domain (same as the
+// add form). meta is deep-merged server-side, so other meta keys (e.g.
+// allowUnverifiedEmail) are preserved.
+function ClerkKeyEditor({
+  app,
+  client,
+  onUpdateClient,
+}: {
+  app: InstantApp;
+  client: OAuthClient;
+  onUpdateClient: (client: OAuthClient) => void;
+}) {
+  const token = useContext(TokenContext);
+  const [isEditing, setIsEditing] = useState(false);
+  const currentKey = client.meta?.clerkPublishableKey || '';
+  const [publishableKey, setPublishableKey] = useState<string>(currentKey);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const domain = currentKey ? clerkDomainFromPublishableKey(currentKey) : null;
+
+  const openEditor = () => {
+    setPublishableKey(currentKey);
+    setIsEditing(true);
+  };
+
+  const cancel = () => {
+    setIsEditing(false);
+    setPublishableKey(currentKey);
+  };
+
+  const handleSave = async () => {
+    if (!publishableKey) {
+      errorToast('Missing Clerk publishable key', { autoClose: 5000 });
+      return;
+    }
+    if (!publishableKey.startsWith('pk_')) {
+      errorToast('Invalid publishable key. It should start with "pk_".', {
+        autoClose: 5000,
+      });
+      return;
+    }
+    const newDomain = clerkDomainFromPublishableKey(publishableKey);
+    if (!newDomain) {
+      errorToast(
+        'Could not determine Clerk domain from key. Ping us in Discord for help.',
+        { autoClose: 5000 },
+      );
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const resp = await updateClient({
+        token,
+        appId: app.id,
+        oauthClientID: client.id,
+        body: {
+          meta: { clerkPublishableKey: publishableKey },
+          discovery_endpoint: `https://${newDomain}/.well-known/openid-configuration`,
+        },
+      });
+      onUpdateClient(resp.client);
+      cancel();
+      successToast('Clerk publishable key updated');
+    } catch (e) {
+      console.error(e);
+      const msg =
+        messageFromInstantError(e as InstantIssue) ||
+        'Error updating publishable key.';
+      errorToast(msg, { autoClose: 5000 });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isEditing) {
+    return (
+      <div className="flex flex-col gap-2">
+        {currentKey ? (
+          <Copyable label="Clerk publishable key" value={currentKey} />
+        ) : null}
+        {domain ? <Copyable label="Clerk domain" value={domain} /> : null}
+        <div className="flex justify-end">
+          <Button variant="secondary" size="mini" onClick={openEditor}>
+            Update publishable key
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSave();
+      }}
+      autoComplete="off"
+      data-lpignore="true"
+    >
+      <TextInput
+        value={publishableKey}
+        onChange={setPublishableKey}
+        label={
+          <>
+            Clerk publishable key from your{' '}
+            <a
+              className="underline"
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://dashboard.clerk.com/last-active?path=api-keys"
+            >
+              Clerk dashboard
+            </a>
+          </>
+        }
+      />
+      <div className="flex gap-2">
+        <Button loading={isSaving} type="submit">
+          Save
+        </Button>
+        <Button variant="secondary" onClick={cancel}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export function ClerkClient({
   app,
   client,
@@ -136,10 +266,6 @@ export function ClerkClient({
   const clerkPublishableKey = client.meta?.clerkPublishableKey;
 
   const allowUnverifiedEmail = client.meta?.allowUnverifiedEmail;
-
-  const domain = clerkPublishableKey
-    ? clerkDomainFromPublishableKey(clerkPublishableKey)
-    : null;
 
   const exampleCode = clerkExampleCode({
     appId: app.id,
@@ -170,10 +296,11 @@ export function ClerkClient({
   return (
     <div className="flex flex-col gap-4">
       <Copyable label="Client name" value={client.client_name} />
-      {clerkPublishableKey ? (
-        <Copyable label="Clerk publishable key" value={clerkPublishableKey} />
-      ) : null}
-      {domain ? <Copyable label="Clerk domain" value={domain} /> : null}
+      <ClerkKeyEditor
+        app={app}
+        client={client}
+        onUpdateClient={onUpdateClient}
+      />
 
       {showUpdateVerified ? (
         <div className="flex flex-col gap-2 rounded-sm border bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
