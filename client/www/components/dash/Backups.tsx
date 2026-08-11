@@ -256,7 +256,7 @@ function BackupRow({
     const cmd = `npx instant-cli@latest backup download ${backup.id} --app ${app.id}`;
     return config.apiURI === 'https://api.instantdb.com'
       ? cmd
-      : `INSTANT_CLI_API_URI=${config.apiURI} ${cmd}`;
+      : `INSTANT_CLI_API_URI='${config.apiURI}' ${cmd}`;
   })();
 
   async function copyCliDownloadCommand() {

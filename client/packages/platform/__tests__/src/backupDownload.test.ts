@@ -268,6 +268,94 @@ describe('downloadBackupArchive', () => {
     expect(result.files).toBe(1);
   });
 
+  test('retries a body that connects but errors on its first read', async () => {
+    const names: string[] = [];
+    const manager = {
+      listFiles,
+      getFileUrl,
+      streamStorageFiles: async function* () {
+        yield { locationId: 'loc-1', path: 'a.png', url: 'loc-1-url' };
+      },
+    } as any;
+
+    // fetchBody resolves (connection established) but the body errors on its
+    // first read the first time — the shape of a reset idle connection.
+    let storageAttempts = 0;
+    const flakyFetch = async (url: string) => {
+      if (url === 'loc-1-url') {
+        storageAttempts++;
+        if (storageAttempts === 1) {
+          return new ReadableStream<Uint8Array>({
+            pull(controller) {
+              controller.error(new Error('ECONNRESET'));
+            },
+          });
+        }
+      }
+      return bodyOf(`body:${url}`);
+    };
+
+    const result = await downloadBackupArchive({
+      manager,
+      backup,
+      fetchBody: flakyFetch,
+      sink: nullSink(),
+      createWriter: makeWriter(names),
+      retry: { attempts: 3, delayMs: 0 },
+    });
+
+    expect(storageAttempts).toBe(2);
+    expect(names).toEqual([
+      'config.json',
+      'entities/todos.jsonl',
+      'files/loc-1',
+    ]);
+    expect(result.files).toBe(1);
+  });
+
+  test('does not retry once the body has yielded a chunk', async () => {
+    const manager = {
+      listFiles,
+      getFileUrl,
+      streamStorageFiles: async function* () {
+        yield { locationId: 'loc-1', path: 'a.png', url: 'loc-1-url' };
+      },
+    } as any;
+
+    // The body delivers one chunk on the first read, then errors on the next —
+    // a mid-stream failure. Once bytes are flowing the entry can't be
+    // restarted, so this must not retry.
+    let storageAttempts = 0;
+    const fetchBody = async (url: string) => {
+      if (url === 'loc-1-url') {
+        storageAttempts++;
+        let phase = 0;
+        return new ReadableStream<Uint8Array>({
+          pull(controller) {
+            if (phase++ === 0) {
+              controller.enqueue(new TextEncoder().encode('partial'));
+            } else {
+              controller.error(new Error('mid-stream reset'));
+            }
+          },
+        });
+      }
+      return bodyOf(`body:${url}`);
+    };
+
+    await expect(
+      downloadBackupArchive({
+        manager,
+        backup,
+        fetchBody,
+        sink: nullSink(),
+        createWriter: makeWriter([]),
+        retry: { attempts: 3, delayMs: 0 },
+      }),
+    ).rejects.toThrow();
+    expect(storageAttempts).toBe(1);
+  });
+
   test('gives up after exhausting retries and names the failing entry', async () => {
     const manager = {
       listFiles,

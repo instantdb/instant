@@ -107,6 +107,13 @@ const DEFAULT_FETCH_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAY_MS = 500;
 const MAX_RETRY_DELAY_MS = 5000;
 
+// Normalize caller-supplied numeric options so NaN/Infinity/non-integers can't
+// alter retry counts or pipeline bounds — fall back to the default instead.
+const finitePositiveInt = (v: number | undefined, fallback: number): number =>
+  v != null && Number.isInteger(v) && v > 0 ? v : fallback;
+const finiteNonNegative = (v: number | undefined, fallback: number): number =>
+  v != null && Number.isFinite(v) && v >= 0 ? v : fallback;
+
 const isAbortError = (e: unknown): boolean =>
   (e as { name?: string })?.name === 'AbortError';
 
@@ -128,12 +135,46 @@ const delay = (ms: number, signal: AbortSignal): Promise<void> =>
     signal.addEventListener('abort', onAbort, { once: true });
   });
 
+// Re-emits an already-read first chunk, then streams the rest from `reader`.
+// Past that first chunk read errors propagate to the consumer unchanged — by
+// then bytes are in the archive entry and it can't be restarted.
+function replayFrom(
+  first: ReadableStreamReadResult<Uint8Array>,
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+): ReadableStream<Uint8Array> {
+  let replayed = false;
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (!replayed) {
+        replayed = true;
+        if (first.done) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(first.value);
+        return;
+      }
+      const { done, value } = await reader.read();
+      if (done) controller.close();
+      else controller.enqueue(value);
+    },
+    async cancel(reason) {
+      await reader.cancel(reason);
+    },
+  });
+}
+
 /**
  * Opens a body via `open`, retrying on transient failure with abortable
  * exponential backoff. `open` is re-invoked from scratch each attempt, so an
  * entity file re-mints its presigned URL. An abort propagates immediately; any
  * other final failure is wrapped by `describe` into a user-facing message
  * naming the entry.
+ *
+ * The first chunk is read inside the retry scope, so a body that connects but
+ * fails on its first read — the shape of a prefetched connection reset while it
+ * sat idle — is re-fetched too, since nothing has been written to the archive
+ * yet. Only failures once bytes are flowing are treated as unrecoverable.
  */
 async function openWithRetry(
   open: () => Promise<ReadableStream<Uint8Array>>,
@@ -147,9 +188,15 @@ async function openWithRetry(
   let lastError: unknown;
   for (let attempt = 1; attempt <= opts.attempts; attempt++) {
     opts.signal.throwIfAborted();
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     try {
-      return await open();
+      const body = await open();
+      reader = body.getReader();
+      const first = await reader.read();
+      return replayFrom(first, reader);
     } catch (e) {
+      // Release the failed connection before retrying (or giving up).
+      if (reader) reader.cancel().catch(() => {});
       if (isAbortError(e)) throw e;
       lastError = e;
       if (attempt < opts.attempts) {
@@ -313,11 +360,14 @@ export async function downloadBackupArchive(
       ? backup.uncompressedSize + (backup.filesSize ?? 0)
       : null;
 
-  const retryAttempts = Math.max(
-    1,
-    opts.retry?.attempts ?? DEFAULT_FETCH_ATTEMPTS,
+  const retryAttempts = finitePositiveInt(
+    opts.retry?.attempts,
+    DEFAULT_FETCH_ATTEMPTS,
   );
-  const retryDelayMs = opts.retry?.delayMs ?? DEFAULT_RETRY_DELAY_MS;
+  const retryDelayMs = finiteNonNegative(
+    opts.retry?.delayMs,
+    DEFAULT_RETRY_DELAY_MS,
+  );
 
   const tick = () =>
     onProgress?.({
@@ -512,10 +562,7 @@ export async function downloadBackupArchive(
     if (storageError) throw storageError;
   })();
 
-  const prefetch =
-    opts.prefetch != null && opts.prefetch > 0
-      ? opts.prefetch
-      : DEFAULT_PREFETCH;
+  const prefetch = finitePositiveInt(opts.prefetch, DEFAULT_PREFETCH);
   const entries = prefetchEntries(thunks, prefetch);
 
   const sinkWriter = opts.sink.getWriter();

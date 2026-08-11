@@ -55,7 +55,14 @@ function pipe(src: Readable, dst: Duplex): Duplex {
 // S3/CloudFront answer a rejected presigned URL with a short XML body naming
 // the actual cause (SignatureDoesNotMatch, AccessDenied, expired, …). Read a
 // bounded prefix so the error surfaces the reason instead of a bare status.
-async function readErrorBody(res: IncomingMessage): Promise<string> {
+async function readErrorBody(
+  res: IncomingMessage,
+  signal: AbortSignal,
+): Promise<string> {
+  // A stalled or dribbling error body must not hang the download; destroying
+  // res ends the read below. The request's own signal already tears res down
+  // on a caller abort, so this only guards the no-abort stall.
+  const timer = setTimeout(() => res.destroy(), 5000);
   try {
     const chunks: Buffer[] = [];
     let total = 0;
@@ -69,9 +76,13 @@ async function readErrorBody(res: IncomingMessage): Promise<string> {
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 500);
-  } catch {
+  } catch (e) {
+    // A caller-initiated abort must propagate, not be masked as an empty body;
+    // only other read failures fall back to no reason.
+    if (signal.aborted) throw e;
     return '';
   } finally {
+    clearTimeout(timer);
     res.destroy();
   }
 }
@@ -86,7 +97,7 @@ async function fetchBody(
 ): Promise<ReadableStream<Uint8Array>> {
   const res = await fetchStream(url, signal);
   if (res.statusCode !== 200) {
-    const body = await readErrorBody(res);
+    const body = await readErrorBody(res, signal);
     throw new Error(`HTTP ${res.statusCode}${body ? ` — ${body}` : ''}`);
   }
   const encoding = res.headers['content-encoding'];
