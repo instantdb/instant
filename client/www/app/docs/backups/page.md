@@ -92,7 +92,7 @@ You can restore a backup zipfile that you downloaded from the dashboard or throu
 
 Read the [Self hosting](/docs/self-hosting) guide for more information on how to set up a self-hosted instance.
 
-Ensure that you've set the deployment superuser via the `INSTANT_SUPERUSER_EMAIL` environment variable.
+Ensure that you've set the [deployment superuser](/docs/self-hosting#configure-the-deployment-superuser) via the `INSTANT_SUPERUSER_EMAIL` environment variable.
 
 Sign in to the dashboard with your superuser email, then visit `${your-selfhosted-dashboard-url}/intern/restore` to restore the app into your new self-hosted instance.
 
