@@ -77,7 +77,13 @@ function parseLineHighlights(lineHighlight) {
   return highlights;
 }
 
-export function Fence({ children, language, showCopy, lineHighlight, filename }) {
+export function Fence({
+  children,
+  language,
+  showCopy,
+  lineHighlight,
+  filename,
+}) {
   const [copyLabel, setCopyLabel] = useState('Copy');
 
   const app = useContext(SelectedAppContext);
@@ -110,9 +116,14 @@ export function Fence({ children, language, showCopy, lineHighlight, filename })
           {filename && (
             <div
               className="mt-6 flex items-center gap-x-1.5 rounded-t border border-b-0 border-black/10 px-4 py-2 font-mono text-xs text-gray-500"
-              style={{ backgroundColor: rosePineDawnTheme.plain.backgroundColor }}
+              style={{
+                backgroundColor: rosePineDawnTheme.plain.backgroundColor,
+              }}
             >
-              <DocumentIcon className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+              <DocumentIcon
+                className="h-3.5 w-3.5 text-gray-400"
+                aria-hidden="true"
+              />
               {filename}
             </div>
           )}
