@@ -17,7 +17,7 @@
    (java.util.concurrent Callable ExecutorService TimeUnit)
    (java.util.function Predicate)
    (javax.net.ssl SSLException)
-   (okhttp3 ConnectionPool Dispatcher Dns FormBody$Builder Headers HttpUrl MediaType OkHttpClient OkHttpClient$Builder Request$Builder RequestBody)
+   (okhttp3 ConnectionPool Dispatcher Dns FormBody$Builder Headers HttpUrl MediaType OkHttpClient OkHttpClient$Builder Request$Builder RequestBody Response)
    (okhttp3.dnsoverhttps DnsOverHttps DnsOverHttps$Builder)))
 
 (def ^{:tag 'bytes} period-bytes (.getBytes "." StandardCharsets/UTF_8))
@@ -203,6 +203,23 @@
 (defn- response-headers->map [^Headers hs]
   (into {} (map (fn [^String n] [(.toLowerCase n) (.get hs n)])) (.names hs)))
 
+(def max-response-bytes
+  "Upper bound on bytes read from a guarded response body, to bound memory for
+   hostile endpoints that return unbounded/oversized responses."
+  (* 5 1024 1024))
+
+(defn- read-capped-body ^String [^Response response]
+  (when (.body response)
+    ;; peekBody buffers at most (inc limit) bytes without reading the rest, so
+    ;; an oversized/unbounded body is capped even with no Content-Length header.
+    (let [bytes (.. response
+                    (peekBody (inc (long max-response-bytes)))
+                    (bytes))]
+      (when (> (alength bytes) max-response-bytes)
+        (throw (ex-info "Response body exceeds size limit"
+                        {:limit max-response-bytes})))
+      (String. bytes StandardCharsets/UTF_8))))
+
 (defn- execute-response [^Request$Builder builder headers]
   (doseq [[k v] headers]
     (.header builder ^String k ^String v))
@@ -212,7 +229,7 @@
     {:success? (.isSuccessful response)
      :status (.code response)
      :headers (response-headers->map (.headers response))
-     :body (some-> (.body response) (.string))}))
+     :body (read-capped-body response)}))
 
 (defn safe-get
   "SSRF-safe HTTP GET using the guarded client (SSRF-defending DNS resolver plus

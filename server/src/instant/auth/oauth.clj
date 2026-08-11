@@ -157,7 +157,9 @@
                  :code code
                  :grant_type "authorization_code"
                  :redirect_uri redirect-url})
-          resp-body (some-> (:body resp) (json/<-json true))]
+          resp-body (try
+                      (some-> (:body resp) (json/<-json true))
+                      (catch Exception _ nil))]
       (if-not (:success? resp)
         {:type :error :message (get resp-body :error_description "Error exchanging code for token.")}
         (let [id-token (try

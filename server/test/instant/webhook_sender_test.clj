@@ -212,3 +212,29 @@
                               (crypt-util/random-hex 16) "."
                               (crypt-util/random-hex 16))))
       "non-resolvable host is rejected"))
+
+(deftest safe-get-caps-response-body
+  ;; Bypass smokescreen so we can route to a local MockWebServer via nip.io, and
+  ;; shrink the cap so we don't have to allocate a multi-MB body.
+  (with-redefs [smokescreen/bad-ip? (constantly false)
+                webhook-sender/max-response-bytes 16]
+    (let [server (doto (MockWebServer.) (.start))]
+      (try
+        (.enqueue server (.. (MockResponse$Builder.) (body "small body") (build)))
+        (let [url (str "http://127.0.0.1.nip.io:" (.getPort server) "/ok")
+              resp (webhook-sender/safe-get url)]
+          (is (= {:success? true :status 200 :body "small body"}
+                 (select-keys resp [:success? :status :body]))
+              "a body within the cap is returned intact"))
+
+        ;; chunked transfer encoding => no Content-Length header
+        (.enqueue server (.. (MockResponse$Builder.)
+                             (chunkedBody ^String (apply str (repeat 100 \a)) 8)
+                             (build)))
+        (let [url (str "http://127.0.0.1.nip.io:" (.getPort server) "/big")]
+          (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                                #"exceeds size limit"
+                                (webhook-sender/safe-get url))
+              "a body over the cap is rejected even without Content-Length"))
+        (finally
+          (.close server))))))
