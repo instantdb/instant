@@ -40,7 +40,8 @@ Migrating without data loss will require some downtime. To get a sense of how
 much time it will take, we'll do the following:
 
 1. Export a backup from Instant Cloud
-2. Restore the backup into your self-hosted Instant.
+2. [Restore the backup](/intern/restore) into your self-hosted Instant (you'll
+   need to be logged in as [your deployment superuser](/docs/self-hosting#configure-the-deployment-superuser) to have access to restore).
 
 After restoring, verify that the following look correct:
 
