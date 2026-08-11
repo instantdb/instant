@@ -71,8 +71,8 @@ The `files` directory contains all of the file blobs for your app's `$files`.
 Each listing in the `files` directory will be a `UUID` that will match the `location-id` field of a JSON line in the `entities/$files.jsonl` entry.
 
 ```json {% filename="entities/$files.jsonl" %}
-{"entity":{"size":37240,"location-id":"30b051b6-cc5d-41ce-8538-8302d6fa2695","content-type":"image/png","id":"fd3a3356-f8d6-46cc-b56f-d3f470b44fbc","path":"profile.png"},"createdAt":1772604198270}
-{"entity":{"size":13768,"location-id":"770755e9-5cf0-41d2-b1cc-6552255d2ba3","content-type":"image/png","id":"fda17e15-ba53-4a9e-9e9e-75e25c031191","path":"cat.png"},"createdAt":1773774285029}
+{"entity":{"size":37240,"location-id":"30b051b6-cc5d-41ce-8538-8302d6fa2695","path":"profile.png","content-type":"image/png","id":"fd3a3356-f8d6-46cc-b56f-d3f470b44fbc"},"createdAt":1772604198270}
+{"entity":{"size":13768,"location-id":"770755e9-5cf0-41d2-b1cc-6552255d2ba3","path":"cat.png","content-type":"image/png","id":"fda17e15-ba53-4a9e-9e9e-75e25c031191"},"createdAt":1773774285029}
 ```
 
 ```shell
