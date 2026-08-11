@@ -9,6 +9,7 @@ import {
 } from 'react';
 import {
   ArrowDownTrayIcon,
+  CommandLineIcon,
   EllipsisVerticalIcon,
   PlusIcon,
   TrashIcon,
@@ -39,6 +40,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/DropdownMenu';
 import {
@@ -245,6 +247,27 @@ function BackupRow({
     deleteDialog.onOpen();
   }
 
+  // The equivalent `instant-cli backup download` invocation, for scripting or
+  // downloading outside the browser. When the dashboard isn't pointed at the
+  // CLI's default (production) backend — i.e. dev, staging, or a self-hosted
+  // instance — prefix the exact apiURI via INSTANT_CLI_API_URI so the CLI hits
+  // the same server this dashboard does.
+  const cliDownloadCommand = (() => {
+    const cmd = `npx instant-cli@latest backup download ${backup.id} --app ${app.id}`;
+    return config.apiURI === 'https://api.instantdb.com'
+      ? cmd
+      : `INSTANT_CLI_API_URI='${config.apiURI}' ${cmd}`;
+  })();
+
+  async function copyCliDownloadCommand() {
+    try {
+      await window.navigator.clipboard.writeText(cliDownloadCommand);
+      successToast('Copied CLI download command.');
+    } catch {
+      errorToast('Failed to copy to clipboard.');
+    }
+  }
+
   async function deleteBackup() {
     if (!token) return;
     setDeleting(true);
@@ -304,12 +327,26 @@ function BackupRow({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem
-          variant="destructive"
           className="cursor-pointer"
-          onSelect={openDeleteDialog}
+          onSelect={copyCliDownloadCommand}
         >
-          <TrashIcon width={14} /> Delete backup
+          <CommandLineIcon width={14} /> Copy CLI download command
         </DropdownMenuItem>
+        {canDelete ? (
+          <>
+            <DropdownMenuSeparator className="bg-gray-200 dark:bg-neutral-700" />
+            <DropdownMenuItem
+              className="cursor-pointer text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+              onSelect={openDeleteDialog}
+            >
+              <TrashIcon
+                width={14}
+                className="text-red-600 dark:text-red-400"
+              />{' '}
+              Delete backup
+            </DropdownMenuItem>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -345,7 +382,7 @@ function BackupRow({
             downloadButton
           )
         }
-        corner={canDelete ? actionsMenu : null}
+        corner={actionsMenu}
       />
       <Dialog title="Delete backup" {...deleteDialog}>
         <div className="flex flex-col gap-3">
