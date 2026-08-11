@@ -60,6 +60,7 @@ The `entity` field holds the key-value map with all of the fields for the entity
 If the key in the entity map represents a has-one link, the value will be the entity id of the entity in the linked table. If it is a has-many link, then it will be a JSON array of entity ids in the linked table.
 
 {% file label="entities/$users.jsonl" /%}
+
 ```json
 {"entity":{"email":"dww@instantdb.com","id":"81d4e04d-4057-4fc0-92f7-d99618fd540a","type":"user"},"createdAt":1772650963417}
 {"entity":{"id":"0e212052-a4ba-4d3c-a679-3812ba22cde2","type":"guest"},"createdAt":1776458067727}
@@ -72,6 +73,7 @@ The `files` directory contains all of the file blobs for your app's `$files`.
 Each listing in the `files` directory will be a `UUID` that will match the `location-id` field of a JSON line in the `entities/$files.jsonl` entry.
 
 {% file label="entities/$files.jsonl" /%}
+
 ```json
 {"entity":{"size":37240,"location-id":"30b051b6-cc5d-41ce-8538-8302d6fa2695","path":"profile.png","content-type":"image/png","id":"fd3a3356-f8d6-46cc-b56f-d3f470b44fbc"},"createdAt":1772604198270}
 {"entity":{"size":13768,"location-id":"770755e9-5cf0-41d2-b1cc-6552255d2ba3","path":"cat.png","content-type":"image/png","id":"fda17e15-ba53-4a9e-9e9e-75e25c031191"},"createdAt":1773774285029}
