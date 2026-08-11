@@ -23,11 +23,31 @@ npx instant-cli@latest backup download --latest
 
 The backup contains your app's schema, rules, magic code email template, entities, and files.
 
-### Anatomy of an Instant backup
+{% callout type="warning" %}
+
+A backup contains all of your app's data, including user records like email addresses. Store the downloaded zip somewhere secure and treat it as sensitive.
+
+{% /callout %}
+
+## Anatomy of an Instant backup
+
+A backup is a zip file with this layout:
+
+```text
+instant-backup-<timestamp>.zip
+├── config.json          # schema, rules, magic code email template, entity counts
+├── entities/            # one .jsonl file per table with data
+│   ├── $users.jsonl
+│   ├── $files.jsonl
+│   └── posts.jsonl
+└── files/               # raw blobs for $files, named by location-id
+    ├── 30b051b6-cc5d-41ce-8538-8302d6fa2695
+    └── 770755e9-5cf0-41d2-b1cc-6552255d2ba3
+```
 
 The backup contains a `config.json` file that contains the schema, rules, and magic code email template. It also includes the number of entities for each table.
 
-#### **Entities directory**
+### Entities directory
 
 The `entities` directory contains an NDJSON file for each table in your schema that has at least one entity.
 
@@ -44,7 +64,7 @@ If the key in the entity map represents a has-one link, the value will be the en
 {"entity":{"id":"0e212052-a4ba-4d3c-a679-3812ba22cde2","type":"guest"},"createdAt":1776458067727}
 ```
 
-#### **Files directory**
+### Files directory
 
 The `files` directory contains all of the file blobs for your app's `$files`.
 
@@ -62,7 +82,7 @@ size   name
 13768  770755e9-5cf0-41d2-b1cc-6552255d2ba3
 ```
 
-# Restore a backup
+## Restore a backup
 
 You can restore a backup zipfile that you downloaded from the dashboard or through the cli into a self-hosted Instant instance.
 
@@ -73,3 +93,24 @@ Ensure that you've set the deployment superuser via the `INSTANT_SUPERUSER_EMAIL
 Sign in to the dashboard with your superuser email, then visit `${your-selfhosted-dashboard-url}/intern/restore` to restore the app into your new self-hosted instance.
 
 If you have any OAuth clients set up with client secrets, go to the Auth dashboard for the restored app and update the secrets. The secrets will not carry over to the restored app.
+
+## CLI reference
+
+```shell
+# List the downloadable backups for your app
+npx instant-cli@latest backup list
+
+# Output the list as JSON
+npx instant-cli@latest backup list --json
+
+# Download a backup (interactive picker when no backup is given)
+npx instant-cli@latest backup download
+
+# Download the most recent backup
+npx instant-cli@latest backup download --latest
+
+# Download a specific backup to a path of your choosing
+npx instant-cli@latest backup download <backup-id> --out my-backup.zip
+```
+
+All commands read the app ID from your `.env` file (`INSTANT_APP_ID`, or a framework-specific variant like `NEXT_PUBLIC_INSTANT_APP_ID`; see [App ID](/docs/cli#app-id)). Pass `--app <app-id>` to target a different one, and run `--help` on any command for the full list of flags.
