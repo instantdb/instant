@@ -330,7 +330,13 @@ function ClientItem({
         />
       );
     case 'apple':
-      return <AppleClient client={client} />;
+      return (
+        <AppleClient
+          app={app}
+          client={client}
+          onUpdateClient={onUpdateClient}
+        />
+      );
     case 'github':
       return (
         <GitHubClient
@@ -356,7 +362,13 @@ function ClientItem({
         />
       );
     case 'firebase':
-      return <FirebaseClient app={app} client={client} />;
+      return (
+        <FirebaseClient
+          app={app}
+          client={client}
+          onUpdateClient={onUpdateClient}
+        />
+      );
     default:
       return null;
   }

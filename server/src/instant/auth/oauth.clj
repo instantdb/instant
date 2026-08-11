@@ -10,7 +10,8 @@
    [instant.util.lang :as lang]
    [instant.util.json :as json]
    [instant.util.tracer :as tracer]
-   [instant.util.url :as url])
+   [instant.util.url :as url]
+   [instant.webhook-sender :as webhook-sender])
   (:import
    (clojure.lang PersistentHashSet)
    (instant.util.crypt Secret)
@@ -147,21 +148,23 @@
 
                    #_else
                    (.value client-secret))
-          resp (clj-http/post token-endpoint
-                              {:throw-exceptions false
-                               :as :json
-                               :coerce :always
-                               :form-params {:client_id client-id
-                                             :client_secret secret
-                                             :code code
-                                             :grant_type "authorization_code"
-                                             :redirect_uri redirect-url}})]
-      (if-not (clj-http/success? resp)
-        {:type :error :message (get-in resp [:body :error_description] "Error exchanging code for token.")}
+          ;; token-endpoint comes from the untrusted discovery doc; use the
+          ;; SSRF-guarded client (validated in assert-safe-discovery-endpoints!).
+          resp (webhook-sender/safe-post-form
+                token-endpoint
+                {:client_id client-id
+                 :client_secret secret
+                 :code code
+                 :grant_type "authorization_code"
+                 :redirect_uri redirect-url})
+          resp-body (try
+                      (some-> (:body resp) (json/<-json true))
+                      (catch Exception _ nil))]
+      (if-not (:success? resp)
+        {:type :error :message (get resp-body :error_description "Error exchanging code for token.")}
         (let [id-token (try
                          ;; extract the id token data that has the email and sub from the id_token JWT
-                         (some-> resp
-                                 :body
+                         (some-> resp-body
                                  :id_token
                                  (string/split #"\.")
                                  ^String (second)
@@ -170,19 +173,17 @@
                                  (json/<-json true))
                          (catch IllegalArgumentException _e
                            (tracer/with-span! {:name "oauth/invalid-id_token"
-                                               :attributes {:id_token (-> resp :body :id_token)}})))
-              access-token (-> resp
-                               :body
-                               :access_token)
+                                               :attributes {:id_token (:id_token resp-body)}})))
+              access-token (:access_token resp-body)
 
               id-token (or id-token
                            (when (and access-token userinfo-endpoint)
                              (try
-                               (-> (clj-http/get userinfo-endpoint
-                                                 {:headers {:Authorization (str "Bearer " access-token)}
-                                                  :as :json
-                                                  :coerce :always})
-                                   :body)
+                               (let [ui-resp (webhook-sender/safe-get
+                                              userinfo-endpoint
+                                              :headers {"Authorization" (str "Bearer " access-token)})]
+                                 (when (:success? ui-resp)
+                                   (some-> (:body ui-resp) (json/<-json true))))
                                (catch Exception e
                                  (tracer/record-exception-span! e {:name "oauth/invalid-user-info-from-endpoint"})
                                  nil))))]
@@ -293,13 +294,15 @@
        :imageURL imageURL})))
 
 (defn fetch-discovery [endpoint]
-  (let [resp (clj-http/get endpoint {:throw-exceptions false
-                                     :as :json
-                                     ;; for https://account.apple.com/.well-known/openid-configuration
-                                     :headers {"User-Agent" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"}})]
-    (if (clj-http/success? resp)
+  ;; Uses the webhook-sender client so discovery fetches are SSRF-guarded: the
+  ;; endpoint is user-supplied, so a plain fetch could target internal hosts.
+  (let [resp (webhook-sender/safe-get
+              endpoint
+              ;; for https://account.apple.com/.well-known/openid-configuration
+              :headers {"User-Agent" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"})]
+    (if (:success? resp)
       {:date (Instant/now)
-       :data (:body resp)}
+       :data (json/<-json (:body resp) true)}
       (do
         (tracer/record-exception-span! (ex-info "Error fetching discovery"
                                                 {:status   (:status resp)
@@ -317,6 +320,19 @@
 (defn get-discovery [endpoint]
   (:data (cache/get discovery-endpoint-cache endpoint)))
 
+(defn assert-safe-discovery-endpoints!
+  "Rejects a discovery document whose server-fetched endpoints (token, userinfo,
+   jwks) point at unsafe (SSRF) hosts. The discovery-endpoint URL is
+   user-supplied, so its document is untrusted."
+  [{:keys [token_endpoint userinfo_endpoint jwks_uri] :as discovery-data}]
+  (when token_endpoint
+    (webhook-sender/assert-safe-url! token_endpoint))
+  (when userinfo_endpoint
+    (webhook-sender/assert-safe-url! userinfo_endpoint))
+  (when jwks_uri
+    (webhook-sender/assert-safe-url! jwks_uri))
+  discovery-data)
+
 (defn generic-oauth-client-from-discovery-url [{:keys [app-id
                                                        provider-id
                                                        client-id
@@ -329,7 +345,8 @@
                 issuer
                 id_token_signing_alg_values_supported
 
-                userinfo_endpoint]} (get-discovery discovery-endpoint)]
+                userinfo_endpoint]} (assert-safe-discovery-endpoints!
+                                     (get-discovery discovery-endpoint))]
     (map->GenericOAuthClient {:app-id app-id
                               :provider-id provider-id
                               :client-id client-id

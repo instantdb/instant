@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { jsonFetch } from '@/lib/fetch';
 import config, { defaultOAuthCallbackURL } from '@/lib/config';
 import {
@@ -185,6 +185,7 @@ export function updateClient({
     client_secret?: string;
     meta?: Record<string, any>;
     redirect_to?: string | null;
+    discovery_endpoint?: string;
     use_shared_credentials?: boolean;
   };
 }): Promise<{ client: OAuthClient }> {
@@ -443,5 +444,126 @@ export function EditableRedirectUrl({
         </Button>
       </div>
     </div>
+  );
+}
+
+// Editor for a client's ID + secret, used by providers whose credentials are a
+// plain client id / client secret pair (GitHub, LinkedIn). The existing secret
+// is never returned to the dashboard, so this only ever sets a new value:
+// leaving the secret field blank keeps the current secret unchanged.
+export function OAuthCredentialsEditor({
+  app,
+  client,
+  token,
+  onUpdateClient,
+  clientIdCopyLabel,
+  clientIdLabel,
+  clientSecretLabel,
+}: {
+  app: InstantApp;
+  client: OAuthClient;
+  token: string;
+  onUpdateClient: (client: OAuthClient) => void;
+  clientIdCopyLabel: string;
+  clientIdLabel: ReactNode;
+  clientSecretLabel: ReactNode;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [clientId, setClientId] = useState(client.client_id || '');
+  const [clientSecret, setClientSecret] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const openEditor = () => {
+    setClientId(client.client_id || '');
+    setClientSecret('');
+    setIsEditing(true);
+  };
+
+  const cancel = () => {
+    setIsEditing(false);
+    setClientId(client.client_id || '');
+    setClientSecret('');
+  };
+
+  const handleSave = async () => {
+    if (!clientId) {
+      errorToast('Missing client id', { autoClose: 5000 });
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const resp = await updateClient({
+        token,
+        appId: app.id,
+        oauthClientID: client.id,
+        body: {
+          client_id: clientId,
+          ...(clientSecret ? { client_secret: clientSecret } : {}),
+        },
+      });
+      onUpdateClient(resp.client);
+      cancel();
+      successToast('Credentials updated');
+    } catch (e) {
+      console.error(e);
+      const msg =
+        messageFromInstantError(e as InstantIssue) ||
+        'Error updating credentials.';
+      errorToast(msg, { autoClose: 5000 });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isEditing) {
+    return (
+      <div className="flex flex-col gap-2">
+        <Copyable label={clientIdCopyLabel} value={client.client_id || ''} />
+        <div className="flex justify-end">
+          <Button variant="secondary" size="mini" onClick={openEditor}>
+            Update credentials
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSave();
+      }}
+      autoComplete="off"
+      data-lpignore="true"
+      data-1p-ignore="true"
+      data-bwignore="true"
+      data-form-type="other"
+    >
+      <TextInput
+        value={clientId}
+        onChange={setClientId}
+        label={clientIdLabel}
+      />
+      <TextInput
+        type="sensitive"
+        value={clientSecret}
+        onChange={setClientSecret}
+        label={clientSecretLabel}
+        placeholder="Enter a new secret to replace the current one"
+      />
+      <p className="text-sm text-gray-500 dark:text-neutral-400">
+        Leave the secret blank to keep the current one.
+      </p>
+      <div className="flex gap-2">
+        <Button loading={isSaving} type="submit">
+          Save
+        </Button>
+        <Button variant="secondary" onClick={cancel}>
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }

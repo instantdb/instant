@@ -6,7 +6,6 @@ import {
   Copyable,
   Copytext,
   Fence,
-  SectionHeading,
   SubsectionHeading,
   TextInput,
 } from '@/components/ui';
@@ -23,6 +22,7 @@ import {
   RedirectUrlInput,
   EditableRedirectUrl,
   RedirectForwardingNote,
+  OAuthCredentialsEditor,
 } from './shared';
 import { errorToast } from '@/lib/toast';
 import { messageFromInstantError } from '@/lib/errors';
@@ -207,7 +207,39 @@ export function GitHubClient({
   return (
     <div className="flex flex-col gap-4">
       <Copyable label="Client name" value={client.client_name} />
-      <Copyable label="GitHub Client ID" value={client.client_id || ''} />
+      <OAuthCredentialsEditor
+        app={app}
+        client={client}
+        token={token}
+        onUpdateClient={onUpdateClient}
+        clientIdCopyLabel="GitHub Client ID"
+        clientIdLabel={
+          <>
+            Client ID from{' '}
+            <a
+              className="underline"
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://github.com/settings/developers"
+            >
+              GitHub OAuth Apps
+            </a>
+          </>
+        }
+        clientSecretLabel={
+          <>
+            Client secret from{' '}
+            <a
+              className="underline"
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://github.com/settings/developers"
+            >
+              GitHub OAuth Apps
+            </a>
+          </>
+        }
+      />
       <EditableRedirectUrl
         app={app}
         client={client}
