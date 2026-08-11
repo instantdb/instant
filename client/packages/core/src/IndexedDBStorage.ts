@@ -300,6 +300,7 @@ export default class IndexedDBStorage extends StoreInterface {
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
         transaction.onabort = () => reject(transaction.error);
+        transaction.commit?.();
       });
     });
   }
@@ -316,6 +317,7 @@ export default class IndexedDBStorage extends StoreInterface {
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
         transaction.onabort = () => reject(transaction.error);
+        transaction.commit?.();
       });
     });
   }
@@ -330,6 +332,7 @@ export default class IndexedDBStorage extends StoreInterface {
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
         transaction.onabort = () => reject(transaction.error);
+        transaction.commit?.();
       });
     });
   }

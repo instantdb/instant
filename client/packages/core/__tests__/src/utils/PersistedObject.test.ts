@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { test, expect, describe } from 'vitest';
+import { test, expect, describe, vi } from 'vitest';
 import { PersistedObject } from '../../../src/utils/PersistedObject';
 import { IndexedDBStorage } from '../../../src';
 import { randomUUID } from 'crypto';
@@ -422,4 +422,25 @@ test('IndexedDBStorage recovers when the database connection closes', async () =
 
   await idb.removeItem('key4');
   expect(await idb.getItem('key4')).toBe(null);
+});
+
+test('IndexedDBStorage explicitly commits write transactions', async () => {
+  const commitSpy = vi.spyOn(IDBTransaction.prototype, 'commit');
+  try {
+    const idb = new IndexedDBStorage(randomUUID(), 'kv');
+
+    await idb.setItem('key1', 'value1');
+    await idb.multiSet([
+      ['key2', 'value2'],
+      ['key3', 'value3'],
+    ]);
+    await idb.removeItem('key3');
+
+    expect(commitSpy).toHaveBeenCalledTimes(3);
+    expect(await idb.getItem('key1')).toBe('value1');
+    expect(await idb.getItem('key2')).toBe('value2');
+    expect(await idb.getItem('key3')).toBe(null);
+  } finally {
+    commitSpy.mockRestore();
+  }
 });
