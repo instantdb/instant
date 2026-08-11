@@ -15,3 +15,25 @@
     (is (thrown? Exception
                  (oauth/fetch-discovery
                   "http://127.0.0.1/.well-known/openid-configuration")))))
+
+(deftest rejects-discovery-doc-with-unsafe-token-endpoint
+  (testing "a safe discovery endpoint but unsafe token_endpoint is rejected"
+    (is (thrown? Exception
+                 (oauth/assert-safe-discovery-endpoints!
+                  {:token_endpoint "http://169.254.169.254/token"
+                   :userinfo_endpoint "https://safe.example.com/userinfo"}))))
+  (testing "an unsafe userinfo_endpoint is rejected"
+    (is (thrown? Exception
+                 (oauth/assert-safe-discovery-endpoints!
+                  {:token_endpoint "https://safe.example.com/token"
+                   :userinfo_endpoint "http://127.0.0.1/userinfo"}))))
+  (testing "an unsafe jwks_uri is rejected"
+    (is (thrown? Exception
+                 (oauth/assert-safe-discovery-endpoints!
+                  {:token_endpoint "https://safe.example.com/token"
+                   :jwks_uri "http://169.254.169.254/jwks"}))))
+  (testing "a fully safe discovery document is accepted"
+    (is (oauth/assert-safe-discovery-endpoints!
+         {:token_endpoint "https://safe.example.com/token"
+          :userinfo_endpoint "https://safe.example.com/userinfo"
+          :jwks_uri "https://safe.example.com/jwks"}))))

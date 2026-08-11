@@ -17,7 +17,7 @@
    (java.util.concurrent Callable ExecutorService TimeUnit)
    (java.util.function Predicate)
    (javax.net.ssl SSLException)
-   (okhttp3 ConnectionPool Dispatcher Dns HttpUrl MediaType OkHttpClient OkHttpClient$Builder Request$Builder RequestBody)
+   (okhttp3 ConnectionPool Dispatcher Dns FormBody$Builder Headers HttpUrl MediaType OkHttpClient OkHttpClient$Builder Request$Builder RequestBody)
    (okhttp3.dnsoverhttps DnsOverHttps DnsOverHttps$Builder)))
 
 (def ^{:tag 'bytes} period-bytes (.getBytes "." StandardCharsets/UTF_8))
@@ -190,22 +190,47 @@
       (catch Exception _
         (ex/throw-validation-err! :webhook {:url input-url} [{:message "Could not resolve URL."}])))))
 
+(defn assert-safe-url!
+  "Parses url and rejects it if unparseable or if its host is an unsafe (SSRF)
+   literal IP. Does not make a request. Returns the parsed HttpUrl."
+  ^HttpUrl [^String url]
+  (let [parsed-url (HttpUrl/parse url)]
+    (when (nil? parsed-url)
+      (ex/throw-validation-err! :url {:url url} [{:message "Invalid URL."}]))
+    (ensure-safe-host! parsed-url)
+    parsed-url))
+
+(defn- response-headers->map [^Headers hs]
+  (into {} (map (fn [^String n] [(.toLowerCase n) (.get hs n)])) (.names hs)))
+
+(defn- execute-response [^Request$Builder builder headers]
+  (doseq [[k v] headers]
+    (.header builder ^String k ^String v))
+  (with-open [response (.. client
+                           (newCall (.build builder))
+                           (execute))]
+    {:success? (.isSuccessful response)
+     :status (.code response)
+     :headers (response-headers->map (.headers response))
+     :body (some-> (.body response) (.string))}))
+
 (defn safe-get
   "SSRF-safe HTTP GET using the guarded client (SSRF-defending DNS resolver plus
    literal-IP check, no redirects). Returns {:success? bool :status int :body
    string}. Throws for an unparseable URL, an unsafe host, or a network error."
   [^String url & {:keys [headers]}]
-  (let [parsed-url (HttpUrl/parse url)]
-    (when (nil? parsed-url)
-      (ex/throw-validation-err! :url {:url url} [{:message "Invalid URL."}]))
-    (ensure-safe-host! parsed-url)
-    (let [builder (doto (Request$Builder.)
-                    (.url parsed-url))]
-      (doseq [[k v] headers]
-        (.header builder ^String k ^String v))
-      (with-open [response (.. client
-                               (newCall (.build builder))
-                               (execute))]
-        {:success? (.isSuccessful response)
-         :status (.code response)
-         :body (some-> (.body response) (.string))}))))
+  (let [parsed-url (assert-safe-url! url)]
+    (execute-response (doto (Request$Builder.) (.url parsed-url)) headers)))
+
+(defn safe-post-form
+  "SSRF-safe form-encoded HTTP POST using the guarded client. form-params is a
+   map of name -> value. Same return/throw contract as safe-get."
+  [^String url form-params & {:keys [headers]}]
+  (let [parsed-url (assert-safe-url! url)
+        form (FormBody$Builder.)]
+    (doseq [[k v] form-params]
+      (.add form (name k) (str v)))
+    (execute-response (doto (Request$Builder.)
+                        (.url parsed-url)
+                        (.post (.build form)))
+                      headers)))

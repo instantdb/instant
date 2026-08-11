@@ -1,11 +1,12 @@
 (ns instant.auth.jwt
   (:require
    [chime.core :as chime-core]
-   [clj-http.client :as clj-http]
    [instant.util.cache :as cache]
    [instant.util.exception :as ex]
+   [instant.util.json :as json]
    [instant.util.lang :as lang]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [instant.webhook-sender :as webhook-sender])
   (:import
    (com.auth0.jwk Jwk SigningKeyNotFoundException)
    (com.auth0.jwt JWT)
@@ -28,11 +29,17 @@
 (defn- get-keys [jwks-uri]
   (tracer/with-span! {:name "jwt/get-keys"
                       :jwks-uri jwks-uri}
-    (let [resp (clj-http/get jwks-uri {:as :json-string-keys})
-          expires (if-let [expires-header (get-in resp [:headers "expires"])]
+    ;; jwks-uri comes from the untrusted discovery doc; use the SSRF-guarded client.
+    (let [resp (webhook-sender/safe-get jwks-uri)
+          _ (when-not (:success? resp)
+              (throw (ex-info "Unable to fetch JWKS."
+                              {:jwks-uri jwks-uri :status (:status resp)})))
+          headers (:headers resp)
+          body (json/<-json (:body resp))
+          expires (if-let [expires-header (get headers "expires")]
                     (parse-rfc822 expires-header)
-                    (if-let [max-age (some-> resp
-                                             (get-in [:headers "cache-control"])
+                    (if-let [max-age (some-> headers
+                                             (get "cache-control")
                                              (#(re-find #"max-age=(\d+)" %))
                                              second)]
                       (.plus (Instant/now)
@@ -41,7 +48,7 @@
                                           :attributes {:jwks-uri jwks-uri}}
                         ;; Just set it to one hour if there is no expires header
                         (.plus (Instant/now) 1 ChronoUnit/HOURS))))
-          body-keys (let [keys (get-in resp [:body "keys"])]
+          body-keys (let [keys (get body "keys")]
                       (if (< 100 (count keys))
                         (tracer/with-span!
                           {:name "jwk/too-many-keys"
