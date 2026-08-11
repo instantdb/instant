@@ -94,9 +94,6 @@ const nodes = {
       showCopy: {
         type: Boolean,
       },
-      filename: {
-        type: String,
-      },
     },
   },
   heading: {
