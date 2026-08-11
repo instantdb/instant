@@ -2,7 +2,10 @@
 
 import { Fragment, useContext, useEffect, useState } from 'react';
 import { CopyToClipboard } from 'react-copy-to-clipboard';
-import { ClipboardDocumentIcon } from '@heroicons/react/24/outline';
+import {
+  ClipboardDocumentIcon,
+  DocumentIcon,
+} from '@heroicons/react/24/outline';
 import Highlight, { defaultProps, Prism } from 'prism-react-renderer';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { rosePineDawnTheme } from '@/lib/rosePineDawnTheme';
@@ -74,7 +77,7 @@ function parseLineHighlights(lineHighlight) {
   return highlights;
 }
 
-export function Fence({ children, language, showCopy, lineHighlight }) {
+export function Fence({ children, language, showCopy, lineHighlight, filename }) {
   const [copyLabel, setCopyLabel] = useState('Copy');
 
   const app = useContext(SelectedAppContext);
@@ -104,7 +107,19 @@ export function Fence({ children, language, showCopy, lineHighlight }) {
     >
       {({ className, style, tokens, getLineProps, getTokenProps }) => (
         <div className="relative text-sm">
-          <pre className={className} style={style}>
+          {filename && (
+            <div
+              className="mt-6 flex items-center gap-x-1.5 rounded-t border border-b-0 border-black/10 px-4 py-2 font-mono text-xs text-gray-500"
+              style={{ backgroundColor: rosePineDawnTheme.plain.backgroundColor }}
+            >
+              <DocumentIcon className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+              {filename}
+            </div>
+          )}
+          <pre
+            className={`${className}${filename ? ' !mt-0 !rounded-t-none border border-black/10' : ''}`}
+            style={style}
+          >
             {tokens.map((line, lineIndex) => {
               const isHighlighted = highlightedLines.has(lineIndex + 1);
               let lineTokens = line
