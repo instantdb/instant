@@ -9,6 +9,7 @@
    [instant.jdbc.sql :as sql]
    [instant.jdbc.wal :as wal]
    [instant.model.app :as app-model]
+   [instant.model.app-authorized-redirect-origin :as redirect-origin-model]
    [instant.model.app-email-template :as app-email-template-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.org :as org-model]
@@ -106,8 +107,17 @@
                                     :name name
                                     :body body})))
 
+(defn restore-redirect-origins!
+  "Restores the app's authorized redirect origins from the backup config."
+  [app-id origins]
+  (doseq [{:keys [service params]} origins]
+    (redirect-origin-model/add! {:app-id app-id
+                                 :service service
+                                 :params params})))
+
 (defn initialize-app-from-config
-  "Creates a new ephemeral app with rules, schema, and email templates.
+  "Creates a new ephemeral app with rules, schema, email templates, and
+   authorized redirect origins.
    At the end of the process we'll transfer the app to the org or user.
    We don't want the app to be discoverable while we're in the process of
    doing a restore."
@@ -123,6 +133,7 @@
                               :background-updates? false})
          (schema-model/apply-plan! (:id app)))
     (restore-email-templates! (:id app) (:emailTemplates config))
+    (restore-redirect-origins! (:id app) (:authorizedRedirectOrigins config))
     app))
 
 (defn enqueue-file!
