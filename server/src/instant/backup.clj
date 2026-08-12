@@ -15,6 +15,7 @@
    [instant.jdbc.sql :as sql]
    [instant.jdbc.wal :as wal]
    [instant.model.app :as app-model]
+   [instant.model.app-authorized-redirect-origin :as redirect-origin-model]
    [instant.model.app-file :as app-file-model]
    [instant.model.rule :as rule-model]
    [instant.model.schema :as schema]
@@ -317,10 +318,13 @@
       schema/schema->defs))
 
 (defn get-rules [conn app-id]
-  (rule-model/get-by-app-id conn app-id))
+  (rule-model/get-by-app-id conn {:app-id app-id}))
 
 (defn get-webhooks [conn app-id]
-  (webhook-model/get-all-by-app-id conn app-id))
+  (webhook-model/get-all-by-app-id conn {:app-id app-id}))
+
+(defn get-redirect-origins [conn app-id]
+  (redirect-origin-model/get-all-for-app conn {:app-id app-id}))
 
 (def app-email-templates-q
   (uhsql/preformat {:select [[:t.email-type :type] :t.body :t.name :t.subject :s.email]
@@ -379,7 +383,14 @@
                                   (select-keys webhook [:namespaces :sink :status :actions]))
                                 (get-webhooks query-conn app-id))
                 :emailTemplates (get-app-email-templates query-conn app-id)
-                :title (str (:title (app-model/get-by-id query-conn {:id app-id})))}
+                :authorizedRedirectOrigins (mapv (fn [origin]
+                                                   (select-keys origin [:service :params]))
+                                                 (get-redirect-origins query-conn app-id))
+                :title (str (:title (app-model/get-by-id query-conn {:id app-id})))
+                :appId app-id
+                :backupAt backup-at
+                :isn isn
+                :description (or description "Automated Daily Snapshot")}
         ^bytes config-bytes (json/->json-bytes config)
         ba (Zstd/compress config-bytes compression-level)
         ;; Total uncompressed bytes that the client will end up with in the

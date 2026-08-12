@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   LandingContainer,
   LegacyNav,
@@ -36,6 +36,43 @@ type RestoreJob = {
 
 const TERMINAL = new Set(['completed', 'errored', 'cancelled']);
 
+// Reads config.json (the first entry) out of a backup zip in the browser.
+// Returns the parsed config, or null if the zip can't be read/parsed (a bad zip
+// is left for the server to reject on upload).
+async function readBackupConfig(file: File): Promise<any | null> {
+  try {
+    const { ZipReader, BlobReader, TextWriter } = await import(
+      '@zip.js/zip.js'
+    );
+    const reader = new ZipReader(new BlobReader(file));
+    try {
+      const entries = await reader.getEntries();
+      const entry = entries.find((e) => e.filename === 'config.json');
+      if (!entry || entry.directory) return null;
+      return JSON.parse(await entry.getData(new TextWriter()));
+    } finally {
+      await reader.close();
+    }
+  } catch {
+    return null;
+  }
+}
+
+// Backups written before we fixed a bug that dropped permission rules from the
+// config lack the `appId` key (added by the same change that fixed the bug), so
+// its absence means the rules may not have been captured.
+function missingRulesWarning(config: any): string | null {
+  if (config && config.appId == null) {
+    return (
+      'This backup may be missing your permission rules. After the restore ' +
+      'finishes, open the Permissions tab on the new app and re-add your rules ' +
+      'if they’re missing.\n\n' +
+      'The bug was fixed in backups created after August 12, 2026.'
+    );
+  }
+  return null;
+}
+
 // A live restore bumps `updated_at` every second (see report-progress! on the
 // server). If a non-terminal job hasn't updated in this long, the machine
 // running it probably died/restarted -- the row will never finalize on its own,
@@ -62,6 +99,20 @@ function RestoreDialog({
   const [title, setTitle] = useState('');
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [rulesWarning, setRulesWarning] = useState<string | null>(null);
+  const fileChangeToken = useRef(0);
+
+  async function onFileChange(next: File | null) {
+    const changeToken = ++fileChangeToken.current;
+    setFile(next);
+    setRulesWarning(null);
+    if (next) {
+      const config = await readBackupConfig(next);
+      if (changeToken === fileChangeToken.current) {
+        setRulesWarning(missingRulesWarning(config));
+      }
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -94,6 +145,7 @@ function RestoreDialog({
       }
       successToast('Restore started');
       setFile(null);
+      setRulesWarning(null);
       setAppId('');
       setTitle('');
       dialog.onClose();
@@ -147,11 +199,17 @@ function RestoreDialog({
                 <input
                   type="file"
                   accept=".zip,application/zip"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  className="hidden"
+                  onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
+                  className="sr-only"
                 />
               </label>
             </div>
+
+            {rulesWarning && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm whitespace-pre-line text-amber-800">
+                {rulesWarning}
+              </div>
+            )}
 
             <label className="flex flex-col gap-1">
               <span className="text-sm font-medium text-gray-700">
