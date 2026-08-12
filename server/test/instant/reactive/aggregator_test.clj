@@ -20,6 +20,33 @@
 
 (def ^:dynamic *in-test* false)
 
+(deftest fast-active-slot-check-test
+  (testing "checks the read connection when it matches the WAL connection"
+    (let [query (atom nil)
+          get-conn-config (with-meta (constantly {:host "primary"})
+                            {:same-as-read-conn true})]
+      (with-redefs [aurora/conn-pool (fn [pool]
+                                      (is (= :read pool))
+                                      :read-pool)
+                    sql/select-one (fn [_query-name conn sql-params]
+                                     (reset! query [conn sql-params])
+                                     {:active true})]
+        (is (true? (agg/fast-active-slot-check
+                    {:get-conn-config get-conn-config
+                     :slot-type agg/slot-type
+                     :slot-suffix "test"})))
+        (is (= [:read-pool
+                ["select active from pg_replication_slots where slot_name = ?"
+                 "aggregator_test"]]
+               @query)))))
+
+  (testing "does not query while the WAL connection may differ from the read connection"
+    (with-redefs [sql/select-one (fn [& _]
+                                  (throw (ex-info "unexpected query" {})))]
+      (is (nil? (agg/fast-active-slot-check
+                 {:get-conn-config (constantly {:host "transitioning"})
+                  :slot-type agg/slot-type}))))))
+
 (defn copy-sql-for-app-ids
   "copy command that only copies the app we are interested in"
   [app-ids]

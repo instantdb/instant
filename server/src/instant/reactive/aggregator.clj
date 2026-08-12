@@ -7,6 +7,7 @@
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.copy :as copy]
+   [instant.jdbc.sql :as sql]
    [instant.jdbc.wal :as wal]
    [instant.util.async :as ua]
    [instant.util.cache :as cache]
@@ -458,6 +459,18 @@
 
 (def slot-type :aggregator)
 
+(defn fast-active-slot-check
+  "Just checks the db to see if the slot is active. It only works when we're not
+   in the middle of switching db instances, but we check for that."
+  [{:keys [get-conn-config
+           slot-type
+           slot-suffix]}]
+  (when (:same-as-read-conn (meta get-conn-config))
+    (let [slot-name (wal/full-slot-name slot-type slot-suffix)]
+      (:active (sql/select-one ::fast-active-slot-check
+                               (aurora/conn-pool :read)
+                               ["select active from pg_replication_slots where slot_name = ?" slot-name])))))
+
 (defn start-slot-listener
   "Starts process that will try to acquire the aggregation wal slot every
   `acquire-slot-interval-ms`.
@@ -485,8 +498,12 @@
         (a/go
           (loop [timeout-ch (a/timeout 0)]
             (when (= timeout-ch (second (a/alts! [shutdown-chan timeout-ch])))
-              (if (check-disabled)
+              (if (or (check-disabled)
+                      (fast-active-slot-check {:get-conn-config get-conn-config
+                                               :slot-type slot-type
+                                               :slot-suffix slot-suffix}))
                 (recur (a/timeout acquire-slot-interval-ms))
+
                 (if-let [lsn (cms/get-start-lsn (aurora/conn-pool :read)
                                                 {:slot-name slot-name})]
                   (let [{:keys [wal-chan worker-chan flush-lsn-chan close-signal-chan]}
@@ -605,8 +622,13 @@
                          :skip-empty-updates skip-empty-updates
                          :check-disabled (fn []
                                            (flags/toggled? :disable-aggregator))
-                         :get-conn-config (fn []
-                                            (config/get-aurora-config))
+                         :get-conn-config (with-meta
+                                            (fn []
+                                              (config/get-aurora-config))
+                                            ;; When we're not transitioning to a new cluster,
+                                            ;; this lets us check if the slot is active without
+                                            ;; creating a new connection.
+                                            {:same-as-read-conn true})
                          :slot-num global-slot-num})))
 
 (defn start-global []
