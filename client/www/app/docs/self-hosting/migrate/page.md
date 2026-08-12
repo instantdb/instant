@@ -37,11 +37,7 @@ Keep the Instant Cloud callback configured until the migration is complete.
 ### Restore a test backup
 
 Migrating without data loss will require some downtime. To get a sense of how
-much time it will take, we'll do the following:
-
-1. Export a backup from Instant Cloud
-2. [Restore the backup](/intern/restore) into your self-hosted Instant (you'll
-   need to be logged in as [your deployment superuser](/docs/self-hosting#configure-the-deployment-superuser) to have access to restore).
+much time it will take, first [restore a backup from Instant Cloud](/docs/backups#restore-a-backup).
 
 After restoring, verify that the following look correct:
 

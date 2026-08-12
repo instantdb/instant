@@ -145,6 +145,7 @@ module.exports = [
       { title: 'Storage', href: '/docs/storage' },
       { title: 'Streams', href: '/docs/streams' },
       { title: 'Webhooks', href: '/docs/webhooks' },
+      { title: 'Backups', href: '/docs/backups' },
       { title: 'Stripe Payments', href: '/docs/stripe-payments' },
       { title: 'Admin HTTP API', href: '/docs/http-api' },
       { title: '(Experimental) Next.js SSR', href: '/docs/next-ssr' },
