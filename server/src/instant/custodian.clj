@@ -39,7 +39,9 @@
 ;; Config
 
 (defn- batch-size [] (flags/flag :custodian-batch-size 1000))
-(defn- idle-sleep-ms [] (flags/flag :custodian-idle-sleep-ms 5000))
+(defn- idle-sleep-ms [] (flags/flag :custodian-idle-sleep-ms (if (config/dev?)
+                                                               (* 1000 60 10)
+                                                               5000)))
 
 ;; Attrs are deleted one at a time: each attr delete cascades to that attr's
 ;; triples, and right after the triple sweep those are dead-but-not-yet-vacuumed
