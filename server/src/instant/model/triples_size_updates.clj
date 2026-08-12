@@ -18,6 +18,7 @@
    {:with [[:ids {:select :id
                   :from :triples-size-updates
                   :for [:update :skip-locked]
+                  :order-by :id
                   :limit '?batch-size}]
            [:deletes {:delete-from :triples-size-updates
                       :using :ids
