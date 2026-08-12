@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   LandingContainer,
   LegacyNav,
@@ -100,13 +100,17 @@ function RestoreDialog({
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [rulesWarning, setRulesWarning] = useState<string | null>(null);
+  const fileChangeToken = useRef(0);
 
   async function onFileChange(next: File | null) {
+    const changeToken = ++fileChangeToken.current;
     setFile(next);
     setRulesWarning(null);
     if (next) {
       const config = await readBackupConfig(next);
-      setRulesWarning(missingRulesWarning(config));
+      if (changeToken === fileChangeToken.current) {
+        setRulesWarning(missingRulesWarning(config));
+      }
     }
   }
 
@@ -196,7 +200,7 @@ function RestoreDialog({
                   type="file"
                   accept=".zip,application/zip"
                   onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
-                  className="hidden"
+                  className="sr-only"
                 />
               </label>
             </div>
