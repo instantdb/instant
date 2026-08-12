@@ -30,7 +30,9 @@
                    ;; Join filters out (app_id, attr_id) whose parent was deleted mid-batch.
                    :join [:apps [:= :apps.id  :deletes.app-id]
                           :attrs [:= :attrs.id :deletes.attr-id]]
-                   :group-by [:deletes.app-id :deletes.attr-id]}]
+                   :group-by [:deletes.app-id :deletes.attr-id]
+                   ;; sort to avoid deadlock
+                   :order-by [:deletes.app-id :deletes.attr-id]}]
     :on-conflict {:on-constraint :triples_size_aggregate_pkey}
     :do-update-set {:pg-size [:+
                               :triples_size_aggregate.pg_size

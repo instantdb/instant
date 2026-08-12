@@ -626,4 +626,4 @@
 (defn disable-triples-size-collection? []
   ;; Defaults to disabled so that we can bootstrap before
   ;; we start the process.
-  (flag :disable-triples-size-collection true))
+  (flag :disable-triples-size-collection false))
