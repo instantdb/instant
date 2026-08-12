@@ -321,7 +321,7 @@
   (rule-model/get-by-app-id conn {:app-id app-id}))
 
 (defn get-webhooks [conn app-id]
-  (webhook-model/get-all-by-app-id conn app-id))
+  (webhook-model/get-all-by-app-id conn {:app-id app-id}))
 
 (defn get-redirect-origins [conn app-id]
   (redirect-origin-model/get-all-for-app conn {:app-id app-id}))
