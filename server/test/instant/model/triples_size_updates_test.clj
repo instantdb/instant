@@ -4,6 +4,7 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-empty-app]]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.triples-size-updates :as tsu]
@@ -250,6 +251,47 @@
           (assert-files-size-aggregate-matches-actual! (:id app))
           (is (zero? (files-size-aggregate (:id app)))))))))
 
+(defn insert-orphan-rows!
+  "Inserts queue rows whose (app_id, attr_id) don't exist in apps/attrs, to
+   simulate rows left behind when a parent app/attr is deleted mid-batch.
+   These get filtered out by the aggregate INSERT's join."
+  [n]
+  (let [orphan-app (random-uuid)
+        orphan-attr (random-uuid)]
+    (dotimes [_ n]
+      (sql/do-execute!
+       (aurora/conn-pool :write)
+       ["insert into triples_size_updates (app_id, attr_id, pg_size, files_size)
+         values (?::uuid, ?::uuid, 123, 0)"
+        orphan-app orphan-attr]))))
+
+(deftest orphan-only-batch-does-not-halt-collection
+  ;; An orphan-only batch deletes queue rows but writes 0 aggregate rows. The
+  ;; loop must drain on queue rows removed (not aggregate rows written), or it
+  ;; stops early and leaves valid rows behind.
+  (with-empty-app
+    (fn [app]
+      (let [name-attr (make-blob-attr "users" "name")
+            eid       (random-uuid)]
+        (add-attrs! app [name-attr])
+        (drain!) ;; empty the queue so we control what's in it
+
+        ;; Lowest ids: an orphan-only first batch.
+        (insert-orphan-rows! 2)
+        ;; Higher ids: a valid update that must still be processed afterward.
+        (transact! app [[:add-triple eid (:id name-attr) "Alice"]])
+        (is (seq (queue-rows (:id app))))
+
+        ;; batch-size 2 => batch 1 is the two orphans (0 aggregates), batch 2 is
+        ;; the valid row.
+        (with-redefs [flags/triples-size-collection-batch-size (constantly 2)]
+          (tsu/collect-batches! 1000))
+
+        (testing "valid update is processed after the orphan-only batch"
+          (is (empty? (queue-rows (:id app))))
+          (assert-aggregate-matches-actual! (:id app))
+          (is (pos? (get (aggregate-by-attr (:id app)) (:id name-attr) 0))))))))
+
 (deftest collect-is-noop-on-empty-queue
   (with-empty-app
     (fn [app]
@@ -258,3 +300,13 @@
       ;; calling again on an empty queue should be a no-op, not error
       (drain!)
       (is (empty? (queue-rows (:id app)))))))
+
+(deftest final-batch-drain-does-not-count-as-limit-hit
+  (with-empty-app
+    (fn [_app]
+      (drain!) ;; start from an empty queue
+      (insert-orphan-rows! 1)
+      (let [hits (atom 5)]
+        (with-redefs [flags/triples-size-collection-batch-size (constantly 100)]
+          (tsu/collect-batches! 1 hits))
+        (is (zero? @hits))))))

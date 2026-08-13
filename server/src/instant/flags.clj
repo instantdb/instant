@@ -623,6 +623,9 @@
 (defn triples-size-collection-max-loops []
   (flag :triples-size-collection-max-loops 1000))
 
+(defn triples-size-collection-loop-limit-alert-threshold []
+  (flag :triples-size-collection-loop-limit-alert-threshold 10))
+
 (defn disable-triples-size-collection? []
   ;; Defaults to disabled so that we can bootstrap before
   ;; we start the process.
