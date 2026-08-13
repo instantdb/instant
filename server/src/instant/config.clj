@@ -131,7 +131,7 @@
       (some-> @config-map :postmark-token crypt-util/secret-value)))
 
 (defn sendgrid-token []
-  (or (System/getenv "SENDGRID_TOKEN")
+  (or (some-> (System/getenv "SENDGRID_TOKEN") string/trim not-empty)
       (some-> @config-map :sendgrid-token crypt-util/secret-value)))
 
 (defn postmark-account-token []
