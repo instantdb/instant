@@ -300,3 +300,13 @@
       ;; calling again on an empty queue should be a no-op, not error
       (drain!)
       (is (empty? (queue-rows (:id app)))))))
+
+(deftest final-batch-drain-does-not-count-as-limit-hit
+  (with-empty-app
+    (fn [_app]
+      (drain!) ;; start from an empty queue
+      (insert-orphan-rows! 1)
+      (let [hits (atom 5)]
+        (with-redefs [flags/triples-size-collection-batch-size (constantly 100)]
+          (tsu/collect-batches! 1 hits))
+        (is (zero? @hits))))))

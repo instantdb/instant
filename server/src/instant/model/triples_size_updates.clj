@@ -82,14 +82,13 @@
              (discord/send-error-async! (str (:instateam discord/mention-constants)
                                              " collect triples size is backed up after " loops " iterations"
                                              " (" hits " runs in a row)."))))
-         (let [{:keys [deleted_count aggregated_count]} (collect-batch!)]
-           ;; Drain on queue rows removed, not aggregate rows written: an
-           ;; orphan-only batch deletes rows but writes 0 aggregates.
-           (if (zero? (long deleted_count))
+         (let [batch-size (flags/triples-size-collection-batch-size)
+               {:keys [deleted_count aggregated_count]} (collect-batch! (aurora/conn-pool :write) batch-size)]
+           (if (< (long deleted_count) batch-size)
              (do
                (reset! consecutive-limit-hits 0)
-               (tracer/add-data! {:attributes {:total-collected total-collected
-                                               :total-aggregated total-aggregated
+               (tracer/add-data! {:attributes {:total-collected (+ total-collected (long deleted_count))
+                                               :total-aggregated (+ total-aggregated (long aggregated_count))
                                                :loops loops}}))
              (recur (inc loops)
                     (+ total-collected (long deleted_count))
