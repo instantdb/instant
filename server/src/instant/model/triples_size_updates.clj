@@ -54,35 +54,47 @@
 
 (defn collect-batches!
   "Adds triples_size_updates to the triples_size_aggregates table and deletes them.
-   Turn it off with the `disable-triples-size-collection` feature flag."
-  [max-loops]
-  (tracer/with-span! {:name ::collect-batches
-                      :attributes {:max-loops max-loops}}
-    (loop [loops 0
-           total-collected 0]
-      (if (= loops max-loops)
-        (do
-          (tracer/add-data! {:attributes {:total-collected total-collected
-                                          :loops loops}})
-          (when (config/prod?)
-            (discord/send-error-async! (str (:instateam discord/mention-constants)
-                                            " collect triples size is backed up after " loops " iterations."))))
-        (let [update-count (:next.jdbc/update-count (first (collect-batch!)))]
-          (if (zero? update-count)
-            (tracer/add-data! {:attributes {:total-collected total-collected
-                                            :loops loops}})
-            (recur (inc loops)
-                   (+ total-collected (long update-count)))))))))
+   Turn it off with the `disable-triples-size-collection` feature flag.
+
+   `consecutive-limit-hits` is an atom tracking how many runs in a row have hit
+   `max-loops`; we only alert once it exceeds the alert threshold so a transient
+   backup doesn't page. It's reset whenever a run drains cleanly."
+  ([max-loops] (collect-batches! max-loops (atom 0)))
+  ([max-loops consecutive-limit-hits]
+   (tracer/with-span! {:name ::collect-batches
+                       :attributes {:max-loops max-loops}}
+     (loop [loops 0
+            total-collected 0]
+       (if (= loops max-loops)
+         (let [hits (swap! consecutive-limit-hits inc)]
+           (tracer/add-data! {:attributes {:total-collected total-collected
+                                           :loops loops
+                                           :consecutive-limit-hits hits}})
+           (when (and (config/prod?)
+                      (> hits (flags/triples-size-collection-loop-limit-alert-threshold)))
+             (discord/send-error-async! (str (:instateam discord/mention-constants)
+                                             " collect triples size is backed up after " loops " iterations"
+                                             " (" hits " runs in a row)."))))
+         (let [update-count (:next.jdbc/update-count (first (collect-batch!)))]
+           (if (zero? update-count)
+             (do
+               (reset! consecutive-limit-hits 0)
+               (tracer/add-data! {:attributes {:total-collected total-collected
+                                               :loops loops}}))
+             (recur (inc loops)
+                    (+ total-collected (long update-count))))))))))
 
 (defn start []
-  (let [chime (chime.core/chime-at (chime.core/periodic-seq (Instant/now)
+  (let [consecutive-limit-hits (atom 0)
+        chime (chime.core/chime-at (chime.core/periodic-seq (Instant/now)
                                                             (Duration/ofMinutes (if (config/dev?)
                                                                                   60
                                                                                   5)))
                                    (fn [_]
                                      (when-not (or (flags/failing-over?)
                                                    (flags/disable-triples-size-collection?))
-                                       (collect-batches! (flags/triples-size-collection-max-loops)))))]
+                                       (collect-batches! (flags/triples-size-collection-max-loops)
+                                                         consecutive-limit-hits))))]
     {:shutdown (fn []
                  (.close chime))}))
 
