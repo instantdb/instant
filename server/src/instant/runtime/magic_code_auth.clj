@@ -222,7 +222,8 @@
                                 (email-router/send-structured! (magic-code-email email (assoc email-params :sender-email default-sender-email))))
 
                               ;; Don't throw if it's a test user, even if we can't send email to it
-                              (and (= ::ex/validation-failed (-> e ex-data ::ex/type))
+                              (and (contains? #{::ex/validation-failed ::ex/email-send-failed}
+                                              (-> e ex-data ::ex/type))
                                    (not (nil? (app-model/get-test-user req))))
                               false
 

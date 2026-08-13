@@ -28,6 +28,39 @@
   (= 504
      (-> e ex-data :body :ErrorCode)))
 
+;; Sender-signature problems. We deliberately re-throw these raw (rather than
+;; translating them) so callers like magic-code-auth can catch them and retry
+;; with the default sender. See `instant.runtime.magic-code-auth/invalid-sender?`.
+(def unconfirmed-sender-error-code 400)
+(def sender-not-found-error-code 401)
+
+(defn sender-signature-problem? [e]
+  (contains? #{unconfirmed-sender-error-code sender-not-found-error-code}
+             (-> e ex-data :body :ErrorCode)))
+
+(defn throw-send-error!
+  "Translates a failed Postmark send into a typed instant-exception with a
+   human-readable message, so the client gets a real error instead of a generic
+   500. Sender-signature errors are re-thrown raw so callers can fall back to
+   the default sender. The provider's own error code/message are recorded to the
+   trace for debugging, not surfaced to the client."
+  [e to]
+  (if (sender-signature-problem? e)
+    (throw e)
+    (do
+      (tracer/add-data! {:attributes {:postmark-error-code (-> e ex-data :body :ErrorCode)
+                                      :postmark-error-message (-> e ex-data :body :Message)}})
+      (if (inactive-recipient? e)
+        (ex/throw-email-send-failed!
+         (format "We couldn't deliver the email to %s. The address has been marked as inactive and can't receive mail." to)
+         {:recipient to
+          :recipient-problem? true}
+         e)
+        (ex/throw-email-send-failed!
+         "We weren't able to send the email."
+         {:recipient to}
+         e)))))
+
 ;; --------
 ;; API
 
@@ -63,12 +96,7 @@
                       "Content-Type" "application/json"}
             :body (->json body)})
           (catch Exception e
-            (if (inactive-recipient? e)
-              (ex/throw-validation-err!
-               :email
-               to
-               [{:message "This email address has been marked inactive."}])
-              (throw e))))))))
+            (throw-send-error! e to)))))))
 
 (comment
   (send! {:from "verify@dash-pm.instantdb.com"
