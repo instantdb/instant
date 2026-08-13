@@ -220,9 +220,9 @@ The load balancer should only send traffic to backends where
 `/health/system` returns `{"wal":"ok"}`. Open the dashboard and create an app to
 check queries, writes, realtime updates, and file uploads.
 
-Until Postmark is configured, login codes are written to the backend logs. For
-an ECS deployment using CloudWatch Logs, tail the log group configured on the
-backend task definition:
+Until an email provider is configured, login codes are written to the backend
+logs. For an ECS deployment using CloudWatch Logs, tail the log group configured
+on the backend task definition:
 
 ```shell {% showCopy=true %}
 aws logs tail /your/backend/log-group \

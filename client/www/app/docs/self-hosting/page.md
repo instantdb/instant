@@ -23,8 +23,8 @@ startup. For side projects the expected cost is at least $30/month. For serious 
 ## Operating
 
 Once you've got Instant running, you may want to change some default settings. At
-the very least you should be sure to configure Postmark so magic code emails can
-actually be delivered.
+the very least you should be sure to configure an email provider so magic code
+emails can actually be delivered.
 
 ### Configure email with Postmark
 
@@ -46,6 +46,31 @@ INSTANT_TEAM_EMAIL_SENDER_EMAIL=teams@example.com
 
 Restart the backend and try logging in to the dashboard. If all goes right, you
 should get an email delivered!
+
+### Configure email with SendGrid
+
+You can use [SendGrid](https://sendgrid.com/) instead of Postmark. Create an API
+key, verify your sender addresses (or authenticate your domain), and set:
+
+```shell
+SENDGRID_TOKEN=replace-with-your-api-key
+INSTANT_EMAIL_REPLY_TO=hello@example.com
+INSTANT_DASHBOARD_EMAIL_SENDER_NAME=Instant
+INSTANT_DASHBOARD_EMAIL_SENDER_EMAIL=verify@example.com
+INSTANT_APP_EMAIL_SENDER_NAME=Instant
+INSTANT_APP_EMAIL_SENDER_EMAIL=verify@example.com
+INSTANT_TEAM_EMAIL_SENDER_NAME=Instant
+INSTANT_TEAM_EMAIL_SENDER_EMAIL=teams@example.com
+```
+
+If only one of `POSTMARK_TOKEN` or `SENDGRID_TOKEN` is set, Instant uses that
+provider automatically. If you set both, choose one explicitly with:
+
+```shell
+INSTANT_EMAIL_PROVIDER=sendgrid
+```
+
+Restart the backend and try logging in to the dashboard to confirm delivery.
 
 ### Configure Google dashboard login
 

@@ -7,16 +7,17 @@
    [instant.postmark :as postmark]))
 
 (defn send! [{:keys [from to cc bcc subject html reply-to]}]
-  (let [body {:personalizations [{:to
-
-                                  to :cc cc :bcc bcc}]
+  (let [personalization (cond-> {:to to}
+                          cc (assoc :cc cc)
+                          bcc (assoc :bcc bcc))
+        body {:personalizations [personalization]
               :from from
-              :reply_to {:email (or reply-to "hello@instantdb.com")}
+              :reply_to {:email (or reply-to (config/email-reply-to))}
               :subject subject
               :content
               [{:type "text/html" :value html}]}]
 
-    (if-not (config/sendgrid-send-disabled?)
+    (if-not (config/sendgrid-send-enabled?)
       (tracer/with-span! {:name "sendgrid/send-disabled"
                           :attributes body}
         (tracer/record-info!

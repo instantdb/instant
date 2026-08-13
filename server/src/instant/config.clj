@@ -131,7 +131,8 @@
       (some-> @config-map :postmark-token crypt-util/secret-value)))
 
 (defn sendgrid-token []
-  (some-> @config-map :sendgrid-token crypt-util/secret-value))
+  (or (System/getenv "SENDGRID_TOKEN")
+      (some-> @config-map :sendgrid-token crypt-util/secret-value)))
 
 (defn postmark-account-token []
   (or (System/getenv "POSTMARK_ACCOUNT_TOKEN")
@@ -158,7 +159,18 @@
    :email (or (System/getenv "INSTANT_TEAM_EMAIL_SENDER_EMAIL")
               "teams@pm.instantdb.com")})
 
-(defn sendgrid-send-disabled? []
+(defn email-provider
+  "Explicit email-provider override for self-hosted deployments
+   (INSTANT_EMAIL_PROVIDER = \"postmark\" | \"sendgrid\"). Wins over token
+   auto-detection when set. nil when unset."
+  []
+  (some-> (System/getenv "INSTANT_EMAIL_PROVIDER")
+          string/trim
+          string/lower-case
+          not-empty
+          keyword))
+
+(defn sendgrid-send-enabled? []
   (not (string/blank? (sendgrid-token))))
 
 (defn postmark-send-enabled? []

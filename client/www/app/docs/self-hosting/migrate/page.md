@@ -20,7 +20,7 @@ create an app, query it, and write data.
 
 Before restoring your app:
 
-- [Configure Postmark](/docs/self-hosting#configure-email-with-postmark) so magic code emails work.
+- [Configure an email provider](/docs/self-hosting#configure-email-with-postmark) so magic code emails work.
 - [Restrict dashboard signups](/docs/self-hosting#restrict-dashboard-signups) and [disable temporary apps](/docs/self-hosting#temporary-apps) to prevent unwanted app creation.
 - Configure webhooks for your self-hosted app if your app uses them.
 
