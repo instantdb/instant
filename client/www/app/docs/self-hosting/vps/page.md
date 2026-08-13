@@ -120,8 +120,8 @@ curl -fsS https://api.myinstant.com/health/system
 A healthy backend returns `{"wal":"ok"}`. Open the dashboard and create an app
 to check queries, writes, and file uploads.
 
-Until Postmark is configured, login codes are written to the backend logs. Tail
-them with:
+Until an email provider is configured, login codes are written to the backend
+logs. Tail them with:
 
 ```sh {% showCopy=true %}
 sudo docker compose -f docker-compose.with-caddy.yml --env-file .env logs --follow server
