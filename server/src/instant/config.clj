@@ -161,9 +161,8 @@
 
 (defn email-provider
   "Explicit email-provider override for self-hosted deployments
-   (INSTANT_EMAIL_PROVIDER = \"postmark\" | \"sendgrid\" | \"ses\"). Wins
-   over token auto-detection when set. Amazon SES is self-hosted only and
-   is ignored on Instant Cloud (aws-env?). nil when unset."
+   (INSTANT_EMAIL_PROVIDER = \"postmark\" | \"sendgrid\" | \"ses\").
+   `:ses` is ignored on Instant Cloud. nil when unset."
   []
   (let [provider (some-> (System/getenv "INSTANT_EMAIL_PROVIDER")
                          string/trim
@@ -201,27 +200,29 @@
   (some-> (System/getenv "AWS_SES_CONFIGURATION_SET") string/trim not-empty))
 
 (defn aws-ses-enabled?
-  "True when dedicated SES credentials are present on a self-hosted
-   instance. Instant Cloud never treats SES as enabled, even if these
-   env vars are set, so hosted traffic stays on Postmark/SendGrid."
+  "Dedicated SES keys on a self-hosted instance. Always false on Instant Cloud."
   []
   (and (not (aws-env?))
        (not (string/blank? (aws-ses-access-key-id)))
        (not (string/blank? (aws-ses-secret-access-key)))))
 
-(defn email-send-enabled?
-  "True when the selected transactional email provider has credentials.
-   When no provider is selected explicitly, preserve Postmark/SendGrid
-   auto-detection and also pick up self-hosted SES."
+(defn ses-selected?
+  "True when this process should send (and verify custom senders) via SES."
   []
+  (or (= :ses (email-provider))
+      (and (nil? (email-provider))
+           (aws-ses-enabled?)
+           (not (postmark-send-enabled?))
+           (not (sendgrid-send-enabled?)))))
+
+(defn email-send-enabled? []
   (case (email-provider)
     :postmark (postmark-send-enabled?)
     :sendgrid (sendgrid-send-enabled?)
     :ses (aws-ses-enabled?)
-    nil (or (postmark-send-enabled?)
-            (sendgrid-send-enabled?)
-            (aws-ses-enabled?))
-    false))
+    (or (postmark-send-enabled?)
+        (sendgrid-send-enabled?)
+        (aws-ses-enabled?))))
 
 (defn secret-discord-token []
   (some-> @config-map :secret-discord-token crypt-util/secret-value))

@@ -70,8 +70,6 @@ const VerificationSchema = Schema.Struct({
   verification: Schema.Struct({
     Confirmed: Schema.Boolean,
     Provider: Schema.String.pipe(Schema.NullishOr),
-    Identity: Schema.String.pipe(Schema.NullishOr),
-    IdentityType: Schema.String.pipe(Schema.NullishOr),
     EmailAddress: Schema.String.pipe(Schema.NullishOr),
     ID: Schema.Number.pipe(Schema.NullishOr),
     DKIMHost: Schema.String.pipe(Schema.NullishOr),

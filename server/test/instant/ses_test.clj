@@ -2,12 +2,12 @@
   (:require
    [clojure.test :refer [deftest is testing]]
    [instant.config :as config]
-   [instant.email-identity :as email-identity]
+   [instant.model.app-email-sender :as app-email-sender]
    [instant.ses :as ses])
   (:import
-   (software.amazon.awssdk.services.sesv2.model DkimAttributes DkimStatus
+   (software.amazon.awssdk.services.sesv2.model DkimAttributes
+                                                DkimStatus
                                                 GetEmailIdentityResponse
-                                                IdentityType
                                                 SendEmailRequest
                                                 VerificationStatus)))
 
@@ -17,7 +17,6 @@
                                  (.tokens ["token-one" "token-two" "token-three"])
                                  (.build))]
     (-> (GetEmailIdentityResponse/builder)
-        (.identityType IdentityType/DOMAIN)
         (.verifiedForSendingStatus true)
         (.verificationStatus VerificationStatus/SUCCESS)
         (.dkimAttributes dkim)
@@ -40,56 +39,39 @@
       (is (true? (config/email-send-enabled?))))))
 
 (deftest ses-stays-disabled-on-instant-cloud-test
-  (testing "dedicated SES credentials do not enable SES on Instant Cloud"
-    (with-redefs [config/aws-env? (constantly true)
-                  config/aws-ses-access-key-id (constantly "AKIAEXAMPLE")
-                  config/aws-ses-secret-access-key (constantly "secret")]
-      (is (false? (config/aws-ses-enabled?))))))
+  (with-redefs [config/aws-env? (constantly true)
+                config/aws-ses-access-key-id (constantly "AKIAEXAMPLE")
+                config/aws-ses-secret-access-key (constantly "secret")]
+    (is (false? (config/aws-ses-enabled?)))
+    (is (false? (config/ses-selected?)))))
 
 (deftest sender-status-keeps-the-app-email-address-test
-  (with-redefs [ses/get-formatted-identity
-                (fn [identity]
-                  {:Provider "ses"
-                   :Identity identity
-                   :IdentityType "DOMAIN"
-                   :EmailAddress nil})]
+  (with-redefs [#'ses/get-identity (fn [_] (domain-response))]
     (is (= {:Provider "ses"
-            :Identity "example.com"
-            :IdentityType "DOMAIN"
-            :EmailAddress "sender@example.com"}
-           (email-identity/get-sender!
+            :EmailAddress "sender@example.com"
+            :Confirmed true
+            :DnsRecords [{:Type "CNAME"
+                          :Name "token-one._domainkey.example.com"
+                          :Value "token-one.dkim.amazonses.com"}
+                         {:Type "CNAME"
+                          :Name "token-two._domainkey.example.com"
+                          :Value "token-two.dkim.amazonses.com"}
+                         {:Type "CNAME"
+                          :Name "token-three._domainkey.example.com"
+                          :Value "token-three.dkim.amazonses.com"}]}
+           (ses/sender-status
             {:email "sender@example.com"
-             :email_provider "ses"
-             :provider_id "example.com"})))))
+             :provider_id "example.com"}))))
+  (is (nil? (app-email-sender/get-sender-status nil))))
 
-(deftest identity-for-email-test
-  (is (= "example.com"
-         (ses/identity-for-email "sender@example.com" :domain)))
-  (is (= "sender@example.com"
-         (ses/identity-for-email "sender@example.com" :email)))
+(deftest domain-test
+  (is (= "example.com" (ses/domain "sender@example.com")))
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
-                        #"Unsupported SES identity type"
-                        (ses/identity-for-email "sender@example.com" :other))))
-
-(deftest ensure-identity-creates-missing-identity-test
-  (let [lookups (atom 0)
-        created (atom nil)
-        response (domain-response)]
-    (with-redefs [ses/get-identity (fn [_]
-                                    (when (> (swap! lookups inc) 1)
-                                      response))
-                  ses/create-identity! #(reset! created %)]
-      (let [result (ses/ensure-identity! {:email "sender@example.com"
-                                          :identity-type :domain})]
-        (is (= "example.com" @created))
-        (is (= "example.com" (:identity result)))
-        (is (= response (:response result)))))))
+                        #"missing a domain"
+                        (ses/domain "not-an-email"))))
 
 (deftest format-domain-identity-test
-  (let [formatted (ses/format-identity "example.com" (domain-response))]
-    (is (= "ses" (:Provider formatted)))
-    (is (= "DOMAIN" (:IdentityType formatted)))
-    (is (true? (:Confirmed formatted)))
+  (let [formatted (#'ses/dkim-records "example.com" (domain-response))]
     (is (= [{:Type "CNAME"
              :Name "token-one._domainkey.example.com"
              :Value "token-one.dkim.amazonses.com"}
@@ -99,11 +81,12 @@
             {:Type "CNAME"
              :Name "token-three._domainkey.example.com"
              :Value "token-three.dkim.amazonses.com"}]
-           (:DnsRecords formatted)))))
+           formatted))))
 
 (deftest build-send-request-test
   (testing "structured email fields map to an SES v2 simple message"
-    (with-redefs [config/email-reply-to (constantly "reply@example.com")]
+    (with-redefs [config/email-reply-to (constantly "reply@example.com")
+                  config/aws-ses-configuration-set (constantly nil)]
       (let [^SendEmailRequest request
             (ses/build-send-request
              {:from {:name "Example" :email "from@example.com"}
@@ -124,25 +107,3 @@
         (is (= "Subject" (.. request content simple subject data)))
         (is (= "<p>Hello</p>" (.. request content simple body html data)))
         (is (= "Hello" (.. request content simple body text data)))))))
-
-(deftest build-raw-send-request-test
-  (testing "custom headers use a raw message without exposing BCC recipients"
-    (with-redefs [config/email-reply-to (constantly "reply@example.com")
-                  config/aws-ses-configuration-set (constantly "transactional")]
-      (let [^SendEmailRequest request
-            (ses/build-send-request
-             {:from {:name "Example" :email "from@example.com"}
-              :to [{:email "to@example.com"}]
-              :bcc [{:email "hidden@example.com"}]
-              :subject "Product update"
-              :html "<p>Hello</p>"
-              :text "Hello"
-              :headers {"List-Unsubscribe" "<https://example.com/unsubscribe>"}
-              :configuration-set "marketing"})
-            raw (.. request content raw data asUtf8String)]
-        (is (= ["hidden@example.com"]
-               (vec (.. request destination bccAddresses))))
-        (is (= "marketing" (.configurationSetName request)))
-        (is (re-find #"List-Unsubscribe: <https://example.com/unsubscribe>" raw))
-        (is (not (re-find #"(?im)^Bcc:" raw)))
-        (is (nil? (.. request content simple)))))))

@@ -32,8 +32,6 @@ export type EmailValues = {
 export type SenderVerificationInfo = {
   ID?: number;
   Provider?: 'postmark' | 'ses';
-  Identity?: string;
-  IdentityType?: 'DOMAIN' | 'EMAIL_ADDRESS';
   EmailAddress?: string;
   Confirmed: boolean;
   DKIMHost?: string;
@@ -283,9 +281,9 @@ export function Email({
                       </div>
                       {!verification.postmarkVerified ? (
                         <Content className="text-sm text-gray-500 dark:text-neutral-400">
-                          {senderInfo.IdentityType === 'DOMAIN'
+                          {senderInfo.Provider === 'ses'
                             ? 'Add the DNS records below, then '
-                            : `Check ${senderInfo.EmailAddress ?? senderInfo.Identity ?? 'the sender address'} for a confirmation link, then `}
+                            : `Check ${senderInfo.EmailAddress} for a confirmation link, then `}
                           <button
                             type="button"
                             onClick={() => verification.refetch()}

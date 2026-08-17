@@ -17,7 +17,6 @@
             [instant.db.model.attr :as attr-model]
             [instant.db.transaction :as tx]
             [instant.discord :as discord]
-            [instant.email-identity :as email-identity]
             [instant.email-router :as email-router]
             [instant.fixtures :as fixtures]
             [instant.flags :as flags :refer [admin-email?]]
@@ -1498,7 +1497,7 @@
         (app-email-verification/get-by-app-id-and-email-type-with-template
          {:app-id app-id :email-type "magic-code"})]
     (response/ok {:instant {:verified? instant-verified?}
-                  :verification (email-identity/get-sender! sender)})))
+                  :verification (app-email-sender-model/get-sender-status sender)})))
 
 (defn email-status-get [req]
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :admin :apps/read req)
@@ -1520,22 +1519,13 @@
                              (string/includes? body "{code}")
                               [{:message  "Body does not contain template variable: '{code}'"}]))
         sender-email (email/coerce (get-in req [:body :sender-email])) ;; optional
-        sender-identity-type (some-> (get-in req [:body :sender-identity-type])
-                                     string-util/coerce-non-blank-str
-                                     keyword)
-        _ (ex/assert-valid! :sender-identity-type sender-identity-type
-                            (when (and sender-identity-type
-                                       (not (contains? #{:domain :email}
-                                                       sender-identity-type)))
-                              [{:message "Sender identity type must be 'domain' or 'email'."}]))
         custom-sender-name (string-util/coerce-non-blank-str (get-in req [:body :sender-name])) ;; optional
         sender-name (or custom-sender-name (:title app))
         {sender :sender} (when sender-email
                            (app-email-sender-model/sync-sender!
                             {:app-id (:id app)
                              :email sender-email
-                             :name sender-name
-                             :identity-type sender-identity-type}))
+                             :name sender-name}))
         template (app-email-template-model/put!
                   {:app-id (:id app)
                    :email-type email-type
