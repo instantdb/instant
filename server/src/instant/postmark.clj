@@ -28,6 +28,14 @@
   (= 504
      (-> e ex-data :body :ErrorCode)))
 
+;; A Postmark account that hasn't finished the approval process yet.
+;; 412 = account pending approval (can only send to same-domain recipients),
+;; 413 = account not approved for sending at all.
+;; C.F https://postmarkapp.com/developer/api/overview#error-codes
+(defn account-not-approved? [e]
+  (contains? #{412 413}
+             (-> e ex-data :body :ErrorCode)))
+
 ;; Sender-signature problems. We deliberately re-throw these raw (rather than
 ;; translating them) so callers like magic-code-auth can catch them and retry
 ;; with the default sender. See `instant.runtime.magic-code-auth/invalid-sender?`.
@@ -50,12 +58,21 @@
     (do
       (tracer/add-data! {:attributes {:postmark-error-code (-> e ex-data :body :ErrorCode)
                                       :postmark-error-message (-> e ex-data :body :Message)}})
-      (if (inactive-recipient? e)
+      (cond
+        (inactive-recipient? e)
         (ex/throw-email-send-failed!
          (format "We couldn't deliver the email to %s. The address has been marked as inactive and can't receive mail." to)
          {:recipient to
           :recipient-problem? true}
          e)
+
+        (account-not-approved? e)
+        (ex/throw-email-send-failed!
+         "The Postmark account isn't approved for sending yet."
+         {:recipient to}
+         e)
+
+        :else
         (ex/throw-email-send-failed!
          "We weren't able to send the email."
          {:recipient to}

@@ -75,14 +75,8 @@
                                          :source "bucket4j"}})
       (ex/throw-record-email-rate-limited!))))
 
-(def postmark-unconfirmed-sender-body-error-code 400)
-
-(def postmark-not-found-sender-body-error-code 401)
-
 (defn invalid-sender? [e]
-  (let [code (-> e ex-data :body :ErrorCode)]
-    (or (= code postmark-unconfirmed-sender-body-error-code)
-        (= code postmark-not-found-sender-body-error-code))))
+  (postmark/sender-signature-problem? e))
 
 (defn default-body [{:keys [app_title code expiration]}]
   (postmark/standard-body
