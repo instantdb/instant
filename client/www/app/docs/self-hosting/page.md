@@ -112,6 +112,11 @@ set `INSTANT_EMAIL_PROVIDER=ses` explicitly.
 Custom app senders create an SES domain identity and show the DKIM CNAME
 records to add. Restart the backend and try logging in to confirm delivery.
 
+New SES accounts start in the sandbox for each AWS Region. While sandboxed,
+SES can only send to verified recipient addresses or domains in that Region.
+[Request production access](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html)
+or verify every recipient while testing.
+
 ### Configure Google dashboard login
 
 The dashboard also allows for login via Google. To enable this, you'll need to create a Web application OAuth client in the

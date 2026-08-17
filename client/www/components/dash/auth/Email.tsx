@@ -319,7 +319,9 @@ export function Email({
                         <span className="text-gray-600 dark:text-neutral-300">
                           DNS records{' '}
                           <span className="text-gray-400 dark:text-neutral-500">
-                            (optional, improves deliverability)
+                            {senderInfo.Provider === 'ses'
+                              ? '(required to verify the domain)'
+                              : '(optional, improves deliverability)'}
                           </span>
                         </span>
                         {showDnsRecords ? (

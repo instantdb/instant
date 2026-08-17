@@ -20,6 +20,9 @@
     (= :postmark (config/email-provider))
     (postmark/send-structured! req)
 
+    ;; SES when INSTANT_EMAIL_PROVIDER=ses, or when only SES credentials
+    ;; are set. Mixed Postmark/SendGrid + SES without an override stays
+    ;; on the existing provider.
     (config/ses-selected?)
     (ses/send! req)
 

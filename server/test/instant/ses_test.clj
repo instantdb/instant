@@ -1,6 +1,6 @@
 (ns instant.ses-test
   (:require
-   [clojure.test :refer [deftest is testing]]
+   [clojure.test :refer [deftest is testing thrown-with-msg?]]
    [instant.config :as config]
    [instant.model.app-email-sender :as app-email-sender]
    [instant.ses :as ses])
