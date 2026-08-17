@@ -107,3 +107,17 @@
         (is (= "Subject" (.. request content simple subject data)))
         (is (= "<p>Hello</p>" (.. request content simple body html data)))
         (is (= "Hello" (.. request content simple body text data)))))))
+
+(deftest build-send-request-encodes-non-ascii-display-names-test
+  (with-redefs [config/email-reply-to (constantly "reply@example.com")
+                config/aws-ses-configuration-set (constantly nil)]
+    (let [^SendEmailRequest request
+          (ses/build-send-request
+           {:from {:name "München" :email "from@example.com"}
+            :to [{:name "José" :email "to@example.com"}]
+            :subject "Subject"
+            :html "<p>Hello</p>"})]
+      (is (= "=?UTF-8?B?TcO8bmNoZW4=?= <from@example.com>"
+             (.fromEmailAddress request)))
+      (is (= ["=?UTF-8?B?Sm9zw6k=?= <to@example.com>"]
+             (vec (.. request destination toAddresses)))))))

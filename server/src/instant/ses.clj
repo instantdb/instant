@@ -43,10 +43,22 @@
 
 (defn- client ^SesV2Client [] @client*)
 
+(defn- ascii? [s]
+  (every? #(<= (int %) 127) s))
+
+(defn- encoded-word [s]
+  (str "=?UTF-8?B?"
+       (.encodeToString (java.util.Base64/getEncoder)
+                        (.getBytes ^String s java.nio.charset.StandardCharsets/UTF_8))
+       "?="))
+
 (defn- address [{:keys [name email]}]
-  (if (string/blank? name)
-    email
-    (str name " <" email ">")))
+  (let [display (some-> name (string/replace #"[\r\n]+" " ") string/trim)]
+    (cond
+      (string/blank? display) email
+      (ascii? display) (str display " <" email ">")
+      ;; SES does not accept raw Unicode in address strings.
+      :else (str (encoded-word display) " <" email ">"))))
 
 (defn- addresses [values]
   (mapv address values))
