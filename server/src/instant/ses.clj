@@ -5,6 +5,7 @@
   (:require
    [clojure.string :as string]
    [instant.config :as config]
+   [instant.util.exception :as ex]
    [instant.util.tracer :as tracer])
   (:import
    (software.amazon.awssdk.auth.credentials AwsBasicCredentials
@@ -99,6 +100,18 @@
       (.configurationSetName (config/aws-ses-configuration-set))
       true (.build))))
 
+(defn- aws-error-code [e]
+  (when (instance? SesV2Exception e)
+    (some-> ^SesV2Exception e .awsErrorDetails .errorCode)))
+
+(defn unverified-identity?
+  "True when SES rejected the From identity. magic-code-auth retries
+   with the default sender, same as Postmark signature problems."
+  [e]
+  (or (= :ses-unverified-sender (:type (ex-data e)))
+      (contains? #{"MessageRejected" "MailFromDomainNotVerifiedException"}
+                 (aws-error-code e))))
+
 (defn send! [{:keys [from to subject] :as structured-email}]
   (if-not (config/aws-ses-enabled?)
     (tracer/with-span! {:name "ses/send-disabled"
@@ -109,7 +122,19 @@
         {:msg "Amazon SES is disabled; set AWS_SES_ACCESS_KEY_ID and AWS_SES_SECRET_ACCESS_KEY to enable it"}}))
     (tracer/with-span! {:name "ses/send"
                         :attributes {:from from :to to :subject subject}}
-      (.sendEmail (client) (build-send-request structured-email)))))
+      (try
+        (.sendEmail (client) (build-send-request structured-email))
+        (catch Exception e
+          (if (unverified-identity? e)
+            (throw (ex-info "SES sender is not verified."
+                            {:type :ses-unverified-sender}
+                            e))
+            (do
+              (tracer/add-data! {:attributes {:ses-error-code (aws-error-code e)}})
+              (ex/throw-email-send-failed!
+               "We weren't able to send the email."
+               {:recipient (:email (first to))}
+               e))))))))
 
 (defn- not-found? [^SesV2Exception e]
   (= 404 (.statusCode e)))

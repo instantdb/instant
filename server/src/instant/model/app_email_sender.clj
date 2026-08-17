@@ -101,6 +101,8 @@
   [{:keys [app-id email name]}]
   (let [sender (get-by-email {:email email})
         {:keys [postmark-id email-provider provider-id]}
+        ;; SendGrid is still send-only (#2863). Custom senders use SES
+        ;; when selected, otherwise the existing Postmark signature flow.
         (if (config/ses-selected?)
           (sync-ses! {:email email})
           (sync-postmark! {:email email :name name :sender sender}))

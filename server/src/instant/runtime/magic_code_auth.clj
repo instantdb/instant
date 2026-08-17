@@ -14,6 +14,7 @@
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.postmark :as postmark]
+   [instant.ses :as ses]
    [instant.rate-limit :as rate-limit]
    [instant.reactive.ephemeral :as eph]
    [instant.util.cache :as cache]
@@ -76,7 +77,8 @@
       (ex/throw-record-email-rate-limited!))))
 
 (defn invalid-sender? [e]
-  (postmark/sender-signature-problem? e))
+  (or (postmark/sender-signature-problem? e)
+      (ses/unverified-identity? e)))
 
 (defn suppress-send-failure-for-test-user?
   "For test users we don't care whether the email actually gets delivered, so a

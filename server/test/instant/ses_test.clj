@@ -64,6 +64,13 @@
              :provider_id "example.com"}))))
   (is (nil? (app-email-sender/get-sender-status nil))))
 
+(deftest unverified-identity-test
+  (is (true? (ses/unverified-identity?
+              (ex-info "SES sender is not verified."
+                       {:type :ses-unverified-sender}))))
+  (is (false? (ses/unverified-identity?
+               (ex-info "other" {:type :other})))))
+
 (deftest domain-test
   (is (= "example.com" (ses/domain "sender@example.com")))
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
