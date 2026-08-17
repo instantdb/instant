@@ -28,7 +28,13 @@ You will need the Client ID and Client Secret for subsequent steps.
 
 {% callout type="note" %}
 
-Your OAuth app will start in test mode. Only members of your Instant app will be able to authorize with the app. Once you have your OAuth flow working, [ping us in Discord](https://discord.gg/2rnGtfFQup) to go live.
+Your OAuth app will start in test mode. Only members of your Instant app will be able to authorize with the app.
+
+{% hosted-only %}
+
+Once you have your OAuth flow working, [ping us in Discord](https://discord.gg/2rnGtfFQup) to go live.
+
+{% /hosted-only %}
 
 {% /callout %}
 

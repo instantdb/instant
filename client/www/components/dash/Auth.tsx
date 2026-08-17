@@ -8,7 +8,7 @@ import {
   ScreenHeading,
   TextInput,
 } from '../ui';
-import config, { isDev } from '@/lib/config';
+import config, { isDev, isSelfHosted } from '@/lib/config';
 import googleIconSvg from '../../public/img/google_g.svg';
 import Image from 'next/image';
 import { InstantIssue } from '@/lib/types';
@@ -275,14 +275,19 @@ function errorFromVerifyMagicCode(res: InstantIssue): string {
     case 'record-expired':
       return 'This code has expired. Please request a new code.';
     default:
-      return 'Uh oh, something went wrong sending you a magic code, please ping us!';
+      return magicCodeDefaultError();
   }
+}
+
+function magicCodeDefaultError() {
+  return isSelfHosted
+    ? 'Uh oh, something went wrong. Contact your deployment administrator.'
+    : 'Uh oh, something went wrong, please ping us!';
 }
 
 function errorFromSendMagicCode(res: InstantIssue): string {
   const errorType = res.body?.type;
-  const defaultMsg =
-    'Uh oh, something went wrong sending you a magic code, please ping us!';
+  const defaultMsg = magicCodeDefaultError();
   switch (errorType) {
     case 'param-missing':
       return 'Please enter your email address.';

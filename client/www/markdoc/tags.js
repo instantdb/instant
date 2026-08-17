@@ -16,9 +16,14 @@ import {
   DashboardPath,
   TerminalPath,
 } from '../components/docs/SetupPaths';
+import { isSelfHosted } from '@/lib/config';
 
 function CustomDiv({ className, children }) {
   return <div className={className}>{children}</div>;
+}
+
+function HostedOnly({ children }) {
+  return isSelfHosted ? null : children;
 }
 
 const tags = {
@@ -39,6 +44,9 @@ const tags = {
       },
     },
     render: Callout,
+  },
+  'hosted-only': {
+    render: HostedOnly,
   },
   ansi: {
     attributes: {

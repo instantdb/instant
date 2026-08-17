@@ -1106,8 +1106,7 @@
                            :status 500
                            :original-event (merge original-event
                                                   debug-info)
-                           :message (str "Yikes, something broke on our end! Sorry about that."
-                                         " Please ping us (Joe and Stopa) on Discord and let us know!")
+                           :message "Yikes, something broke on our end! Sorry about that."
                            :session-id sess-id}))))
 
 (defn handle-receive-attrs [store session event metadata]

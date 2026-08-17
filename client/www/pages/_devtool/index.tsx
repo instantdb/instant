@@ -1,7 +1,7 @@
 import { TokenContext } from '@/lib/contexts';
 import { successToast } from '@/lib/toast';
 import { InstantApp } from '@/lib/types';
-import config from '@/lib/config';
+import config, { isSelfHosted } from '@/lib/config';
 import { useSchemaQuery } from '@/lib/hooks/explorer';
 import { jsonFetch } from '@/lib/fetch';
 import { APIResponse, signOut, useAuthToken, useTokenFetch } from '@/lib/auth';
@@ -90,7 +90,10 @@ function DevtoolComp() {
             <p>
               We didn't receive an app ID. Double check that you passed an{' '}
               <Code>appId</Code> paramater in your <Code>init</Code>. If you
-              continue experiencing issues, ping us on Discord.
+              continue experiencing issues,{' '}
+              {isSelfHosted
+                ? 'contact your deployment administrator.'
+                : 'ping us on Discord.'}
             </p>
             <Button
               className="w-full"
@@ -138,17 +141,24 @@ function DevtoolComp() {
                       </div>
                     </div>
                   ) : null}
-                  <p>
-                    We had some trouble loading your app. Please ping us on{' '}
-                    <a
-                      className="font-bold text-blue-500"
-                      href="https://discord.com/invite/VU53p7uQcE"
-                      target="_blank"
-                    >
-                      discord
-                    </a>{' '}
-                    with details.
-                  </p>
+                  {isSelfHosted ? (
+                    <p>
+                      We had some trouble loading your app. Contact your
+                      deployment administrator with details.
+                    </p>
+                  ) : (
+                    <p>
+                      We had some trouble loading your app. Please ping us on{' '}
+                      <a
+                        className="font-bold text-blue-500"
+                        href="https://discord.com/invite/VU53p7uQcE"
+                        target="_blank"
+                      >
+                        discord
+                      </a>{' '}
+                      with details.
+                    </p>
+                  )}
                   <Button
                     className="w-full"
                     size="mini"
@@ -312,18 +322,25 @@ function DevtoolWithData({
               </div>
             ) : null}
             <AppIdLabel appId={appId} />
-            <p>
-              We had some trouble connecting to Instant's backend. Please ping
-              us on{' '}
-              <a
-                className="font-bold text-blue-500"
-                href="https://discord.com/invite/VU53p7uQcE"
-                target="_blank"
-              >
-                discord
-              </a>{' '}
-              with details.
-            </p>
+            {isSelfHosted ? (
+              <p>
+                We had some trouble connecting to Instant's backend. Contact
+                your deployment administrator with details.
+              </p>
+            ) : (
+              <p>
+                We had some trouble connecting to Instant's backend. Please ping
+                us on{' '}
+                <a
+                  className="font-bold text-blue-500"
+                  href="https://discord.com/invite/VU53p7uQcE"
+                  target="_blank"
+                >
+                  discord
+                </a>{' '}
+                with details.
+              </p>
+            )}
             <Button
               className="w-full"
               size="mini"

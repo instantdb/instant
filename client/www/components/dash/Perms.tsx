@@ -19,7 +19,7 @@ import {
   SelectValue,
   useDialog,
 } from '@/components/ui';
-import config from '@/lib/config';
+import config, { isSelfHosted } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { useTokenFetch } from '@/lib/auth';
 import { jsonFetch } from '@/lib/fetch';
@@ -494,7 +494,9 @@ async function onEditRules(
         return Promise.reject(validationErr);
       }
       errorToast(
-        "Oh no, we weren't able to save these rules. Please try again or ping us on Discord if you're stuck!",
+        isSelfHosted
+          ? "Oh no, we weren't able to save these rules. Please try again or contact your deployment administrator if you're stuck!"
+          : "Oh no, we weren't able to save these rules. Please try again or ping us on Discord if you're stuck!",
         { autoClose: 3000 },
       );
       return Promise.reject();

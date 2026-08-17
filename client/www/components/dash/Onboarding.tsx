@@ -354,7 +354,11 @@ export function Onboarding() {
       (e: AppError) => {
         setProfileCreateState({
           isLoading: false,
-          error: e.body?.message || 'Uh oh, we goofed up. Please ping us',
+          error:
+            e.body?.message ||
+            (isSelfHosted
+              ? 'Uh oh, something went wrong. Contact your deployment administrator.'
+              : 'Uh oh, we goofed up. Please ping us'),
         });
         setDashState({
           ...dashState,
@@ -396,7 +400,11 @@ export function Onboarding() {
         setAppCreateState((prev) => ({
           ...prev,
           isLoading: false,
-          error: e.body?.message || 'Uh oh, we goofed up. Please ping us',
+          error:
+            e.body?.message ||
+            (isSelfHosted
+              ? 'Uh oh, something went wrong. Contact your deployment administrator.'
+              : 'Uh oh, we goofed up. Please ping us'),
         }));
         setDashState({
           ...dashState,

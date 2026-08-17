@@ -77,6 +77,10 @@ const db = init({
 
 To quickly toggle the window, you can use the shortcut `ctrl` + `shift` + `0` (zero).
 
+{% hosted-only %}
+
 ## Feedback?
 
 If you have any feedback, let us know on [Discord](https://discord.com/invite/VU53p7uQcE).
+
+{% /hosted-only %}
