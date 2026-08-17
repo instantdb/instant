@@ -25,26 +25,38 @@ const formatDnsRecord = (type: string, name: string, value: string) =>
 
 export const formatSenderVerificationDnsRecords = (verification: {
   Confirmed: boolean;
-  DKIMPendingHost: string;
-  DKIMPendingTextValue: string;
-  ReturnPathDomain: string;
-  ReturnPathDomainCNAMEValue: string;
+  DKIMPendingHost?: string | null;
+  DKIMPendingTextValue?: string | null;
+  ReturnPathDomain?: string | null;
+  ReturnPathDomainCNAMEValue?: string | null;
+  DnsRecords?: ReadonlyArray<{
+    Type: string;
+    Name: string;
+    Value: string;
+  }> | null;
 }) =>
   boxen(
     [
       chalk.bold('Add these DNS records to verify your sender email:'),
       '',
-      formatDnsRecord(
-        'TXT',
-        verification.DKIMPendingHost,
-        verification.DKIMPendingTextValue,
-      ),
-      '',
-      formatDnsRecord(
-        'CNAME',
-        verification.ReturnPathDomain,
-        verification.ReturnPathDomainCNAMEValue,
-      ),
+      ...(verification.DnsRecords?.length
+        ? verification.DnsRecords.flatMap((record, index) => [
+            formatDnsRecord(record.Type, record.Name, record.Value),
+            ...(index < verification.DnsRecords!.length - 1 ? [''] : []),
+          ])
+        : [
+            formatDnsRecord(
+              'TXT',
+              verification.DKIMPendingHost ?? 'n/a',
+              verification.DKIMPendingTextValue ?? 'n/a',
+            ),
+            '',
+            formatDnsRecord(
+              'CNAME',
+              verification.ReturnPathDomain ?? 'n/a',
+              verification.ReturnPathDomainCNAMEValue ?? 'n/a',
+            ),
+          ]),
     ].join('\n'),
     {
       borderColor: verification.Confirmed ? 'green' : 'yellow',
@@ -59,6 +71,8 @@ export const EmailTemplateInfoSchema = Schema.Struct({
   sender_id: Schema.String.pipe(Schema.NullishOr),
   app_id: Schema.String,
   postmark_id: Schema.Number.pipe(Schema.NullishOr),
+  email_provider: Schema.String.pipe(Schema.NullishOr),
+  provider_id: Schema.String.pipe(Schema.NullishOr),
   verification_verified: Schema.Boolean.pipe(Schema.NullishOr),
   verification_id: Schema.String.pipe(Schema.NullishOr),
   email_type: Schema.String,
@@ -131,7 +145,7 @@ export const emailStatusCmd = Effect.fn(function* (
         boxen(
           [
             `Instant verified: ${formatVerified(verification.instant['verified?'])}`,
-            `Postmark verified: ${formatVerified(verification.verification?.Confirmed)}`,
+            `${verification.verification?.Provider === 'ses' ? 'Amazon SES' : 'Postmark'} verified: ${formatVerified(verification.verification?.Confirmed)}`,
           ].join('\n'),
           {
             title: 'Custom Sender Verification',

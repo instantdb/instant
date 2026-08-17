@@ -17,6 +17,7 @@
             [instant.db.model.attr :as attr-model]
             [instant.db.transaction :as tx]
             [instant.discord :as discord]
+            [instant.email-identity :as email-identity]
             [instant.email-router :as email-router]
             [instant.fixtures :as fixtures]
             [instant.flags :as flags :refer [admin-email?]]
@@ -269,14 +270,14 @@
                     {:id (UUID/randomUUID)
                      :code (instant-user-magic-code-model/rand-code)
                      :user-id user-id})]
-    (when-not (config/postmark-send-enabled?)
+    (when-not (config/email-send-enabled?)
       (log/infof (str "\n"
                       "============================================================\n"
                       "              INSTANT DASHBOARD LOGIN CODE\n"
                       "\n"
                       "                         %s\n"
                       "\n"
-                      "     Postmark is not configured. Use this code to sign in.\n"
+                      "     Email delivery is not configured. Use this code to sign in.\n"
                       "============================================================")
                  (:code magic-code)))
     (email-router/send-structured!
@@ -1493,17 +1494,11 @@
 
 (defn sender-verification-get [req]
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :admin :apps/read req)
-        {postmark-id :postmark_id instant-verified? :verification_verified}
+        {instant-verified? :verification_verified :as sender}
         (app-email-verification/get-by-app-id-and-email-type-with-template
          {:app-id app-id :email-type "magic-code"})]
     (response/ok {:instant {:verified? instant-verified?}
-                  :verification (when postmark-id
-                                  (-> (postmark/get-sender! {:id postmark-id})
-                                      :body
-                                      (select-keys [:ID :EmailAddress :Confirmed
-                                                    :DKIMHost :DKIMPendingHost
-                                                    :DKIMPendingTextValue :DKIMTextValue
-                                                    :ReturnPathDomain :ReturnPathDomainCNAMEValue])))})))
+                  :verification (email-identity/get-sender! sender)})))
 
 (defn email-status-get [req]
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :admin :apps/read req)
@@ -1525,13 +1520,22 @@
                              (string/includes? body "{code}")
                               [{:message  "Body does not contain template variable: '{code}'"}]))
         sender-email (email/coerce (get-in req [:body :sender-email])) ;; optional
+        sender-identity-type (some-> (get-in req [:body :sender-identity-type])
+                                     string-util/coerce-non-blank-str
+                                     keyword)
+        _ (ex/assert-valid! :sender-identity-type sender-identity-type
+                            (when (and sender-identity-type
+                                       (not (contains? #{:domain :email}
+                                                       sender-identity-type)))
+                              [{:message "Sender identity type must be 'domain' or 'email'."}]))
         custom-sender-name (string-util/coerce-non-blank-str (get-in req [:body :sender-name])) ;; optional
         sender-name (or custom-sender-name (:title app))
         {sender :sender} (when sender-email
                            (app-email-sender-model/sync-sender!
                             {:app-id (:id app)
                              :email sender-email
-                             :name sender-name}))
+                             :name sender-name
+                             :identity-type sender-identity-type}))
         template (app-email-template-model/put!
                   {:app-id (:id app)
                    :email-type email-type

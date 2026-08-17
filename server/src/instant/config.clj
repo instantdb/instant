@@ -161,14 +161,19 @@
 
 (defn email-provider
   "Explicit email-provider override for self-hosted deployments
-   (INSTANT_EMAIL_PROVIDER = \"postmark\" | \"sendgrid\"). Wins over token
-   auto-detection when set. nil when unset."
+   (INSTANT_EMAIL_PROVIDER = \"postmark\" | \"sendgrid\" | \"ses\"). Wins
+   over token auto-detection when set. Amazon SES is self-hosted only and
+   is ignored on Instant Cloud (aws-env?). nil when unset."
   []
-  (some-> (System/getenv "INSTANT_EMAIL_PROVIDER")
-          string/trim
-          string/lower-case
-          not-empty
-          keyword))
+  (let [provider (some-> (System/getenv "INSTANT_EMAIL_PROVIDER")
+                         string/trim
+                         string/lower-case
+                         not-empty
+                         keyword)]
+    (when (and provider
+               (or (not= :ses provider)
+                   (not (aws-env?))))
+      provider)))
 
 (defn sendgrid-send-enabled? []
   (not (string/blank? (sendgrid-token))))
@@ -178,6 +183,45 @@
 
 (defn postmark-admin-enabled? []
   (not (string/blank? (postmark-account-token))))
+
+(defn aws-ses-access-key-id []
+  (some-> (System/getenv "AWS_SES_ACCESS_KEY_ID") string/trim not-empty))
+
+(defn aws-ses-secret-access-key []
+  (some-> (System/getenv "AWS_SES_SECRET_ACCESS_KEY") string/trim not-empty))
+
+(defn aws-ses-session-token []
+  (some-> (System/getenv "AWS_SES_SESSION_TOKEN") string/trim not-empty))
+
+(defn aws-ses-region []
+  (or (some-> (System/getenv "AWS_SES_REGION") string/trim not-empty)
+      "us-east-1"))
+
+(defn aws-ses-configuration-set []
+  (some-> (System/getenv "AWS_SES_CONFIGURATION_SET") string/trim not-empty))
+
+(defn aws-ses-enabled?
+  "True when dedicated SES credentials are present on a self-hosted
+   instance. Instant Cloud never treats SES as enabled, even if these
+   env vars are set, so hosted traffic stays on Postmark/SendGrid."
+  []
+  (and (not (aws-env?))
+       (not (string/blank? (aws-ses-access-key-id)))
+       (not (string/blank? (aws-ses-secret-access-key)))))
+
+(defn email-send-enabled?
+  "True when the selected transactional email provider has credentials.
+   When no provider is selected explicitly, preserve Postmark/SendGrid
+   auto-detection and also pick up self-hosted SES."
+  []
+  (case (email-provider)
+    :postmark (postmark-send-enabled?)
+    :sendgrid (sendgrid-send-enabled?)
+    :ses (aws-ses-enabled?)
+    nil (or (postmark-send-enabled?)
+            (sendgrid-send-enabled?)
+            (aws-ses-enabled?))
+    false))
 
 (defn secret-discord-token []
   (some-> @config-map :secret-discord-token crypt-util/secret-value))

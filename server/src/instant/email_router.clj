@@ -3,6 +3,7 @@
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.postmark :as postmark]
+   [instant.ses :as ses]
    [instant.sendgrid :as sendgrid]))
 
 (def sendgrid-froms
@@ -19,11 +20,19 @@
     (= :postmark (config/email-provider))
     (postmark/send-structured! req)
 
+    (= :ses (config/email-provider))
+    (ses/send! req)
+
     ;; Auto-detect: SendGrid configured and Postmark not — route through
     ;; SendGrid using the operator's own from-address.
     (and (config/sendgrid-send-enabled?)
          (not (config/postmark-send-enabled?)))
     (sendgrid/send! req)
+
+    ;; Self-hosted auto-detect: dedicated SES credentials, no Postmark or
+    ;; SendGrid token. Instant Cloud never reports aws-ses-enabled?.
+    (config/aws-ses-enabled?)
+    (ses/send! req)
 
     ;; Hosted: gated by the feature flag, and only for the known Instant
     ;; from-addresses that have a SendGrid equivalent.

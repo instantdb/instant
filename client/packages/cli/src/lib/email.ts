@@ -69,14 +69,24 @@ const VerificationSchema = Schema.Struct({
   }),
   verification: Schema.Struct({
     Confirmed: Schema.Boolean,
-    ID: Schema.Number,
-    EmailAddress: Schema.String,
-    DKIMHost: Schema.String,
-    ReturnPathDomain: Schema.String,
-    DKIMPendingTextValue: Schema.String,
-    ReturnPathDomainCNAMEValue: Schema.String,
-    DKIMTextValue: Schema.String,
-    DKIMPendingHost: Schema.String,
+    Provider: Schema.String.pipe(Schema.NullishOr),
+    Identity: Schema.String.pipe(Schema.NullishOr),
+    IdentityType: Schema.String.pipe(Schema.NullishOr),
+    EmailAddress: Schema.String.pipe(Schema.NullishOr),
+    ID: Schema.Number.pipe(Schema.NullishOr),
+    DKIMHost: Schema.String.pipe(Schema.NullishOr),
+    ReturnPathDomain: Schema.String.pipe(Schema.NullishOr),
+    DKIMPendingTextValue: Schema.String.pipe(Schema.NullishOr),
+    ReturnPathDomainCNAMEValue: Schema.String.pipe(Schema.NullishOr),
+    DKIMTextValue: Schema.String.pipe(Schema.NullishOr),
+    DKIMPendingHost: Schema.String.pipe(Schema.NullishOr),
+    DnsRecords: Schema.Array(
+      Schema.Struct({
+        Type: Schema.String,
+        Name: Schema.String,
+        Value: Schema.String,
+      }),
+    ).pipe(Schema.NullishOr),
   }).pipe(Schema.NullishOr),
 });
 

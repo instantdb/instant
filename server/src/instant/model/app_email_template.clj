@@ -38,6 +38,8 @@
                      t.subject,
                      s.email,
                      s.postmark_id,
+                     s.email_provider,
+                     s.provider_id,
                      v.verified
                     FROM app_email_templates t
                     LEFT JOIN app_email_senders s

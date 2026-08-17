@@ -48,6 +48,8 @@
                      t.subject,
                      s.email,
                      s.postmark_id,
+                     s.email_provider,
+                     s.provider_id,
                      v.id AS verification_id,
                      v.verified AS verification_verified
                     FROM app_email_templates t

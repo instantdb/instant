@@ -35,6 +35,7 @@
         software.amazon.awssdk/cloudwatch {:mvn/version "2.46.2"}
         software.amazon.awssdk/sqs {:mvn/version "2.46.2"}
         software.amazon.awssdk/sns {:mvn/version "2.46.2"}
+        software.amazon.awssdk/sesv2 {:mvn/version "2.46.2"}
         software.amazon.awssdk.crt/aws-crt {:mvn/version "0.46.1"}
         juji/editscript {:mvn/version "0.6.4"}
         io.github.tonsky/clojure-plus {:mvn/version "1.6.3"}

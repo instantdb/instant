@@ -80,6 +80,41 @@ INSTANT_EMAIL_PROVIDER=sendgrid
 
 Restart the backend and try logging in to the dashboard to confirm delivery.
 
+### Configure email with Amazon SES
+
+Self-hosted Instant can send through [Amazon SES](https://aws.amazon.com/ses/)
+instead of Postmark or SendGrid. Instant Cloud (the hosted product) keeps using
+Postmark/SendGrid; SES is not enabled there.
+
+Create an IAM user or role that can call SES v2 `SendEmail`,
+`GetEmailIdentity`, and `CreateEmailIdentity`. Verify the sender addresses (or
+authenticate the domain) in SES, then set dedicated SES credentials — not the
+MinIO/S3 `AWS_ACCESS_KEY_ID` pair used for file storage:
+
+```shell
+INSTANT_EMAIL_PROVIDER=ses
+AWS_SES_REGION=us-east-1
+AWS_SES_ACCESS_KEY_ID=replace-with-your-access-key
+AWS_SES_SECRET_ACCESS_KEY=replace-with-your-secret-key
+# AWS_SES_SESSION_TOKEN=replace-with-your-session-token
+# AWS_SES_CONFIGURATION_SET=instant-transactional
+INSTANT_EMAIL_REPLY_TO=hello@example.com
+INSTANT_DASHBOARD_EMAIL_SENDER_NAME=Instant
+INSTANT_DASHBOARD_EMAIL_SENDER_EMAIL=verify@example.com
+INSTANT_APP_EMAIL_SENDER_NAME=Instant
+INSTANT_APP_EMAIL_SENDER_EMAIL=verify@example.com
+INSTANT_TEAM_EMAIL_SENDER_NAME=Instant
+INSTANT_TEAM_EMAIL_SENDER_EMAIL=teams@example.com
+```
+
+If no Postmark or SendGrid token is set and the SES keys above are present,
+Instant selects SES automatically. If more than one provider is configured,
+set `INSTANT_EMAIL_PROVIDER=ses` explicitly.
+
+Custom app senders then create an SES domain identity (or an email identity)
+and show the CNAME DKIM records Instant needs you to add. Restart the backend
+and try logging in to the dashboard to confirm delivery.
+
 ### Configure Google dashboard login
 
 The dashboard also allows for login via Google. To enable this, you'll need to create a Web application OAuth client in the

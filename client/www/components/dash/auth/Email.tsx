@@ -30,15 +30,19 @@ export type EmailValues = {
 };
 
 export type SenderVerificationInfo = {
-  ID: number;
-  EmailAddress: string;
+  ID?: number;
+  Provider?: 'postmark' | 'ses';
+  Identity?: string;
+  IdentityType?: 'DOMAIN' | 'EMAIL_ADDRESS';
+  EmailAddress?: string;
   Confirmed: boolean;
   DKIMHost?: string;
   DKIMPendingHost?: string;
   DKIMPendingTextValue?: string;
   DKIMTextValue?: string;
-  ReturnPathDomain: string;
-  ReturnPathDomainCNAMEValue: string;
+  ReturnPathDomain?: string;
+  ReturnPathDomainCNAMEValue?: string;
+  DnsRecords?: Array<{ Type: string; Name: string; Value: string }>;
 };
 
 // Mirror the server's `friendly-expiration` (magic_code_auth.clj).
@@ -279,8 +283,9 @@ export function Email({
                       </div>
                       {!verification.postmarkVerified ? (
                         <Content className="text-sm text-gray-500 dark:text-neutral-400">
-                          Check {senderInfo.EmailAddress} for a confirmation
-                          link, then{' '}
+                          {senderInfo.IdentityType === 'DOMAIN'
+                            ? 'Add the DNS records below, then '
+                            : `Check ${senderInfo.EmailAddress ?? senderInfo.Identity ?? 'the sender address'} for a confirmation link, then `}
                           <button
                             type="button"
                             onClick={() => verification.refetch()}
@@ -333,23 +338,38 @@ export function Email({
                       </button>
                       {showDnsRecords ? (
                         <div className="flex flex-col gap-3 border-t p-3 dark:border-neutral-700">
-                          <DnsRecord
-                            label="DKIM"
-                            type="TXT"
-                            host={
-                              senderInfo.DKIMPendingHost || senderInfo.DKIMHost
-                            }
-                            value={
-                              senderInfo.DKIMPendingTextValue ||
-                              senderInfo.DKIMTextValue
-                            }
-                          />
-                          <DnsRecord
-                            label="Return-Path"
-                            type="CNAME"
-                            host={senderInfo.ReturnPathDomain}
-                            value={senderInfo.ReturnPathDomainCNAMEValue}
-                          />
+                          {senderInfo.DnsRecords?.length ? (
+                            senderInfo.DnsRecords.map((record, index) => (
+                              <DnsRecord
+                                key={`${record.Name}-${index}`}
+                                label="DKIM"
+                                type={record.Type}
+                                host={record.Name}
+                                value={record.Value}
+                              />
+                            ))
+                          ) : (
+                            <>
+                              <DnsRecord
+                                label="DKIM"
+                                type="TXT"
+                                host={
+                                  senderInfo.DKIMPendingHost ||
+                                  senderInfo.DKIMHost
+                                }
+                                value={
+                                  senderInfo.DKIMPendingTextValue ||
+                                  senderInfo.DKIMTextValue
+                                }
+                              />
+                              <DnsRecord
+                                label="Return-Path"
+                                type="CNAME"
+                                host={senderInfo.ReturnPathDomain}
+                                value={senderInfo.ReturnPathDomainCNAMEValue}
+                              />
+                            </>
+                          )}
                         </div>
                       ) : null}
                     </div>
