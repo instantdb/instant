@@ -768,7 +768,7 @@
   (POST "/runtime/:app_id/oauth/token" [] (http-util/with-rate-limiting oauth-token-callback))
   (POST "/runtime/oauth/id_token" [] oauth-id-token-callback)
   ;; The realtime transports (`/runtime/session` and `/runtime/sse`) are gated
-  ;; by the rate-limit check in `handle-init!`, so we leave off route wrapper
+  ;; by the rate-limit check in `session.clj`, so we leave off route wrapper
   (GET "/runtime/session" [] session-get)
   (GET "/runtime/sse" [] sse-get)
   (POST "/runtime/sse" [] sse-post)
