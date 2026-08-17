@@ -171,8 +171,10 @@
         :app-backup-job
         {:app-id app-id}
         [{:message (str "This app is too large to back up from the dashboard. "
-                        "Reach out in Discord and we'll run the backup for you: "
-                        discord-invite-url)}])))))
+                        (if (config/superuser-email)
+                          "Contact your deployment administrator to run the backup manually."
+                          (str "Reach out in Discord and we'll run the backup for you: "
+                               discord-invite-url)))}])))))
 
 (defn create-job!
   ([params] (create-job! (aurora/conn-pool :write) params))

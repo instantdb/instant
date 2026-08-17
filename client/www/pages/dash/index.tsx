@@ -486,7 +486,11 @@ function Dashboard() {
 
   async function onDeleteApp(app: InstantApp) {
     successToast(
-      `${app.title} is marked for deletion. We will remove all data in 24 hours. Ping us on Discord if you did not mean to do this.`,
+      `${app.title} is marked for deletion. We will remove all data in 24 hours. ${
+        isSelfHosted
+          ? 'Contact your deployment administrator if you did not mean to do this.'
+          : 'Ping us on Discord if you did not mean to do this.'
+      }`,
     );
     const _apps = apps.filter((a) => a.id !== app.id);
     if (dashResponse.data.workspace.type === 'personal') {

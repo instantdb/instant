@@ -13,6 +13,7 @@ import {
 } from '@/components/ui';
 import { messageFromInstantError } from '@/lib/errors';
 import { addClient, findName, updateClient, updateClientMeta } from './shared';
+import { isSelfHosted } from '@/lib/config';
 import {
   InstantApp,
   InstantIssue,
@@ -20,6 +21,12 @@ import {
   OAuthServiceProvider,
 } from '@/lib/types';
 import { useDarkMode } from '../DarkModeToggle';
+
+function clerkDomainError() {
+  return isSelfHosted
+    ? 'Could not determine Clerk domain from key. Contact your deployment administrator for help.'
+    : 'Could not determine Clerk domain from key. Ping us in Discord for help.';
+}
 
 function clerkExampleCode({
   appId,
@@ -162,10 +169,7 @@ function ClerkKeyEditor({
     }
     const newDomain = clerkDomainFromPublishableKey(publishableKey);
     if (!newDomain) {
-      errorToast(
-        'Could not determine Clerk domain from key. Ping us in Discord for help.',
-        { autoClose: 5000 },
-      );
+      errorToast(clerkDomainError(), { autoClose: 5000 });
       return;
     }
     try {
@@ -428,10 +432,7 @@ export function AddClerkClientForm({
     }
     const domain = clerkDomainFromPublishableKey(publishableKey);
     if (!domain) {
-      errorToast(
-        'Could not determine Clerk domain from key. Ping us in Discord for help.',
-        { autoClose: 5000 },
-      );
+      errorToast(clerkDomainError(), { autoClose: 5000 });
     }
     try {
       setIsLoading(true);

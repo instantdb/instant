@@ -1,7 +1,7 @@
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 import { Button, Copyable } from '@/components/ui';
 import { useAuthToken } from '@/lib/auth';
-import config, { bugsAndQuestionsInviteUrl } from '@/lib/config';
+import config, { bugsAndQuestionsInviteUrl, isSelfHosted } from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import { CheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 import React, { useEffect, useState } from 'react';
@@ -85,10 +85,12 @@ function AdminInfo({
           {u.query ? <QueryBlock query={u.query} /> : null}
         </div>
       ))}
-      <div className="flex w-full flex-col items-center gap-2">
-        <div>Prompt for agent</div>
-        <QueryBlock query={agentPrompt} />
-      </div>
+      {!isSelfHosted ? (
+        <div className="flex w-full flex-col items-center gap-2">
+          <div>Prompt for agent</div>
+          <QueryBlock query={agentPrompt} />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -99,11 +101,13 @@ function Page() {
   const token = useAuthToken();
 
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
+  const [traceId, setTraceId] = useState<string | null>(null);
   const [adminInfo, setAdminInfo] = useState<any | null>(null);
   useEffect(() => {
     setCurrentUrl(window.location.href);
     const spanId = router.query['span-id'] as string;
     const traceId = router.query['trace-id'] as string;
+    setTraceId(traceId);
     if (token) {
       fetchDebugUriInfo({ traceId, spanId }, token).then(
         (res) => setAdminInfo(res),
@@ -126,17 +130,25 @@ function Page() {
       ) : (
         <p>We don't have any additional information about this error.</p>
       )}
-      <p>
-        Ping us with this url in{' '}
-        <a
-          className="text-blue-600 underline hover:text-blue-800"
-          rel="noopener noreferrer"
-          href={bugsAndQuestionsInviteUrl}
-        >
-          #bug-and-questions on Discord
-        </a>{' '}
-        for help.
-      </p>
+      {!isSelfHosted ? (
+        <p>
+          Ping us with this url in{' '}
+          <a
+            className="text-blue-600 underline hover:text-blue-800"
+            rel="noopener noreferrer"
+            href={bugsAndQuestionsInviteUrl}
+          >
+            #bugs-and-questions on Discord
+          </a>{' '}
+          for help.
+        </p>
+      ) : null}
+
+      {traceId ? (
+        <div className="w-96">
+          <Copyable label="TraceID" value={traceId} />
+        </div>
+      ) : null}
 
       {currentUrl ? (
         <div className="w-96">

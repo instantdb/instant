@@ -79,4 +79,8 @@ To quickly toggle the window, you can use the shortcut `ctrl` + `shift` + `0` (z
 
 ## Feedback?
 
+{% hosted-only %}
+
 If you have any feedback, let us know on [Discord](https://discord.com/invite/VU53p7uQcE).
+
+{% /hosted-only %}
