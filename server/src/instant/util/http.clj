@@ -29,26 +29,30 @@
     (coerce-bearer-token header)
     nil))
 
-(defn req->rate-limit-app-id
-  "Best-effort, non-throwing lookup of the app-id from the places routes carry
-   it (header, query/path param, or json body). Returns nil when we can't find
-   one, so handlers that derive the app-id later still pass through."
+(defn req-rate-limited?
+  "True if any app-id the request carries (header, query/path param, or json
+   body) is rate limited. Checks every location so a spoofed header can't
+   shadow the real app-id a handler consumes."
   [req]
-  (some (fn [path]
-          (some-> (get-in req path) uuid-util/coerce))
-        [[:headers "app-id"]
-         [:headers "app_id"]
-         [:params :app_id]
-         [:params :app-id]
-         [:query-params "app_id"]
-         [:body :app-id]
-         [:body :app_id]]))
+  (reduce (fn [_ path]
+            (if (some-> (get-in req path)
+                        uuid-util/coerce
+                        flags/app-rate-limited?)
+              (reduced true)
+              false))
+          false
+          [[:headers "app-id"]
+           [:headers "app_id"]
+           [:params :app_id]
+           [:params :app-id]
+           [:query-params "app_id"]
+           [:body :app-id]
+           [:body :app_id]]))
 
 (defn with-rate-limiting [handler]
   (fn [req]
-    (when-let [app-id (req->rate-limit-app-id req)]
-      (when (flags/app-rate-limited? app-id)
-        (ex/throw-rate-limited!)))
+    (when (req-rate-limited? req)
+      (ex/throw-rate-limited!))
     (handler req)))
 
 (defn req->auth-user

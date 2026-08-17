@@ -72,5 +72,5 @@
   (PUT "/storage/upload" [] (http-util/with-rate-limiting upload-put))
   (DELETE "/storage/files" [] (http-util/with-rate-limiting file-delete))
   (POST "/storage/signed-upload-url" [] (http-util/with-rate-limiting create-upload-url-post))
-  (PUT "/storage/:upload-id/consume-upload-url" [] (http-util/with-rate-limiting consume-upload-url-put))
+  (PUT "/storage/:upload-id/consume-upload-url" [] consume-upload-url-put)
   (GET "/storage/signed-download-url" [] (http-util/with-rate-limiting signed-download-url-get)))
