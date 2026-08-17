@@ -281,8 +281,8 @@ function errorFromVerifyMagicCode(res: InstantIssue): string {
 
 function magicCodeDefaultError() {
   return isSelfHosted
-    ? 'Uh oh, something went wrong sending you a magic code. Contact your deployment administrator.'
-    : 'Uh oh, something went wrong sending you a magic code, please ping us!';
+    ? 'Uh oh, something went wrong. Contact your deployment administrator.'
+    : 'Uh oh, something went wrong, please ping us!';
 }
 
 function errorFromSendMagicCode(res: InstantIssue): string {

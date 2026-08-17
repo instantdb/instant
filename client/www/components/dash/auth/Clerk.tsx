@@ -433,6 +433,7 @@ export function AddClerkClientForm({
     const domain = clerkDomainFromPublishableKey(publishableKey);
     if (!domain) {
       errorToast(clerkDomainError(), { autoClose: 5000 });
+      return;
     }
     try {
       setIsLoading(true);

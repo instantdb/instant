@@ -322,18 +322,25 @@ function DevtoolWithData({
               </div>
             ) : null}
             <AppIdLabel appId={appId} />
-            <p>
-              We had some trouble connecting to Instant's backend. Please ping
-              us on{' '}
-              <a
-                className="font-bold text-blue-500"
-                href="https://discord.com/invite/VU53p7uQcE"
-                target="_blank"
-              >
-                discord
-              </a>{' '}
-              with details.
-            </p>
+            {isSelfHosted ? (
+              <p>
+                We had some trouble connecting to Instant's backend. Contact
+                your deployment administrator with details.
+              </p>
+            ) : (
+              <p>
+                We had some trouble connecting to Instant's backend. Please ping
+                us on{' '}
+                <a
+                  className="font-bold text-blue-500"
+                  href="https://discord.com/invite/VU53p7uQcE"
+                  target="_blank"
+                >
+                  discord
+                </a>{' '}
+                with details.
+              </p>
+            )}
             <Button
               className="w-full"
               size="mini"
