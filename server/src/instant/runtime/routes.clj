@@ -743,23 +743,32 @@
     (response/ok {:result result :attrs attrs})))
 
 (defroutes routes
-  (POST "/runtime/auth/send_magic_code" [] send-magic-code-post)
-  (POST "/runtime/auth/verify_magic_code" [] verify-magic-code-post)
-  (POST "/runtime/auth/verify_refresh_token" [] verify-refresh-token-post)
-  (POST "/runtime/auth/sign_in_guest" [] sign-in-guest-post)
-  (GET "/runtime/oauth/start" [] (wrap-cookies oauth-start
-                                               {:decoder parse-cookie}))
-  (GET "/runtime/:app_id/oauth/start" [] (wrap-cookies oauth-start
-                                                       {:decoder parse-cookie}))
+  (POST "/runtime/auth/send_magic_code" []
+    (http-util/with-rate-limiting send-magic-code-post))
+  (POST "/runtime/auth/verify_magic_code" []
+    (http-util/with-rate-limiting verify-magic-code-post))
+  (POST "/runtime/auth/verify_refresh_token" []
+    (http-util/with-rate-limiting verify-refresh-token-post))
+  (POST "/runtime/auth/sign_in_guest" []
+    (http-util/with-rate-limiting sign-in-guest-post))
+  (GET "/runtime/oauth/start" [] (http-util/with-rate-limiting
+                                   (wrap-cookies oauth-start
+                                                 {:decoder parse-cookie})))
+  (GET "/runtime/:app_id/oauth/start" [] (http-util/with-rate-limiting
+                                           (wrap-cookies oauth-start
+                                                         {:decoder parse-cookie})))
   (GET "/runtime/oauth/callback" [] (wrap-cookies oauth-callback
                                                   {:decoder parse-cookie}))
   (POST "/runtime/oauth/callback" [] (wrap-cookies oauth-callback
                                                    {:decoder parse-cookie}))
-  (POST "/runtime/framework/query" [] framework-query-triples)
+  (POST "/runtime/framework/query" []
+    (http-util/with-rate-limiting framework-query-triples))
 
   (POST "/runtime/oauth/token" [] oauth-token-callback)
-  (POST "/runtime/:app_id/oauth/token" [] oauth-token-callback)
+  (POST "/runtime/:app_id/oauth/token" [] (http-util/with-rate-limiting oauth-token-callback))
   (POST "/runtime/oauth/id_token" [] oauth-id-token-callback)
+  ;; The realtime transports (`/runtime/session` and `/runtime/sse`) are gated
+  ;; by the rate-limit check in `handle-init!`, so we leave off route wrapper
   (GET "/runtime/session" [] session-get)
   (GET "/runtime/sse" [] sse-get)
   (POST "/runtime/sse" [] sse-post)

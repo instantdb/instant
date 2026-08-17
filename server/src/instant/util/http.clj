@@ -1,6 +1,7 @@
 (ns instant.util.http
   (:require
    [clojure.string :as string]
+   [instant.flags :as flags]
    [instant.model.instant-user :as instant-user-model]
    [instant.util.exception :as ex]
    [instant.util.token :as token-util]
@@ -27,6 +28,28 @@
   (if-let [header (get-in req [:headers "authorization"])]
     (coerce-bearer-token header)
     nil))
+
+(defn req->rate-limit-app-id
+  "Best-effort, non-throwing lookup of the app-id from the places routes carry
+   it (header, query/path param, or json body). Returns nil when we can't find
+   one, so handlers that derive the app-id later still pass through."
+  [req]
+  (some (fn [path]
+          (some-> (get-in req path) uuid-util/coerce))
+        [[:headers "app-id"]
+         [:headers "app_id"]
+         [:params :app_id]
+         [:params :app-id]
+         [:query-params "app_id"]
+         [:body :app-id]
+         [:body :app_id]]))
+
+(defn with-rate-limiting [handler]
+  (fn [req]
+    (when-let [app-id (req->rate-limit-app-id req)]
+      (when (flags/app-rate-limited? app-id)
+        (ex/throw-rate-limited!)))
+    (handler req)))
 
 (defn req->auth-user
   "Extracts authenticated user from request. Returns nil if unauthenticated."
