@@ -1,7 +1,7 @@
 import { SectionHeading, Button, Content } from '@/components/ui';
 import { friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
 import { messageFromInstantError } from '@/lib/errors';
-import config, { stripeKey } from '@/lib/config';
+import config, { isSelfHosted, stripeKey } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { AppsSubscriptionResponse, InstantIssue } from '@/lib/types';
@@ -17,6 +17,12 @@ import { useFetchedDash } from './MainDashLayout';
 export const GB_1 = 1024 * 1024 * 1024;
 export const GB_10 = 10 * GB_1;
 export const GB_250 = 250 * GB_1;
+
+function stripeErrorMessage() {
+  return isSelfHosted
+    ? 'Failed to connect w/ Stripe! Try again or contact your deployment administrator if this persists.'
+    : 'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
+}
 
 export function roundToDecimal(num: number, decimalPlaces: number) {
   const factor = Math.pow(10, decimalPlaces);
@@ -57,8 +63,7 @@ async function createCheckoutSession(appId: string, token: string) {
     })
     .catch((err) => {
       const message =
-        messageFromInstantError(err as InstantIssue) ||
-        'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
+        messageFromInstantError(err as InstantIssue) || stripeErrorMessage();
       const friendlyMessage = friendlyErrorMessage('dash-billing', message);
       errorToast(friendlyMessage);
       console.error(err);
@@ -85,8 +90,7 @@ async function createPortalSession(appId: string, token: string) {
     })
     .catch((err) => {
       const message =
-        messageFromInstantError(err as InstantIssue) ||
-        'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
+        messageFromInstantError(err as InstantIssue) || stripeErrorMessage();
       const friendlyMessage = friendlyErrorMessage('dash-billing', message);
       errorToast(friendlyMessage);
       console.error(err);

@@ -198,4 +198,8 @@ If your code uses `useUser`, `useAuth`, or `db.SignedIn`/`db.SignedOut`, it will
 
 ## Questions
 
+{% hosted-only %}
+
 This is still a beta. We'd love to hear your feedback on [Discord](https://discord.com/invite/VU53p7uQcE)!
+
+{% /hosted-only %}

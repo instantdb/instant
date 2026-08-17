@@ -4,6 +4,7 @@
    [clojure.string :as string]
    [clojure.walk :as w]
    [inflections.core :as inflections]
+   [instant.config :as config]
    [instant.jdbc.pgerrors :as pgerrors]
    [instant.util.json :as json :refer [<-json]]
    [instant.util.string :refer [indexes-of safe-name]]
@@ -425,7 +426,9 @@
 
 (defn throw-rate-limited! []
   (throw+ {::type ::rate-limited
-           ::message "You're making too many requests. Please email support@instantdb.com or ask for help in the Discord."}))
+           ::message (if (config/superuser-email)
+                       "You're making too many requests. Please contact your deployment administrator."
+                       "You're making too many requests. Please email support@instantdb.com or ask for help in the Discord.")}))
 
 (defn throw-record-email-rate-limited! []
   (throw+ {::type ::rate-limited

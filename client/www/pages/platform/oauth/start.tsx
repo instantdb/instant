@@ -3,7 +3,7 @@ import Auth from '@/components/dash/Auth';
 import { AppLogo } from '@/components/dash/OAuthApps';
 import { Button, Content, FullscreenLoading, LogoIcon } from '@/components/ui';
 import { useAuthToken } from '@/lib/auth';
-import config, { discordInviteUrl } from '@/lib/config';
+import config, { discordInviteUrl, isSelfHosted } from '@/lib/config';
 import { messageFromInstantError } from '@/lib/errors';
 import { jsonFetch } from '@/lib/fetch';
 import { InstantIssue } from '@/lib/types';
@@ -42,17 +42,24 @@ function InvalidRedirect({
           {instantError ? (
             <p className="border-l-4 pl-2">{instantError}</p>
           ) : null}
-          <p>
-            Please go back and try again, or ping us on{' '}
-            <a
-              className="font-bold text-blue-500"
-              href={discordInviteUrl}
-              target="_blank"
-            >
-              discord
-            </a>{' '}
-            with details.
-          </p>
+          {isSelfHosted ? (
+            <p>
+              Please go back and try again, or contact your deployment
+              administrator with details.
+            </p>
+          ) : (
+            <p>
+              Please go back and try again, or ping us on{' '}
+              <a
+                className="font-bold text-blue-500"
+                href={discordInviteUrl}
+                target="_blank"
+              >
+                discord
+              </a>{' '}
+              with details.
+            </p>
+          )}
         </Content>
       </div>
     </div>

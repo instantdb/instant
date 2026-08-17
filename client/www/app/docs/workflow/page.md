@@ -14,7 +14,13 @@ At a high level, here is the recommended workflow for developing with Instant:
    transactions, and permissions.
 1. When you're ready for production, [restrict creating](/docs/patterns#restrict-creating-new-attributes) new attributes.
 1. If you need more help, check out our [patterns page](/docs/patterns) for common
-   recipes or drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE).
+   recipes.
+
+{% hosted-only %}
+
+You can also drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE).
+
+{% /hosted-only %}
 
 ## Authenticating with Instant in your terminal
 
@@ -125,5 +131,11 @@ We highly recommend going through our docs to understand how Instant works. We
 tried our best to keep them delightful and example-driven!
 
 We've also made a [patterns page](/docs/patterns) with common recipes for using
-InstantDB. If you still have questions, feel free to drop us a line on our
+InstantDB.
+
+{% hosted-only %}
+
+If you still have questions, feel free to drop us a line on our
 [Discord](https://discord.com/invite/VU53p7uQcE).
+
+{% /hosted-only %}

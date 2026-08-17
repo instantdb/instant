@@ -12,7 +12,10 @@ import {
 } from '@/components/ui';
 import { useAuthedFetch, useAuthToken } from '@/lib/auth';
 import { messageFromInstantError } from '@/lib/errors';
-import config, { discordOAuthAppsFeedbackInviteUrl } from '@/lib/config';
+import config, {
+  discordOAuthAppsFeedbackInviteUrl,
+  isSelfHosted,
+} from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import {
   InstantIssue,
@@ -1014,17 +1017,28 @@ function App({ app }: { app: OAuthApp }) {
       {app.isPublic ? null : (
         <div className="flex max-w-md bg-sky-50 dark:bg-slate-800/60 dark:ring-1 dark:ring-slate-300/10">
           <Content className="prose-a:text-sky-900 prose-code:text-sky-900 dark:prose-code:text-slate-300 m-4 text-sm text-sky-800 [--tw-prose-background:var(--color-sky-50)] dark:text-slate-300">
-            This app is in test mode. Only members of this Instant app will be
-            allowed to auth with it. Once you've built your integration, ping us
-            in{' '}
-            <a
-              target="_blank"
-              rel="noopener noreferrer"
-              href={discordOAuthAppsFeedbackInviteUrl}
-            >
-              #oauth-apps-feedback on Discord
-            </a>{' '}
-            to release your app to the public.
+            {isSelfHosted ? (
+              <>
+                This app is in test mode. Only members of this Instant app will
+                be allowed to auth with it. Once you've built your integration,
+                contact your deployment administrator to release your app to the
+                public.
+              </>
+            ) : (
+              <>
+                This app is in test mode. Only members of this Instant app will
+                be allowed to auth with it. Once you've built your integration,
+                ping us in{' '}
+                <a
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  href={discordOAuthAppsFeedbackInviteUrl}
+                >
+                  #oauth-apps-feedback on Discord
+                </a>{' '}
+                to release your app to the public.
+              </>
+            )}
           </Content>
         </div>
       )}

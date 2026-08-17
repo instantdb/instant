@@ -1,4 +1,4 @@
-import config, { stripeKey } from '@/lib/config';
+import config, { isSelfHosted, stripeKey } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { useContext, useEffect, useState } from 'react';
@@ -9,6 +9,12 @@ import { messageFromInstantError } from '@/lib/errors';
 import { InstantIssue } from '@instantdb/core';
 import { errorToast } from '@/lib/toast';
 import { useFetchedDash } from './MainDashLayout';
+
+function stripeErrorMessage() {
+  return isSelfHosted
+    ? 'Failed to connect w/ Stripe! Try again or contact your deployment administrator if this persists.'
+    : 'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
+}
 
 function createOrg(token: string, params: { title: string }) {
   return jsonFetch(`${config.apiURI}/dash/orgs`, {
@@ -51,8 +57,7 @@ async function createPortalSession(orgId: string, token: string) {
     })
     .catch((err) => {
       const message =
-        messageFromInstantError(err as InstantIssue) ||
-        'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
+        messageFromInstantError(err as InstantIssue) || stripeErrorMessage();
       const friendlyMessage = friendlyErrorMessage('dash-billing', message);
       errorToast(friendlyMessage);
       console.error(err);
@@ -93,8 +98,7 @@ async function createCheckoutSession(orgId: string, token: string) {
     })
     .catch((err) => {
       const message =
-        messageFromInstantError(err as InstantIssue) ||
-        'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
+        messageFromInstantError(err as InstantIssue) || stripeErrorMessage();
       const friendlyMessage = friendlyErrorMessage('dash-billing', message);
       errorToast(friendlyMessage);
       console.error(err);
