@@ -78,6 +78,14 @@
 (defn invalid-sender? [e]
   (postmark/sender-signature-problem? e))
 
+(defn suppress-send-failure-for-test-user?
+  "For test users we don't care whether the email actually gets delivered, so a
+   validation/send failure should be swallowed instead of thrown."
+  [e req]
+  (and (contains? #{::ex/validation-failed ::ex/email-send-failed}
+                  (-> e ex-data ::ex/type))
+       (some? (app-model/get-test-user req))))
+
 (defn default-body [{:keys [app_title code expiration]}]
   (postmark/standard-body
    (h/html
@@ -213,12 +221,16 @@
                               (invalid-sender? e)
                               (do
                                 (tracer/record-info! {:name "magic-code/unconfirmed-or-unknown-sender" :attributes {:email sender-email :app-id app-id}})
-                                (email-router/send-structured! (magic-code-email email (assoc email-params :sender-email default-sender-email))))
+                                (try
+                                  (email-router/send-structured! (magic-code-email email (assoc email-params :sender-email default-sender-email)))
+                                  (catch clojure.lang.ExceptionInfo fallback-e
+                                    ;; Don't throw if it's a test user, even if the fallback send fails
+                                    (if (suppress-send-failure-for-test-user? fallback-e req)
+                                      false
+                                      (throw fallback-e)))))
 
                               ;; Don't throw if it's a test user, even if we can't send email to it
-                              (and (contains? #{::ex/validation-failed ::ex/email-send-failed}
-                                              (-> e ex-data ::ex/type))
-                                   (not (nil? (app-model/get-test-user req))))
+                              (suppress-send-failure-for-test-user? e req)
                               false
 
                               :else
