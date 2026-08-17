@@ -976,6 +976,12 @@
         {:keys [session/socket]} session
         {:keys [id]} socket]
     (tracer/add-data! {:attributes (event-attributes store id event)})
+    ;; Rate-limit at the op level so the error rides back on the original event
+    ;; and surfaces through the client's per-query / per-mutation error paths.
+    (when-let [app-id (and (not (contains? #{:init :sse-init :error} op))
+                           (-> session :session/auth :app :id))]
+      (when (flags/app-rate-limited? app-id)
+        (ex/throw-rate-limited!)))
     (case op
       :init         (handle-init! store id event)
       :sse-init     (handle-sse-init! store id event)
@@ -1046,6 +1052,8 @@
 
          ::ex/app-read-only
          ::ex/app-disabled
+
+         ::ex/rate-limited
 
          ::ex/param-missing
          ::ex/param-malformed
