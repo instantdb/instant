@@ -38,6 +38,7 @@
                 ::param-malformed
 
                 ::validation-failed
+                ::email-send-failed
                 ::operation-timed-out
                 ::rate-limited
                 ::parameter-limit-exceeded
@@ -356,6 +357,24 @@
 (defn assert-valid! [input-type input errors]
   (when (seq errors)
     (throw-validation-err! input-type input errors)))
+
+;; -----
+;; Email
+
+(defn throw-email-send-failed!
+  "Raised when an email provider (Postmark/SendGrid) rejects or fails a send.
+   `::email-send-failed` is intentionally not a bad-request type, so it renders
+   as a 500 with a clear, typed message instead of the generic \"Something went
+   wrong\". The hint is returned to the client, so keep it free of provider
+   internals (record those on the trace instead); `cause` should be the original
+   provider exception when available."
+  ([message] (throw-email-send-failed! message nil nil))
+  ([message hint] (throw-email-send-failed! message hint nil))
+  ([message hint cause]
+   (throw+ {::type ::email-send-failed
+            ::message message
+            ::hint hint}
+           cause)))
 
 ;; ------
 ;; Params

@@ -7,6 +7,7 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triples]
    [instant.db.permissioned-transaction :as permissioned-tx]
+   [instant.email-router :as email-router]
    [instant.fixtures :refer [random-email with-empty-app]]
    [instant.flags :as flags]
    [instant.isn :as isn]
@@ -29,6 +30,7 @@
    [instant.system-catalog :as system-catalog]
    [instant.util.coll :as coll]
    [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex]
    [instant.util.json :refer [->json <-json]]
    [instant.util.test :as test-util]
    [instant.util.tracer :as tracer])
@@ -225,6 +227,28 @@
                                       :email "recipient@example.com"}))
             (is (= custom-email
                    (get-in @letter [:from :email])))))))))
+
+(deftest magic-code-invalid-sender-fallback-failure-suppressed-for-test-user
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [email "test@example.com"
+            calls (atom 0)
+            ;; First send fails with an invalid-sender error (triggers the
+            ;; default-sender fallback); the fallback send then also fails.
+            fake-send (fn [_req]
+                        (if (= 1 (swap! calls inc))
+                          (throw (ex-info "invalid sender" {:body {:ErrorCode 400}}))
+                          (ex/throw-email-send-failed! "fallback boom" {:recipient email})))]
+        (app-model/create-test-user! {:app-id app-id
+                                      :email email
+                                      :code "424242"})
+        (testing "a test user's failing fallback send is swallowed, not thrown"
+          (with-redefs [magic-code-auth/check-send-rate-limit! (constantly nil)
+                        email-router/send-structured! fake-send]
+            (let [res (magic-code-auth/send! {:app-id app-id :email email})]
+              ;; fallback was attempted, and the failure didn't propagate
+              (is (= 2 @calls))
+              (is (false? (:sent-email res))))))))))
 
 (defn update-created-at [app-id code created-at]
   (sql/execute!

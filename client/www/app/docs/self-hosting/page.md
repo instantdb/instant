@@ -47,6 +47,14 @@ INSTANT_TEAM_EMAIL_SENDER_EMAIL=teams@example.com
 Restart the backend and try logging in to the dashboard. If all goes right, you
 should get an email delivered!
 
+{% callout type="warning" %}
+
+New Postmark accounts start in a pending-approval state and can only send to
+addresses on your own domain. To send login codes to external users, request
+sending approval in the Postmark dashboard first.
+
+{% /callout %}
+
 ### Configure email with SendGrid
 
 You can use [SendGrid](https://sendgrid.com/) instead of Postmark. Create an API
