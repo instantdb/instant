@@ -94,7 +94,6 @@ INSTANT_EMAIL_PROVIDER=ses
 AWS_SES_REGION=us-east-1
 AWS_SES_ACCESS_KEY_ID=replace-with-your-access-key
 AWS_SES_SECRET_ACCESS_KEY=replace-with-your-secret-key
-# AWS_SES_SESSION_TOKEN=replace-with-your-session-token
 # AWS_SES_CONFIGURATION_SET=instant-transactional
 INSTANT_EMAIL_REPLY_TO=hello@example.com
 INSTANT_DASHBOARD_EMAIL_SENDER_NAME=Instant

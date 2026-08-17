@@ -64,6 +64,13 @@
              :provider_id "example.com"}))))
   (is (nil? (app-email-sender/get-sender-status nil))))
 
+(deftest send-throws-when-ses-is-not-configured-test
+  (with-redefs [config/aws-ses-enabled? (constantly false)]
+    (is (thrown? Exception
+                 (ses/send! {:from {:email "from@example.com"}
+                             :to [{:email "to@example.com"}]
+                             :subject "Subject"})))))
+
 (deftest unverified-identity-test
   (is (true? (ses/unverified-identity?
               (ex-info "SES sender is not verified."

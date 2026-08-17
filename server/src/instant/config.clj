@@ -189,9 +189,6 @@
 (defn aws-ses-secret-access-key []
   (some-> (System/getenv "AWS_SES_SECRET_ACCESS_KEY") string/trim not-empty))
 
-(defn aws-ses-session-token []
-  (some-> (System/getenv "AWS_SES_SESSION_TOKEN") string/trim not-empty))
-
 (defn aws-ses-region []
   (or (some-> (System/getenv "AWS_SES_REGION") string/trim not-empty)
       "us-east-1"))

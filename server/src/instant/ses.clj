@@ -9,7 +9,6 @@
    [instant.util.tracer :as tracer])
   (:import
    (software.amazon.awssdk.auth.credentials AwsBasicCredentials
-                                            AwsSessionCredentials
                                             StaticCredentialsProvider)
    (software.amazon.awssdk.regions Region)
    (software.amazon.awssdk.services.sesv2 SesV2Client)
@@ -29,12 +28,8 @@
 
 (defn- credentials-provider []
   (StaticCredentialsProvider/create
-   (if-let [session-token (config/aws-ses-session-token)]
-     (AwsSessionCredentials/create (config/aws-ses-access-key-id)
-                                   (config/aws-ses-secret-access-key)
-                                   session-token)
-     (AwsBasicCredentials/create (config/aws-ses-access-key-id)
-                                 (config/aws-ses-secret-access-key)))))
+   (AwsBasicCredentials/create (config/aws-ses-access-key-id)
+                               (config/aws-ses-secret-access-key))))
 
 (defonce ^:private client*
   (delay (-> (SesV2Client/builder)
@@ -114,12 +109,9 @@
 
 (defn send! [{:keys [from to subject] :as structured-email}]
   (if-not (config/aws-ses-enabled?)
-    (tracer/with-span! {:name "ses/send-disabled"
-                        :attributes {:from from :to to :subject subject}}
-      (tracer/record-info!
-       {:name "ses-disabled"
-        :attributes
-        {:msg "Amazon SES is disabled; set AWS_SES_ACCESS_KEY_ID and AWS_SES_SECRET_ACCESS_KEY to enable it"}}))
+    (ex/throw-email-send-failed!
+     "Amazon SES is selected, but AWS_SES_ACCESS_KEY_ID and AWS_SES_SECRET_ACCESS_KEY are not configured."
+     {:recipient (:email (first to))})
     (tracer/with-span! {:name "ses/send"
                         :attributes {:from from :to to :subject subject}}
       (try
