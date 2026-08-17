@@ -66,6 +66,12 @@ function AdminInfo({
   return (
     <div className="flex w-full max-w-2xl flex-col items-center gap-4">
       <div>Admin URLs</div>
+      {isSelfHosted ? (
+        <div className="flex w-full flex-col items-center gap-2">
+          <div>Search the Instant server logs for this trace ID</div>
+          <QueryBlock query={`docker compose logs server | grep ${traceId}`} />
+        </div>
+      ) : null}
       {urls.map((u) => (
         <div key={u.url} className="flex w-full flex-col items-center gap-2">
           <a
