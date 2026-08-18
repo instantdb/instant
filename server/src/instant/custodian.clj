@@ -28,6 +28,7 @@
    [instant.util.async :as ua]
    [instant.util.exception :as ex]
    [instant.util.hsql :as uhsql]
+   [instant.util.pg-hint-plan :as hints]
    [instant.util.tracer :as tracer])
   (:import
    (clojure.lang ExceptionInfo)
@@ -351,7 +352,7 @@
                           :returning :id}]
              [:marked {:select [[marked-for-deletion :ok]]}]
              [:to-delete {:select :ctid
-                          :from table
+                          :from [[table :to_delete]]
                           :where (if attr-scoped?
                                    [:and [:= :app-id :?app-id] [:= :attr-id :?attr-id]]
                                    [:= :app-id :?app-id])
@@ -365,7 +366,13 @@
                  :else [:raise_exception_message
                         [:inline "custodian row no longer exists"]]]
                 :present]
-               [{:select :ok :from :marked} :marked]]})))
+               [{:select :ok :from :marked} :marked]]
+      :pg-hints (case table
+                  :triples [(hints/index-scan :to_delete (if attr-scoped?
+                                                           :triples_pkey
+                                                           :triples_app_id))]
+                  :transactions [(hints/index-scan :to_delete :transactions_app_id_id_idx)]
+                  [])})))
 
 (def delete-app-triples-q (delete-batch-query :triples false))
 (def delete-attr-triples-q (delete-batch-query :triples true))
@@ -393,9 +400,9 @@
                                                                   :limit limit)))
                          first
                          :deleted)]
-        (if (and deleted (pos? deleted))
-          (recur)
-          ::completed))))))
+         (if (and deleted (pos? deleted))
+           (recur)
+           ::completed))))))
 
 (defn- delete-app!
   "Deletes the app at the final stage, but checks if it is still marked as deleted first."
