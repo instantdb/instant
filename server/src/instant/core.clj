@@ -55,6 +55,7 @@
    [instant.storage.routes :as storage-routes]
    [instant.stripe :as stripe]
    [instant.stripe-webhook :as stripe-webhook]
+   [instant.sunset :as sunset]
    [instant.superadmin.routes :as superadmin-routes]
    [instant.system-catalog-migration :refer [ensure-attrs-on-system-catalog-app]]
    [instant.util.async :as ua]
@@ -465,6 +466,9 @@
         (flags-impl/init config/instant-config-app-id
                          flags/queries
                          flags/query-results))
+
+      (with-log-init :sunset
+        (sunset/start))
 
       (with-log-init :app-proxy
         (app-proxy/start))

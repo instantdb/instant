@@ -564,6 +564,10 @@
              (:session/socket (d/entity db (:e datom))))
            (d/datoms db :avet :session/app-id app-id)))))
 
+(defn app-ids-with-sessions [store]
+  (let [db @(:sessions store)]
+    (into #{} (map :v) (d/datoms db :aevt :session/app-id))))
+
 ;; -----
 ;; tx-id
 

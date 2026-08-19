@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { CopyToClipboardButton } from './CopyToClipboardButton';
-import { HeroTitle, LandingButton, SectionSubtitle } from './typography';
+import Link from 'next/link';
+import { HeroTitle, SectionSubtitle } from './typography';
+import { isSelfHosted } from '@/lib/config';
 
 const VIDEO_URL =
   'https://stream.mux.com/RKzKMImR1oIGNLPTLjflaD02dNWo1003H00Pv6ZIIogo01g/1080p.mp4';
@@ -90,24 +91,28 @@ export function Hero() {
     <section className="pt-28 pb-8 sm:pt-32 sm:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
+          {!isSelfHosted && (
+            <Link
+              href="/essays/instant_team_joins_openai"
+              className="mb-8 inline-flex flex-wrap items-center justify-center gap-x-3 rounded-full border border-orange-200 bg-orange-100 px-7 py-3 text-base text-orange-900 shadow-sm transition-colors hover:bg-orange-200 sm:text-lg"
+            >
+              <span>
+                <span className="font-semibold">
+                  The Instant Team is joining OpenAI.
+                </span>{' '}
+                Services will continue until August 31st, 2027.
+              </span>{' '}
+              <span className="font-medium whitespace-nowrap text-orange-900/70">
+                Learn more →
+              </span>
+            </Link>
+          )}
           <HeroTitle>The best backend for AI-coded apps</HeroTitle>
           <SectionSubtitle>
             Give your AI a real backend. You get auth, permissions, storage,
             presence, and streams — everything you need to ship apps your users
             will love.
           </SectionSubtitle>
-          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <div className="inline-flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-100 px-4 py-3 font-mono text-base sm:text-lg">
-              <span className="text-orange-600">$</span>
-              <span className="text-gray-700">npx create-instant-app</span>
-              <CopyToClipboardButton text="npx create-instant-app" />
-            </div>
-
-            <span className="text-base text-gray-400">or</span>
-
-            <LandingButton href="/dash">Sign up now</LandingButton>
-          </div>
-
           <div className="mx-auto mt-10 max-w-[880px]">
             <VideoPlayer />
           </div>

@@ -18,6 +18,7 @@ import { ComponentType, SVGProps } from 'react';
 import { useStarCount } from '@/lib/starCountContext';
 import { formatNumberCompact } from '@/lib/format';
 import { RollingNumber } from '@/components/RollingNumber';
+import { SunsetBanner } from '@/components/SunsetBanner';
 import { instantRepo } from '@/lib/config';
 
 type Product = {
@@ -347,7 +348,6 @@ function NavItems() {
     <>
       <ProductDropdownDesktop />
       <ProductAccordionMobile />
-      <NavLink href="/pricing">Pricing</NavLink>
       <NavLink href="/tutorial">Tutorial</NavLink>
       <NavLink href="/examples">Examples</NavLink>
       <NavLink href="/recipes">Recipes</NavLink>
@@ -466,21 +466,24 @@ export function MainNav() {
   }, []);
 
   return (
-    <div
-      className={cn(
-        'py-4',
-        'fixed top-0 right-0 left-0 z-50 border-b transition-[border-color] duration-300',
-        isScrolled ? 'border-b-gray-200/80' : 'border-b-transparent',
-      )}
-    >
+    <div className="fixed top-0 right-0 left-0 z-50">
+      <SunsetBanner />
       <div
         className={cn(
-          'absolute inset-0 -z-10 transition-[background-color,backdrop-filter] duration-300',
-          isScrolled ? 'bg-white/80 backdrop-blur-md' : 'bg-[#FBF9F6]',
+          'relative py-4',
+          'border-b transition-[border-color] duration-300',
+          isScrolled ? 'border-b-gray-200/80' : 'border-b-transparent',
         )}
-      />
-      <div className="landing-width mx-auto">
-        <BareNav collapseLogo={isScrolled} morphLogoOnCollapse />
+      >
+        <div
+          className={cn(
+            'absolute inset-0 -z-10 transition-[background-color,backdrop-filter] duration-300',
+            isScrolled ? 'bg-white/80 backdrop-blur-md' : 'bg-[#FBF9F6]',
+          )}
+        />
+        <div className="landing-width mx-auto">
+          <BareNav collapseLogo={isScrolled} morphLogoOnCollapse />
+        </div>
       </div>
     </div>
   );

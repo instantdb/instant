@@ -82,6 +82,20 @@
              <p>Maybe we should send them a ping to learn why they churned?</p>
            </div>")}))))
 
+(defn ping-on-sunset-canceled-subscription
+  [{:keys [user-id org-id app-id]}]
+  (let [{email :email} (instant-user-model/get-by-id {:id user-id})
+        title (cond app-id
+                    (:title (app-model/get-by-id {:id app-id}))
+                    org-id
+                    (:title (org-model/get-by-id {:id org-id})))]
+    (send-discord! (format "🌅 Sunset canceled the subscription for %s `%s` (`%s`)"
+                           (cond org-id "org"
+                                 app-id "app"
+                                 :else "unknown")
+                           title
+                           email))))
+
 (defn ping-on-paid-app-tranferred-to-org [{:keys [user-id transfer-org-id app-id]}]
   (let [{email :email} (instant-user-model/get-by-id {:id user-id})
         app-title (:title (app-model/get-by-id {:id app-id}))
@@ -178,6 +192,11 @@
                                                                             :metadata
                                                                             :transfer-org-id
                                                                             parse-uuid)})
+
+              "sunset"
+              (ping-on-sunset-canceled-subscription {:user-id user-id
+                                                     :app-id app-id
+                                                     :org-id org-id})
 
               (ping-js-on-churned-customer {:user-id user-id
                                             :app-id app-id

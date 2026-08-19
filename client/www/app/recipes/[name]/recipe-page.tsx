@@ -8,7 +8,7 @@ import {
   init,
 } from '@instantdb/react';
 import { Toaster } from '@instantdb/components';
-import config from '@/lib/config';
+import { demoConfig } from '@/lib/config';
 import { errorToast } from '@/lib/toast';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
@@ -40,7 +40,7 @@ function Main({ name }: { name: string }) {
   function getDb(appId: string): InstantDB {
     if (!dbRef.current) {
       dbRef.current = init({
-        ...config,
+        ...demoConfig,
         appId,
         __extraDedupeKey: `recipe-page-${name}`,
       } as any);

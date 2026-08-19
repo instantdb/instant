@@ -2,7 +2,17 @@
 
 import { useRef, useCallback, useMemo } from 'react';
 import { motion, useAnimation } from 'motion/react';
-import exampleDB from '@/lib/intern/docs-feedback/db';
+import { init } from '@instantdb/react';
+import { demoConfig } from '@/lib/config';
+import schema from '@/lib/intern/docs-feedback/instant.schema';
+
+const exampleDB = init({
+  ...demoConfig,
+  appId:
+    process.env.NEXT_PUBLIC_HOMEPAGE_APP_ID ??
+    '809ea790-74c1-4988-b325-0c7db0892eaa',
+  schema,
+});
 
 const REACTIONS = [
   '\u2764\uFE0F',

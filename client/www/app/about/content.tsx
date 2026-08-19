@@ -15,7 +15,6 @@ import { PermissionsDemo } from '@/components/about/PermissionsDemo';
 import { OfflineDemo } from '@/components/about/OfflineDemo';
 import { MultiTenantDemo } from '@/components/about/MultiTenantDemo';
 import {
-  LandingButton,
   SectionTitle,
   SectionSubtitle,
   Subheading,
@@ -641,32 +640,6 @@ export default function AboutPage() {
           </AnimateIn>
         </div>
       </Section>
-
-      {/* CTA */}
-      <div className="relative overflow-hidden bg-[#F0F5FA]">
-        <div className="pointer-events-none absolute top-0 right-0 left-0 z-[5] h-48 bg-gradient-to-b from-white to-transparent" />
-        <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-[5] h-48 bg-gradient-to-b from-transparent to-white" />
-        <Section className="relative z-10">
-          <div className="text-center">
-            <SectionTitle>Come build with us</SectionTitle>
-            <p className="mx-auto mt-4 max-w-xl text-lg">
-              We&apos;re always looking for exceptional hackers who want to work
-              on hard problems at the intersection of databases, sync, and AI.
-            </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <LandingButton href="https://instantdb.com/dash">
-                Get started
-              </LandingButton>
-              <LandingButton
-                href="mailto:founders@instantdb.com"
-                variant="secondary"
-              >
-                Get in touch
-              </LandingButton>
-            </div>
-          </div>
-        </Section>
-      </div>
 
       <Footer />
     </div>

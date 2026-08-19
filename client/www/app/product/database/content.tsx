@@ -11,7 +11,6 @@ import {
 } from '@/components/new-landing/BuiltForAI';
 import { Section } from '@/components/new-landing/Section';
 import {
-  LandingButton,
   SectionTitle,
   SectionSubtitle,
   Subheading,
@@ -31,7 +30,7 @@ export default function Database() {
       <MainNav />
 
       {/* Hero */}
-      <div className="relative pt-16">
+      <div className="relative pt-28">
         <TopWash />
         <ProductNav currentSlug="database" />
         <Section className="relative pt-12 pb-6 sm:pt-16 sm:pb-10">
@@ -41,12 +40,6 @@ export default function Database() {
               <span className="text-orange-600">AI-coded apps.</span>
             </SectionTitle>
             <SectionSubtitle>{description}</SectionSubtitle>
-            <div className="mt-8 flex gap-3">
-              <LandingButton href="/dash">Get started</LandingButton>
-              <LandingButton href="/docs" variant="secondary">
-                Read the docs
-              </LandingButton>
-            </div>
           </div>
         </Section>
       </div>
@@ -237,12 +230,6 @@ export default function Database() {
                     your usage.
                   </p>
                 </div>
-              </div>
-              <div className="mt-10 flex justify-center gap-3">
-                <LandingButton href="/dash">Start building</LandingButton>
-                <LandingButton href="/pricing" variant="secondary">
-                  View pricing
-                </LandingButton>
               </div>
               <p className="mt-6 text-base text-gray-500">
                 Instant is{' '}

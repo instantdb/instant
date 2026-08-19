@@ -101,6 +101,14 @@ export const config =
 
 export const defaultOAuthCallbackURL = oauthCallbackURL(config.apiURI);
 
+export const demoConfig = {
+  apiURI:
+    process.env.NEXT_PUBLIC_RECIPE_API_URI ?? 'https://demo.instantdb.com',
+  websocketURI:
+    process.env.NEXT_PUBLIC_RECIPE_WEBSOCKET_URI ??
+    'wss://demo.instantdb.com/runtime/session',
+};
+
 // In dev mode, sync the devBackend flag to a cookie so server components
 // can resolve the same apiURI as the client.
 if (isDev && isBrowser) {

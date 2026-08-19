@@ -13,13 +13,12 @@ import { useCanonicalDocsPath } from '@/components/docs/NavButton';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
 import config from '@/lib/config';
-import { Button, cn } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { BareNav } from '@/components/marketingUi';
+import { SunsetDocsNotice } from '@/components/SunsetBanner';
 import navigation from '@/data/docsNavigation';
-import RatingBox from './RatingBox';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
-import { ChatWidget, useIsMobile } from '../chat/ChatWidget';
 
 function useWorkspaceData(workspaceId, token) {
   const dashResponse = useTokenFetch(`${config.apiURI}/dash`, token);
@@ -352,7 +351,6 @@ function ParamSyncer({ setOrg }) {
 }
 
 export function Layout({ children, title, tableOfContents }) {
-  const pathname = usePathname();
   const docPath = useCanonicalDocsPath();
   const scrollContainerRef = useRef();
 
@@ -364,10 +362,6 @@ export function Layout({ children, title, tableOfContents }) {
   const section = navigation.find((section) =>
     section.links.find((link) => link.href === docPath),
   );
-
-  const [aiChatOpen, setAiChatOpen] = useState(false);
-  const [forceModal, setForceModal] = useState(false);
-  const isMobile = useIsMobile();
 
   const [org, setOrg] = useState(null);
   const workspaceId = org || 'personal';
@@ -416,7 +410,6 @@ export function Layout({ children, title, tableOfContents }) {
           className={clsx(
             'flex transition-[margin] duration-300 ease-in-out',
             adj.ptHeader,
-            aiChatOpen && !isMobile && !forceModal && 'md:mr-96',
           )}
         >
           {/* Left sidebar */}
@@ -445,6 +438,7 @@ export function Layout({ children, title, tableOfContents }) {
               key={docPath}
               className="max-w-2xl min-w-0 flex-1 p-4"
             >
+              <SunsetDocsNotice />
               <AppPicker
                 isReady={isHydrated && !isLoadingWorkspace}
                 {...{
@@ -463,9 +457,6 @@ export function Layout({ children, title, tableOfContents }) {
               >
                 {children}
               </PageContent>
-              <div className="mt-4">
-                <RatingBox pageId={pathname} />
-              </div>
               <PageNav
                 previousPage={previousPage}
                 nextPage={nextPage}
@@ -474,14 +465,7 @@ export function Layout({ children, title, tableOfContents }) {
             </main>
 
             {/* Right sidebar */}
-            <div
-              className={cn(
-                'relative hidden w-[16rem] min-w-[16rem]',
-                aiChatOpen && !isMobile && !forceModal
-                  ? '2xl:block'
-                  : 'xl:block',
-              )}
-            >
+            <div className="relative hidden w-[16rem] min-w-[16rem] xl:block">
               <div className="absolute inset-0">
                 <div
                   className={clsx(
@@ -496,36 +480,6 @@ export function Layout({ children, title, tableOfContents }) {
             </div>
           </div>
         </div>
-        {!aiChatOpen && (
-          <button
-            onClick={() => setAiChatOpen(true)}
-            className="fixed right-8 bottom-8 flex items-center gap-2 rounded-full bg-[#F54A00] px-4 py-3 text-sm font-medium text-white shadow-lg transition-colors hover:bg-[#d94000]"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="h-5 w-5"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"
-              />
-            </svg>
-            Chat with AI
-          </button>
-        )}
-        {isHydrated && (
-          <ChatWidget
-            isOpen={aiChatOpen}
-            onClose={() => setAiChatOpen(false)}
-            forceModal={forceModal}
-            setForceModal={setForceModal}
-          />
-        )}
       </div>
     </SelectedAppContext.Provider>
   );

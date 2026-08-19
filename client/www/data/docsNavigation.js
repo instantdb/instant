@@ -163,14 +163,4 @@ module.exports = [
       },
     ],
   },
-  {
-    title: 'Migration Guides',
-    links: [
-      {
-        title: 'Migrating from Supabase',
-        href: '/docs/migrate-from-supabase',
-        optionalLLM: true,
-      },
-    ],
-  },
 ];

@@ -11,8 +11,8 @@ import { Loading, ErrorMessage } from '@/components/dash/shared';
 import { errorToast } from '@/lib/toast';
 import confetti from 'canvas-confetti';
 import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
+import { useFetchedDash } from '@/components/dash/MainDashLayout';
 import Link from 'next/link';
-import { useFetchedDash } from './MainDashLayout';
 
 export const GB_1 = 1024 * 1024 * 1024;
 export const GB_10 = 10 * GB_1;
@@ -129,6 +129,9 @@ export default function Billing({ appId }: { appId: string }) {
 
   const orgIsPaid = useOrgPaid();
   const fetchedDash = useFetchedDash();
+  const billingClosed = fetchedDash.data.sunset?.['billing-closed'] ?? false;
+  const paidFeaturesFree =
+    fetchedDash.data.sunset?.['paid-features-free'] ?? false;
 
   const authResponse = useAuthedFetch<AppsSubscriptionResponse>(
     `${config.apiURI}/dash/apps/${appId}/billing`,
@@ -252,10 +255,11 @@ export default function Billing({ appId }: { appId: string }) {
         <h2 className="flex justify-between gap-2 p-2">
           <span className="font-bold">Usage</span>{' '}
           <span className="font-mono text-sm">
-            {friendlyUsage(totalUsageBytes)} / {friendlyUsage(progressDen)}
+            {friendlyUsage(totalUsageBytes)}
+            {paidFeaturesFree ? '' : ` / ${friendlyUsage(progressDen)}`}
           </span>
         </h2>
-        <ProgressBar width={progress} />
+        {paidFeaturesFree ? null : <ProgressBar width={progress} />}
         <div className="flex justify-start gap-4 pt-3 pl-2 text-sm">
           <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
             DB ({friendlyUsage(totalAppBytes)})
@@ -284,6 +288,20 @@ export default function Billing({ appId }: { appId: string }) {
           <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-2 text-sm text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
             The Pro plan is included with this self-hosted instance.
           </Content>
+        </div>
+      ) : billingClosed ? (
+        <div className="flex flex-col space-y-4">
+          <Content className="rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
+            Instant is winding down. Paid features like teams are now included
+            on every plan for free, plan limits are removed, and we no longer
+            sell subscriptions. Existing subscriptions end at the close of their
+            billing period.
+          </Content>
+          {isFreeTier ? null : (
+            <Button variant="primary" onClick={onManage}>
+              Manage subscription
+            </Button>
+          )}
         </div>
       ) : isFreeTier ? (
         <div className="flex flex-col space-y-4">

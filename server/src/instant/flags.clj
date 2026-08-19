@@ -8,6 +8,7 @@
    [clojure.tools.logging :as log]
    [clojure.walk :as w]
    [instant.config :as config]
+   [instant.util.email :as email]
    [instant.util.json :as json]
    [instant.util.uuid :as uuid-util])
   (:import
@@ -630,3 +631,66 @@
   ;; Defaults to disabled so that we can bootstrap before
   ;; we start the process.
   (flag :disable-triples-size-collection false))
+
+;; ----------
+;; Sunset
+
+(def sunset-stages
+  "Wind-down order; each stage includes everything before it."
+  [:none :signups-closed :read-only :disabled])
+
+(def ^:private sunset-stage-severity
+  (into {} (map-indexed (fn [i stage] [stage i]) sunset-stages)))
+
+(defn parse-sunset-stage
+  "Raw `sunset-stage` flag value -> stage keyword. Unknown values and
+   nil mean :none."
+  [value]
+  (case value
+    "signups-closed" :signups-closed
+    "read-only" :read-only
+    "disabled" :disabled
+    :none))
+
+(defn sunset-stage
+  "Global wind-down stage:
+   :signups-closed -> sign-ups close
+   :read-only -> writes to apps close as well
+   :disabled -> all apps get disabled"
+  []
+  (parse-sunset-stage (flag :sunset-stage)))
+
+(defn sunset-stage-at-least? [stage]
+  (>= (sunset-stage-severity (sunset-stage))
+      (sunset-stage-severity stage)))
+
+(defn signups-closed? []
+  (sunset-stage-at-least? :signups-closed))
+
+(defn sunset-app-creation-allowed-emails
+  "Emails that may keep using the dashboard app-creation route during the
+   signups-closed stage."
+  []
+  (set (keep email/coerce
+             (flag :sunset-app-creation-allowed-emails []))))
+
+(defn dash-app-creation-allowed?
+  "Whether an authenticated user may create an app through /dash/apps.
+   The allowlist bypasses signups-closed, but not read-only or disabled."
+  [email]
+  (case (sunset-stage)
+    :none true
+    :signups-closed (contains? (sunset-app-creation-allowed-emails)
+                               (email/coerce email))
+    false))
+
+(defn billing-closed?
+  "From announcement day on we stop selling Pro and Startup plans."
+  []
+  (sunset-stage-at-least? :signups-closed))
+
+(defn paid-features-free?
+  "From announcement day on every plan includes the paid features, so
+   users keep team access after we cancel their Stripe subscriptions."
+  []
+  (sunset-stage-at-least? :signups-closed))

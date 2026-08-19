@@ -94,8 +94,7 @@ function EmailStep(props: {
       >
         <ScreenHeading>Let's log you in</ScreenHeading>
         <Content>
-          Enter your email, and we’ll send you a verification code. We'll create
-          an account for you too if you don't already have one :)
+          Enter your email, and we'll send you a verification code to log in.
         </Content>
         <TextInput
           autoFocus
@@ -286,13 +285,19 @@ function magicCodeDefaultError() {
 }
 
 function errorFromSendMagicCode(res: InstantIssue): string {
-  const errorType = res.body?.type;
+  // Widen: the dash API returns error types the SDK union doesn't know about.
+  const errorType: string | undefined = res.body?.type;
   const defaultMsg = magicCodeDefaultError();
   switch (errorType) {
     case 'param-missing':
       return 'Please enter your email address.';
     case 'param-malformed':
       return "Is there a typo with your email? We couldn't recognize it.";
+    case 'signups-closed':
+      return (
+        res.body?.message ??
+        "Instant is winding down and isn't accepting new sign-ups. If you have any urgent issues and would like to talk to us, you can email us at founders@instantdb.com."
+      );
     case 'validation-failed':
       const hintMsg = res.body?.hint?.errors?.[0]?.message;
       return hintMsg || defaultMsg;
