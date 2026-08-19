@@ -361,15 +361,16 @@
                                     [:= :attr-id :?attr-id])
                                   (case table
                                     :attrs nil
-                                    :triples [:and
-                                              [:>= :attr_id [:coalesce
-                                                             [:json_uuid_to_uuid [:-> [:cast :?context :jsonb] :0]]
-                                                             [:inline zero-uuid]]]
-                                              [:>= :created_at [:cast
-                                                                [:coalesce
-                                                                 [:triples_extract_number_value [:-> [:cast :?context :jsonb] :1]]
-                                                                 :0]
-                                                                :bigint]]]
+                                    :triples [:>= [:composite :attr_id :created_at]
+                                              [:composite
+                                               [:coalesce
+                                                [:json_uuid_to_uuid [:-> [:cast :?context :jsonb] :0]]
+                                                [:inline zero-uuid]]
+                                               [:cast
+                                                [:coalesce
+                                                 [:triples_extract_number_value [:-> [:cast :?context :jsonb] :1]]
+                                                 :0]
+                                                :bigint]]]
                                     :transactions [:>= :id [:cast [:coalesce :?context :0] :bigint]])]
                           :limit :?limit
                           :order-by (case table
