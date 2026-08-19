@@ -395,7 +395,7 @@
                             :limit :1
                             :order-by [[:app_id :desc] [:attr_id :desc] [:created_at :desc]]}) :context]]
       :pg-hints (case table
-                  :triples [(hints/index-scan :to_delete :triples_created_at)]
+                  :triples [(hints/index-scan :to_delete :triples_created_at_idx)]
                   :transactions [(hints/index-scan :to_delete :transactions_app_id_id_idx)]
                   [])})))
 
