@@ -326,6 +326,8 @@
 ;; deletion. Shared so the query and the error check can't drift.
 (def not-deleted-message "not marked for deletion")
 
+(def zero-uuid #uuid "00000000-0000-0000-0000-000000000000")
+
 ;; Each batch, in one statement: heartbeat the custodian row (bump updated_at)
 ;; while asserting we still own it, check the app/attr is still marked for
 ;; deletion, delete up to :limit rows, and report the count. If we lost ownership,
@@ -353,10 +355,27 @@
              [:marked {:select [[marked-for-deletion :ok]]}]
              [:to-delete {:select :ctid
                           :from [[table :to_delete]]
-                          :where (if attr-scoped?
-                                   [:and [:= :app-id :?app-id] [:= :attr-id :?attr-id]]
-                                   [:= :app-id :?app-id])
+                          :where [:and
+                                  [:= :app-id :?app-id]
+                                  (when attr-scoped?
+                                    [:= :attr-id :?attr-id])
+                                  (case table
+                                    :attrs nil
+                                    :triples [:and
+                                              [:>= :attr_id [:coalesce
+                                                             [:json_uuid_to_uuid [:-> [:cast :?context :jsonb] :0]]
+                                                             [:inline zero-uuid]]]
+                                              [:>= :created_at [:cast
+                                                                [:coalesce
+                                                                 [:triples_extract_number_value [:-> [:cast :?context :jsonb] :1]]
+                                                                 :0]
+                                                                :bigint]]]
+                                    :transactions [:>= :id [:cast [:coalesce :?context :0] :bigint]])]
                           :limit :?limit
+                          :order-by (case table
+                                      :triples [[:app_id :asc] [:attr_id :asc] [:created_at :asc]]
+                                      :transactions [[:app_id :asc] [:id :asc]]
+                                      :attrs :id)
                           :for :update}]
              [:deleted {:delete-from table
                         :where [:in :ctid {:select :ctid :from :to-delete}]
@@ -366,11 +385,16 @@
                  :else [:raise_exception_message
                         [:inline "custodian row no longer exists"]]]
                 :present]
-               [{:select :ok :from :marked} :marked]]
+               [{:select :ok :from :marked} :marked]
+               [(case table
+                  :attrs nil
+                  :transactions {:select [[[:max :id]]] :from :deleted}
+                  :triples {:select [[[:json_build_array :attr_id :created_at]]]
+                            :from :deleted
+                            :limit :1
+                            :order-by [[:app_id :desc] [:attr_id :desc] [:created_at :desc]]}) :context]]
       :pg-hints (case table
-                  :triples [(hints/index-scan :to_delete (if attr-scoped?
-                                                           :triples_pkey
-                                                           :triples_app_id))]
+                  :triples [(hints/index-scan :to_delete :triples_created_at)]
                   :transactions [(hints/index-scan :to_delete :transactions_app_id_id_idx)]
                   [])})))
 
@@ -388,20 +412,23 @@
   ([tag stop? backing-off? conn id q params]
    (drain! tag stop? backing-off? conn id q params (batch-size)))
   ([tag stop? backing-off? conn id q params limit]
-   (loop []
+   (loop [context nil]
      (await-capacity! stop? backing-off?)
      (if @stop?
        ::stopped
-       (let [deleted (-> (sql/do-execute! tag
+       (let [row (-> (sql/do-execute! tag
                                           conn
                                           (uhsql/formatp q (assoc params
                                                                   :id id
                                                                   :worker-id @config/process-id
-                                                                  :limit limit)))
-                         first
-                         :deleted)]
+                                                                  :limit limit
+                                                                  :context (if (seq? context)
+                                                                             (vec context)
+                                                                             context))))
+                         first)
+             {:keys [deleted context]} row]
          (if (and deleted (pos? deleted))
-           (recur)
+           (recur context)
            ::completed))))))
 
 (defn- delete-app!
