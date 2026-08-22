@@ -3,12 +3,6 @@
 import Image from 'next/image';
 import { AnimateIn } from './AnimateIn';
 import { Subheading } from './typography';
-import { useStarCount } from '@/lib/starCountContext';
-import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
-import { formatNumberCompact } from '@/lib/format';
-import { StarBurst, useStarBurst } from '@/components/StarBurst';
-import { RollingNumber } from '@/components/RollingNumber';
-import { instantRepo } from '@/lib/config';
 
 const backers = [
   {
@@ -43,70 +37,9 @@ const backers = [
   },
 ];
 
-export function SocialProof({
-  initialConnectionCount,
-}: {
-  initialConnectionCount?: number;
-}) {
-  const { particles, burst, removeParticle } = useStarBurst();
-  const starCount = useStarCount(instantRepo, burst);
-
-  const { data: connectionCount } = useTotalSessionsCount({
-    refreshSeconds: 3,
-    initialData: initialConnectionCount,
-  });
-
-  const stats = [
-    {
-      key: 'connections',
-      value: connectionCount ? (
-        <RollingNumber value={connectionCount} />
-      ) : undefined,
-      label: (
-        <>
-          <span className="hidden sm:inline">concurrent </span>connections
-        </>
-      ),
-    },
-    {
-      key: 'queries',
-      value: '1,000+',
-      label: (
-        <>
-          queries<span className="hidden sm:inline"> per</span>
-          <span className="sm:hidden"> /</span> second
-        </>
-      ),
-    },
-    {
-      key: 'stars',
-      value: (
-        <StarBurst particles={particles} removeParticle={removeParticle}>
-          <RollingNumber value={starCount} />
-        </StarBurst>
-      ),
-      label: 'github stars',
-    },
-  ];
-
+export function SocialProof() {
   return (
     <div className="space-y-16">
-      {/* Stats */}
-      <AnimateIn>
-        <div className="mx-auto grid max-w-3xl grid-cols-3 items-end gap-4 sm:gap-8">
-          {stats.map((stat) => (
-            <div key={stat.key} className="text-center">
-              <div className="font-mono text-3xl font-semibold tracking-tighter sm:text-5xl">
-                {stat.value}
-              </div>
-              <div className="mt-1 font-mono text-xs text-gray-500 sm:mt-2 sm:text-sm">
-                {stat.label}
-              </div>
-            </div>
-          ))}
-        </div>
-      </AnimateIn>
-
       {/* Credibility badges */}
       <AnimateIn delay={100}>
         <div>

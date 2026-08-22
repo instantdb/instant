@@ -19,7 +19,6 @@ const footerLinks = {
     { href: '/tutorial', label: 'Tutorial' },
     { href: '/examples', label: 'Examples' },
     { href: '/essays', label: 'Essays' },
-    { href: '/pricing', label: 'Pricing' },
   ],
   Company: [
     { href: '/about', label: 'About' },

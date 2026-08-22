@@ -4,7 +4,6 @@ import { MainNav, ProductNav, Link } from '@/components/marketingUi';
 import { permissionExamples } from '@/lib/product/auth/examples';
 import { Section } from '@/components/new-landing/Section';
 import {
-  LandingButton,
   SectionTitle,
   SectionSubtitle,
   Subheading,
@@ -25,7 +24,7 @@ export default function Auth() {
       <MainNav />
 
       {/* Hero */}
-      <div className="relative pt-16">
+      <div className="relative pt-28">
         <TopWash />
         <ProductNav currentSlug="auth" />
         <Section className="relative pt-12 pb-6 sm:pt-16 sm:pb-10">
@@ -35,12 +34,6 @@ export default function Auth() {
               <span className="text-orange-600">out of the box.</span>
             </SectionTitle>
             <SectionSubtitle>{description}</SectionSubtitle>
-            <div className="mt-8 flex gap-3">
-              <LandingButton href="/dash">Get started</LandingButton>
-              <LandingButton href="/docs/auth" variant="secondary">
-                Read the docs
-              </LandingButton>
-            </div>
           </div>
         </Section>
       </div>
@@ -143,12 +136,6 @@ export default function Auth() {
                 <span className="text-orange-600">Build secure apps</span>
                 <br className="hidden md:block" /> from your first prompt.
               </SectionTitle>
-              <div className="mt-10 flex justify-center gap-3">
-                <LandingButton href="/dash">Get started</LandingButton>
-                <LandingButton href="/docs/auth" variant="secondary">
-                  Read the docs
-                </LandingButton>
-              </div>
               <p className="mt-6 text-base text-gray-500">
                 Instant is{' '}
                 <Link

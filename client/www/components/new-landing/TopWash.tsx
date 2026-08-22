@@ -8,7 +8,7 @@ export function TopWash({
   return (
     <div
       className={clsx(
-        'absolute inset-x-0 top-0 h-[420px] overflow-hidden',
+        'absolute inset-x-0 top-0 bottom-0 max-h-[420px] overflow-hidden',
         className,
       )}
     >

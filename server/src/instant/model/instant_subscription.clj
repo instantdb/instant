@@ -1,5 +1,6 @@
 (ns instant.model.instant-subscription
   (:require
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
@@ -129,9 +130,11 @@
                                 :subscription-type-id plans/STARTUP_SUBSCRIPTION_TYPE})))
 
 (defn plan-supports-members?
-  "Takes a stripe_subscription"
+  "Takes a stripe_subscription. During the sunset every plan supports
+   members, including no plan at all."
   [{:keys [subscription_type_id]}]
-  (or (= subscription_type_id plans/PRO_SUBSCRIPTION_TYPE)
+  (or (flags/paid-features-free?)
+      (= subscription_type_id plans/PRO_SUBSCRIPTION_TYPE)
       (= subscription_type_id plans/STARTUP_SUBSCRIPTION_TYPE)))
 
 (comment

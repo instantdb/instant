@@ -1,5 +1,6 @@
 (ns instant.stripe
   (:require
+   [clojure.string :as string]
    [instant.config :as config]
    [instant.plans :as plans]
    [instant.util.crypt :as crypt-util]
@@ -19,6 +20,18 @@
 
 (defn stripe-client ^StripeClient []
   @stripe-client*)
+
+(defn key-mode
+  "Which Stripe environment the configured API key points at. Lets the
+   sunset dashboard prove it's talking to test mode before anyone
+   touches live subscriptions."
+  []
+  (let [secret (config/stripe-secret)]
+    (cond
+      (nil? secret) :missing
+      (string/includes? secret "_test_") :test
+      (string/includes? secret "_live_") :live
+      :else :unknown)))
 
 (def ^:dynamic *create-fake-objects* false)
 
@@ -169,9 +182,24 @@
      :product-name product-name
      :monthly-revenue (max 0 (- items-revenue discount))
      :start-timestamp (.getStartDate subscription)
+     :cancel-at-period-end (boolean (.getCancelAtPeriodEnd subscription))
      :customer-email (some-> subscription
                              (.getCustomerObject)
                              (.getEmail))}))
+
+(defn schedule-cancel-at-period-end!
+  "Flags a subscription to end when its current billing period does.
+   This is an update, not a cancellation: nothing is deleted on Stripe,
+   no invoice or refund is generated, and the flag can be reversed from
+   the Stripe dashboard until the period actually ends."
+  ^Subscription [{:keys [subscription-id metadata]}]
+  (-> (stripe-client)
+      (.subscriptions)
+      (.update ^String subscription-id
+               (.. (SubscriptionUpdateParams/builder)
+                   (setCancelAtPeriodEnd true)
+                   (putAllMetadata (map->metadata metadata))
+                   (build)))))
 
 (defn customer ^Customer [customer-id]
   (-> (stripe-client)

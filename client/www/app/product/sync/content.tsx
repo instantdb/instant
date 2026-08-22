@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { MainNav, ProductNav } from '@/components/marketingUi';
 import { Section } from '@/components/new-landing/Section';
 import {
-  LandingButton,
   SectionTitle,
   SectionSubtitle,
   Subheading,
@@ -149,7 +148,7 @@ export default function SyncEngine() {
       <MainNav />
 
       {/* Hero */}
-      <div className="relative pt-16">
+      <div className="relative pt-28">
         <TopWash />
         <ProductNav currentSlug="sync" />
         <Section className="relative pt-12 pb-6 sm:pt-16 sm:pb-10">
@@ -159,12 +158,6 @@ export default function SyncEngine() {
               <br /> by default.
             </SectionTitle>
             <SectionSubtitle>{description}</SectionSubtitle>
-            <div className="mt-8 flex gap-3">
-              <LandingButton href="/dash">Get started</LandingButton>
-              <LandingButton href="/docs" variant="secondary">
-                Read the docs
-              </LandingButton>
-            </div>
           </div>
         </Section>
       </div>
@@ -236,12 +229,6 @@ export default function SyncEngine() {
                 build a custom sync engine. In the future all apps will have
                 sync by default.
               </p>
-              <div className="mt-10 flex justify-center gap-3">
-                <LandingButton href="/dash">Get started</LandingButton>
-                <LandingButton href="/docs" variant="secondary">
-                  Read the docs
-                </LandingButton>
-              </div>
             </div>
           </AnimateIn>
         </Section>

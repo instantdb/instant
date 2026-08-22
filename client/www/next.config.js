@@ -86,6 +86,12 @@ const nextConfig = {
         source: '/status',
         destination: 'https://status.instantdb.com',
       },
+      // Billing is closed for the sunset; send pricing traffic to the announcement
+      {
+        permanent: true,
+        source: '/pricing',
+        destination: '/essays/instant_team_joins_openai',
+      },
       // Redirect old search-param-based auth doc tabs to route segments
       ...[
         { page: 'apple', values: 'web-popup|web-redirect|native' },

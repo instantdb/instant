@@ -4,7 +4,6 @@ import { MainNav, ProductNav, Link } from '@/components/marketingUi';
 import { adminExamples, httpExamples } from '@/lib/product/admin-sdk/examples';
 import { Section } from '@/components/new-landing/Section';
 import {
-  LandingButton,
   SectionTitle,
   SectionSubtitle,
   Subheading,
@@ -20,7 +19,7 @@ export default function AdminSdk() {
       <MainNav />
 
       {/* Hero */}
-      <div className="relative pt-16">
+      <div className="relative pt-28">
         <TopWash />
         <ProductNav currentSlug="admin-sdk" />
         <Section className="relative pt-12 pb-6 sm:pt-16 sm:pb-10">
@@ -33,12 +32,6 @@ export default function AdminSdk() {
               Integrate payments, crons, and third-party APIs in a secure
               environment.
             </SectionSubtitle>
-            <div className="mt-8 flex gap-3">
-              <LandingButton href="/dash">Get started</LandingButton>
-              <LandingButton href="/docs/backend" variant="secondary">
-                Read the docs
-              </LandingButton>
-            </div>
           </div>
         </Section>
       </div>
@@ -116,12 +109,6 @@ export default function AdminSdk() {
               <SectionSubtitle>
                 Instant has you covered on both the frontend and the backend.
               </SectionSubtitle>
-              <div className="mt-10 flex justify-center gap-3">
-                <LandingButton href="/dash">Get started</LandingButton>
-                <LandingButton href="/docs/backend" variant="secondary">
-                  Read the docs
-                </LandingButton>
-              </div>
             </div>
           </AnimateIn>
         </Section>

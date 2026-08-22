@@ -94,6 +94,7 @@ import {
   useQueryStates,
 } from 'nuqs';
 import { useExplorerState } from '@/lib/hooks/useExplorerState';
+import { isFullSunsetStage } from '@/lib/sunset';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -275,7 +276,12 @@ function Dashboard() {
     getInitialApp(apps, fetchedDash.data.currentWorkspaceId);
 
   const screen = ((router.query.s as string) || 'main') as Screen;
-  const tab = screenTab(screen, router.query.t as string);
+  const fullSunset = isFullSunsetStage(fetchedDash.data.sunset?.stage);
+  const appCreationAllowed =
+    fetchedDash.data.sunset?.['app-creation-allowed'] ?? true;
+  const tab = fullSunset
+    ? 'backups'
+    : screenTab(screen, router.query.t as string);
 
   const dashResponse = useFetchedDash();
   const cliNormalTicket = router.query.ticket as string | undefined;
@@ -301,6 +307,7 @@ function Dashboard() {
 
   // backwards compatible routing
   useEffect(() => {
+    if (fullSunset) return;
     if (screen === 'new') {
       router.replace('/dash/new');
       return;
@@ -529,6 +536,7 @@ function Dashboard() {
   }
 
   if (
+    appCreationAllowed &&
     apps.length === 0 &&
     (dashResponse.data.orgs || []).length === 0 &&
     dashResponse.data.invites?.length == 0
@@ -563,6 +571,7 @@ function Dashboard() {
   // Role is the max between the org and the app
   const role = getRole(dashResponse.data, app);
   const availableTabs: TabItem[] = mainTabs
+    .filter((t) => !fullSunset || t.id === 'backups')
     .filter((t) => isTabAvailable(t, role))
     .map((t) => {
       return {
@@ -636,6 +645,29 @@ function Dashboard() {
                 }}
               />
               <div className="flex flex-1 grow flex-col overflow-y-auto">
+                {fullSunset && (
+                  <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/50 dark:text-amber-100">
+                    <p className="font-semibold">
+                      {fetchedDash.data.sunset?.stage === 'disabled'
+                        ? 'Instant Cloud is now offline.'
+                        : 'Instant Cloud is now read-only.'}{' '}
+                      Backups will be available to download until August 31st,
+                      2028.
+                    </p>
+                    <p>
+                      Download a backup of this app to restore it to your
+                      self-hosted Instant deployment.{' '}
+                      <a
+                        href="https://www.instantdb.com/docs/self-hosting/migrate"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium underline underline-offset-2"
+                      >
+                        Read the self-hosting migration guide.
+                      </a>
+                    </p>
+                  </div>
+                )}
                 {connection ? (
                   <DashboardContent
                     role={role}

@@ -26,6 +26,7 @@ export const TopBar: React.FC<{}> = () => {
   const docsUrl = orgId ? `/docs?org=${orgId}` : '/docs';
 
   const hasInvites = (dash.data.invites || []).length > 0;
+  const appCreationAllowed = dash.data.sunset?.['app-creation-allowed'] ?? true;
 
   return (
     <div className="relative flex flex-col gap-2 border-b border-b-gray-300 px-2 py-2 md:px-4 dark:border-b-neutral-700 dark:bg-neutral-800 dark:text-white">
@@ -52,11 +53,13 @@ export const TopBar: React.FC<{}> = () => {
             <ArrowTopRightOnSquareIcon className="h-4 w-4" />
           </Link>
           <DarkModeToggle />
-          <Link href={'/dash/new'}>
-            <Button size="mini" variant="primary">
-              <PlusIcon height={14} /> New app
-            </Button>
-          </Link>
+          {appCreationAllowed && (
+            <Link href={'/dash/new'}>
+              <Button size="mini" variant="primary">
+                <PlusIcon height={14} /> New app
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </div>

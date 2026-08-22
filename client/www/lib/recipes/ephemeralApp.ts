@@ -1,5 +1,5 @@
 import { validate as isUuid } from 'uuid';
-import config from '@/lib/config';
+import { demoConfig } from '@/lib/config';
 import { InstantApp } from '@/lib/types';
 
 export const recipesAppIdStorageKey = 'recipes-appId';
@@ -15,7 +15,7 @@ type EphemeralAppResult =
 
 export async function provisionEphemeralApp(): Promise<EphemeralAppResult> {
   try {
-    const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
+    const r = await fetch(`${demoConfig.apiURI}/dash/apps/ephemeral`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -40,7 +40,7 @@ export async function verifyEphemeralApp({
     return { ok: false, json: null };
   }
   try {
-    const r = await fetch(`${config.apiURI}/dash/apps/ephemeral/${appId}`, {
+    const r = await fetch(`${demoConfig.apiURI}/dash/apps/ephemeral/${appId}`, {
       headers: {
         'Content-Type': 'application/json',
       },

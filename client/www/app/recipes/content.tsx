@@ -2,7 +2,7 @@
 
 import { CodeEditor } from '@/components/new-landing/TabbedCodeExample';
 import { File } from 'recipes';
-import config from '@/lib/config';
+import { demoConfig } from '@/lib/config';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useInView } from 'react-intersection-observer';
 import { useEffect, useRef, useState } from 'react';
@@ -65,7 +65,7 @@ function Main({ files }: { files: File[] }) {
       const i = columnDbsRef.current.length;
       columnDbsRef.current.push(
         init({
-          ...config,
+          ...demoConfig,
           appId,
           __extraDedupeKey: `recipes-col-${i}`,
         } as any),

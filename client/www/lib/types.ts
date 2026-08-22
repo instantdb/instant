@@ -2,6 +2,15 @@ import { InstantIssue } from '@instantdb/core';
 
 export type AppStatus = 'active' | 'read-only' | 'disabled';
 
+export type SunsetStage = 'none' | 'signups-closed' | 'read-only' | 'disabled';
+
+export type SunsetInfo = {
+  stage: SunsetStage;
+  'app-creation-allowed': boolean;
+  'billing-closed': boolean;
+  'paid-features-free': boolean;
+};
+
 export type InstantApp = {
   id: string;
   pro: boolean;
@@ -9,6 +18,7 @@ export type InstantApp = {
   created_at: string;
   admin_token: string;
   status?: AppStatus;
+  effective_status?: AppStatus;
   rules: object | null;
   rules_version: number | null;
   user_app_role: 'owner' | 'admin' | 'collaborator';
@@ -208,6 +218,7 @@ export type DashResponse = {
     id: string;
   };
   orgs?: OrgSummary[];
+  sunset?: SunsetInfo;
 };
 
 export type AppError = { body: { message: string } | undefined };

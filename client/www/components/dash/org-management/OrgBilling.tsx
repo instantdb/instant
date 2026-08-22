@@ -143,6 +143,9 @@ export const OrgBilling = () => {
   const org = fetchedDash.data.workspace as OrgWorkspace;
 
   const isPaid = org.org.paid;
+  const billingClosed = fetchedDash.data.sunset?.['billing-closed'] ?? false;
+  const paidFeaturesFree =
+    fetchedDash.data.sunset?.['paid-features-free'] ?? false;
 
   if (!fetchResult.data) {
     return <div>Loading...</div>;
@@ -168,10 +171,12 @@ export const OrgBilling = () => {
           <span className="font-bold">Usage (all apps)</span>{' '}
           <span className="font-mono text-sm">
             {friendlyUsage(totalUsageBytes)}{' '}
-            {isPaid && <span>/ {friendlyUsage(progressDen)}</span>}
+            {isPaid && !paidFeaturesFree && (
+              <span>/ {friendlyUsage(progressDen)}</span>
+            )}
           </span>
         </div>
-        {isPaid && <ProgressBar width={progress} />}
+        {isPaid && !paidFeaturesFree && <ProgressBar width={progress} />}
         <div
           className={cn('flex justify-start space-x-2 pl-2 text-sm', 'pt-3')}
         >
@@ -203,6 +208,20 @@ export const OrgBilling = () => {
           <Content className="w-full max-w-none rounded-sm border border-purple-400 bg-purple-100 px-2 py-2 text-sm text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
             The Startup plan is included with this self-hosted instance.
           </Content>
+        </div>
+      ) : billingClosed ? (
+        <div className="flex flex-col gap-2">
+          <div className="w-full rounded-sm border border-purple-400 bg-purple-100 px-2 py-1 text-sm text-purple-800 italic">
+            Instant is winding down. Paid features like teams are now included
+            on every plan for free, plan limits are removed, and we no longer
+            sell subscriptions. Existing subscriptions end at the close of their
+            billing period.
+          </div>
+          {isFreeTier ? null : (
+            <Button variant="primary" onClick={onManageBilling}>
+              Manage subscription
+            </Button>
+          )}
         </div>
       ) : isFreeTier ? (
         <div className="flex flex-col gap-2">
