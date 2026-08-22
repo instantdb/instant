@@ -155,11 +155,16 @@
                          "X-Frame-Options" "DENY"
                          ;; Don't leak path info in referrer
                          "Referrer-Policy" "strict-origin"
-                         ;; Only load scripts and assets from ourselves
-                         "Content-Security-Policy" (str "script-src 'self'"
+                         ;; Tight CSP: default deny. Instant clients talking *to*
+                         ;; this API are not governed by this response CSP.
+                         "Content-Security-Policy" (str "default-src 'none'; "
+                                                        "script-src 'self'"
                                                         (when script-shas
                                                           (str " "
-                                                               (clojure.string/join " " script-shas))))
+                                                               (clojure.string/join " " script-shas)))
+                                                        "; object-src 'none'; "
+                                                        "base-uri 'self'; "
+                                                        "frame-ancestors 'none'")
                          ;; Disallow features we don't use
                          "Permissions-Policy" "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
                          ;; Only use the content-type we provide, don't let the
