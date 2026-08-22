@@ -2054,6 +2054,14 @@
                   ;; query
                   (not page-info)
 
+                  ;; `not materialized` lets the planner push the ordered index
+                  ;; scan down and stop once it has `limit` rows. A page bounded
+                  ;; on BOTH sides has nothing to stop early for -- the ordered
+                  ;; cte is materialized regardless -- so inlining only buys the
+                  ;; planner the freedom to drive from the (closed, and badly
+                  ;; estimated) range scan instead of the selective join.
+                  (and (:before page-info) (:after page-info))
+
                   ;; skip isNull because it's unlikely to generate a good plan
                   (and (uspec/tagged-as? :function (:v named-p))
                        (:$isNull (uspec/tagged-unwrap (:v named-p))))
