@@ -12,6 +12,7 @@ information on how to operate your self-hosted instance in conjunction with our 
 
 Choose a guide based on where you want to run Instant:
 
+1. **Want a one-click deploy?** Use our [Railway](https://railway.com/deploy/instantdb) template to spin up the backend, dashboard, Postgres, and object storage in minutes.
 1. **Want to self host Instant for side projects?** Use our [VPS](/docs/self-hosting/vps) guide to self-host Instant starting at ~$30/mo.
 1. **Want to self host Instant for your business?** If you're using Instant for more serious projects, check out our [AWS](/docs/self-hosting/aws) guide for a setup based on Instant Cloud. You should expect to spend at least $600/mo.
 1. **Migrating from Instant Cloud?** Check out our [migration](/docs/self-hosting/migrate) guide.
