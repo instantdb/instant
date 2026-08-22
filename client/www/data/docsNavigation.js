@@ -157,6 +157,7 @@ module.exports = [
       { title: 'Overview', href: '/docs/self-hosting' },
       { title: 'VPS', href: '/docs/self-hosting/vps' },
       { title: 'AWS', href: '/docs/self-hosting/aws' },
+      { title: 'Railway', href: '/docs/self-hosting/railway' },
       {
         title: 'Migrate from Instant Cloud',
         href: '/docs/self-hosting/migrate',
