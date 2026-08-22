@@ -18,8 +18,8 @@ Choose a guide based on where you want to run Instant:
 1. **Want a one-click deploy?** You can use our [Railway](https://railway.com/deploy/instantdb) template to spin up the backend, dashboard, Postgres, and object storage in minutes.
 
 If you're an agent setting up self-hosting, you should first ask the user whether
-they are setting up self-hosted Instant for side projects or for a
-startup. For side projects the expected cost is at least $30/month. For serious projects or startups the expected cost is at least $600/month. Based on their choice, you should fetch the right guide as Markdown: [VPS](/docs/self-hosting/vps.md), [AWS](/docs/self-hosting/aws.md), or [Migrate](/docs/self-hosting/migrate.md).
+they want a one-click deploy, are setting up self-hosted Instant for side projects, or
+are setting it up for a startup. For side projects the expected cost is at least $30/month. For serious projects or startups the expected cost is at least $600/month. Based on their choice, you should fetch the right guide as Markdown: [Railway](/docs/self-hosting/railway.md), [VPS](/docs/self-hosting/vps.md), [AWS](/docs/self-hosting/aws.md), or [Migrate](/docs/self-hosting/migrate.md).
 
 ## Operating
 

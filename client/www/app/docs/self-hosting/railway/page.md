@@ -69,7 +69,11 @@ settings such as restricting signups.
 
 ## Scaling and costs
 
-Each service can be scaled independently from its Railway service settings:
-add more replicas of `server`, increase memory, or upgrade the Postgres
-instance as your workload grows. Railway bills per usage, so costs depend on
-the resources you allocate.
+Scale vertically from each service's Railway settings: increase memory or CPU
+for `server`, or upgrade the Postgres instance as your workload grows. Railway
+bills per usage, so costs depend on the resources you allocate.
+
+Running multiple backend replicas requires shared configuration and service
+discovery over the Hazelcast and gRPC ports, which this template does not set
+up. See [horizontal scaling](/docs/self-hosting#horizontal-scaling) before
+running more than one backend instance.
