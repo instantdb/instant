@@ -2348,6 +2348,15 @@
     :>= :>=
     :<= :<=))
 
+(defn lift-literal
+  "Wraps collection values in :lift so honeysql binds them as parameters
+   instead of interpreting a map/vector (e.g. {:raw ...}) as SQL AST. Scalars
+   and nil pass through unchanged so nil still renders as a SQL NULL literal."
+  [v]
+  (if (coll? v)
+    [:lift v]
+    v))
+
 (defn add-cursor-comparisons
   "Updates the where query to include the constraints from the cursor."
   [query {:keys [direction sym-triple-idx cursor cursor-type order-col-required?
@@ -2379,7 +2388,7 @@
                              (->json cursor-val)
 
                              :else
-                             cursor-val)
+                             (lift-literal cursor-val))
                        (case order-col-type
                          :created-at-timestamp :bigint
                          :boolean :boolean
@@ -2398,7 +2407,7 @@
                                 [comparison order-col order-col-val]
                                 [:and
                                  [:= order-col order-col-val]
-                                 [eid-comparison entity-id-col [:cast (first cursor) :uuid]]]]]
+                                 [eid-comparison entity-id-col [:cast (lift-literal (first cursor)) :uuid]]]]]
                               [:or
                                [:or [comparison order-col order-col-val]
                                 ;; null > null => null in postgres, so we have to
@@ -2420,7 +2429,7 @@
                                   [:= order-col nil]
                                   [:= order-col-val nil]]
                                  [:= order-col order-col-val]]
-                                [eid-comparison entity-id-col [:cast (first cursor) :uuid]]]])]))))
+                                [eid-comparison entity-id-col [:cast (lift-literal (first cursor)) :uuid]]]])]))))
 
 (defn reverse-direction [direction]
   (case direction

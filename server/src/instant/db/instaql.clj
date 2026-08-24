@@ -1378,7 +1378,7 @@
                                                       :db-type])]
                    (list* :or
                           (for [value values]
-                            [:= field [:cast value field-type]]))))]}]
+                            [:= field [:cast (d/lift-literal value) field-type]]))))]}]
      :topics (if (seq rest)
                topics
                [[#{:ea}
@@ -1456,7 +1456,7 @@
                                          :ilike))]
         {:sql-conds (list* :or
                            (for [value values]
-                             [comparison field [:cast value field-type]]))
+                             [comparison field [:cast (d/lift-literal value) field-type]]))
          :topics [[#{:ea} '_ #{(:attr-id field-info)} '_]]}))))
 
 (defn where-cond->sql [state table-info table-name [tag where-cond]]
