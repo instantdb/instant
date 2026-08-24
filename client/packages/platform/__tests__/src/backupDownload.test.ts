@@ -188,27 +188,29 @@ describe('downloadBackupArchive', () => {
       return bodyOf(`body:${url}`);
     };
 
-    // Block the encoder on the first entry so we can observe whether any later
-    // entry's body is pulled ahead while it sits there. A body downloaded ahead
-    // of the encoder — the browser-fetch bug that buffered whole entities before
-    // their turn — would show up in `started` while the first write is blocked.
-    let releaseFirst!: () => void;
-    const firstReleased = new Promise<void>((resolve) => {
-      releaseFirst = resolve;
-    });
-    let signalFirstAdd!: () => void;
-    const firstAddBegan = new Promise<void>((resolve) => {
-      signalFirstAdd = resolve;
-    });
+    // A pair of gates per entry: `began` resolves when the encoder starts
+    // writing that entry; the encoder then blocks on `release` until the test
+    // lets it proceed. This lets us pause on each entry in turn and check that
+    // no later body has been pulled ahead — the browser-fetch bug that buffered
+    // whole entities before their turn would show a later fetch in `started`
+    // while the current write is blocked.
+    const deferred = () => {
+      let resolve!: () => void;
+      const promise = new Promise<void>((r) => {
+        resolve = r;
+      });
+      return { promise, resolve };
+    };
+    const began = files.map(deferred);
+    const release = files.map(deferred);
     let addCount = 0;
     const createWriter = async (sink: WritableStream<Uint8Array>) => {
       const w = sink.getWriter();
       return {
         add: async (_name: string, input: ReadableStream<Uint8Array>) => {
-          if (addCount++ === 0) {
-            signalFirstAdd();
-            await firstReleased;
-          }
+          const i = addCount++;
+          began[i].resolve();
+          await release[i].promise;
           for await (const _chunk of input) {
             // drain
           }
@@ -226,15 +228,17 @@ describe('downloadBackupArchive', () => {
       createWriter,
     });
 
-    // While the encoder is blocked on config.json, only its body has been
-    // fetched — nothing is pulled ahead.
-    await firstAddBegan;
-    expect(started).toEqual(['config.json']);
-
-    releaseFirst();
+    // Walk the entries one at a time. When each write begins, exactly the
+    // bodies up to and including it have been fetched — nothing ahead. Release
+    // it and move to the next; the next body must not have been fetched until
+    // this write completed.
+    for (let i = 0; i < files.length; i++) {
+      await began[i].promise;
+      expect(started).toEqual(files.slice(0, i + 1).map((f) => f.name));
+      release[i].resolve();
+    }
     await done;
 
-    // Once unblocked the remaining entries fetch in order, still one at a time.
     expect(started).toEqual([
       'config.json',
       'entities/a.jsonl',
