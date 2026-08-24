@@ -168,44 +168,35 @@ describe('downloadBackupArchive', () => {
     await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
   });
 
-  test('fetches later entries while an earlier one is still being written', async () => {
+  test('fetches each entry body only when the writer reaches it, never ahead', async () => {
     const files = [
       { name: 'config.json', size: 1 },
       { name: 'entities/a.jsonl', size: 1 },
       { name: 'entities/b.jsonl', size: 1 },
     ];
     const started: string[] = [];
-    let resolveAllStarted!: () => void;
-    const allStarted = new Promise<void>((r) => {
-      resolveAllStarted = r;
-    });
 
     const manager = {
       listFiles: async () => files,
       getFileUrl,
-      // A fetch records that it started and, once every entry's fetch has
-      // begun, releases the writer below.
       streamStorageFiles: async function* () {},
     } as any;
+    // Records the moment a body is fetched. Downloads are strictly sequential,
+    // so this fires only when the writer reaches the entry — never ahead.
     const trackingFetch = async (url: string) => {
       started.push(url);
-      if (started.length === files.length) resolveAllStarted();
       return bodyOf(`body:${url}`);
     };
 
-    // The first entry's write can't finish until every fetch has started. A
-    // strictly sequential downloader would deadlock — the second file's fetch
-    // would wait on the first file's write, which waits on all fetches — so
-    // this test only completes because later fetches run ahead of the writer.
-    let firstAdd = true;
+    // Snapshot which bodies have been fetched at the instant each write begins.
+    // A body downloaded ahead of the encoder — the browser-fetch bug that
+    // buffered whole entities before their turn — would show up here early.
+    const startedWhenAddBegan: string[][] = [];
     const createWriter = async (sink: WritableStream<Uint8Array>) => {
       const w = sink.getWriter();
       return {
         add: async (_name: string, input: ReadableStream<Uint8Array>) => {
-          if (firstAdd) {
-            firstAdd = false;
-            await allStarted;
-          }
+          startedWhenAddBegan.push([...started]);
           for await (const _chunk of input) {
             // drain
           }
@@ -223,6 +214,13 @@ describe('downloadBackupArchive', () => {
       createWriter,
     });
 
+    // When each write begins, only the entry being written has been fetched —
+    // nothing is pulled ahead.
+    expect(startedWhenAddBegan).toEqual([
+      ['config.json'],
+      ['config.json', 'entities/a.jsonl'],
+      ['config.json', 'entities/a.jsonl', 'entities/b.jsonl'],
+    ]);
     expect(started).toEqual([
       'config.json',
       'entities/a.jsonl',

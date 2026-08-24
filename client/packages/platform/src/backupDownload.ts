@@ -77,20 +77,8 @@ export type DownloadBackupArchiveOpts = {
   signal?: AbortSignal;
   onProgress?: (progress: BackupDownloadProgress) => void;
   /**
-   * How many entries to fetch ahead of the one currently being written into
-   * the archive.
-   *
-   * Only fetch *initiation* is parallelised, the bodies are still written in
-   * order and consumed one at a time, so an in-flight prefetched body buffers
-   * only to its stream's high-water mark and memory stays bounded. Defaults to
-   * {@link DEFAULT_PREFETCH}.
-   */
-  prefetch?: number;
-  /**
    * Retry policy for *opening* an entry's body (fetching its presigned URL and
-   * getting a live response). Prefetching keeps body connections open, paused,
-   * while earlier entries write, so a queued connection can be reset before we
-   * read it.
+   * getting a live response).
    * `attempts` is the total number of tries (default {@link DEFAULT_FETCH_ATTEMPTS});
    * `delayMs` is the base for exponential backoff (default {@link DEFAULT_RETRY_DELAY_MS}).
    *
@@ -102,7 +90,6 @@ export type DownloadBackupArchiveOpts = {
   retry?: { attempts?: number; delayMs?: number };
 };
 
-const DEFAULT_PREFETCH = 4;
 const DEFAULT_FETCH_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAY_MS = 500;
 const MAX_RETRY_DELAY_MS = 5000;
@@ -172,9 +159,9 @@ function replayFrom(
  * naming the entry.
  *
  * The first chunk is read inside the retry scope, so a body that connects but
- * fails on its first read — the shape of a prefetched connection reset while it
- * sat idle — is re-fetched too, since nothing has been written to the archive
- * yet. Only failures once bytes are flowing are treated as unrecoverable.
+ * fails on its first read is re-fetched too, since nothing has been written
+ * to the archive yet. Only failures once bytes are flowing are treated as
+ * unrecoverable.
  */
 async function openWithRetry(
   open: () => Promise<ReadableStream<Uint8Array>>,
@@ -212,10 +199,9 @@ async function openWithRetry(
 }
 
 /**
- * One archive entry whose body fetch has already been started. `onWriting`
- * runs when the encoder begins consuming it (so progress reflects the entry
- * actually streaming, not one prefetched ahead); `onAdded` runs once it's
- * fully written.
+ * One archive entry whose body fetch has been started. `onWriting` runs when
+ * the encoder begins consuming it (so progress reflects the entry actually
+ * streaming); `onAdded` runs once it's fully written.
  */
 type PreparedEntry = {
   name: string;
@@ -225,92 +211,11 @@ type PreparedEntry = {
 };
 
 /**
- * A thunk that starts fetching one entry (presigned URL + body) and resolves
- * once the body stream is available — not once it's fully downloaded.
+ * A thunk that fetches one entry (presigned URL + body) and resolves once the
+ * body stream is available — not once it's fully downloaded. Called only when
+ * the entry is about to be written, so its body never downloads ahead.
  */
 type EntryThunk = () => Promise<PreparedEntry>;
-
-/**
- * Wraps an ordered stream of entry thunks, keeping up to `lookahead` fetches
- * in flight while yielding the prepared entries in their original order. A
- * background producer pulls thunks and starts their fetches as space frees up;
- * the consumer awaits each in turn. Preserves order and backpressure: at most
- * `lookahead` bodies are ever in flight, and the producer parks when the
- * pipeline is full or the source is waiting for more work.
- */
-async function* prefetchEntries(
-  thunks: AsyncIterable<EntryThunk>,
-  lookahead: number,
-): AsyncGenerator<PreparedEntry> {
-  const pipeline: Promise<PreparedEntry>[] = [];
-  const state: {
-    done: boolean;
-    producerError: unknown;
-    // Woken when the producer pushes an entry (or finishes).
-    onItem: (() => void) | null;
-    // Woken when the consumer frees a pipeline slot.
-    onSpace: (() => void) | null;
-  } = { done: false, producerError: null, onItem: null, onSpace: null };
-
-  const wakeItem = () => {
-    const w = state.onItem;
-    state.onItem = null;
-    if (w) w();
-  };
-  const wakeSpace = () => {
-    const w = state.onSpace;
-    state.onSpace = null;
-    if (w) w();
-  };
-
-  // Never rejects: a failure to produce the next thunk (or start its fetch)
-  // lands in state.producerError for the consumer to throw in order.
-  const producer = (async () => {
-    try {
-      for await (const thunk of thunks) {
-        while (pipeline.length >= lookahead) {
-          await new Promise<void>((resolve) => {
-            state.onSpace = resolve;
-          });
-        }
-        const started = thunk();
-        // The consumer awaits `started` in order; attach a no-op catch so a
-        // fetch that rejects before then isn't reported as unhandled.
-        started.catch(() => {});
-        pipeline.push(started);
-        wakeItem();
-      }
-    } catch (e) {
-      state.producerError = e;
-    } finally {
-      state.done = true;
-      wakeItem();
-    }
-  })();
-
-  try {
-    while (true) {
-      if (pipeline.length === 0) {
-        if (state.done) {
-          if (state.producerError) throw state.producerError;
-          break;
-        }
-        await new Promise<void>((resolve) => {
-          state.onItem = resolve;
-        });
-        continue;
-      }
-      const entry = await pipeline.shift()!;
-      wakeSpace();
-      yield entry;
-    }
-  } finally {
-    // On early exit (abort/error), let the producer unwind — its own signal
-    // teardown resolves the source's waits — without blocking here.
-    wakeSpace();
-    producer.catch(() => {});
-  }
-}
 
 /**
  * Downloads a backup into a single archive written to `opts.sink`: entries
@@ -459,9 +364,9 @@ export async function downloadBackupArchive(
   // entities/*.jsonl shards, then files/<locationId>. In particular ALL entity
   // files must be written before ANY storage file. listFiles returns the
   // entity files in write order; this generator yields thunks for them in
-  // order, then drains the storage queue. The thunks are consumed through
-  // prefetchEntries, which starts a bounded number of the fetches ahead of the
-  // encoder while keeping this order and one-at-a-time writing.
+  // order, then drains the storage queue. The consumer calls each thunk in turn
+  // and writes it to completion before the next, so bodies download one at a
+  // time and never ahead of the encoder.
   const thunks = (async function* (): AsyncGenerator<EntryThunk> {
     const files = await manager.listFiles(backup.id, { signal });
     if (files.length === 0) {
@@ -562,9 +467,6 @@ export async function downloadBackupArchive(
     if (storageError) throw storageError;
   })();
 
-  const prefetch = finitePositiveInt(opts.prefetch, DEFAULT_PREFETCH);
-  const entries = prefetchEntries(thunks, prefetch);
-
   const sinkWriter = opts.sink.getWriter();
   try {
     // Sink the archive encoder writes into: it tallies the encoded size for
@@ -587,7 +489,9 @@ export async function downloadBackupArchive(
     });
 
     const writer = await createWriter(countingSink, signal);
-    for await (const entry of entries) {
+
+    for await (const thunk of thunks) {
+      const entry = await thunk();
       entry.onWriting();
       await writer.add(entry.name, entry.input, {
         lastModDate: backup.backupAt,
