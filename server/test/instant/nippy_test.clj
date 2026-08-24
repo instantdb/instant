@@ -9,7 +9,7 @@
    (instant.isn ISN)
    (instant.jdbc WalColumn WalEntry)
    (java.time Instant)
-   (java.util Arrays)
+   (java.util Arrays BitSet)
    (org.postgresql.replication LogSequenceNumber)))
 
 (deftest all-of-the-custom-readers-are-tested
@@ -18,6 +18,20 @@
 
 (defn roundtrip [x]
   (nippy/fast-thaw (nippy/fast-freeze x)))
+
+(deftest serializable-allowlists-are-empty
+  (is (= #{} nippy/*thaw-serializable-allowlist*))
+  (is (= #{} nippy/*freeze-serializable-allowlist*)))
+
+(deftest serializable-does-not-thaw
+  (let [frozen (binding [nippy/*freeze-serializable-allowlist* #{"*"}]
+                 (let [bs (BitSet.)]
+                   (.set bs 3)
+                   (nippy/fast-freeze bs)))
+        thawed (nippy/fast-thaw frozen)]
+    (is (not (instance? BitSet thawed)))
+    (is (= :serializable (get-in thawed [:nippy/unthawable :type])))
+    (is (= :quarantined (get-in thawed [:nippy/unthawable :cause])))))
 
 (deftest log-sequence-number
   (let [lsn (LogSequenceNumber/valueOf (long (rand-int Integer/MAX_VALUE)))]

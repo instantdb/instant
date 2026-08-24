@@ -12,6 +12,9 @@
    (java.util UUID)
    (org.postgresql.replication LogSequenceNumber)))
 
+(alter-var-root #'nippy/*thaw-serializable-allowlist* (constantly #{}))
+(alter-var-root #'nippy/*freeze-serializable-allowlist* (constantly #{}))
+
 ;; -------
 ;; helpers
 

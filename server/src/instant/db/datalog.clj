@@ -2379,7 +2379,7 @@
                              (->json cursor-val)
 
                              :else
-                             cursor-val)
+                             [:lift cursor-val])
                        (case order-col-type
                          :created-at-timestamp :bigint
                          :boolean :boolean
@@ -2398,7 +2398,7 @@
                                 [comparison order-col order-col-val]
                                 [:and
                                  [:= order-col order-col-val]
-                                 [eid-comparison entity-id-col [:cast (first cursor) :uuid]]]]]
+                                 [eid-comparison entity-id-col [:cast [:lift (first cursor)] :uuid]]]]]
                               [:or
                                [:or [comparison order-col order-col-val]
                                 ;; null > null => null in postgres, so we have to
@@ -2420,7 +2420,7 @@
                                   [:= order-col nil]
                                   [:= order-col-val nil]]
                                  [:= order-col order-col-val]]
-                                [eid-comparison entity-id-col [:cast (first cursor) :uuid]]]])]))))
+                                [eid-comparison entity-id-col [:cast [:lift (first cursor)] :uuid]]]])]))))
 
 (defn reverse-direction [direction]
   (case direction
