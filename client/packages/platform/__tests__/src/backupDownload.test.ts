@@ -188,15 +188,27 @@ describe('downloadBackupArchive', () => {
       return bodyOf(`body:${url}`);
     };
 
-    // Snapshot which bodies have been fetched at the instant each write begins.
-    // A body downloaded ahead of the encoder — the browser-fetch bug that
-    // buffered whole entities before their turn — would show up here early.
-    const startedWhenAddBegan: string[][] = [];
+    // Block the encoder on the first entry so we can observe whether any later
+    // entry's body is pulled ahead while it sits there. A body downloaded ahead
+    // of the encoder — the browser-fetch bug that buffered whole entities before
+    // their turn — would show up in `started` while the first write is blocked.
+    let releaseFirst!: () => void;
+    const firstReleased = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let signalFirstAdd!: () => void;
+    const firstAddBegan = new Promise<void>((resolve) => {
+      signalFirstAdd = resolve;
+    });
+    let addCount = 0;
     const createWriter = async (sink: WritableStream<Uint8Array>) => {
       const w = sink.getWriter();
       return {
         add: async (_name: string, input: ReadableStream<Uint8Array>) => {
-          startedWhenAddBegan.push([...started]);
+          if (addCount++ === 0) {
+            signalFirstAdd();
+            await firstReleased;
+          }
           for await (const _chunk of input) {
             // drain
           }
@@ -206,7 +218,7 @@ describe('downloadBackupArchive', () => {
       };
     };
 
-    await downloadBackupArchive({
+    const done = downloadBackupArchive({
       manager,
       backup,
       fetchBody: trackingFetch,
@@ -214,13 +226,15 @@ describe('downloadBackupArchive', () => {
       createWriter,
     });
 
-    // When each write begins, only the entry being written has been fetched —
-    // nothing is pulled ahead.
-    expect(startedWhenAddBegan).toEqual([
-      ['config.json'],
-      ['config.json', 'entities/a.jsonl'],
-      ['config.json', 'entities/a.jsonl', 'entities/b.jsonl'],
-    ]);
+    // While the encoder is blocked on config.json, only its body has been
+    // fetched — nothing is pulled ahead.
+    await firstAddBegan;
+    expect(started).toEqual(['config.json']);
+
+    releaseFirst();
+    await done;
+
+    // Once unblocked the remaining entries fetch in order, still one at a time.
     expect(started).toEqual([
       'config.json',
       'entities/a.jsonl',
