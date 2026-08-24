@@ -845,6 +845,15 @@ const isNodeReadable = (v: any): v is Readable =>
 const isWebReadable = (v: any): v is ReadableStream =>
   v && typeof v.getReader === 'function';
 
+// HTTP header values must be ISO-8859-1. Filenames often aren't (e.g.
+// macOS decomposes accented characters into combining marks that fall
+// outside that range), so we prefer sending `path` as an encoded query
+// param and only mirror it into a header when it's safe to do so, for
+// compatibility with older self-hosted servers that only look at headers.
+function isHeaderSafe(value: string): boolean {
+  return /^[\x20-\x7e\xa0-\xff]*$/.test(value);
+}
+
 /**
  * Functions to manage file storage.
  */
@@ -872,10 +881,16 @@ class Storage {
   ): Promise<UploadFileResponse> => {
     const headers = {
       ...authorizedHeaders(this.config, this.impersonationOpts),
-      path,
     };
+    // Kept for backwards compatibility with servers that only read `path`
+    // from a header; the query param below is the source of truth.
+    if (isHeaderSafe(path)) {
+      headers['path'] = path;
+    }
     if (metadata.contentDisposition) {
-      headers['content-disposition'] = metadata.contentDisposition;
+      if (isHeaderSafe(metadata.contentDisposition)) {
+        headers['content-disposition'] = metadata.contentDisposition;
+      }
     }
 
     // headers.content-type will become "undefined" (string)
@@ -906,10 +921,12 @@ class Storage {
       ...(duplex && { duplex }),
     };
 
-    return jsonFetch(
-      `${this.config.apiURI}/admin/storage/upload?app_id=${this.config.appId}`,
-      options,
-    );
+    let url = `${this.config.apiURI}/admin/storage/upload?app_id=${encodeURIComponent(this.config.appId)}&path=${encodeURIComponent(path)}`;
+    if (metadata.contentDisposition) {
+      url += `&content-disposition=${encodeURIComponent(metadata.contentDisposition)}`;
+    }
+
+    return jsonFetch(url, options);
   };
 
   /**

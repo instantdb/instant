@@ -1,5 +1,14 @@
 import { jsonFetch } from './utils/fetch.js';
 
+// HTTP header values must be ISO-8859-1. Filenames often aren't (e.g.
+// macOS decomposes accented characters into combining marks that fall
+// outside that range), so we prefer sending `path` as an encoded query
+// param and only mirror it into a header when it's safe to do so, for
+// compatibility with older self-hosted servers that only look at headers.
+function isHeaderSafe(value: string): boolean {
+  return /^[\x20-\x7e\xa0-\xff]*$/.test(value);
+}
+
 export type UploadFileResponse = {
   data: {
     id: string;
@@ -32,15 +41,24 @@ export async function uploadFile({
   const headers = {
     'app-id': appId,
     app_id: appId,
-    path,
     authorization: `Bearer ${refreshToken}`,
     'content-type': contentType || file.type,
   };
-  if (contentDisposition) {
+  // Kept for backwards compatibility with servers that only read `path`
+  // from a header; the query param below is the source of truth.
+  if (isHeaderSafe(path)) {
+    headers['path'] = path;
+  }
+  if (contentDisposition && isHeaderSafe(contentDisposition)) {
     headers['content-disposition'] = contentDisposition;
   }
 
-  const data = await jsonFetch(`${apiURI}/storage/upload`, {
+  let url = `${apiURI}/storage/upload?app_id=${encodeURIComponent(appId)}&path=${encodeURIComponent(path)}`;
+  if (contentDisposition) {
+    url += `&content-disposition=${encodeURIComponent(contentDisposition)}`;
+  }
+
+  const data = await jsonFetch(url, {
     method: 'PUT',
     headers,
     body: file,

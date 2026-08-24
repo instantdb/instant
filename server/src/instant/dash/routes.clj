@@ -1764,8 +1764,14 @@
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
                                                                          :apps/read
                                                                          req)
-        params (:headers req)
-        path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
+        ;; `path` may arrive either as a query param (preferred,
+        ;; URL-decoded by Ring) or as a raw header (kept for backwards
+        ;; compatibility with older clients). Query params take priority
+        ;; since they can carry values headers can't (e.g. non-ISO-8859-1
+        ;; filenames).
+        params (merge (w/keywordize-keys (:headers req))
+                      (:params req))
+        path (ex/get-param! params [:path] string-util/coerce-non-blank-str)
         file (ex/get-param! req [:body] identity)
         content-type (storage-coordinator/coerce-content-type (:content-type req))
         data (storage-coordinator/upload-file!

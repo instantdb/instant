@@ -627,11 +627,17 @@
 
 (defn upload-put [req]
   (let [{:keys [app-id] :as perms} (get-perms! req :storage/write)
-        params (:headers req)
-        path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
+        ;; `path` (and `content-disposition`) may arrive either as a query
+        ;; param (preferred, URL-decoded by Ring) or as a raw header (kept
+        ;; for backwards compatibility with older clients). Query params
+        ;; take priority since they can carry values headers can't (e.g.
+        ;; non-ISO-8859-1 filenames).
+        params (merge (w/keywordize-keys (:headers req))
+                      (:params req))
+        path (ex/get-param! params [:path] string-util/coerce-non-blank-str)
         file (ex/get-param! req [:body] identity)
-        content-type (storage-coordinator/coerce-content-type (get params "content-type"))
-        content-disposition (ex/get-optional-param! params ["content-disposition"] string-util/coerce-non-blank-str)
+        content-type (storage-coordinator/coerce-content-type (:content-type params))
+        content-disposition (ex/get-optional-param! params [:content-disposition] string-util/coerce-non-blank-str)
         data (storage-coordinator/upload-file! {:app-id app-id
                                                 :path path
                                                 :content-type content-type

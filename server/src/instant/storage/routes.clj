@@ -27,7 +27,13 @@
      :content-disposition (ex/get-optional-param! params [:content-disposition] string-util/coerce-non-blank-str)}))
 
 (defn upload-put [req]
-  (let [params (w/keywordize-keys (:headers req))
+  (let [;; `path` (and `content-disposition`) may arrive either as a query
+        ;; param (preferred, URL-decoded by Ring) or as a raw header (kept
+        ;; for backwards compatibility with older clients). Query params
+        ;; take priority since they can carry values headers can't (e.g.
+        ;; non-ISO-8859-1 filenames).
+        params (merge (w/keywordize-keys (:headers req))
+                      (:params req))
         ctx (req->app-file! req params)
         file (ex/get-param! req [:body] identity)
         data (storage-coordinator/upload-file! ctx file)]
