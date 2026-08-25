@@ -946,13 +946,13 @@
                  (cleanup-local-process process-id))}))
 
 (defn start-singleton-global []
-  (let [conn-config (config/get-aurora-config)
-        get-conn-config (with-meta (fn []
-                                     conn-config)
+  (let [get-conn-config (with-meta (fn []
+                                     (or (config/get-next-aurora-config)
+                                         (config/get-aurora-config)))
                           ;; When we're not transitioning to a new cluster,
                           ;; this lets us check if the slot is active without
                           ;; creating a new connection
-                          {:same-as-read-conn true})]
+                          {:same-as-read-conn (nil? (config/get-next-aurora-config))})]
     (start-singleton {:get-conn-config get-conn-config
                       :check-disabled (fn []
                                         (flags/toggled? :disable-singleton-invalidator))
@@ -972,7 +972,8 @@
                                       :close-signal-chan close-signal-chan
                                       :ex-handler wal-ex-handler
                                       :get-conn-config (fn []
-                                                         (config/get-aurora-config))
+                                                         (or (config/get-next-aurora-config)
+                                                             (config/get-aurora-config)))
                                       :slot-suffix process-id
                                       :slot-type :invalidator
                                       :slot-num config/invalidator-slot-num})]

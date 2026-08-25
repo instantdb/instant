@@ -23,7 +23,7 @@
 
 (declare shutdown)
 
-(def global-slot-num (int 1))
+(def global-slot-num (int 2))
 
 ;; --------------
 ;; Initialization
@@ -624,11 +624,12 @@
                                            (flags/toggled? :disable-aggregator))
                          :get-conn-config (with-meta
                                             (fn []
-                                              (config/get-aurora-config))
+                                              (or (config/get-next-aurora-config)
+                                                  (config/get-aurora-config)))
                                             ;; When we're not transitioning to a new cluster,
                                             ;; this lets us check if the slot is active without
                                             ;; creating a new connection.
-                                            {:same-as-read-conn true})
+                                            {:same-as-read-conn (nil? (config/get-next-aurora-config))})
                          :slot-num global-slot-num})))
 
 (defn start-global []
