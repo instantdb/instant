@@ -18,8 +18,8 @@ export function SunsetBanner() {
       href={sunsetPostPath}
       className="block border-b border-orange-200 bg-orange-50 px-4 py-2 text-center text-sm text-orange-900 transition-colors hover:bg-orange-100"
     >
-      <span className="font-semibold">The Instant Team is joining OpenAI.</span>{' '}
-      Services will continue until August 31st, 2027.{' '}
+      <span className="font-semibold">Instant is sunsetting.</span> Services
+      will continue until August 31st, 2027.{' '}
       <span className="font-medium whitespace-nowrap text-orange-900/70">
         Learn more →
       </span>
@@ -37,8 +37,8 @@ export function SunsetDocsNotice() {
       href={sunsetPostPath}
       className="mb-4 block rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm text-orange-900 transition-colors hover:bg-orange-100"
     >
-      <span className="font-semibold">The Instant Team is joining OpenAI.</span>{' '}
-      Services will continue until August 31st, 2027.{' '}
+      <span className="font-semibold">Instant is sunsetting.</span> Services
+      will continue until August 31st, 2027.{' '}
       <span className="font-medium whitespace-nowrap text-orange-900/70">
         Learn more →
       </span>

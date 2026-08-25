@@ -129,7 +129,7 @@ export const { use: useFetchedDash, provider: DashFetchProvider } =
 
 const announcementNotice = {
   key: 'announced',
-  title: 'The Instant Team is joining OpenAI.',
+  title: 'Instant is sunsetting.',
   body: 'Services will continue until August 31st, 2027.',
   dismissible: true,
 };
