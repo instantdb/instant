@@ -1490,15 +1490,23 @@ export async function jsonFetch(
     : Promise.reject({ status: res.status, body: json });
 }
 
-// HTTP header values must be ISO-8859-1. Filenames often aren't (e.g.
-// macOS decomposes accented characters into combining marks that fall
-// outside that range), so we prefer sending `path` as an encoded query
-// param and only mirror it into a header when it's safe to do so, for
-// compatibility with older self-hosted servers that only look at headers.
+/**
+ * Whether `value` can be safely sent as a raw HTTP header value. Header
+ * values must be ISO-8859-1; filenames often aren't (e.g. macOS decomposes
+ * accented characters into combining marks that fall outside that range),
+ * so callers should prefer sending such values as an encoded query param
+ * instead.
+ */
 function isHeaderSafe(value: string): boolean {
   return /^[\x20-\x7e\xa0-\xff]*$/.test(value);
 }
 
+/**
+ * Uploads `file` to the dashboard's storage explorer for `appId`, at either
+ * `customFilename` or the file's own name. The filename is sent as an
+ * encoded query param (and mirrored into a header only when
+ * ISO-8859-1-safe) so that non-ASCII filenames don't break the request.
+ */
 async function upload(
   token: string,
   appId: string,

@@ -845,11 +845,13 @@ const isNodeReadable = (v: any): v is Readable =>
 const isWebReadable = (v: any): v is ReadableStream =>
   v && typeof v.getReader === 'function';
 
-// HTTP header values must be ISO-8859-1. Filenames often aren't (e.g.
-// macOS decomposes accented characters into combining marks that fall
-// outside that range), so we prefer sending `path` as an encoded query
-// param and only mirror it into a header when it's safe to do so, for
-// compatibility with older self-hosted servers that only look at headers.
+/**
+ * Whether `value` can be safely sent as a raw HTTP header value. Header
+ * values must be ISO-8859-1; filenames often aren't (e.g. macOS decomposes
+ * accented characters into combining marks that fall outside that range),
+ * so callers should prefer sending such values as an encoded query param
+ * instead.
+ */
 function isHeaderSafe(value: string): boolean {
   return /^[\x20-\x7e\xa0-\xff]*$/.test(value);
 }
