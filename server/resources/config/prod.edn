@@ -48,4 +48,4 @@
 
  :database-cluster-id "aurora-instant-cluster"
 
- :next-database-cluster-id "aurora-instant-cluster"}
+ :next-database-cluster-id "instant-8"}
