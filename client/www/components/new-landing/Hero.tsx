@@ -97,9 +97,7 @@ export function Hero() {
               className="mb-8 inline-flex flex-wrap items-center justify-center gap-x-3 rounded-full border border-orange-200 bg-orange-100 px-7 py-3 text-base text-orange-900 shadow-sm transition-colors hover:bg-orange-200 sm:text-lg"
             >
               <span>
-                <span className="font-semibold">
-                  The Instant Team is joining OpenAI.
-                </span>{' '}
+                <span className="font-semibold">Instant is sunsetting.</span>{' '}
                 Services will continue until August 31st, 2027.
               </span>{' '}
               <span className="font-medium whitespace-nowrap text-orange-900/70">
