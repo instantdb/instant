@@ -4,10 +4,6 @@
             [instant.storage.coordinator :as storage-coordinator]))
 
 (deftest upload-put-reads-path-from-query-params
-  ;; Filenames with accents (e.g. macOS's NFD-decomposed "café.txt") can't
-  ;; be sent as raw HTTP header values, so clients send them as an encoded
-  ;; query param (already URL-decoded by Ring's wrap-params) instead. The
-  ;; route should prefer that over the legacy `path` header.
   (let [captured-ctx (atom nil)
         app-id (random-uuid)]
     (with-redefs [storage-coordinator/upload-file!

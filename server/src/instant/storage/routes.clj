@@ -26,13 +26,7 @@
      :content-length content-length
      :content-disposition (ex/get-optional-param! params [:content-disposition] string-util/coerce-non-blank-str)}))
 
-(defn upload-put
-  "Uploads a file from the request body. `path` (and `content-disposition`)
-   may arrive either as a query param (preferred, URL-decoded by Ring) or
-   as a raw header (kept for backwards compatibility with older clients).
-   Query params take priority since they can carry values headers can't
-   (e.g. non-ISO-8859-1 filenames)."
-  [req]
+(defn upload-put [req]
   (let [params (merge (w/keywordize-keys (:headers req))
                       (:params req))
         ctx (req->app-file! req params)

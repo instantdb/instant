@@ -1760,13 +1760,7 @@
 ;; ---
 ;; Storage
 
-(defn upload-put
-  "Uploads a file from the request body. `path` may arrive either as a
-   query param (preferred, URL-decoded by Ring) or as a raw header (kept
-   for backwards compatibility with older clients). Query params take
-   priority since they can carry values headers can't (e.g.
-   non-ISO-8859-1 filenames)."
-  [req]
+(defn upload-put [req]
   (let [{{app-id :id} :app} (req->app-accepting-superadmin-or-ref-token! :collaborator
                                                                          :apps/read
                                                                          req)

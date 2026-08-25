@@ -1089,9 +1089,6 @@
               (is (some? (-> ret :body :data :id)))))
 
           (testing "admin can upload a file with a non-ASCII filename via query params"
-            ;; Filenames with accents (e.g. macOS's NFD-decomposed "café.txt")
-            ;; can't be sent as raw HTTP header values, so clients send them
-            ;; as an encoded query param instead.
             (let [ret (upload-put
                        {:body (make-file-content)
                         :params {:path "café à noite.txt"}

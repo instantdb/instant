@@ -1,12 +1,5 @@
 import { jsonFetch } from './utils/fetch.js';
 
-/**
- * Whether `value` can be safely sent as a raw HTTP header value. Header
- * values must be ISO-8859-1; filenames often aren't (e.g. macOS decomposes
- * accented characters into combining marks that fall outside that range),
- * so callers should prefer sending such values as an encoded query param
- * instead.
- */
 function isHeaderSafe(value: string): boolean {
   return /^[\x20-\x7e\xa0-\xff]*$/.test(value);
 }
@@ -23,12 +16,6 @@ export type DeleteFileResponse = {
   };
 };
 
-/**
- * Uploads `file` to Instant Storage at `path`. `path` and
- * `contentDisposition` are sent as encoded query params (and mirrored into
- * headers only when ISO-8859-1-safe) so that non-ASCII filenames don't
- * break the request.
- */
 export async function uploadFile({
   apiURI,
   appId,
@@ -52,8 +39,6 @@ export async function uploadFile({
     authorization: `Bearer ${refreshToken}`,
     'content-type': contentType || file.type,
   };
-  // Kept for backwards compatibility with servers that only read `path`
-  // from a header; the query param below is the source of truth.
   if (isHeaderSafe(path)) {
     headers['path'] = path;
   }
