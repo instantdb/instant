@@ -168,44 +168,49 @@ describe('downloadBackupArchive', () => {
     await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
   });
 
-  test('fetches later entries while an earlier one is still being written', async () => {
+  test('fetches each entry body only when the writer reaches it, never ahead', async () => {
     const files = [
       { name: 'config.json', size: 1 },
       { name: 'entities/a.jsonl', size: 1 },
       { name: 'entities/b.jsonl', size: 1 },
     ];
     const started: string[] = [];
-    let resolveAllStarted!: () => void;
-    const allStarted = new Promise<void>((r) => {
-      resolveAllStarted = r;
-    });
 
     const manager = {
       listFiles: async () => files,
       getFileUrl,
-      // A fetch records that it started and, once every entry's fetch has
-      // begun, releases the writer below.
       streamStorageFiles: async function* () {},
     } as any;
+    // Records the moment a body is fetched. Downloads are strictly sequential,
+    // so this fires only when the writer reaches the entry — never ahead.
     const trackingFetch = async (url: string) => {
       started.push(url);
-      if (started.length === files.length) resolveAllStarted();
       return bodyOf(`body:${url}`);
     };
 
-    // The first entry's write can't finish until every fetch has started. A
-    // strictly sequential downloader would deadlock — the second file's fetch
-    // would wait on the first file's write, which waits on all fetches — so
-    // this test only completes because later fetches run ahead of the writer.
-    let firstAdd = true;
+    // A pair of gates per entry: `began` resolves when the encoder starts
+    // writing that entry; the encoder then blocks on `release` until the test
+    // lets it proceed. This lets us pause on each entry in turn and check that
+    // no later body has been pulled ahead — the browser-fetch bug that buffered
+    // whole entities before their turn would show a later fetch in `started`
+    // while the current write is blocked.
+    const deferred = () => {
+      let resolve!: () => void;
+      const promise = new Promise<void>((r) => {
+        resolve = r;
+      });
+      return { promise, resolve };
+    };
+    const began = files.map(deferred);
+    const release = files.map(deferred);
+    let addCount = 0;
     const createWriter = async (sink: WritableStream<Uint8Array>) => {
       const w = sink.getWriter();
       return {
         add: async (_name: string, input: ReadableStream<Uint8Array>) => {
-          if (firstAdd) {
-            firstAdd = false;
-            await allStarted;
-          }
+          const i = addCount++;
+          began[i].resolve();
+          await release[i].promise;
           for await (const _chunk of input) {
             // drain
           }
@@ -215,13 +220,24 @@ describe('downloadBackupArchive', () => {
       };
     };
 
-    await downloadBackupArchive({
+    const done = downloadBackupArchive({
       manager,
       backup,
       fetchBody: trackingFetch,
       sink: nullSink(),
       createWriter,
     });
+
+    // Walk the entries one at a time. When each write begins, exactly the
+    // bodies up to and including it have been fetched — nothing ahead. Release
+    // it and move to the next; the next body must not have been fetched until
+    // this write completed.
+    for (let i = 0; i < files.length; i++) {
+      await began[i].promise;
+      expect(started).toEqual(files.slice(0, i + 1).map((f) => f.name));
+      release[i].resolve();
+    }
+    await done;
 
     expect(started).toEqual([
       'config.json',
