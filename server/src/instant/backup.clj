@@ -21,6 +21,7 @@
    [instant.model.schema :as schema]
    [instant.model.webhook :as webhook-model]
    [instant.storage.s3 :refer [s3-transfer-manager]]
+   [instant.sunset :as sunset]
    [instant.util.async :as ua]
    [instant.util.date :as date]
    [instant.util.defrecord :refer [defrecord-once]]
@@ -117,18 +118,18 @@
                      conn
                      (uhsql/formatp insert-app-backup-q
                                     {:id id
-                                    :app-id app-id
-                                    :isn isn
-                                    :backup-at backup-at
-                                    :storage-prefix storage-prefix
-                                    :files-size files-size
-                                    :db-size db-size
-                                    :uncompressed-size uncompressed-size
-                                    :description description
-                                    ;; Can't be longer than 32 days because the storage rule
-                                    ;; will automatically delete anything tagged with `expire`
-                                    ;; after 32 days.
-                                    :expires-at expires-at}))))
+                                     :app-id app-id
+                                     :isn isn
+                                     :backup-at backup-at
+                                     :storage-prefix storage-prefix
+                                     :files-size files-size
+                                     :db-size db-size
+                                     :uncompressed-size uncompressed-size
+                                     :description description
+                                     ;; Can't be longer than 32 days because the storage rule
+                                     ;; will automatically delete anything tagged with `expire`
+                                     ;; after 32 days.
+                                     :expires-at expires-at}))))
 
 (def get-app-backups-by-app-id-q
   (uhsql/preformat {:select [:id :app-id :isn :backup-at :files-size :db-size :uncompressed-size :description :expires-at]
@@ -360,7 +361,8 @@
                                 isn
                                 backup-at
                                 description
-                                expires-at]}
+                                expires-at
+                                expire-s3?]}
                         {:keys [streams app-id]}]
   ;; First, write the streams out
   (->> (mapv (fn [^Stream stream]
@@ -407,7 +409,7 @@
                                                      backup-id)
                                  :content-type "application/json"
                                  :content-encoding "zstd"
-                                 :tags {:expire true}}
+                                 :tags {:expire expire-s3?}}
                                 (AsyncRequestBody/fromBytes ba))
 
     ;; Once everything is uploaded to s3, we can insert the record into the db
@@ -491,7 +493,7 @@
     (.writeEndObject gen)
     (.writeRaw gen "\n")))
 
-(defn start-stream [backup-id app-id etype]
+(defn start-stream [backup-id app-id etype expire-s3?]
   (let [pipe (Pipe. (long (* 256 1024))) ;; max in-flight bytes
         sink (Okio/buffer (.sink pipe))
         source (Okio/buffer (.source pipe))
@@ -514,7 +516,7 @@
                                                                                    etype)
                                                                :content-type "application/x-jsonlines"
                                                                :content-encoding "zstd"
-                                                               :tags {:expire true}}
+                                                               :tags {:expire expire-s3?}}
                                                               pipe-in))))
         zstd-out (ZstdOutputStream. pipe-out compression-level)
         ;; Counter sits upstream of zstd so it sees the raw JSONL bytes
@@ -543,16 +545,16 @@
              0
              0)))
 
-(defn ensure-stream [backup-id app-id ^HashMap streams etype]
+(defn ensure-stream [backup-id app-id ^HashMap streams etype expire-s3?]
   (if-let [stream (get streams etype)]
     stream
-    (let [stream (start-stream backup-id app-id etype)]
+    (let [stream (start-stream backup-id app-id etype expire-s3?)]
       (.put streams etype stream)
       stream)))
 
-(defn flush-entities [backup-id app-id streams entities]
+(defn flush-entities [backup-id app-id streams entities expire-s3?]
   (doseq [[etype ent] entities
-          :let [stream (ensure-stream backup-id app-id streams etype)]]
+          :let [stream (ensure-stream backup-id app-id streams etype expire-s3?)]]
     (flush-ent stream ent)))
 
 (defn snapshot-datasource
@@ -584,7 +586,8 @@
            ^LinkedBlockingQueue record-progress-queue
            ^LinkedBlockingQueue flush-streams-queue
            on-done
-           done-signal]}]
+           done-signal
+           expire-s3?]}]
   (loop [triple (.take triples-queue)
          current-app-id (:app-id triple)
          current-entity-id (:entity-id triple)
@@ -595,7 +598,7 @@
     (cond (= triple done-signal)
           (when current-app-id
             (let [finished-promise (promise)]
-              (flush-entities process-id current-app-id streams entities)
+              (flush-entities process-id current-app-id streams entities expire-s3?)
               (.put record-progress-queue {:app-id current-app-id
                                            :triple-count triple-count
                                            :finished-promise finished-promise})
@@ -606,7 +609,7 @@
 
           (not= (:app-id triple) current-app-id)
           (let [finished-promise (promise)]
-            (flush-entities process-id current-app-id streams entities)
+            (flush-entities process-id current-app-id streams entities expire-s3?)
             (.put record-progress-queue {:app-id current-app-id
                                          :triple-count triple-count
                                          :finished-promise finished-promise})
@@ -622,7 +625,7 @@
                    triple-count))
 
           (not= (:entity-id triple) current-entity-id)
-          (do (flush-entities process-id current-app-id streams entities)
+          (do (flush-entities process-id current-app-id streams entities expire-s3?)
               (recur triple
                      current-app-id
                      (:entity-id triple)
@@ -640,7 +643,9 @@
                      (inc triple-count)))))
   (on-done))
 
-(defn process-with-snapshot []
+(defn process-with-snapshot [{:keys [expire-s3?
+                                     expires-at]
+                              :or {expire-s3? true}}]
   (let [db-config (config/get-aurora-config)
         process-id (random-uuid)
         slot-name (str "backup_" (.replace (str process-id) "-" "_"))
@@ -654,8 +659,8 @@
                                :machine-id config/machine-id})
         triples-queue (LinkedBlockingQueue. 50000)
         record-progress-queue (LinkedBlockingQueue.)
-        flush-streams-queue (LinkedBlockingQueue. 100)
-        flush-stream-process-count 100
+        flush-streams-queue (LinkedBlockingQueue. 8)
+        flush-stream-process-count 8
         done-signal ::done
         process-state (atom nil)
         abort (fn []
@@ -683,7 +688,8 @@
                                                           (.put record-progress-queue done-signal)
                                                           (dotimes [_ flush-stream-process-count]
                                                             (.put flush-streams-queue done-signal)))
-                                               :done-signal done-signal}))
+                                               :done-signal done-signal
+                                               :expire-s3? expire-s3?}))
         flush-streams-processes (mapv (fn [_]
                                         (ua/vfuture
                                          (loop [item (.take flush-streams-queue)]
@@ -692,7 +698,9 @@
                                                (complete-streams query-conn
                                                                  {:backup-id process-id
                                                                   :isn isn
-                                                                  :backup-at before-ts}
+                                                                  :backup-at before-ts
+                                                                  :expire-s3? expire-s3?
+                                                                  :expires-at expires-at}
                                                                  item)
                                                (deliver (:finished-promise item) true)
                                                (catch Throwable t
@@ -798,7 +806,8 @@
            expires-at
            ensure-config?
            on-triple
-           finished-promise]}]
+           finished-promise
+           expire-s3?]}]
   (try
     (let [triples-queue (LinkedBlockingQueue. 5000)
           upload-progress-queue (LinkedBlockingQueue.)
@@ -824,7 +833,8 @@
                                                    :flush-streams-queue flush-streams-queue
                                                    :on-done (fn []
                                                               (.put flush-streams-queue done-signal))
-                                                   :done-signal done-signal})
+                                                   :done-signal done-signal
+                                                   :expire-s3? expire-s3?})
                             (catch Throwable t
                               (deliver finished-promise t)
                               (.put flush-streams-queue done-signal)
@@ -835,7 +845,8 @@
                :isn isn
                :backup-at backup-at
                :description description
-               :expires-at expires-at}
+               :expires-at expires-at
+               :expire-s3? expire-s3?}
           ;; This is a little awkward, since we'll only ever take 1 thing out of the queue,
           ;; but it allows us to use the same code as `process-with-copy`
           item (.take flush-streams-queue)]
@@ -871,7 +882,8 @@
 
    Returns {:triple-count <long> :app-backup <row>} where the row is the
    inserted `app_backups` record. Throws if the backup fails."
-  [{:keys [app-id description expires-at on-triple]}]
+  [{:keys [app-id description expires-at on-triple expire-s3?]
+    :or {expire-s3? true}}]
   (let [backup-id (random-uuid)]
     (with-open [conn (wal/get-pg-copy-ready-conn (config/get-aurora-config))]
       (.setAutoCommit conn false)
@@ -890,7 +902,8 @@
                        :expires-at expires-at
                        :ensure-config? true
                        :on-triple on-triple
-                       :finished-promise finished-promise})
+                       :finished-promise finished-promise
+                       :expire-s3? expire-s3?})
           (let [result @finished-promise]
             (when (instance? Throwable result)
               (throw result))
@@ -923,7 +936,9 @@
   [{:keys [clone-pool
            clone-lsn
            ^long process-count
-           backup-at]}]
+           backup-at
+           expire-s3?
+           expires-at]}]
   (let [process-id (random-uuid)
         isn (instant.isn/->ISN config/invalidator-slot-num clone-lsn)
         _ (insert-backup-job! {:id process-id
@@ -969,7 +984,9 @@
                                                          :isn isn
                                                          :backup-at backup-at
                                                          :app-id (:app-id item)
-                                                         :finished-promise (:finished-promise item)})
+                                                         :finished-promise (:finished-promise item)
+                                                         :expire-s3? expire-s3?
+                                                         :expires-at expires-at})
                                             (catch Throwable t
                                               (tracer/with-new-trace-root
                                                 (tracer/record-exception-span! t {:name "backup/handle-app-error"}))
@@ -1024,7 +1041,8 @@
 (defn process-with-clone
   "Similar to process-with-copy, but creates a clone of the production database.
    Allows us to process multiple apps concurrently"
-  [{:keys [source-cluster-id]}]
+  [{:keys [source-cluster-id expire-s3? expires-at]
+    :or {expire-s3? true}}]
   (let [clone-config (clone/create-clone! {:instance-class "db.r8gd.xlarge"
                                            :source-cluster-id source-cluster-id})]
     (try
@@ -1037,7 +1055,9 @@
                 process (process-with-clone-pool {:clone-pool clone-pool
                                                   :process-count process-count
                                                   :clone-lsn clone-lsn
-                                                  :backup-at backup-at})]
+                                                  :backup-at backup-at
+                                                  :expire-s3? expire-s3?
+                                                  :expires-at expires-at})]
             ((:wait-for-finish process)))
 
           (finally
@@ -1051,7 +1071,8 @@
   (def -process (process-with-clone-pool {:clone-pool (aurora/conn-pool :write)
                                           :clone-lsn (:lsn (sql/select-one (aurora/conn-pool :read) ["select pg_current_wal_lsn() as lsn"]))
                                           :backup-at (Instant/now)
-                                          :process-count 10})))
+                                          :process-count 10
+                                          :expire-s3? true})))
 
 ;; Scheduled nightly backup
 ;;
@@ -1078,7 +1099,19 @@
                      (tracer/with-span! {:name "backup/daily-backup"
                                          :attributes {:date date-str}}
                        (try
-                         (process-with-clone {:source-cluster-id (clone/default-source-cluster-id)})
+                         (let [final-backup-status (flags/flag :final-backup-status)
+                               final-snapshot? (= "pending" final-backup-status)
+                               backup-config (merge {:expire-s3? (not final-snapshot?)}
+                                                    (when final-snapshot?
+                                                      {:expires-at (.plus (Instant/now) (Duration/ofDays (+ 365 32)))}))]
+                           (when-not (= "completed" final-backup-status)
+                             (if (flags/toggled? :backup-with-clone true)
+                               (process-with-clone (assoc backup-config
+                                                          :source-cluster-id (clone/default-source-cluster-id)))
+                               (let [process (process-with-snapshot backup-config)]
+                                 ((:wait-for-finish process)))))
+                           (when final-snapshot?
+                             (sunset/update-flag! "final-backup-status" "completed")))
                          (swap! current-backup assoc
                                 :status :completed
                                 :finished-at (Instant/now))

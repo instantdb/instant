@@ -65,7 +65,7 @@
 ;; ----------
 ;; Updating the flag
 
-(defn- update-flag!
+(defn update-flag!
   "Upserts a `flags` entity in the config app. Relies on `flags.setting`
    being unique so a lookup ref works as an upsert."
   [setting value]
@@ -103,7 +103,9 @@
      [{:message (str "Stage must be one of: "
                      (string/join ", " (map name flags/sunset-stages))
                      ".")}]))
-  (update-flag! "sunset-stage" (name stage)))
+  (update-flag! "sunset-stage" (name stage))
+  (when (= stage :read-only)
+    (update-flag! "final-backup-status" "pending")))
 
 (defn state
   "Current sunset state as seen by this machine's flag subscription."
