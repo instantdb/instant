@@ -688,8 +688,7 @@
                                                           (dotimes [_ flush-stream-process-count]
                                                             (.put flush-streams-queue done-signal)))
                                                :done-signal done-signal
-                                               :expire-s3? expire-s3?
-                                               :expires-at expires-at}))
+                                               :expire-s3? expire-s3?}))
         flush-streams-processes (mapv (fn [_]
                                         (ua/vfuture
                                          (loop [item (.take flush-streams-queue)]
@@ -699,7 +698,8 @@
                                                                  {:backup-id process-id
                                                                   :isn isn
                                                                   :backup-at before-ts
-                                                                  :expire-s3? expire-s3?}
+                                                                  :expire-s3? expire-s3?
+                                                                  :expires-at expires-at}
                                                                  item)
                                                (deliver (:finished-promise item) true)
                                                (catch Throwable t
@@ -935,7 +935,8 @@
            clone-lsn
            ^long process-count
            backup-at
-           expire-s3?]}]
+           expire-s3?
+           expires-at]}]
   (let [process-id (random-uuid)
         isn (instant.isn/->ISN config/invalidator-slot-num clone-lsn)
         _ (insert-backup-job! {:id process-id
@@ -982,7 +983,8 @@
                                                          :backup-at backup-at
                                                          :app-id (:app-id item)
                                                          :finished-promise (:finished-promise item)
-                                                         :expire-s3? expire-s3?})
+                                                         :expire-s3? expire-s3?
+                                                         :expires-at expires-at})
                                             (catch Throwable t
                                               (tracer/with-new-trace-root
                                                 (tracer/record-exception-span! t {:name "backup/handle-app-error"}))
@@ -1037,7 +1039,7 @@
 (defn process-with-clone
   "Similar to process-with-copy, but creates a clone of the production database.
    Allows us to process multiple apps concurrently"
-  [{:keys [source-cluster-id expire-s3?]
+  [{:keys [source-cluster-id expire-s3? expires-at]
     :or {expire-s3? true}}]
   (let [clone-config (clone/create-clone! {:instance-class "db.r8gd.xlarge"
                                            :source-cluster-id source-cluster-id})]
@@ -1052,7 +1054,8 @@
                                                   :process-count process-count
                                                   :clone-lsn clone-lsn
                                                   :backup-at backup-at
-                                                  :expire-s3? expire-s3?})]
+                                                  :expire-s3? expire-s3?
+                                                  :expires-at expires-at})]
             ((:wait-for-finish process)))
 
           (finally
@@ -1098,12 +1101,13 @@
                                final-snapshot? (= "pending" final-backup-status)
                                backup-config (merge {:expire-s3? (not final-snapshot?)}
                                                     (when final-snapshot?
-                                                      {:expire-at (.plus (Instant/now) (Duration/ofDays (+ 365 32)))}))]
+                                                      {:expires-at (.plus (Instant/now) (Duration/ofDays (+ 365 32)))}))]
                            (when-not (= "completed" final-backup-status)
                              (if (flags/toggled? :backup-with-clone true)
                                (process-with-clone (assoc backup-config
                                                           :source-cluster-id (clone/default-source-cluster-id)))
-                               (process-with-snapshot backup-config)))
+                               (let [process (process-with-snapshot backup-config)]
+                                 ((:wait-for-finish process)))))
                            (when final-snapshot?
                              (sunset/update-flag! "final-backup-status" "completed")))
                          (swap! current-backup assoc
