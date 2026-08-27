@@ -644,7 +644,8 @@
   (on-done))
 
 (defn process-with-snapshot [{:keys [expire-s3?
-                                     expires-at]}]
+                                     expires-at]
+                              :or {expire-s3? true}}]
   (let [db-config (config/get-aurora-config)
         process-id (random-uuid)
         slot-name (str "backup_" (.replace (str process-id) "-" "_"))
@@ -881,7 +882,8 @@
 
    Returns {:triple-count <long> :app-backup <row>} where the row is the
    inserted `app_backups` record. Throws if the backup fails."
-  [{:keys [app-id description expires-at on-triple expire-s3?]}]
+  [{:keys [app-id description expires-at on-triple expire-s3?]
+    :or {expire-s3? true}}]
   (let [backup-id (random-uuid)]
     (with-open [conn (wal/get-pg-copy-ready-conn (config/get-aurora-config))]
       (.setAutoCommit conn false)
