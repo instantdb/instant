@@ -338,6 +338,7 @@
                  (backup/backup-app-on-primary! {:app-id app_id
                                                  :description (or description "On-demand backup")
                                                  :expires-at expires-at
+                                                 :expire-s3? true
                                                  :on-triple (fn [] (.incrementAndGet copied))})
                  (finally
                    (deliver unwound true))))]
