@@ -134,16 +134,17 @@
        (str "daily-metrics-" date-str)
        (fn []
          (insert-new-activity)
-         (let [conn (aurora/conn-pool :read)
-               charts (->> (metrics/overview-metrics conn)
-                           :charts
-                           (map (fn [[k chart]]
-                                  {:name (format "%s.png" (name k))
-                                   :content-type "image/png"
-                                   ;; 273/173 is how discord resizes images
-                                   :content (metrics/chart->png-bytes chart
-                                                                      (* 2 273) (* 2 173))})))]
-           (send-metrics-to-discord! conn charts date-minus-one-str)))))))
+         (when (flags/toggled? :daily-metrics-discord-enabled? false)
+           (let [conn (aurora/conn-pool :read)
+                 charts (->> (metrics/overview-metrics conn)
+                             :charts
+                             (map (fn [[k chart]]
+                                    {:name (format "%s.png" (name k))
+                                     :content-type "image/png"
+                                     ;; 273/173 is how discord resizes images
+                                     :content (metrics/chart->png-bytes chart
+                                                                        (* 2 273) (* 2 173))})))]
+             (send-metrics-to-discord! conn charts date-minus-one-str))))))))
 
 (comment
   (def t1 (-> (LocalDate/parse "2024-10-09")

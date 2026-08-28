@@ -3,7 +3,7 @@
    [chime.core :as chime-core]
    [clojure.tools.logging :as log]
    [hiccup2.core :as h]
-   [instant.flags :refer [get-emails]]
+   [instant.flags :as flags :refer [get-emails]]
    [instant.grab :as grab]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
@@ -157,12 +157,13 @@
          (filter (fn [x] (ZonedDateTime/.isAfter x now))))))
 
 (defn handle-email [_]
-  (let [date-str (date/numeric-date-str (LocalDate/now))]
-    (grab/run-once!
-     (str "analytics-" date-str)
-     (fn []
-       (log/infof "Sending analytics email %s" date-str)
-       (postmark/send! (prepare-email))))))
+  (when (flags/toggled? :daily-analytics-email-enabled? false)
+    (let [date-str (date/numeric-date-str (LocalDate/now))]
+      (grab/run-once!
+       (str "analytics-" date-str)
+       (fn []
+         (log/infof "Sending analytics email %s" date-str)
+         (postmark/send! (prepare-email)))))))
 
 (comment
   (chime-core/chime-at [(Instant/now)] handle-email))
