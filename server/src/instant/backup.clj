@@ -651,6 +651,11 @@
         slot-name (str "backup_" (.replace (str process-id) "-" "_"))
         {:keys [connections lsn before-ts]} (wal/create-consistent-point db-config slot-name 2)
         [^PgConnection copy-conn ^PgConnection query-conn*] connections
+        ;; query-conn* holds its snapshot transaction open for the whole backup
+        ;; but only runs a query per app, so it sits idle in transaction while
+        ;; we collect triples. Bump idle_in_transaction_session_timeout to an hour so
+        ;; Postgres doesn't reap it mid-backup (the pooled default is one minute).
+        _ (sql/select query-conn* ["set idle_in_transaction_session_timeout = 3600000"])
         query-conn (snapshot-datasource query-conn*)
         isn (instant.isn/->ISN config/invalidator-slot-num lsn)
         _ (insert-backup-job! {:id process-id
