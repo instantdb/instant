@@ -1043,7 +1043,7 @@
    Allows us to process multiple apps concurrently"
   [{:keys [source-cluster-id expire-s3? expires-at]
     :or {expire-s3? true}}]
-  (let [clone-config (clone/create-clone! {:instance-class "db.r8gd.xlarge"
+  (let [clone-config (clone/create-clone! {:instance-class "db.r8g.xlarge"
                                            :source-cluster-id source-cluster-id})]
     (try
       (let [process-count 8
