@@ -31,7 +31,6 @@ export async function uploadFile({
 }): Promise<UploadFileResponse> {
   const headers = {
     'app-id': appId,
-    app_id: appId,
     path,
     authorization: `Bearer ${refreshToken}`,
     'content-type': contentType || file.type,
