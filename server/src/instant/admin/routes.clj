@@ -138,6 +138,14 @@
                          "authorization" "foo"}}
               :data/read))
 
+(defn rate-limit! [app-id type]
+  (when-let [rate-limit-config (flags/app-admin-rate-limit-config app-id)]
+    (rate-limit/consume-user-rate-limit (eph/get-rate-limit)
+                                        {:app-id app-id
+                                         :bucket-key app-id
+                                         :bucket-name (str "__instant-admin-" type)
+                                         :config rate-limit-config})))
+
 ;; ------
 ;; Query
 
@@ -145,12 +153,7 @@
   (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
         inference? (-> req :body :inference? boolean)
         {:keys [app-id] :as perms} (get-perms! req :data/read)
-        _ (when-let [rate-limit-config (flags/app-admin-rate-limit-config app-id)]
-            (rate-limit/consume-user-rate-limit (eph/get-rate-limit)
-                                                {:app-id app-id
-                                                 :bucket-key app-id
-                                                 :bucket-name "__instant-admin-query"
-                                                 :config rate-limit-config}))
+        _ (rate-limit! app-id "query")
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool (aurora/conn-pool :read)}
                     :app-id app-id
@@ -234,6 +237,7 @@
         _ (when rules-override
             (ex/assert-valid! :rule rules-override
                               (rule-model/validation-errors rules-override)))
+        _ (rate-limit! app-id "query")
         ip-override (ex/get-optional-param! req [:body :ip-override] string-util/coerce-non-blank-str)
         origin-override (ex/get-optional-param! req [:body :origin-override] string-util/coerce-non-blank-str)
         query (ex/get-param! req [:body :query] #(when (map? %) %))
@@ -276,12 +280,6 @@
                                  req
                                  [:body :throw-on-missing-attrs?] boolean)
         {:keys [app-id] :as perms} (get-perms! req :data/write)
-        _ (when-let [rate-limit-config (flags/app-admin-rate-limit-config app-id)]
-            (rate-limit/consume-user-rate-limit (eph/get-rate-limit)
-                                                {:app-id app-id
-                                                 :bucket-key app-id
-                                                 :bucket-name "__instant-admin-transact"
-                                                 :config rate-limit-config}))
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool (aurora/conn-pool :write)}
                     :app-id app-id
@@ -292,6 +290,7 @@
         tx-steps (admin-model/->tx-steps! {:attrs attrs
                                            :throw-on-missing-attrs? throw-on-missing-attrs?}
                                           steps)
+        _ (rate-limit! app-id "transact")
         use-tx-queue? (flags/admin-tx-queue-enabled? app-id)]
     (tracer/add-data! {:attributes {:use-tx-queue use-tx-queue?}})
     (if-not use-tx-queue?
@@ -370,9 +369,10 @@
         tx-steps (admin-model/->tx-steps! {:attrs attrs
                                            :throw-on-missing-attrs? throw-on-missing-attrs?}
                                           steps)
+        _ (rate-limit! app-id "transact")
         result (binding [*request-info* (cond-> *request-info*
-                                   ip-override (assoc :ip ip-override)
-                                   origin-override (assoc :origin origin-override))]
+                                          ip-override (assoc :ip ip-override)
+                                          origin-override (assoc :origin origin-override))]
                  (permissioned-tx/transact! ctx tx-steps))
         cleaned-result {:tx-id (:id result)
                         :all-checks-ok? (:all-checks-ok? result)
@@ -554,10 +554,10 @@
                          :extra-fields    extra-fields
                          :skip-perm-check? true}))
         user         (app-user-model/create!
-                       {:app-id       app-id
-                        :id           user-id
-                        :type         "guest"
-                        :extra-fields extra-fields})
+                      {:app-id       app-id
+                       :id           user-id
+                       :type         "guest"
+                       :extra-fields extra-fields})
         refresh-token (random-uuid)
         _             (app-user-refresh-token-model/create!
                        {:app-id  app-id
