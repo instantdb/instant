@@ -18,6 +18,7 @@
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
    [instant.model.rule :as rule-model]
    [instant.model.instant-user :as instant-user-model]
+   [instant.rate-limit :as rate-limit]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.session :as session]
    [instant.reactive.sse :as sse]
@@ -144,6 +145,12 @@
   (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
         inference? (-> req :body :inference? boolean)
         {:keys [app-id] :as perms} (get-perms! req :data/read)
+        _ (when-let [rate-limit-config (flags/app-admin-rate-limit-config app-id)]
+            (rate-limit/consume-user-rate-limit (eph/get-rate-limit)
+                                                {:app-id app-id
+                                                 :bucket-key app-id
+                                                 :bucket-name "__instant-admin-query"
+                                                 :config rate-limit-config}))
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool (aurora/conn-pool :read)}
                     :app-id app-id
@@ -269,6 +276,12 @@
                                  req
                                  [:body :throw-on-missing-attrs?] boolean)
         {:keys [app-id] :as perms} (get-perms! req :data/write)
+        _ (when-let [rate-limit-config (flags/app-admin-rate-limit-config app-id)]
+            (rate-limit/consume-user-rate-limit (eph/get-rate-limit)
+                                                {:app-id app-id
+                                                 :bucket-key app-id
+                                                 :bucket-name "__instant-admin-transact"
+                                                 :config rate-limit-config}))
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool (aurora/conn-pool :write)}
                     :app-id app-id

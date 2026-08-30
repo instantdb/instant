@@ -694,3 +694,17 @@
    users keep team access after we cancel their Stripe subscriptions."
   []
   (sunset-stage-at-least? :signups-closed))
+
+(defn app-admin-rate-limit-config
+  "Config for rate-limiting admin transact and query.
+   The config should look like:
+  {\"limits\": [
+    {\"capacity\": 10,
+     \"refill\": {
+      \"period\": \"1 hour\",
+      \"amount\": 10,
+      \"type\": \"interval\" // or \"greedy\"}}]}
+  Make sure to key by app_id for admin-rate-limit-for-app"
+  [app-id]
+  (or (get (flag :admin-rate-limit-for-app) (str app-id))
+      (flag :global-admin-rate-limit)))
