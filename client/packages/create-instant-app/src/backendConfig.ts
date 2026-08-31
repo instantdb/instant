@@ -47,11 +47,13 @@ const injectInitConfig = ({
   initializer,
   apiURI,
   websocketURI,
+  dashURI,
 }: {
   contents: string;
   initializer: string;
   apiURI: string;
   websocketURI?: string;
+  dashURI?: string;
 }) => {
   const initStart = `${initializer}({`;
   if (!contents.includes(initStart)) {
@@ -61,6 +63,9 @@ const injectInitConfig = ({
   const config = [
     `  apiURI: ${JSON.stringify(apiURI)},`,
     websocketURI ? `  websocketURI: ${JSON.stringify(websocketURI)},` : null,
+    dashURI
+      ? `  devtool: {\n    dashURI: ${JSON.stringify(dashURI)},\n  },`
+      : null,
   ]
     .filter(Boolean)
     .join('\n');
@@ -85,6 +90,7 @@ const injectBackendConfig = (
   contents: string,
   apiURI: string,
   websocketURI: string,
+  dashURI?: string,
 ) => {
   if (file.type === 'python') {
     return injectPythonConfig(contents, apiURI);
@@ -95,6 +101,7 @@ const injectBackendConfig = (
     initializer: file.initializer,
     apiURI,
     websocketURI: file.websocket ? websocketURI : undefined,
+    dashURI: file.injectDevtoolConfig ? dashURI : undefined,
   });
 };
 
@@ -117,6 +124,7 @@ export const applyBackendConfig = (
         contents,
         normalizedAPIURI,
         websocketURI,
+        dashURI,
       ),
     };
   });

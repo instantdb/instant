@@ -69,6 +69,9 @@ const db = init({
   appId: 'YOUR_NEW_APP_ID',
   apiURI: 'https://api.myinstant.com',
   websocketURI: 'wss://api.myinstant.com/runtime/session',
+  devtool: {
+    dashURI: 'https://dash.myinstant.com',
+  },
 });
 ```
 

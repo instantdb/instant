@@ -14,7 +14,7 @@ export function createDevtool(appId: string, config: StrictDevtoolConfig) {
 
   const iframeContrainer = createIframeContainer(config);
   const toggler = createToggler(config, toggleView);
-  const iframe = createIframe(getSrc(appId));
+  const iframe = createIframe(getDevtoolSrc(appId, config));
 
   function onPostMessage(event: MessageEvent) {
     if (event.source !== iframe.element.contentWindow) return;
@@ -70,10 +70,12 @@ export function createDevtool(appId: string, config: StrictDevtoolConfig) {
   return create();
 }
 
-function getSrc(appId: string) {
+export function getDevtoolSrc(appId: string, config: StrictDevtoolConfig) {
   const useLocalDashboard = flags.devBackend || flags.devtoolLocalDashboard;
-  const src = `${useLocalDashboard ? 'http://localhost:3000' : 'https://instantdb.com'}/_devtool?appId=${appId}`;
-  return src;
+  const dashURI =
+    config.dashURI ??
+    (useLocalDashboard ? 'http://localhost:3000' : 'https://instantdb.com');
+  return `${dashURI.replace(/\/+$/, '')}/_devtool?appId=${appId}`;
 }
 
 function createIframe(src: string) {
