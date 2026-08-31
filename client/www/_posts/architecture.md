@@ -482,7 +482,7 @@ We hope you found this fun! This has been a labor of love. We’ve built Instant
 
 If you're building with agents, I think you will love using us.
 
-We hope you give us a [try](/dashboard), and join us on [Discord](/discord).
+We hope you give us a [try](/dashboard), and check us out on [GitHub](https://github.com/instantdb/instant).
 
 [^1]: Every single line of code behind the company lives on GitHub, including this [post](https://github.com/instantdb/instant/blob/main/client/www/_posts/architecture.md)
 

@@ -496,7 +496,7 @@ async function onEditRules(
       errorToast(
         isSelfHosted
           ? "Oh no, we weren't able to save these rules. Please try again or contact your deployment administrator if you're stuck!"
-          : "Oh no, we weren't able to save these rules. Please try again or ping us on Discord if you're stuck!",
+          : "Oh no, we weren't able to save these rules. Please try again or email support@instantdb.com if you're stuck!",
         { autoClose: 3000 },
       );
       return Promise.reject();

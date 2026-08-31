@@ -496,7 +496,7 @@ function Dashboard() {
       `${app.title} is marked for deletion. We will remove all data in 24 hours. ${
         isSelfHosted
           ? 'Contact your deployment administrator if you did not mean to do this.'
-          : 'Ping us on Discord if you did not mean to do this.'
+          : 'Email support@instantdb.com if you did not mean to do this.'
       }`,
     );
     const _apps = apps.filter((a) => a.id !== app.id);
@@ -863,18 +863,17 @@ function Home({ app, token }: { app: InstantApp; token: string }) {
         </div>
         <div className="md:w-[calc(50%-0.5rem)]">
           <HomeButton
-            href="https://discord.com/invite/VU53p7uQcE"
-            title="Join the community"
+            href="https://github.com/instantdb/instant"
+            title="Explore Instant on GitHub"
             target="_blank"
             onClick={() =>
               posthog.capture('getting_started_click', {
-                action: 'join_discord',
+                action: 'view_github',
                 app_id: appId,
               })
             }
           >
-            Join our Discord to meet like-minded hackers, and to give us
-            feedback too!
+            Browse the source, report issues, and contribute to Instant.
           </HomeButton>
         </div>
       </div>

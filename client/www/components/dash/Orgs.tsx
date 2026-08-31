@@ -13,7 +13,7 @@ import { useFetchedDash } from './MainDashLayout';
 function stripeErrorMessage() {
   return isSelfHosted
     ? 'Failed to connect w/ Stripe! Try again or contact your deployment administrator if this persists.'
-    : 'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
+    : 'Failed to connect w/ Stripe! Try again or email support@instantdb.com if this persists.';
 }
 
 function createOrg(token: string, params: { title: string }) {

@@ -125,12 +125,6 @@ const nextConfig = {
         has: [{ type: 'query', key: 'tab', value: '(?<tab>mobile)' }],
         destination: '/examples/:tab',
       },
-      {
-        permanent: false,
-        basePath: false,
-        source: '/discord',
-        destination: 'https://discord.com/invite/VU53p7uQcE',
-      },
     ];
 
     if (process.env.NEXT_PUBLIC_SELF_HOSTED === 'true') {

@@ -12,10 +12,7 @@ import {
 } from '@/components/ui';
 import { useAuthedFetch, useAuthToken } from '@/lib/auth';
 import { messageFromInstantError } from '@/lib/errors';
-import config, {
-  discordOAuthAppsFeedbackInviteUrl,
-  isSelfHosted,
-} from '@/lib/config';
+import config, { isSelfHosted } from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import {
   InstantIssue,
@@ -1028,14 +1025,8 @@ function App({ app }: { app: OAuthApp }) {
               <>
                 This app is in test mode. Only members of this Instant app will
                 be allowed to auth with it. Once you've built your integration,
-                ping us in{' '}
-                <a
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  href={discordOAuthAppsFeedbackInviteUrl}
-                >
-                  #oauth-apps-feedback on Discord
-                </a>{' '}
+                email{' '}
+                <a href="mailto:support@instantdb.com">support@instantdb.com</a>{' '}
                 to release your app to the public.
               </>
             )}

@@ -56,7 +56,7 @@ function indexingJobCompletedActionMessage(job) {
   if (job.job_type === 'remove-required') {
     return `removing required constraint from ${job.attr_name}`;
   }
-  return `unexpected job type ${job.job_type} - please ping us on discord with this job id (${job.id})`;
+  return `unexpected job type ${job.job_type} - please email support@instantdb.com with this job id (${job.id})`;
 }
 
 function truncate(s, maxLen) {

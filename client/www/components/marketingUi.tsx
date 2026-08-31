@@ -517,9 +517,6 @@ export function LandingFooter() {
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             <NavLink href="/hiring">Hiring</NavLink>
-            <NavLink href="https://discord.com/invite/VU53p7uQcE">
-              Discord
-            </NavLink>
             <NavLink href="https://github.com/instantdb/instant">
               GitHub
             </NavLink>

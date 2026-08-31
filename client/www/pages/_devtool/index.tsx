@@ -93,7 +93,7 @@ function DevtoolComp() {
               continue experiencing issues,{' '}
               {isSelfHosted
                 ? 'contact your deployment administrator.'
-                : 'ping us on Discord.'}
+                : 'email support@instantdb.com.'}
             </p>
             <Button
               className="w-full"
@@ -148,13 +148,12 @@ function DevtoolComp() {
                     </p>
                   ) : (
                     <p>
-                      We had some trouble loading your app. Please ping us on{' '}
+                      We had some trouble loading your app. Please email{' '}
                       <a
                         className="font-bold text-blue-500"
-                        href="https://discord.com/invite/VU53p7uQcE"
-                        target="_blank"
+                        href="mailto:support@instantdb.com"
                       >
-                        discord
+                        support@instantdb.com
                       </a>{' '}
                       with details.
                     </p>
@@ -329,14 +328,13 @@ function DevtoolWithData({
               </p>
             ) : (
               <p>
-                We had some trouble connecting to Instant's backend. Please ping
-                us on{' '}
+                We had some trouble connecting to Instant's backend. Please
+                email{' '}
                 <a
                   className="font-bold text-blue-500"
-                  href="https://discord.com/invite/VU53p7uQcE"
-                  target="_blank"
+                  href="mailto:support@instantdb.com"
                 >
-                  discord
+                  support@instantdb.com
                 </a>{' '}
                 with details.
               </p>

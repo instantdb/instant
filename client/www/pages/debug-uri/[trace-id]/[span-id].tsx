@@ -1,7 +1,7 @@
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 import { Button, Copyable } from '@/components/ui';
 import { useAuthToken } from '@/lib/auth';
-import config, { bugsAndQuestionsInviteUrl, isSelfHosted } from '@/lib/config';
+import config, { isSelfHosted } from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import { CheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 import React, { useEffect, useState } from 'react';
@@ -138,13 +138,12 @@ function Page() {
       )}
       {!isSelfHosted ? (
         <p>
-          Ping us with this url in{' '}
+          Email this URL to{' '}
           <a
             className="text-blue-600 underline hover:text-blue-800"
-            rel="noopener noreferrer"
-            href={bugsAndQuestionsInviteUrl}
+            href="mailto:support@instantdb.com"
           >
-            #bugs-and-questions on Discord
+            support@instantdb.com
           </a>{' '}
           for help.
         </p>

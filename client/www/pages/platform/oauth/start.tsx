@@ -3,7 +3,7 @@ import Auth from '@/components/dash/Auth';
 import { AppLogo } from '@/components/dash/OAuthApps';
 import { Button, Content, FullscreenLoading, LogoIcon } from '@/components/ui';
 import { useAuthToken } from '@/lib/auth';
-import config, { discordInviteUrl, isSelfHosted } from '@/lib/config';
+import config, { isSelfHosted } from '@/lib/config';
 import { messageFromInstantError } from '@/lib/errors';
 import { jsonFetch } from '@/lib/fetch';
 import { InstantIssue } from '@/lib/types';
@@ -49,13 +49,12 @@ function InvalidRedirect({
             </p>
           ) : (
             <p>
-              Please go back and try again, or ping us on{' '}
+              Please go back and try again, or email{' '}
               <a
                 className="font-bold text-blue-500"
-                href={discordInviteUrl}
-                target="_blank"
+                href="mailto:support@instantdb.com"
               >
-                discord
+                support@instantdb.com
               </a>{' '}
               with details.
             </p>

@@ -72,17 +72,8 @@ const debuggingItems: {
           you that you can just copy and paste to your agent to fix.
         </p>
         <p>
-          If you encounter an issue not listed below please feel free to let us
-          know via the feedback tool at the bottom of this page or via our{' '}
-          <a
-            href="https://discord.com/invite/VU53p7uQcE"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 underline hover:text-blue-800"
-          >
-            Discord
-          </a>
-          .
+          If you encounter an issue not listed below, please let us know via the
+          feedback tool at the bottom of this page.
         </p>
       </div>
     ),

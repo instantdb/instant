@@ -25,7 +25,7 @@ import { useDarkMode } from '../DarkModeToggle';
 function clerkDomainError() {
   return isSelfHosted
     ? 'Could not determine Clerk domain from key. Contact your deployment administrator for help.'
-    : 'Could not determine Clerk domain from key. Ping us in Discord for help.';
+    : 'Could not determine Clerk domain from key. Email support@instantdb.com for help.';
 }
 
 function clerkExampleCode({

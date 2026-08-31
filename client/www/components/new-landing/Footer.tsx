@@ -1,9 +1,8 @@
 import Link from 'next/link';
-import { DiscordIcon, GitHubIcon, XIcon } from './icons';
+import { GitHubIcon, XIcon } from './icons';
 import { LogoType } from '../marketingUi';
 
 const twitterUrl = 'https://twitter.com/instant_db';
-const discordUrl = 'https://discord.com/invite/VU53p7uQcE';
 const githubUrl = 'https://github.com/instantdb/instant';
 
 const footerLinks = {
@@ -29,7 +28,6 @@ const footerLinks = {
   ],
   Community: [
     { href: twitterUrl, label: 'Twitter' },
-    { href: discordUrl, label: 'Discord' },
     { href: githubUrl, label: 'Github' },
   ],
 };
@@ -49,14 +47,6 @@ export function Footer() {
                 className="text-gray-500 transition-colors"
               >
                 <XIcon className="h-5 w-5" />
-              </a>
-              <a
-                href={discordUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-500 transition-colors"
-              >
-                <DiscordIcon className="h-5 w-5" />
               </a>
               <a
                 href={githubUrl}
