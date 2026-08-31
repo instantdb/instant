@@ -135,11 +135,6 @@
                             {:app-id app-id}
                             [{:message "A backup is already in progress for this app."}]))
 
-;; Discord invite the dashboard points users at (mirrors
-;; `client/www/lib/config.ts`). We ask large apps to reach out here instead of
-;; self-serving a backup.
-(def discord-invite-url "https://discord.com/invite/VU53p7uQcE")
-
 (defn ephemeral-app?
   "True if the app was created by the ephemeral-app creator (sandbox apps that
    expire on their own and aren't worth backing up)."
@@ -155,7 +150,7 @@
   "Refuses on-demand backups for apps that shouldn't self-serve: ephemeral apps,
    and apps whose estimated triple count is at or above
    `on-demand-backup-max-triples` (too large to stream on-demand--we run those
-   manually, so we point them to Discord). `estimate` is the app's already-
+   manually, so we ask them to contact support). `estimate` is the app's already-
    computed work-estimate, threaded through so we don't recount."
   ([app-id] (assert-backup-allowed! (aurora/conn-pool :read) app-id))
   ([conn app-id] (assert-backup-allowed! conn app-id (work-estimate conn app-id)))
@@ -173,8 +168,7 @@
         [{:message (str "This app is too large to back up from the dashboard. "
                         (if (config/superuser-email)
                           "Contact your deployment administrator to run the backup manually."
-                          (str "Reach out in Discord and we'll run the backup for you: "
-                               discord-invite-url)))}])))))
+                          "Email support@instantdb.com and we'll run the backup for you."))}])))))
 
 (defn create-job!
   ([params] (create-job! (aurora/conn-pool :write) params))

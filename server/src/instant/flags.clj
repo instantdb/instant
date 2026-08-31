@@ -542,8 +542,8 @@
 
 (defn on-demand-backup-max-triples
   "Apps whose estimated triple count is at or above this can't run a self-serve
-   backup--they're too large to stream on-demand, so we route them to us in
-   Discord. A nil or non-positive value disables the ceiling."
+   backup--they're too large to stream on-demand, so we route them to support.
+   A nil or non-positive value disables the ceiling."
   []
   (flag :on-demand-backup-max-triples 25000000))
 

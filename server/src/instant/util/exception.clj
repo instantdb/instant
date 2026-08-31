@@ -475,7 +475,7 @@
   (throw+ {::type ::rate-limited
            ::message (if (config/superuser-email)
                        "You're making too many requests. Please contact your deployment administrator."
-                       "You're making too many requests. Please email support@instantdb.com or ask for help in the Discord.")}))
+                       "You're making too many requests. Please email support@instantdb.com.")}))
 
 (defn throw-record-email-rate-limited! []
   (throw+ {::type ::rate-limited
