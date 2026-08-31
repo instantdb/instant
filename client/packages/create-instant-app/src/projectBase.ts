@@ -4,6 +4,7 @@ export type BackendConfigFile =
       path: string;
       initializer: string;
       websocket: boolean;
+      injectDevtoolConfig: boolean;
     }
   | {
       type: 'python';
@@ -16,11 +17,15 @@ type ProjectBaseConfig = {
   bundled: boolean;
 };
 
-const clientDb = (path = 'src/lib/db.ts'): BackendConfigFile => ({
+const clientDb = (
+  path = 'src/lib/db.ts',
+  options: { injectDevtoolConfig?: boolean } = {},
+): BackendConfigFile => ({
   type: 'typescript',
   path,
   initializer: 'init',
   websocket: true,
+  injectDevtoolConfig: options.injectDevtoolConfig ?? true,
 });
 
 const adminDb = (initializer = 'init'): BackendConfigFile => ({
@@ -28,6 +33,7 @@ const adminDb = (initializer = 'init'): BackendConfigFile => ({
   path: 'src/lib/adminDb.ts',
   initializer,
   websocket: false,
+  injectDevtoolConfig: false,
 });
 
 export const projectBaseConfig = {
@@ -48,7 +54,7 @@ export const projectBaseConfig = {
   },
   expo: {
     appIdEnvName: 'EXPO_PUBLIC_INSTANT_APP_ID',
-    backendConfigFiles: [clientDb('lib/db.ts')],
+    backendConfigFiles: [clientDb('lib/db.ts', { injectDevtoolConfig: false })],
     bundled: true,
   },
   'tanstack-start': {

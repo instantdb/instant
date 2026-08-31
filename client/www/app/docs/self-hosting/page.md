@@ -144,27 +144,7 @@ INSTANT_CLI_DASH_URI=https://dash.myinstant.com \
 npx instant-cli@latest login
 ```
 
-After authenticating, you can use the auth token associated with your self-hosted
-Instant in `create-instant-app` by setting `INSTANT_CLI_API_URI`:
-
-```shell
-INSTANT_CLI_API_URI=https://api.myinstant.com npx create-instant-app@latest
-```
-
-As a convenience, this will add an `instant.config.ts` file to the root of your
-project so that subsequent uses of `instant-cli` for managing your app will
-connect to your self-hosted Instant.
-
-```ts
-// instant.config.ts
-export default {
-  apiURI: 'https://api.myinstant.com',
-};
-```
-
-If you include `INSTANT_CLI_DASH_URI` when you call `create-instant-app`,
-your self-hosted dashboard URL will also be added to `instant.config.ts`. This
-can be helpful for authenticating with `instant-cli` if you're not logged in.
+After authenticating, provide both URLs when running `create-instant-app`:
 
 ```shell
 # Run this from your terminal
@@ -173,7 +153,8 @@ INSTANT_CLI_DASH_URI=https://dash.myinstant.com \
 npx create-instant-app@latest
 ```
 
-This will then add the following to your project:
+This connects the generated app to your self-hosted
+deployment and saves the configuration in `instant.config.ts`:
 
 ```ts
 // instant.config.ts

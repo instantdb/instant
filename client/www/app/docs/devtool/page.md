@@ -57,6 +57,30 @@ const db = init({
 });
 ```
 
+## Self-hosted dashboards
+
+When connecting to a self-hosted Instant deployment, set `dashURI` to the
+deployment's dashboard URL:
+
+```typescript
+import { init } from '@instantdb/react';
+
+import schema from '../instant.schema.ts';
+
+const db = init({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+  schema,
+  apiURI: 'https://api.myinstant.com',
+  websocketURI: 'wss://api.myinstant.com/runtime/session',
+  devtool: {
+    dashURI: 'https://dash.myinstant.com',
+  },
+});
+```
+
+The devtool will use your self-hosted dashboard for authentication and app
+management.
+
 ## Disabling the devtool
 
 If you would like to hide the devtool completely, you can add `devtool: false` in `init`:

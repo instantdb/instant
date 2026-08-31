@@ -136,11 +136,11 @@ const nextConfig = {
     if (process.env.NEXT_PUBLIC_SELF_HOSTED === 'true') {
       return [
         ...standardRedirects,
-        // redirect any page that isn't /api, /dash, /debug-uri, /docs, /intern, or /logout
+        // redirect any page that isn't /api, /dash, /debug-uri, /docs, /intern, /logout, or /_devtool
         {
           permanent: false,
           source:
-            '/((?!api(?:/.*)?$|dash(?:/.*)?$|debug-uri(?:/.*)?$|docs(?:/.*)?$|intern(?:/.*)?$|logout(?:/.*)?$|.*\\.[^/]+$).*)',
+            '/((?!api(?:/.*)?$|dash(?:/.*)?$|debug-uri(?:/.*)?$|docs(?:/.*)?$|intern(?:/.*)?$|logout(?:/.*)?$|_devtool(?:/.*)?$|.*\\.[^/]+$).*)',
           destination: '/dash',
         },
       ];

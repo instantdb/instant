@@ -43,9 +43,16 @@ export type DevtoolConfig = {
    * @default ['localhost']
    */
   allowedHosts?: string[];
+
+  /**
+   * Dashboard URI used to render the devtool
+   * @default 'https://instantdb.com'
+   */
+  dashURI?: string;
 };
 
 export type StrictDevtoolConfig = {
   position: DevtoolPosition;
   allowedHosts: string[];
+  dashURI?: string;
 };

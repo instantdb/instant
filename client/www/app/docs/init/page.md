@@ -102,7 +102,7 @@ and `schema`. Here are all the options you can provide:
 
 - **apiURI?**: Custom HTTP API endpoint for auth and storage operations. Defaults to `'https://api.instantdb.com'`. Change this for connecting to development or self-hosted instances.
 
-- **devtool?**: Controls the Instant dev tool. Defaults to `true` on localhost. Set to `false` to disable, or configure with `{ position: 'bottom-right', allowedHosts: ['localhost'] }`.
+- **devtool?**: Controls the Instant dev tool. Defaults to `true` on localhost. Set to `false` to disable, or configure its `position`, `allowedHosts`, and `dashURI`. Set `dashURI` when using a self-hosted dashboard.
 
 - **verbose?**: Enables detailed console logging for debugging. When `true`, logs WebSocket messages and internal operations. Helpful for troubleshooting connection and sync issues.
 

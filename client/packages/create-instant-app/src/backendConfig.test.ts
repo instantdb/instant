@@ -75,7 +75,7 @@ describe('applyBackendConfig', () => {
     );
   });
 
-  it('adds the dashboard URI to instant.config.ts when provided', () => {
+  it('adds the dashboard URI to the client and instant.config.ts', () => {
     const dir = createTempDir();
     const filePath = path.join(dir, 'src/lib/db.ts');
     fs.outputFileSync(filePath, 'export const db = init({\n});\n');
@@ -87,6 +87,15 @@ describe('applyBackendConfig', () => {
       'https://dash.instant.example',
     );
 
+    expect(fs.readFileSync(filePath, 'utf8')).toBe(
+      'export const db = init({\n' +
+        '  apiURI: "https://api.instant.example",\n' +
+        '  websocketURI: "wss://api.instant.example/runtime/session",\n' +
+        '  devtool: {\n' +
+        '    dashURI: "https://dash.instant.example",\n' +
+        '  },\n' +
+        '});\n',
+    );
     expect(fs.readFileSync(path.join(dir, 'instant.config.ts'), 'utf8')).toBe(
       `export default {
   apiURI: "https://api.instant.example",
@@ -103,12 +112,19 @@ describe('applyBackendConfig', () => {
     fs.outputFileSync(clientPath, 'export const db = init({\n});\n');
     fs.outputFileSync(adminPath, 'export const adminDb = init({\n});\n');
 
-    applyBackendConfig('tanstack-start', dir, 'https://instant.example');
-
-    expect(fs.readFileSync(adminPath, 'utf8')).toContain(
-      'init({\n  apiURI: "https://instant.example",\n',
+    applyBackendConfig(
+      'tanstack-start',
+      dir,
+      'https://api.instant.example',
+      'https://dash.instant.example',
     );
-    expect(fs.readFileSync(adminPath, 'utf8')).not.toContain('websocketURI');
+
+    const adminContents = fs.readFileSync(adminPath, 'utf8');
+    expect(adminContents).toContain(
+      'init({\n  apiURI: "https://api.instant.example",\n',
+    );
+    expect(adminContents).not.toContain('websocketURI');
+    expect(adminContents).not.toContain('devtool');
   });
 
   it('does not update any files if a template cannot be configured', () => {
