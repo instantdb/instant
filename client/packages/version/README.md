@@ -6,10 +6,6 @@
 </p>
 
 <p align="center">
-  <a
-    href="https://discord.com/invite/VU53p7uQcE" >
-    <img height=20 src="https://img.shields.io/discord/1031957483243188235" />
-  </a>
   <img src="https://img.shields.io/github/stars/instantdb/instant" alt="stars">
 </p>
 
@@ -17,7 +13,6 @@
    <a href="https://www.instantdb.com/docs/start-vanilla">Get Started</a>
    <a href="https://instantdb.com/examples">Examples</a>
    <a href="https://www.instantdb.com/docs/start-vanilla">Docs</a>
-   <a href="https://discord.com/invite/VU53p7uQcE">Discord</a>
 <p>
 
 This is a package all instant client js packages can depend on to get the version.
@@ -28,7 +23,7 @@ Follow the [getting started in vanilla Javascript](https://www.instantdb.com/doc
 
 # Questions?
 
-If you have any questions, feel free to drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE)
+If you have any questions, email [support@instantdb.com](mailto:support@instantdb.com).
 
 # Development
 

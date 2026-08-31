@@ -8,10 +8,6 @@
 </p>
 
 <p align="center">
-  <a 
-    href="https://discord.com/invite/VU53p7uQcE" >
-    <img height=20 src="https://img.shields.io/discord/1031957483243188235" />
-  </a>
   <a href="#">
     <img src="https://img.shields.io/github/stars/instantdb/instant" alt="stars">
   </a>
@@ -21,8 +17,7 @@
    <a href="https://instantdb.com/docs">Get Started</a> · 
    <a href="https://instantdb.com/examples">Examples</a> · 
    <a href="https://instantdb.com/tutorial">Try the Demo</a> · 
-   <a href="https://instantdb.com/docs">Docs</a> · 
-   <a href="https://discord.com/invite/VU53p7uQcE">Discord</a>
+   <a href="https://instantdb.com/docs">Docs</a>
 <p>
 
 Instant is the best backend for AI-coded apps. You get auth, permissions, storage, presence, and streams — everything you need to ship apps your users will love.
@@ -120,10 +115,10 @@ All data goes through a permission system powered by Google's [CEL library](http
 
 The easiest way to get started with Instant is by signing up on [instantdb.com](https://instantdb.com). [You can create a functional app in 5 minutes or less](https://instantdb.com/docs).
 
-If you have any questions, you can jump in on our [discord](https://discord.com/invite/VU53p7uQcE).
+If you have any questions, email [support@instantdb.com](mailto:support@instantdb.com).
 
 ## Contributing
 
-You can start by joining our [discord](https://discord.com/invite/VU53p7uQcE) and introducing yourself. Even if you don't contribute code, we always love feedback.
+You can start by opening an issue or pull request. Even if you don't contribute code, we always love feedback.
 
 If you want to make changes, start by reading the [`client`](./client/) and [`server`](./server/) READMEs. There you'll find instructions to start Instant locally.

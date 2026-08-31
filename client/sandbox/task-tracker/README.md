@@ -11,4 +11,4 @@ To push schema changes:
 To pull schema changes:
 `npx instant-cli pull`
 
-Got any feedback or questions? Join our [Discord](https://discord.gg/hgVf9R6SBm)
+Got feedback or questions? Email [support@instantdb.com](mailto:support@instantdb.com).

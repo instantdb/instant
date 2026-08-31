@@ -15,4 +15,4 @@ To push schema and permission changes (requires Node):
 
 `instant.schema.ts` and `instant.perms.ts` are included so you can manage your app with the Instant CLI.
 
-Got any feedback or questions? Join our [Discord](https://discord.gg/hgVf9R6SBm)
+Got feedback or questions? Email [support@instantdb.com](mailto:support@instantdb.com).

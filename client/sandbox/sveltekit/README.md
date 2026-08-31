@@ -20,4 +20,4 @@ Load [localhost:5173](http://localhost:5173) and the app will automatically crea
 
 # Questions?
 
-If you have any questions, feel free to drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE)!
+If you have any questions, email [support@instantdb.com](mailto:support@instantdb.com).
