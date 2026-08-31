@@ -10,7 +10,7 @@ data to your database. Common scenarios include:
 
 - Shared cursors in a collaborative whiteboard like Figma
 - Who's online in a document editor like Google Docs
-- Typing indicators in chat apps like Discord
+- Typing indicators in chat apps
 - Live reactions in a video streaming app like Twitch
 
 Instant provides three primitives for quickly building these ephemeral experiences: rooms, presence, and topics.

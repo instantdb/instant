@@ -32,7 +32,7 @@ Your OAuth app will start in test mode. Only members of your Instant app will be
 
 {% hosted-only %}
 
-Once you have your OAuth flow working, [ping us in Discord](https://discord.gg/2rnGtfFQup) to go live.
+Once you have your OAuth flow working, email [support@instantdb.com](mailto:support@instantdb.com) to go live.
 
 {% /hosted-only %}
 

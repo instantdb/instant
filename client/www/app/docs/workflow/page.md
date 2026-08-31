@@ -18,7 +18,7 @@ At a high level, here is the recommended workflow for developing with Instant:
 
 {% hosted-only %}
 
-You can also drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE).
+You can also email [support@instantdb.com](mailto:support@instantdb.com).
 
 {% /hosted-only %}
 
@@ -135,7 +135,7 @@ InstantDB.
 
 {% hosted-only %}
 
-If you still have questions, feel free to drop us a line on our
-[Discord](https://discord.com/invite/VU53p7uQcE).
+If you still have questions, email
+[support@instantdb.com](mailto:support@instantdb.com).
 
 {% /hosted-only %}

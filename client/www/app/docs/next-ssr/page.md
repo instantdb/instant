@@ -200,6 +200,6 @@ If your code uses `useUser`, `useAuth`, or `db.SignedIn`/`db.SignedOut`, it will
 
 {% hosted-only %}
 
-This is still a beta. We'd love to hear your feedback on [Discord](https://discord.com/invite/VU53p7uQcE)!
+This is still a beta. We'd love to hear your feedback at [support@instantdb.com](mailto:support@instantdb.com)!
 
 {% /hosted-only %}

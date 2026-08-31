@@ -81,6 +81,6 @@ To quickly toggle the window, you can use the shortcut `ctrl` + `shift` + `0` (z
 
 ## Feedback?
 
-If you have any feedback, let us know on [Discord](https://discord.com/invite/VU53p7uQcE).
+If you have any feedback, email [support@instantdb.com](mailto:support@instantdb.com).
 
 {% /hosted-only %}
