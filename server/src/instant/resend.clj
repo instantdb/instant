@@ -17,6 +17,7 @@
 
 (defn format-recipients [to]
   (cond
+    (nil? to) []
     (string? to) [to]
     (sequential? to) (mapv (fn [r] (if (map? r) (:email r) (str r))) to)
     (map? to) [(:email to)]
@@ -38,14 +39,16 @@
    {:recipient (first (format-recipients to))}
    e))
 
-(defn send! [{:keys [from to cc bcc subject html reply-to]}]
+(defn send! [{:keys [from to cc bcc subject html text reply-to]}]
   (let [to-emails (format-recipients to)
         from-str (format-sender from)
-        reply-to-email (or reply-to (config/email-reply-to))
+        reply-to-email (when-let [rt (or reply-to (config/email-reply-to))]
+                         (format-sender rt))
         body (cond-> {:from from-str
                       :to to-emails
                       :subject subject
                       :html html}
+               text (assoc :text text)
                reply-to-email (assoc :reply_to reply-to-email)
                cc (assoc :cc (format-recipients cc))
                bcc (assoc :bcc (format-recipients bcc)))]
@@ -66,7 +69,8 @@
            "https://api.resend.com/emails"
            {:headers {"Authorization" (str "Bearer " (config/resend-token))
                       "Content-Type" "application/json"}
-            :follow-redirects false
+            :redirect-strategy :none
+            :unexceptional-status #(<= 200 % 299)
             :conn-timeout 10000
             :socket-timeout 10000
             :connection-request-timeout 10000
