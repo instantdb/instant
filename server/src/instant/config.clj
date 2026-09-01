@@ -134,6 +134,11 @@
   (or (some-> (System/getenv "SENDGRID_TOKEN") string/trim not-empty)
       (some-> @config-map :sendgrid-token crypt-util/secret-value)))
 
+(defn resend-token []
+  (or (some-> (System/getenv "RESEND_TOKEN") string/trim not-empty)
+      (some-> (System/getenv "RESEND_API_KEY") string/trim not-empty)
+      (some-> @config-map :resend-token crypt-util/secret-value)))
+
 (defn postmark-account-token []
   (or (System/getenv "POSTMARK_ACCOUNT_TOKEN")
       (some-> @config-map :postmark-account-token crypt-util/secret-value)))
@@ -161,7 +166,7 @@
 
 (defn email-provider
   "Explicit email-provider override for self-hosted deployments
-   (INSTANT_EMAIL_PROVIDER = \"postmark\" | \"sendgrid\"). Wins over token
+   (INSTANT_EMAIL_PROVIDER = \"postmark\" | \"sendgrid\" | \"resend\"). Wins over token
    auto-detection when set. nil when unset."
   []
   (some-> (System/getenv "INSTANT_EMAIL_PROVIDER")
@@ -169,6 +174,9 @@
           string/lower-case
           not-empty
           keyword))
+
+(defn resend-send-enabled? []
+  (not (string/blank? (resend-token))))
 
 (defn sendgrid-send-enabled? []
   (not (string/blank? (sendgrid-token))))

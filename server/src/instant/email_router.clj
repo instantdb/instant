@@ -3,6 +3,7 @@
    [instant.config :as config]
    [instant.flags :as flags]
    [instant.postmark :as postmark]
+   [instant.resend :as resend]
    [instant.sendgrid :as sendgrid]))
 
 (def sendgrid-froms
@@ -11,13 +12,21 @@
 
 (defn send-structured! [req]
   (cond
-    ;; Explicit provider override (self-hosted), wins even if both tokens
-    ;; are configured.
+    ;; Explicit provider override (self-hosted)
+    (= :resend (config/email-provider))
+    (resend/send! req)
+
     (= :sendgrid (config/email-provider))
     (sendgrid/send! req)
 
     (= :postmark (config/email-provider))
     (postmark/send-structured! req)
+
+    ;; Auto-detect: Resend configured and others not
+    (and (config/resend-send-enabled?)
+         (not (config/postmark-send-enabled?))
+         (not (config/sendgrid-send-enabled?)))
+    (resend/send! req)
 
     ;; Auto-detect: SendGrid configured and Postmark not — route through
     ;; SendGrid using the operator's own from-address.
