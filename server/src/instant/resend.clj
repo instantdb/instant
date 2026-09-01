@@ -52,7 +52,7 @@
 
     (if-not (config/resend-send-enabled?)
       (tracer/with-span! {:name "resend/send-disabled"
-                          :attributes body}
+                          :attributes {:to-count (count to-emails)}}
         (tracer/record-info!
          {:name "resend-disabled"
           :attributes
@@ -60,12 +60,16 @@
            "Resend is disabled, add resend-token to config to enable"}}))
       (tracer/with-span!
         {:name "resend/send"
-         :attributes {:body body}}
+         :attributes {:to-count (count to-emails)}}
         (try
           (clj-http/post
            "https://api.resend.com/emails"
            {:headers {"Authorization" (str "Bearer " (config/resend-token))
                       "Content-Type" "application/json"}
+            :follow-redirects false
+            :conn-timeout 10000
+            :socket-timeout 10000
+            :connection-request-timeout 10000
             :body (->json body)})
           (catch Exception e
             (throw-send-error! e to)))))))
