@@ -1,7 +1,6 @@
 (ns instant.resend
   (:require
    [clj-http.client :as clj-http]
-   [clojure.string :as string]
    [instant.config :as config]
    [instant.util.exception :as ex]
    [instant.util.json :refer [->json <-json]]
