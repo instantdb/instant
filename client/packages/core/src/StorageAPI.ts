@@ -1,5 +1,9 @@
 import { jsonFetch } from './utils/fetch.js';
 
+function isHeaderSafe(value: string): boolean {
+  return /^[\x20-\x7e\xa0-\xff]*$/.test(value);
+}
+
 export type UploadFileResponse = {
   data: {
     id: string;
@@ -32,15 +36,22 @@ export async function uploadFile({
   const headers = {
     'app-id': appId,
     app_id: appId,
-    path,
     authorization: `Bearer ${refreshToken}`,
     'content-type': contentType || file.type,
   };
-  if (contentDisposition) {
+  if (isHeaderSafe(path)) {
+    headers['path'] = path;
+  }
+  if (contentDisposition && isHeaderSafe(contentDisposition)) {
     headers['content-disposition'] = contentDisposition;
   }
 
-  const data = await jsonFetch(`${apiURI}/storage/upload`, {
+  let url = `${apiURI}/storage/upload?app_id=${encodeURIComponent(appId)}&path=${encodeURIComponent(path)}`;
+  if (contentDisposition) {
+    url += `&content-disposition=${encodeURIComponent(contentDisposition)}`;
+  }
+
+  const data = await jsonFetch(url, {
     method: 'PUT',
     headers,
     body: file,
