@@ -45,7 +45,9 @@
   (is (= "INSTANT_CONFIG_S3_ENDPOINT"
          (config-edn/config-env-var-name :s3-endpoint)))
   (is (= "INSTANT_CONFIG_POSTMARK_TOKEN"
-         (config-edn/config-env-var-name :postmark-token))))
+         (config-edn/config-env-var-name :postmark-token)))
+  (is (= "INSTANT_CONFIG_RESEND_TOKEN"
+         (config-edn/config-env-var-name :resend-token))))
 
 (deftest env-overrides-obfuscate-secrets-only
   ;; With no INSTANT_CONFIG_* env vars set, there's nothing to override.
@@ -54,6 +56,7 @@
   (let [overridable? #(some? (#'config-edn/overridable-key-type %))]
     (is (overridable? :s3-endpoint))
     (is (overridable? :postmark-token))
+    (is (overridable? :resend-token))
     (is (not (overridable? :google-oauth-client)))
     (is (not (overridable? :aead-keyset)))))
 

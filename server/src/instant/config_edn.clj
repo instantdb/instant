@@ -48,6 +48,7 @@
 (s/def ::s3-bucket-name string?)
 (s/def ::postmark-token ::config-value)
 (s/def ::sendgrid-token ::config-value)
+(s/def ::resend-token ::config-value)
 (s/def ::postmark-account-token ::config-value)
 (s/def ::secret-discord-token ::config-value)
 (s/def ::database-url ::config-value)
@@ -87,6 +88,7 @@
                                  ::next-database-cluster-id
                                  ::postmark-token
                                  ::sendgrid-token
+                                 ::resend-token
                                  ::postmark-account-token
                                  ::secret-discord-token
                                  ::stripe-secret

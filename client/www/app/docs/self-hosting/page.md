@@ -71,14 +71,33 @@ INSTANT_TEAM_EMAIL_SENDER_NAME=Instant
 INSTANT_TEAM_EMAIL_SENDER_EMAIL=teams@example.com
 ```
 
-If only one of `POSTMARK_TOKEN` or `SENDGRID_TOKEN` is set, Instant uses that
-provider automatically. If you set both, choose one explicitly with:
+If only one of `POSTMARK_TOKEN`, `SENDGRID_TOKEN`, or `RESEND_TOKEN` is set, Instant uses that
+provider automatically. If you set multiple, choose one explicitly with:
 
 ```shell
 INSTANT_EMAIL_PROVIDER=sendgrid
 ```
 
 Restart the backend and try logging in to the dashboard to confirm delivery.
+
+### Configure email with Resend
+
+You can also use [Resend](https://resend.com/) to send emails. Create an API key,
+verify your domain in Resend, and set:
+
+```shell
+RESEND_TOKEN=replace-with-your-api-key
+INSTANT_EMAIL_REPLY_TO=hello@example.com
+INSTANT_DASHBOARD_EMAIL_SENDER_NAME=Instant
+INSTANT_DASHBOARD_EMAIL_SENDER_EMAIL=verify@example.com
+INSTANT_APP_EMAIL_SENDER_NAME=Instant
+INSTANT_APP_EMAIL_SENDER_EMAIL=verify@example.com
+INSTANT_TEAM_EMAIL_SENDER_NAME=Instant
+INSTANT_TEAM_EMAIL_SENDER_EMAIL=teams@example.com
+```
+
+You can also set `INSTANT_EMAIL_PROVIDER=resend` to explicitly select Resend.
+Restart the backend and try logging in to confirm delivery.
 
 ### Configure Google dashboard login
 
