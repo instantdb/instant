@@ -1490,6 +1490,10 @@ export async function jsonFetch(
     : Promise.reject({ status: res.status, body: json });
 }
 
+function isHeaderSafe(value: string): boolean {
+  return /^[\x20-\x7e\xa0-\xff]*$/.test(value);
+}
+
 async function upload(
   token: string,
   appId: string,
@@ -1497,15 +1501,20 @@ async function upload(
   customFilename: string,
   apiUri: string,
 ): Promise<boolean> {
-  const headers = {
+  const path = customFilename || file.name;
+  const headers: Record<string, string> = {
     'app-id': appId,
     app_id: appId,
-    path: customFilename || file.name,
     authorization: `Bearer ${token}`,
     'content-type': file.type,
   };
+  if (isHeaderSafe(path)) {
+    headers['path'] = path;
+  }
 
-  const data = await jsonFetch(`${apiUri}/dash/apps/${appId}/storage/upload`, {
+  const url = `${apiUri}/dash/apps/${appId}/storage/upload?path=${encodeURIComponent(path)}`;
+
+  const data = await jsonFetch(url, {
     method: 'PUT',
     headers,
     body: file,

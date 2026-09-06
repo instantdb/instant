@@ -323,10 +323,8 @@ You can also manage your app's [storage](/docs/storage) with the HTTP API.
 Upload a file with `PUT /admin/storage/upload`:
 
 ```shell
-curl -X PUT "https://api.instantdb.com/admin/storage/upload" \
+curl -X PUT "https://api.instantdb.com/admin/storage/upload?app_id=$APP_ID&path=snippets/demo.txt" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "App-Id: $APP_ID" \
-  -H "Path: snippets/demo.txt" \
   -H "Content-Type: text/plain" \
   --data-binary "@demo.txt"
 ```
