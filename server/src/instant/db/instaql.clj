@@ -1259,21 +1259,30 @@
                                      :query-modifiers query-modifiers}}
       (let [datalog-query-fn (or (:datalog-query-fn ctx)
                                  #'d/query)
-            {:keys [patterns forms]} (instaql-query->patterns ctx (if (seq query-modifiers)
-                                                                    (add-query-modifiers o query-modifiers)
-                                                                    o))
-            datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
+            effective-query (if (seq query-modifiers)
+                              (add-query-modifiers o query-modifiers)
+                              o)
+            effective-query-normalized (if (seq query-modifiers)
+                                         (instaql-util/normalized-forms effective-query)
+                                         query-normalized)
+            {:keys [patterns forms]} (instaql-query->patterns ctx effective-query)
+            datalog-result (datalog-query-fn (assoc ctx
+                                                   :query-hash query-hash
+                                                   :query-normalized effective-query-normalized)
                                              patterns)]
         (collect-query-results ctx (:data datalog-result) forms)))))
 
 (defn explain
   "Generates a nested datalog query, then runs explain."
   [ctx o]
-  (let [query-hash (instaql-util/forms-hash o)
+  (let [query-normalized (instaql-util/normalized-forms o)
+        query-hash (hash query-normalized)
         explain-fn (or (:datalog-explain-fn ctx)
                        d/explain)
         {:keys [patterns]} (instaql-query->patterns ctx o)]
-    (explain-fn (assoc ctx :query-hash query-hash)
+    (explain-fn (assoc ctx
+                       :query-hash query-hash
+                       :query-normalized query-normalized)
                 patterns)))
 
 ;; BYOP InstaQL
