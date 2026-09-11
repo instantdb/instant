@@ -2850,7 +2850,7 @@
         {:keys [ctes pg-hints]} (if (and (enable-pg-hints?)
                                         (not (flags/toggled? :disable-pg-hints)))
                                  (scoped-query-plans/apply-plan
-                                  app-id (:query-normalized ctx) ctes pg-hints tables)
+                                  app-id (:query-normalized ctx) ctes pg-hints tables (:attrs ctx))
                                  {:ctes ctes :pg-hints pg-hints})
         query (when (seq ctes)
                 {:with ctes
