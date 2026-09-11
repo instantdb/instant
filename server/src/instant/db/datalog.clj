@@ -2782,6 +2782,46 @@
          (assoc :children {:pattern-groups (:pattern-groups res)
                            :join-sym (get-in nested-named-patterns [:children :join-sym])})))))
 
+;; Underestimated filter sizes can make a nested loop rescan one filter for
+;; every row of the other. Use the measured hash join for this app and shape.
+(defn- scoped-query-hints [ctx app-id ctes pg-hints]
+  (if (and (enable-pg-hints?)
+           (= app-id #uuid "324b0c54-bf82-437e-9a31-fbc637ab61d2")
+           (= (:query-normalized ctx)
+              {:notif {:$ {:where {:and [{:client_id :string}
+                                         {:or (vec (repeat 7 {:channel :string}))}]}
+                           :limit 1
+                           :order {:serverCreatedAt "desc"}}}})
+           ;; Preserve cheaper entity lookups chosen for sparse filters.
+           (= {(pg-hint/index-scan :t0 :ave_with_e_index) 1
+               (pg-hint/index-scan :t1 :ave_with_e_index) 1
+               (pg-hint/bitmap-scan :t2 :ea_index) 1}
+              (frequencies
+               (filter (fn [[_ table]]
+                         (contains? #{:t0 :t1 :t2} table))
+                       pg-hints)))
+           ;; The hints refer to these aliases in one inlined join tree.
+           (= [[:m-0 [[:triples :t0]] :not-materialized]
+               [:m-1 [[:triples :t1] :m-0] :not-materialized]
+               [:m-2-with-next [[:triples :t2] :m-1] :materialized]]
+              (mapv (fn [[table query materialized]]
+                      [table (:from query) materialized])
+                    (take 3 ctes)))
+           (let [[_ [_ filter-query] [_ page-query]] ctes]
+             (and (contains? (set (rest (:where filter-query)))
+                             [:= :entity-id :m-0-entity-id])
+                  (set/subset? #{[:= :entity-id :m-0-entity-id]
+                                 [:= :entity-id :m-1-entity-id]}
+                               (set (rest (:where page-query))))))
+           (not-any? (fn [hint]
+                       (contains? #{:'Leading :'HashJoin :'NestLoop :'MergeJoin
+                                    :'NoHashJoin :'NoNestLoop :'NoMergeJoin}
+                                  (first hint)))
+                     pg-hints))
+    (into (vec pg-hints) [(pg-hint/leading :t0 :t1 :t2)
+                         (pg-hint/hash-join :t0 :t1)])
+    pg-hints))
+
 (defn nested-match-query
   "Generates the hsql `query` and metadata about the query under `children`.
   `children` matches the structure of nested-named-patterns and has all of the
@@ -2792,20 +2832,22 @@
   (let [{:keys [ctes result-tables children pg-hints]}
         (accumulate-nested-match-query prefix app-id nested-named-patterns)
         tables (set (map :table result-tables))
-        query (when (seq ctes)
-                {:with (map #(cond
-                               ;; Forces postgres to only evaluate the cte once
-                               ;; https://www.postgresql.org/docs/current/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION
-                               (= (count %) 2)
-                               (conj % :materialized)
+        ctes (map #(cond
+                     ;; Forces postgres to only evaluate the cte once
+                     ;; https://www.postgresql.org/docs/current/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION
+                     (= (count %) 2)
+                     (conj % :materialized)
 
-                               ;; We're in the result table, so let's make sure we're materialized
-                               (contains? tables (first %))
-                               (assoc % 2 :materialized)
-                               ;; If count != 2, then someone higher up set a materialized
-                               ;; option, let's not override their wisdom.
-                               :else %)
-                            ctes)
+                     ;; We're in the result table, so let's make sure we're materialized
+                     (contains? tables (first %))
+                     (assoc % 2 :materialized)
+                     ;; If count != 2, then someone higher up set a materialized
+                     ;; option, let's not override their wisdom.
+                     :else %)
+                  ctes)
+        pg-hints (scoped-query-hints ctx app-id ctes pg-hints)
+        query (when (seq ctes)
+                {:with ctes
 
                  :pg-hints (if (flags/toggled? :disable-pg-hints)
                              []
