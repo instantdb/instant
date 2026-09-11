@@ -33,6 +33,7 @@
             [instant.config :as config]
             [instant.db.model.triple :as triple-model]
             [instant.db.attr-sketch :as cms]
+            [instant.db.scoped-query-plans :as scoped-query-plans]
             [instant.flags :as flags]
             [instant.util.spec :as uspec]
             [instant.util.tracer :as tracer]
@@ -2846,6 +2847,11 @@
                      :else %)
                   ctes)
         pg-hints (scoped-query-hints ctx app-id ctes pg-hints)
+        {:keys [ctes pg-hints]} (if (and (enable-pg-hints?)
+                                        (not (flags/toggled? :disable-pg-hints)))
+                                 (scoped-query-plans/apply-plan
+                                  app-id (:query-normalized ctx) ctes pg-hints tables)
+                                 {:ctes ctes :pg-hints pg-hints})
         query (when (seq ctes)
                 {:with ctes
 
