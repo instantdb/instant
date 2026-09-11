@@ -7,11 +7,13 @@ Committed heap is not a pressure signal with `-Xms90g -Xmx90g`.
 The publisher refreshes its group tag every minute because immutable platform
 updates transfer running instances between groups.
 
-The Elastic Beanstalk bundle installs two scale-out alarms: the highest JVM heap
-pressure above 80%, or GC pause time above 20%, in two consecutive one-minute
-periods. Each period uses its maximum; this can respond to recurring bursts
-without requiring two continuous minutes above the threshold. CPU
-scale-out remains above 70% for two minutes. Normal capacity remains one to two
+The Elastic Beanstalk bundle installs 2-of-2 one-minute Maximum alarms for
+heap pressure above 80% and GC pause time above 20%, using the highest reported
+JVM value. With complete telemetry, both consecutive minute maxima must breach;
+recurring bursts can qualify without continuous pressure. With missing samples,
+CloudWatch can evaluate older data and alarm after a breach followed by gaps
+([AWS behavior](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-missing-data.html)).
+CPU scale-out remains above 70% for two minutes. Normal capacity remains one to two
 instances. These starting thresholds were exercised with local G1 workloads;
 they are not a guarantee of warning before every sudden failure.
 
