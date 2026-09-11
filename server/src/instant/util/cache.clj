@@ -9,8 +9,8 @@
    (java.lang Iterable)
    (java.time Duration)
    (java.util Optional OptionalLong)
-   (java.util.concurrent CompletableFuture)
-   (java.util.function Function)))
+   (java.util.concurrent CompletableFuture Executor)
+   (java.util.function BiFunction Function Supplier)))
 
 (defn- wrap-value-fn-with-optional
   "Wraps the value function with an optional so that we can store nils in the cache."
@@ -142,12 +142,21 @@
   "Returns a completeable future with the value associated with the key
    in this async cache. This method provides a simple substitute for the
    conventional “if cached, return; otherwise create, cache and return”
-   pattern."
-  ^CompletableFuture [^AsyncLoadingCache cache key ^Function value-fn]
-  (if (some? key)
-    (-> (.get cache key (wrap-value-fn-with-optional value-fn))
-        (.thenApply ^Function unwrap-optional))
-    (CompletableFuture/completedFuture nil)))
+   pattern. The optional executor runs value-fn; cache maintenance still uses
+   the cache's executor."
+  (^CompletableFuture [cache key value-fn]
+   (get-async cache key value-fn nil))
+  (^CompletableFuture [^AsyncCache cache key ^Function value-fn ^Executor executor]
+   (if (some? key)
+     (-> (.get cache key
+               (reify BiFunction
+                 (apply [_ k cache-executor]
+                   (CompletableFuture/supplyAsync
+                    (reify Supplier
+                      (get [_] (Optional/ofNullable (value-fn k))))
+                    (or executor cache-executor)))))
+         (.thenApply ^Function unwrap-optional))
+     (CompletableFuture/completedFuture nil))))
 
 (defn get-if-present
   "Returns the value associated with the key in this cache, or null if there is no cached value for the key."
