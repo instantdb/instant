@@ -172,7 +172,7 @@ Resources:
               if not ready():
                   raise ValueError("environment changed before scale-in")
               try:
-                  asg.execute_policy(AutoScalingGroupName=name, PolicyName=policy, HonorCooldown=True)
+                  asg.execute_policy(PolicyName=policy, HonorCooldown=True)
               except Exception as exc:
                   return {"action": "unknown", "reason": "policy execution failed: " + type(exc).__name__}
               return {"action": "scale-in", "instances": ids}
