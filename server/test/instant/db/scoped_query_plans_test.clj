@@ -103,9 +103,9 @@
     :expected-hints [[:'IndexScan :t0 :ave_with_e_index] [:'IndexScan :t1 :ea_index]
                      [:'HashJoin :t0 :t1 :t1-subquery]]}])
 
-(defn apply-plan [{:keys [app-id query ctes pg-hints result-tables]}]
+(defn apply-plan [{:keys [app-id query ctes pg-hints result-tables attrs]}]
   (plans/apply-plan app-id (instaql-util/normalized-forms query)
-                    ctes pg-hints (or result-tables #{})))
+                    ctes pg-hints (or result-tables #{}) attrs))
 
 (defn unchanged? [case]
   (= (select-keys case [:ctes :pg-hints]) (apply-plan case)))
@@ -123,7 +123,7 @@
           (is (= ctes (:ctes result))))
         (is (= result (plans/apply-plan (:app-id case)
                                         (instaql-util/normalized-forms (:query case))
-                                        (:ctes result) (:pg-hints result) #{})))))))
+                                        (:ctes result) (:pg-hints result) #{} (:attrs case))))))))
 
 (deftest scope-and-layout-guards
   (doseq [{:keys [name] :as case} cases]
@@ -166,13 +166,13 @@
                                [[:triples :renamed]])]]
       (is (unchanged? (change case))))))
 
-(defn compile-case [{:keys [app-id query ctes pg-hints]}]
+(defn compile-case [{:keys [app-id query ctes pg-hints attrs]}]
   (with-redefs [d/accumulate-nested-match-query
                 (fn [& _]
                   {:ctes ctes :pg-hints pg-hints :children {}
                    :result-tables [{:table (ffirst (reverse ctes))}]})]
     (:query (d/nested-match-query
-             {:query-normalized (instaql-util/normalized-forms query)}
+             {:query-normalized (instaql-util/normalized-forms query) :attrs attrs}
              :m- app-id {}))))
 
 (deftest switches-disable-both-hints-and-the-child-rewrite

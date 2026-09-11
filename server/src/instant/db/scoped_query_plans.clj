@@ -146,7 +146,50 @@
     {:ctes ctes
      :pg-hints (conj (vec pg-hints) (pg-hint/hash-join :t0 :t1 :t1-subquery))}))
 
-(defn apply-plan [app-id normalized ctes pg-hints result-tables]
+(defn- numeric-range [app-id normalized ctes pg-hints result-tables attrs]
+  (let [[[_ lower-query] [_ upper-query]] ctes
+        lower-predicate (last (:where lower-query))
+        upper-predicate (nth (:where upper-query) 4 nil)
+        lower (get-in lower-predicate [1 2])
+        upper (get-in upper-predicate [1 2])
+        attr-id (some (fn [[op column value]]
+                        (when (and (= op :=) (= column :attr-id)) value))
+                      (filter vector? (conjuncts lower-query)))
+        attr (some #(when (= attr-id (:id %)) %) attrs)
+        numeric-type [:= :checked_data_type [:cast [:inline "number"] :checked_data_type]]
+        base #{[:= :app-id app-id] [:= :ave :true] [:= :attr-id attr-id]}]
+    (when (and (= normalized
+                  {:Prices {:$ {:where {:and [{:timestamp {:$gt :number}}
+                                             {:timestamp {:$lt :number}}]}
+                                :order {:timestamp "asc"} :limit 1000}}})
+               (scans? pg-hints [(pg-hint/index-scan :t0 :triples_number_type_idx)
+                                 (pg-hint/index-scan :t1 :triples_pkey)
+                                 (pg-hint/bitmap-scan :t2 :triples_pkey)])
+               (layout? ctes [[:m-0 [[:triples :t0]] :not-materialized]
+                              [:m-1 [[:triples :t1] :m-0] :not-materialized]
+                              [:m-2-with-next [[:triples :t2] :m-1] :materialized]])
+               (not (contains? result-tables :m-0))
+               (= 2 (count (filter #{:m-0} (tree-seq coll? seq ctes))))
+               (= #{:select :from :where} (set (keys lower-query)) (set (keys upper-query)))
+               (uuid? attr-id)
+               (= :one (:cardinality attr))
+               (= :blob (:value-type attr))
+               (= :number (:checked-data-type attr))
+               (number? lower) (number? upper) (< lower upper)
+               (= lower-predicate [:and [:> [:triples_extract_number_value :value] lower]
+                                    numeric-type])
+               (= upper-predicate [:and [:< [:triples_extract_number_value :value] upper]
+                                    numeric-type])
+               (= (conj base lower-predicate) (conjuncts lower-query))
+               (= (conj base upper-predicate [:= :entity-id :m-0-entity-id])
+                  (conjuncts upper-query)))
+      ;; Both filters read the same single-valued attribute. Its upper bound
+      ;; can also constrain the first index scan, before the entity lookups.
+      ;; Retain the second filter and all result/pagination CTEs.
+      {:ctes (update-in (vec ctes) [0 1 :where] #(conj (vec %) upper-predicate))
+       :pg-hints pg-hints})))
+
+(defn apply-plan [app-id normalized ctes pg-hints result-tables attrs]
   (or (when (not-any? #(contains? #{:'Leading :'HashJoin :'NestLoop :'MergeJoin
                                    :'NoHashJoin :'NoNestLoop :'NoMergeJoin}
                                  (first %))
@@ -160,6 +203,9 @@
 
           #uuid "52d525f5-afb4-4a7a-9efd-e6791c0bdd6a"
           (nullable-filter app-id normalized ctes pg-hints)
+
+          #uuid "1c436238-c543-44d0-9a6b-51f7e5b840e3"
+          (numeric-range app-id normalized ctes pg-hints result-tables attrs)
 
           nil))
       {:ctes ctes :pg-hints pg-hints}))
