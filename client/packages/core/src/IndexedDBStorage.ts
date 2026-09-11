@@ -5,6 +5,22 @@ import {
   StoreInterface,
   StoreInterfaceStoreName,
 } from './utils/PersistedObject.ts';
+import InMemoryStore from './InMemoryStorage.ts';
+
+// Access via globalThis so missing `indexedDB` (Safari private browsing,
+// embedded webviews, storage disabled) is `undefined` instead of a
+// ReferenceError on the free variable.
+function getIndexedDB(): IDBFactory | undefined {
+  try {
+    const idb = globalThis.indexedDB;
+    if (idb && typeof idb.open === 'function') {
+      return idb;
+    }
+  } catch {
+    // Some environments throw when reading storage APIs.
+  }
+  return undefined;
+}
 
 // Any time these are updates to the data format or new stores are added,
 // the version must be updated.
@@ -32,8 +48,12 @@ function logErrorCb(source: string) {
 }
 
 async function existingDb(name: string): Promise<IDBDatabase | null> {
+  const idb = getIndexedDB();
+  if (!idb) {
+    return null;
+  }
   return new Promise((resolve) => {
-    const request = indexedDB.open(name);
+    const request = idb.open(name);
 
     request.onerror = (_event) => {
       resolve(null);
@@ -189,19 +209,31 @@ export default class IndexedDBStorage extends StoreInterface {
   _appId: string;
   _prefix: string;
   _dbPromise: Promise<IDBDatabase>;
+  _memoryFallback: InMemoryStore | null;
 
   constructor(appId: string, storeName: StoreInterfaceStoreName) {
     super(appId, storeName);
     this.dbName = `instant_${appId}_${version}`;
     this._storeName = storeName;
     this._appId = appId;
-    this._dbPromise = this._init();
+    if (getIndexedDB()) {
+      this._memoryFallback = null;
+      this._dbPromise = this._init();
+    } else {
+      this._memoryFallback = new InMemoryStore(appId, storeName);
+      this._dbPromise = Promise.resolve(null as unknown as IDBDatabase);
+    }
   }
 
   _init(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
+      const idb = getIndexedDB();
+      if (!idb) {
+        reject(new Error('IndexedDB is not available'));
+        return;
+      }
       let requiresUpgrade = false;
-      const request = indexedDB.open(this.dbName, 1);
+      const request = idb.open(this.dbName, 1);
 
       request.onerror = (event) => {
         reject(event);
@@ -271,6 +303,9 @@ export default class IndexedDBStorage extends StoreInterface {
   }
 
   async getItem(k: string): Promise<any> {
+    if (this._memoryFallback) {
+      return this._memoryFallback.getItem(k);
+    }
     return this._withRetry((db) => {
       return new Promise((resolve, reject) => {
         const transaction = db.transaction([this._storeName], 'readonly');
@@ -291,6 +326,9 @@ export default class IndexedDBStorage extends StoreInterface {
   }
 
   async setItem(k: string, v: any): Promise<void> {
+    if (this._memoryFallback) {
+      return this._memoryFallback.setItem(k, v);
+    }
     return this._withRetry((db) => {
       return new Promise((resolve, reject) => {
         const transaction = db.transaction([this._storeName], 'readwrite');
@@ -306,6 +344,9 @@ export default class IndexedDBStorage extends StoreInterface {
   }
 
   async multiSet(keyValuePairs: Array<[string, any]>): Promise<void> {
+    if (this._memoryFallback) {
+      return this._memoryFallback.multiSet(keyValuePairs);
+    }
     return this._withRetry((db) => {
       return new Promise((resolve, reject) => {
         const transaction = db.transaction([this._storeName], 'readwrite');
@@ -323,6 +364,9 @@ export default class IndexedDBStorage extends StoreInterface {
   }
 
   async removeItem(k: string): Promise<void> {
+    if (this._memoryFallback) {
+      return this._memoryFallback.removeItem(k);
+    }
     return this._withRetry((db) => {
       return new Promise((resolve, reject) => {
         const transaction = db.transaction([this._storeName], 'readwrite');
@@ -338,6 +382,9 @@ export default class IndexedDBStorage extends StoreInterface {
   }
 
   async getAllKeys(): Promise<string[]> {
+    if (this._memoryFallback) {
+      return this._memoryFallback.getAllKeys();
+    }
     return this._withRetry((db) => {
       return new Promise((resolve, reject) => {
         const transaction = db.transaction([this._storeName], 'readonly');
