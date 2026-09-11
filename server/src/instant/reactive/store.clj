@@ -218,7 +218,8 @@
         (assert byte-len ":sql-byte-len is missing from datalog result")
         byte-len))))
 
-(defn create-datalog-query-cache [executor]
+(defn create-datalog-query-cache []
+  ;; Maintenance must survive query cancellation.
   (cache/make-async {:max-weight (flags/flag :datalog-cache-max-weight
                                              ;; 500mb
                                              (* 1024 1024 500))
@@ -231,8 +232,7 @@
                                    ;; postgres uses to send it to us. This flag accounts
                                    ;; for that difference
                                    (flags/flag :datalog-cache-size-multiple 4)))
-                     :record-stats true
-                     :executor executor}))
+                     :record-stats true}))
 
 ;; Special token that allows the system catalog apps to use the
 ;; reactive query cache. Temporary while we test out the impact
@@ -254,7 +254,7 @@
                  :lock (ReentrantLock. false)
                  :tx-queue (ConcurrentLinkedQueue.)
                  :cache-executor cache-executor
-                 :datalog-query-cache (create-datalog-query-cache cache-executor)
+                 :datalog-query-cache (create-datalog-query-cache)
                  :app-id app-id)
     conn))
 
@@ -858,7 +858,8 @@
                                    (fn [_]
                                      (binding [ua/*child-vfutures* child-vfutures
                                                sql/*in-progress-stmts* stmt-tracker]
-                                       (datalog-query-fn ctx datalog-query))))))]
+                                       (datalog-query-fn ctx datalog-query)))
+                                   (:cache-executor (meta conn)))))]
 
         (tracer/add-data! {:attributes {:cache-hit (not (nil? existing-result))
                                         :realized (and (not (nil? existing-result))
