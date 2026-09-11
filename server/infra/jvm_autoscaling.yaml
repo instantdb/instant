@@ -1,0 +1,233 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Keep spare API capacity until every JVM and CPU are safe for scale-in
+Parameters:
+  EnvironmentName:
+    Type: String
+  AutoScalingGroupName:
+    Type: String
+  AutoScalingGroupArn:
+    Type: String
+  ScaleDownPolicyArn:
+    Type: String
+Resources:
+  InstantScaleInRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CheckMemoryBeforeScaleIn
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - autoscaling:DescribeAutoScalingGroups
+                  - cloudwatch:GetMetricData
+                  - elasticbeanstalk:DescribeEnvironments
+                Resource: '*'
+              - Effect: Allow
+                Action: autoscaling:ExecutePolicy
+                Resource:
+                  Ref: AutoScalingGroupArn
+  InstantScaleIn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Scale in only after sustained low CPU and complete safe JVM telemetry
+      Runtime: python3.13
+      Handler: index.handler
+      Role:
+        Fn::GetAtt: [InstantScaleInRole, Arn]
+      MemorySize: 128
+      Timeout: 30
+      ReservedConcurrentExecutions: 1
+      Environment:
+        Variables:
+          ENVIRONMENT_NAME:
+            Ref: EnvironmentName
+          ASG_NAME:
+            Ref: AutoScalingGroupName
+          DOWN_POLICY_ARN:
+            Ref: ScaleDownPolicyArn
+      Code:
+        ZipFile: |
+          """Permit CPU scale-in only when every current JVM has spare heap and fresh data."""
+          import datetime as dt
+          import math
+          import os
+          import time
+
+
+          def members(group):
+              instances = group["Instances"]
+              ids = sorted(i["InstanceId"] for i in instances)
+              if (len(ids) != len(set(ids)) or len(ids) != group["DesiredCapacity"]
+                      or any(i["LifecycleState"] != "InService"
+                             or i["HealthStatus"] != "Healthy" for i in instances)):
+                  raise ValueError("membership is not stable and healthy")
+              return ids
+
+
+          def evaluate(asg, cw, name, policy, now, ready=lambda: True):
+              try:
+                  return evaluate_ready(asg, cw, name, policy, now, ready)
+              except Exception as exc:
+                  reason = str(exc) if isinstance(exc, ValueError) else type(exc).__name__
+                  return {"action": "none", "reason": reason}
+
+
+          def evaluate_ready(asg, cw, name, policy, now, ready):
+              def group():
+                  groups = asg.describe_auto_scaling_groups(
+                      AutoScalingGroupNames=[name])["AutoScalingGroups"]
+                  if len(groups) != 1:
+                      raise ValueError("expected exactly one Auto Scaling group")
+                  return groups[0]
+
+              initial = group()
+              if initial["DesiredCapacity"] <= initial["MinSize"]:
+                  return {"action": "none", "reason": "at minimum capacity"}
+              if not ready():
+                  raise ValueError("environment is not ready and green")
+              ids = members(initial)
+              minute = int(now // 60) * 60
+              end = minute - 60  # Allow a minute for CloudWatch publication.
+              start = end - 15 * 60
+              window = set(range(start, end, 60))
+              queries = []
+
+              def query(key, namespace, metric, stat, dimensions):
+                  queries.append({"Id": key, "ReturnData": True, "MetricStat": {
+                      "Metric": {"Namespace": namespace, "MetricName": metric,
+                                 "Dimensions": [{"Name": k, "Value": v}
+                                                for k, v in dimensions.items()]},
+                      "Period": 60, "Stat": stat}})
+
+              dimension = {"AutoScalingGroupName": name}
+              query("cpu", "AWS/EC2", "CPUUtilization", "Average", dimension)
+              for n, instance_id in enumerate(ids):
+                  dims = dict(dimension, InstanceId=instance_id)
+                  for suffix, metric, stat in [
+                          ("heap", "HeapPressurePercent", "Maximum"),
+                          ("gc", "GcPausePercent", "Maximum"),
+                          ("uptime", "UptimeSeconds", "Minimum")]:
+                      query(f"n{n}_{suffix}", "Instant/JVM", metric, stat, dims)
+              response = cw.get_metric_data(
+                  MetricDataQueries=queries,
+                  StartTime=dt.datetime.fromtimestamp(start, dt.timezone.utc),
+                  EndTime=dt.datetime.fromtimestamp(minute + 60, dt.timezone.utc),
+                  ScanBy="TimestampAscending")
+              if response.get("NextToken") or response.get("Messages"):
+                  raise ValueError("metric response is incomplete")
+              expected = {q["Id"] for q in queries}
+              data = {}
+              for result in response["MetricDataResults"]:
+                  key = result["Id"]
+                  if key not in expected:
+                      continue
+                  if (key in data or result["StatusCode"] != "Complete"
+                          or result.get("Messages")
+                          or len(result["Timestamps"]) != len(result["Values"])):
+                      raise ValueError("metric series is incomplete")
+                  points = {}
+                  for timestamp, value in zip(result["Timestamps"], result["Values"]):
+                      stamp = timestamp.timestamp()
+                      if (stamp % 60 or not start <= stamp <= minute or stamp in points
+                              or not math.isfinite(value) or value < 0
+                              or (not key.endswith("uptime") and value > 100)):
+                          raise ValueError("invalid metric sample")
+                      points[int(stamp)] = value
+                  if not window.issubset(points):
+                      raise ValueError("missing minute in safe window")
+                  if key != "cpu" and max(points) < end:
+                      raise ValueError("latest JVM sample is stale")
+                  data[key] = points
+              if data.keys() != expected:
+                  raise ValueError("missing current instance telemetry")
+              if any(value >= 30 for value in data["cpu"].values()):
+                  raise ValueError("CPU is not below 30 percent")
+              for n in range(len(ids)):
+                  uptime = [value for _, value in sorted(data[f"n{n}_uptime"].items())]
+                  if uptime[-1] < 900 or any(b <= a for a, b in zip(uptime, uptime[1:])):
+                      raise ValueError("JVM restarted or is still warming up")
+                  if any(value >= 5 for value in data[f"n{n}_gc"].values()):
+                      raise ValueError("GC pause pressure is not below 5 percent")
+              # All instances currently use the same 90 GiB heap limit. Summing their
+              # percentages conservatively budgets the combined work for one JVM.
+              heaps = [data[f"n{n}_heap"] for n in range(len(ids))]
+              if (any(sum(h[t] for h in heaps) >= 70 for t in window)
+                      or sum(max(v for t, v in h.items() if t >= end) for h in heaps) >= 70):
+                  raise ValueError("combined heap is not below 70 percent")
+              current = group()
+              if (members(current) != ids or current["DesiredCapacity"] != initial["DesiredCapacity"]
+                      or current["DesiredCapacity"] <= current["MinSize"]):
+                  raise ValueError("membership changed before scale-in")
+              if not ready():
+                  raise ValueError("environment changed before scale-in")
+              try:
+                  asg.execute_policy(AutoScalingGroupName=name, PolicyName=policy, HonorCooldown=True)
+              except Exception as exc:
+                  return {"action": "unknown", "reason": "policy execution failed: " + type(exc).__name__}
+              return {"action": "scale-in", "instances": ids}
+
+
+          def handler(_event, _context):
+              import boto3
+              from botocore.config import Config
+              config = Config(connect_timeout=3, read_timeout=3, retries={"total_max_attempts": 1})
+              eb = boto3.client("elasticbeanstalk", config=config)
+
+              def ready():
+                  envs = eb.describe_environments(
+                      EnvironmentNames=[os.environ["ENVIRONMENT_NAME"]])["Environments"]
+                  return len(envs) == 1 and envs[0]["Status"] == "Ready" and envs[0]["Health"] == "Green"
+
+              result = evaluate(boto3.client("autoscaling", config=config),
+                                boto3.client("cloudwatch", config=config),
+                                os.environ["ASG_NAME"], os.environ["DOWN_POLICY_ARN"], time.time(), ready)
+              print(result)
+              return result
+  InstantScaleInSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: rate(1 minute)
+      State: ENABLED
+      Targets:
+        - Id: MemoryAwareScaleIn
+          Arn:
+            Fn::GetAtt: [InstantScaleIn, Arn]
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 60
+            MaximumRetryAttempts: 0
+  InstantScaleInPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: InstantScaleIn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt: [InstantScaleInSchedule, Arn]
+Outputs:
+  EnvironmentName:
+    Value:
+      Ref: EnvironmentName
+  AutoScalingGroupName:
+    Value:
+      Ref: AutoScalingGroupName
+  AutoScalingGroupArn:
+    Value:
+      Ref: AutoScalingGroupArn
+  ScaleDownPolicyArn:
+    Value:
+      Ref: ScaleDownPolicyArn
+  ScaleInFunctionName:
+    Value:
+      Ref: InstantScaleIn
