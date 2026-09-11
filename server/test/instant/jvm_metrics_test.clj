@@ -2,6 +2,8 @@
   (:require
    [clojure.test :refer [deftest is testing]]
    [instant.cloudwatch :as cloudwatch]
+   [instant.config :as config]
+   [instant.util.aws :as aws-util]
    [instant.jvm-metrics :as jvm-metrics])
   (:import
    (java.time Instant)
@@ -97,3 +99,43 @@
              (set (map :dimensions (get by-name name)))))
       (is (every? #(= StandardUnit/PERCENT (:unit %)) (get by-name name)))
       (is (every? #(= (get values name) (:value %)) (get by-name name))))))
+
+(deftest metric-target-refreshes-group-after-one-minute
+  (let [group (atom "temporary-group")
+        lookups (atom 0)]
+    (with-redefs-fn {#'jvm-metrics/target (atom nil)
+                    #'config/instance-id (delay "i-test")
+                    #'aws-util/get-tag (fn [tag instance-id _timeouts]
+                                        (is (= "aws:autoscaling:groupName" tag))
+                                        (is (= "i-test" instance-id))
+                                        (swap! lookups inc)
+                                        @group)}
+      (fn []
+        (is (= {:asg-name "temporary-group" :instance-id "i-test"}
+               (#'jvm-metrics/metric-target 0)))
+        (reset! group "environment-group")
+        (is (= "temporary-group" (:asg-name (#'jvm-metrics/metric-target 59999999999))))
+        (is (= 1 @lookups))
+        (is (= "environment-group" (:asg-name (#'jvm-metrics/metric-target 60000000000))))
+        (is (= "environment-group" (:asg-name (#'jvm-metrics/metric-target 119999999999))))
+        (is (= 2 @lookups))))))
+
+(deftest metric-target-does-not-use-expired-group-on-lookup-failure
+  (let [lookup (atom (constantly "old-group"))
+        lookups (atom 0)]
+    (with-redefs-fn {#'jvm-metrics/target (atom nil)
+                    #'config/instance-id (delay "i-test")
+                    #'aws-util/get-tag (fn [& _]
+                                        (swap! lookups inc)
+                                        (@lookup))}
+      (fn []
+        (is (= "old-group" (:asg-name (#'jvm-metrics/metric-target 0))))
+        (reset! lookup #(throw (ex-info "EC2 unavailable" {})))
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"EC2 unavailable"
+                             (#'jvm-metrics/metric-target 60000000000)))
+        (reset! lookup (constantly nil))
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Missing instance ID or Auto Scaling group"
+                             (#'jvm-metrics/metric-target 90000000000)))
+        (reset! lookup (constantly "new-group"))
+        (is (= "new-group" (:asg-name (#'jvm-metrics/metric-target 120000000000))))
+        (is (= 4 @lookups))))))

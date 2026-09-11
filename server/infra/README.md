@@ -4,6 +4,8 @@ The API publishes occupied heap and GC pause metrics every 30 seconds to
 `Instant/JVM`. Heap pressure uses the latest collection's actual heap usage; when
 that collection is over a minute old, it uses current occupied heap instead.
 Committed heap is not a pressure signal with `-Xms90g -Xmx90g`.
+The publisher refreshes its group tag every minute because immutable platform
+updates transfer running instances between groups.
 
 The Elastic Beanstalk bundle installs two scale-out alarms: the highest JVM heap
 pressure above 80%, or GC pause time above 20%, in two consecutive one-minute

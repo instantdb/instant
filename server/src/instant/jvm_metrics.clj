@@ -138,14 +138,23 @@
 
 (defonce ^:private target (atom nil))
 
-(defn- metric-target []
-  (or @target
+(defn- metric-target [now-ns]
+  (let [{:keys [checked-at-ns destination]} @target]
+    (if (and checked-at-ns
+             (<= 0 (- now-ns checked-at-ns))
+             (< (- now-ns checked-at-ns) 60000000000))
+      destination
+      ;; Immutable platform updates move a running instance from a temporary
+      ;; group to the environment's group. Refresh its metric dimensions, and
+      ;; stop publishing if an expired lookup fails instead of using old tags.
       (let [instance-id @config/instance-id
             asg-name (when instance-id
                        (aws-util/get-tag "aws:autoscaling:groupName" instance-id api-timeouts))]
         (when-not (and instance-id (seq asg-name))
           (throw (ex-info "Missing instance ID or Auto Scaling group for JVM metrics" {})))
-        (reset! target {:asg-name asg-name :instance-id instance-id}))))
+        (let [destination {:asg-name asg-name :instance-id instance-id}]
+          (reset! target {:checked-at-ns now-ns :destination destination})
+          destination)))))
 
 (defonce ^:private executor (atom nil))
 
@@ -165,7 +174,7 @@
                       (.setDaemon true)))))
           publish (fn []
                     (try
-                      (let [destination (metric-target)
+                      (let [destination (metric-target (System/nanoTime))
                             current (snapshot)
                             recorded-at (Instant/now)
                             values (metrics @previous current)]
