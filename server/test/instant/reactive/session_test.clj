@@ -639,7 +639,11 @@
         (blocking-send-msg :init-ok socket {:op :init
                                            :app-id movies-app-id
                                            :versions {session/core-version-key "0.20.5"}})
-        (with-redefs [flags/throttle-refresh? (constantly false)]
+        ;; App/query/flag boundaries are covered by query-test. Exercise the
+        ;; refresh integration with this disposable app's movie subscription.
+        (with-redefs [flags/throttle-refresh? (constantly false)
+                      rq/skip-unchanged-result-enabled? (fn [app-id query]
+                                                         (and (= app-id movies-app-id) (= query q)))]
           (doseq [return-type [:tree :join-rows]]
             (let [title (str "Updated title " return-type)
                   initial (blocking-send-msg :add-query-ok socket {:op :add-query

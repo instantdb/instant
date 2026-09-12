@@ -1,6 +1,6 @@
 (ns instant.reactive.query-test
   (:require
-   [clojure.test :refer [deftest is testing]]
+   [clojure.test :refer [deftest is testing use-fixtures]]
    [datascript.core :as ds]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
@@ -12,10 +12,31 @@
    [instant.reactive.store :as rs]
    [instant.util.instaql :as instaql-util]))
 
+(def scoped-app-id #uuid "19bde4a4-559c-4274-9bba-5e4bff9fcffe")
+
+(def scoped-query
+  {:sections {:$ {:where {:or [{:and [{:date {:$gte "2026-09-01"}}
+                                    {:date {:$lte "2026-09-30"}}]}
+                              {:and [{:recurrenceRule {:$isNull false}}
+                                     {:date {:$lte "2026-09-30"}}]}
+                              {:and [{:exceptionDate {:$gte "2026-09-01"}}
+                                     {:exceptionDate {:$lte "2026-09-30"}}]}]}}
+              :area {} :activityType {} :parent {} :eventLinks {}}})
+
+(def enabled-flags
+  {:scoped-refresh-results {(str scoped-app-id) {"sections-calendar" true}}})
+
+(use-fixtures :each
+  (fn [f]
+    (binding [flags/*flag-overrides* enabled-flags
+              flags/*toggle-overrides* {:disable-scoped-refresh-results false
+                                       :instaql-topic-compiler false}]
+      (f))))
+
 (defn- query-fixture []
   (let [eid (random-uuid)
         aid (random-uuid)]
-    {:ctx {:app-id (random-uuid)
+    {:ctx {:app-id scoped-app-id
            :session-id (random-uuid)
            :attrs (attr-model/wrap-attrs
                    [{:id aid
@@ -23,7 +44,7 @@
                      :value-type :blob
                      :cardinality :one
                      :unique? true}])}
-     :query {"items" {}}
+     :query scoped-query
      :nodes [{:data {:k "items"
                     :datalog-result {:join-rows #{}
                                      :page-info {:has-next-page? false}
@@ -90,6 +111,43 @@
                 result (rq/instaql-query-reactive! store ctx query return-type true)]
             (is (true? (:result-changed? result)))
             (is (some? (:instaql-result result)))))))))
+
+(deftest unscoped-refreshes-still-materialize
+  (doseq [return-type [:tree :join-rows]
+          {:keys [label app-id query flags toggles] :as scenario}
+          [{:label "another app with the same query"
+            :app-id (random-uuid)}
+           {:label "another app cannot opt itself in"
+            :app-id #uuid "00000000-0000-0000-0000-000000000001"
+            :flags {"00000000-0000-0000-0000-000000000001" {"sections-calendar" true}}}
+           {:label "another query in the scoped app"
+            :query (assoc scoped-query :other {})}
+           {:label "the opposite null predicate"
+            :query (assoc-in scoped-query [:sections :$ :where :or 1 :and 0 :recurrenceRule :$isNull] true)}
+           {:label "missing flag" :flags nil}
+           {:label "empty flag" :flags {}}
+           {:label "false flag" :flags {(str scoped-app-id) {"sections-calendar" false}}}
+           {:label "string true is not enabled" :flags {(str scoped-app-id) {"sections-calendar" "true"}}}
+           {:label "unknown shape" :flags {(str scoped-app-id) {"unknown" true}}}
+           {:label "kill switch" :toggles {:disable-scoped-refresh-results true}}]]
+    (testing (str return-type ": " label)
+      (let [{base-ctx :ctx nodes :nodes} (query-fixture)
+            ctx (assoc base-ctx :app-id (or app-id scoped-app-id) :skip-unchanged-result? true)
+            query (or query scoped-query)
+            store (rs/init)]
+        (binding [flags/*flag-overrides* (if (contains? scenario :flags)
+                                          {:scoped-refresh-results flags}
+                                          enabled-flags)
+                  flags/*toggle-overrides* (merge {:disable-scoped-refresh-results false
+                                                   :instaql-topic-compiler false}
+                                                  toggles)]
+          (with-redefs [iq/permissioned-query (fn [_ctx _query] nodes)]
+            (let [initial (rq/instaql-query-reactive! store ctx query return-type true)
+                  repeated (rq/instaql-query-reactive! store ctx query return-type true)]
+              (is (false? (:result-changed? repeated)))
+              (is (some? (:instaql-result repeated)))
+              (is (= (dissoc initial :result-changed?)
+                     (dissoc repeated :result-changed?))))))))))
 
 (deftest failed-refresh-still-removes-the-query
   (let [{:keys [ctx query nodes]} (query-fixture)
