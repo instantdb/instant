@@ -107,8 +107,9 @@
 
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
-  effects in the store. To be used with session"
-  [store {:keys [session-id app-id attrs] :as base-ctx} instaql-query return-type inference?]
+  effects in the store. With :skip-unchanged-result?, unchanged results have
+  nil payload and metadata."
+  [store {:keys [session-id app-id attrs skip-unchanged-result?] :as base-ctx} instaql-query return-type inference?]
   (tracer/with-span! {:name "instaql-query-reactive!"
                       :attributes {:session-id session-id
                                    :app-id app-id
@@ -135,12 +136,14 @@
             instaql-result (iq/permissioned-query ctx instaql-query)
             result-hash (hash {:instaql-result instaql-result
                                :attrs (attr-model/unwrap attrs)})
-            {:keys [result-changed?]} (rs/add-instaql-query! store ctx result-hash)]
-        {:instaql-result (case return-type
-                           :join-rows (collect-instaql-results-for-client instaql-result)
-                           :tree (instaql-nodes->object-tree (assoc ctx :inference? inference?) instaql-result)
-                           (collect-instaql-results-for-client instaql-result))
-         :result-meta (when (= :tree return-type)
+            {:keys [result-changed?]} (rs/add-instaql-query! store ctx result-hash)
+            materialize? (or result-changed? (not skip-unchanged-result?))]
+        {:instaql-result (when materialize?
+                           (case return-type
+                             :join-rows (collect-instaql-results-for-client instaql-result)
+                             :tree (instaql-nodes->object-tree (assoc ctx :inference? inference?) instaql-result)
+                             (collect-instaql-results-for-client instaql-result)))
+         :result-meta (when (and materialize? (= :tree return-type))
                         (instaql-nodes->object-meta instaql-result))
          :result-changed? result-changed?
          :instaql-topic? (boolean iq-topic)})

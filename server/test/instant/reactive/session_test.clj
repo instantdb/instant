@@ -625,6 +625,58 @@
         (is (= [] (:computations ret)))
         (is (contains? ret :attrs))))))
 
+(deftest refresh-skips-unchanged-results
+  (with-session
+    (fn [store {:keys [socket movies-app-id movies-resolver]}]
+      (let [sess-id (:id socket)
+            q (:kw-q query-1987)
+            eid (resolvers/->uuid movies-resolver "eid-robocop")
+            mark-stale! #(rs/mark-stale-topics! store movies-app-id 0
+                                               (instant.isn/test-isn 0)
+                                               [(d/pat->coarse-topic [:ea eid])]
+                                               {})
+            refresh! #(#'session/handle-refresh! store sess-id {:op :refresh} (atom {}))]
+        (blocking-send-msg :init-ok socket {:op :init
+                                           :app-id movies-app-id
+                                           :versions {session/core-version-key "0.20.5"}})
+        (with-redefs [flags/throttle-refresh? (constantly false)]
+          (doseq [return-type [:tree :join-rows]]
+            (let [title (str "Updated title " return-type)
+                  initial (blocking-send-msg :add-query-ok socket {:op :add-query
+                                                                 :q q
+                                                                 :return-type return-type})]
+              (is (some? (:result initial)) "New subscriptions always receive their result")
+              (mark-stale!)
+              (is (seq (rs/get-stale-instaql-queries store movies-app-id sess-id)))
+              (refresh!)
+              (is (nil? (a/poll! (:ws-conn socket))) "Unchanged refreshes send no computation")
+              (is (nil? (get-in @*instaql-query-results* [sess-id q :instaql-result])))
+              (is (false? (get-in @*instaql-query-results* [sess-id q :result-changed?])))
+              (is (empty? (rs/get-stale-instaql-queries store movies-app-id sess-id)))
+
+              (tx/transact! (aurora/conn-pool :write)
+                            (attr-model/get-by-app-id movies-app-id)
+                            movies-app-id
+                            [[:add-triple eid
+                              (resolvers/->uuid movies-resolver :movie/title)
+                              title]])
+              (mark-stale!)
+              (refresh!)
+              (let [message (read-msg socket)
+                    computation (first (:computations message))]
+                (is (= :refresh-ok (:op message)))
+                (is (= 1 (count (:computations message))))
+                (is (true? (:result-changed? computation)))
+                (is (some? (:instaql-result computation)))
+                (is (not= (:result initial) (:instaql-result computation)))
+                (is (if (= :tree return-type)
+                      (some #(= title (get % "title"))
+                            (get (:instaql-result computation) "movie"))
+                      (some #(= title (nth % 2))
+                            (-> computation :instaql-result first :data :datalog-result :join-rows first))))
+                (is (= (:result-meta initial) (:result-meta computation))))
+            (blocking-send-msg :remove-query-ok socket {:op :remove-query :q q}))))))))
+
 (deftest refresh-populates-cache
   (with-movies-app
     (fn [{app-id :id :as _app} r]
