@@ -2681,13 +2681,42 @@
                                                               :cte-cols
                                                               last))})}))
 
+(defn- child-join-query [prefix app-id next-idx symbol-map join-sym reuse-bound-entities?]
+  (let [conds (join-conds prefix (dec next-idx) symbol-map {:e [:variable join-sym]})
+        single-field (when (and (= 1 (count conds))
+                               (= [:= :entity-id] (take 2 (first conds))))
+                      (last (first conds)))
+        entity-fields (when (and reuse-bound-entities?
+                                (< 1 (count conds))
+                                (seq (get symbol-map join-sym))
+                                (every? #(and (map? %) (= :e (:ctype %)))
+                                        (get symbol-map join-sym))
+                                (every? #(and (vector? %)
+                                              (= 3 (count %))
+                                              (= [:= :entity-id] (take 2 %)))
+                                        conds))
+                        (map last conds))]
+    (if-let [field (or single-field (first entity-fields))]
+      ;; Multiple entity bindings already come from triples in this app.
+      ;; Keep their equalities without scanning those triples again.
+      (cond-> {:select [[[:distinct field] (kw prefix next-idx :-entity-id)]]
+               :from (kw prefix (dec next-idx))}
+        entity-fields (assoc :where (list* :and (map #(vector := field %)
+                                                   (rest entity-fields)))))
+      {:select [[[:distinct :entity-id] (kw prefix next-idx :-entity-id)]]
+       :from [:triples (kw prefix (dec next-idx))]
+       :where (list* :and [:= :app-id app-id] conds)})))
+
 (defn accumulate-nested-match-query
   ([prefix app-id nested-named-patterns]
+   (accumulate-nested-match-query prefix app-id nested-named-patterns false))
+  ([prefix app-id nested-named-patterns reuse-bound-entities?]
    (let [acc {:next-idx 0
-              :ctes []
-              :pg-hints []
-              :result-tables []
-              :pattern-groups []}]
+             :ctes []
+             :pg-hints []
+             :result-tables []
+             :pattern-groups []
+             :reuse-bound-entities? reuse-bound-entities?}]
      (accumulate-nested-match-query acc {} prefix app-id nested-named-patterns)))
   ([acc additional-joins prefix app-id nested-named-patterns]
    (let [res (reduce
@@ -2740,23 +2769,8 @@
                                    :table (:from query)}))
                       (let [join-sym (get-in pattern-group [:children :join-sym])
                             join-cte [(kw prefix next-idx)
-                                      (let [conds (join-conds prefix
-                                                              (dec next-idx)
-                                                              symbol-map
-                                                              {:e [:variable join-sym]})]
-                                        (if-let [single-field (when (and (= 1 (count conds))
-                                                                         (= [:= :entity-id]
-                                                                            (take 2 (first conds))))
-                                                                (last (first conds)))]
-                                          ;; If we're only joining on a single col, we can just grab
-                                          ;; that col directly from the CTE
-                                          {:select [[[:distinct single-field] (kw prefix next-idx :-entity-id)]]
-                                           :from (kw prefix (dec next-idx))}
-                                          {:select [[[:distinct :entity-id] (kw prefix next-idx :-entity-id)]]
-                                           :from [:triples (kw prefix (dec next-idx))]
-                                           :where (list* :and
-                                                         [:= :app-id app-id]
-                                                         conds)}))
+                                      (child-join-query prefix app-id next-idx symbol-map join-sym
+                                                       (:reuse-bound-entities? acc))
                                       :materialized]
                             child-res (accumulate-nested-match-query (-> next-acc
                                                                          (update :ctes conj join-cte)
@@ -2831,7 +2845,11 @@
   queries."
   [ctx prefix app-id nested-named-patterns]
   (let [{:keys [ctes result-tables children pg-hints]}
-        (accumulate-nested-match-query prefix app-id nested-named-patterns)
+        (accumulate-nested-match-query
+         prefix app-id nested-named-patterns
+         (and (enable-pg-hints?)
+              (not (flags/toggled? :disable-pg-hints))
+              (scoped-query-plans/reuse-bound-child-entities? app-id (:query-normalized ctx))))
         tables (set (map :table result-tables))
         ctes (map #(cond
                      ;; Forces postgres to only evaluate the cte once
