@@ -605,7 +605,10 @@
                             (triple-model/delete-entity-multi! conn app-id (map next tx-steps))
 
                             :add-triple
-                            (triple-model/insert-multi! conn attrs app-id (map next tx-steps))
+                            (triple-model/insert-multi!
+                             conn attrs app-id (map next tx-steps)
+                             (when (not= #{:add-triple} (set (keys grouped-tx-steps)))
+                               {:disable-scoped-write-plan? true}))
 
                             :deep-merge-triple
                             (triple-model/deep-merge-multi! conn attrs app-id (map next tx-steps))
