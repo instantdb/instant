@@ -1,0 +1,59 @@
+name: Build immutable scoped write release image
+
+on:
+  push:
+    branches:
+      - codex/scoped-write-image-build-20260911
+
+concurrency:
+  group: scoped-write-image-c26ca74293275ca8b345c0a327a62eb6633d0817
+  cancel-in-progress: false
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      RELEASE_SHA: c26ca74293275ca8b345c0a327a62eb6633d0817
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c26ca74293275ca8b345c0a327a62eb6633d0817
+          persist-credentials: false
+
+      - name: Verify the immutable release checkout
+        run: test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::597134865416:role/aws-credentials-for-github-actions-Role-x0lUbtwJNb7G
+          aws-region: us-east-1
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push only the immutable release image
+        working-directory: server
+        run: |
+          docker buildx build --platform linux/amd64 --push --progress=plain \
+            --cache-from type=registry,ref=597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr-buildcache:cache \
+            --metadata-file build-metadata.json \
+            -t "597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:$RELEASE_SHA" .
+
+      - name: Verify the published image
+        working-directory: server
+        run: |
+          aws ecr describe-images --region us-east-1 --repository-name instant-prod-ecr \
+            --image-ids "imageTag=$RELEASE_SHA" > ecr-image.json
+          docker buildx imagetools inspect "597134865416.dkr.ecr.us-east-1.amazonaws.com/instant-prod-ecr:$RELEASE_SHA"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: immutable-scoped-write-image
+          path: |
+            server/build-metadata.json
+            server/ecr-image.json
