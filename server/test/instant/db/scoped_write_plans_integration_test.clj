@@ -152,42 +152,94 @@
 (deftest transaction-marker-precedes-hinted-write-and-mixed-operations-fall-back
   (with-empty-app
     (fn [{app-id :id}]
-      (let [{id-attr :items/id price-attr :items/price} (make-attrs app-id)
+      (let [pool (aurora/conn-pool :write)
+            schema (mapv (fn [[label unique? checked-data-type]]
+                           (let [id (random-uuid)]
+                             {:id id :forward-identity [id "Prices" label]
+                              :value-type :blob :cardinality :one
+                              :index? true :unique? unique? :required? false
+                              :checked-data-type checked-data-type}))
+                         [["id" true nil] ["price" false :number] ["volume" false :number]])
+            _ (attr-model/insert-multi! pool app-id schema)
             attrs (attr-model/get-by-app-id app-id)
-            pool (aurora/conn-pool :write)
+            {:strs [id price volume]} (into {} (map (juxt attr-model/fwd-label :id) schema))
+            shape {:shape :bitcoin-prices :etype "Prices"
+                   :attrs (into {} (map (fn [attr]
+                                         [(:id attr) [(attr-model/fwd-label attr)
+                                                      (:index? attr) (:unique? attr)
+                                                      (:checked-data-type attr) (:required? attr)]])
+                                       schema))}
             execute-one! sql/execute-one!
-            do-execute! sql/do-execute!]
-        (doseq [new? [false true]
-                mixed? [false true]]
-          (testing (str "new=" new? " mixed=" mixed?)
-            (let [eid (random-uuid)
-                  writes (atom [])
-                  gate-options (atom [])
-                  steps (cond-> [[:add-triple eid id-attr eid]
-                                 [:add-triple eid price-attr 42]]
-                          mixed? (conj [:retract-triple eid price-attr 100]))]
-              (with-redefs [flags/skip-noop-id-triple-updates? (constantly new?)
-                            plans/null-padding-shape
-                            (fn [_attrs _app-id _triples opts]
-                              (swap! gate-options conj opts)
-                              (when-not (:disable-scoped-write-plan? opts)
-                                :bitcoin-prices))
-                            sql/execute-one!
-                            (fn [op conn query & args]
-                              (swap! writes conj [op (first query)])
-                              (apply execute-one! op conn query args))
-                            sql/do-execute!
-                            (fn [op conn query & args]
-                              (swap! writes conj [op (first query)])
-                              (apply do-execute! op conn query args))]
-                (tx/transact! pool attrs app-id steps))
-              (is (= :instant.db.model.transaction/create! (ffirst @writes)))
-              (is (string/includes? (second (first @writes)) "insert into transactions"))
-              (is (= mixed? (boolean (:disable-scoped-write-plan? (first @gate-options)))))
-              (let [upsert-sql (some (fn [[op query]]
-                                       (when (= :instant.db.model.triple/insert-multi! op)
-                                         query))
-                                     @writes)]
-                (is (some? upsert-sql))
-                (is (= (not mixed?) (boolean (re-find #"(?i)IndexScan\(existing_triple triples_pkey\)"
-                                                       upsert-sql))))))))))))
+            do-execute! sql/do-execute!
+            insert-multi! triple/insert-multi!]
+        ;; Only register the generated app's expected schema. The production
+        ;; matcher, flags, transaction normalization and SQL builders all run.
+        (with-redefs-fn {#'plans/null-padding-shapes
+                        (assoc @#'plans/null-padding-shapes app-id shape)}
+          (fn []
+            (doseq [new? [false true]
+                    {:keys [label opts hint? mixed? map-form? seed? enabled? kill-switch]
+                     :or {opts ::omitted enabled? true}}
+                    [{:label :omitted-options :hint? true}
+                     {:label :nil-options :opts nil :hint? true}
+                     {:label :empty-options :opts {} :hint? true}
+                     {:label :upsert-options :opts {:mode :upsert} :hint? true}
+                     {:label :map-form :map-form? true :hint? true}
+                     {:label :create-options :opts {:mode :create} :hint? false}
+                     {:label :update-options :opts {:mode :update} :seed? true :hint? false}
+                     {:label :unknown-options :opts {:unexpected true} :hint? false}
+                     {:label :mixed-operations :mixed? true :hint? false}
+                     {:label :disabled-shape :enabled? false :hint? false}
+                     {:label :global-disable :kill-switch :disable-scoped-write-plans :hint? false}
+                     {:label :hints-disable :kill-switch :disable-pg-hints :hint? false}]]
+              (testing (str "new=" new? " " label)
+                (binding [flags/*flag-overrides* {:scoped-write-plans
+                                                 {(str app-id) {"bitcoin-prices" enabled?}}}
+                          flags/*toggle-overrides* (cond-> {:disable-skip-noop-id-triple-updates (not new?)
+                                                           :disable-scoped-write-plans false
+                                                           :disable-pg-hints false}
+                                                    kill-switch (assoc kill-switch true))]
+                  (let [eid (random-uuid)
+                        writes (atom [])
+                        upsert-input (atom nil)
+                        steps (if map-form?
+                                [{:id eid :etype "Prices" :price 42}]
+                                (cond-> (mapv #(cond-> %
+                                                 (not= ::omitted opts) (conj opts))
+                                               [[:add-triple eid id eid]
+                                                [:add-triple eid price 42]])
+                                  mixed? (conj [:retract-triple eid price 100])))
+                        _ (when seed?
+                            (tx/transact! pool attrs app-id
+                                          [[:add-triple eid id eid] [:add-triple eid price 1]]))
+                        result
+                        (with-redefs [sql/execute-one!
+                                      (fn [op conn query & args]
+                                        (swap! writes conj [op (first query)])
+                                        (apply execute-one! op conn query args))
+                                      sql/do-execute!
+                                      (fn [op conn query & args]
+                                        (swap! writes conj [op (first query)])
+                                        (apply do-execute! op conn query args))
+                                      triple/insert-multi!
+                                      (fn [conn attrs app-id triples opts]
+                                        (reset! upsert-input (mapv vec triples))
+                                        (insert-multi! conn attrs app-id triples opts))]
+                          (tx/transact! pool attrs app-id steps))
+                        upsert-sql (some (fn [[op query]]
+                                           (when (= :instant.db.model.triple/insert-multi! op)
+                                             query))
+                                         @writes)]
+                    (is (= :instant.db.model.transaction/create! (ffirst @writes)))
+                    (is (string/includes? (second (first @writes)) "insert into transactions"))
+                    (is (= 2 (count @upsert-input)))
+                    (is (every? #(= 4 (count %)) @upsert-input))
+                    (is (= (repeat 2 (when-not (= ::omitted opts) opts))
+                           (map #(nth % 3) @upsert-input)))
+                    (is (some? upsert-sql))
+                    (is (= hint? (boolean (re-find #"(?i)IndexScan\(existing_triple triples_pkey\)"
+                                                   upsert-sql))))
+                    (is (every? (result-pairs (get-in result [:results :add-triple]))
+                                #{[eid id] [eid price]}))
+                    (is (= {id (str eid) price 42 volume nil}
+                           (into {} (map (juxt :attr_id :value) (stored-triples app-id eid)))))))))))))))
