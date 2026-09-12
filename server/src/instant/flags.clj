@@ -433,6 +433,14 @@
 (defn ephemeral-apps-enabled? []
   (flag :ephemeral-apps-enabled true))
 
+(defn scoped-write-plan-enabled? [app-id shape]
+  ;; JSON flag: {"app-uuid" {"bitcoin-prices" true}}. Removing an app or
+  ;; setting its shape to false restores normal planning without a deploy.
+  (and (not (toggled? :disable-pg-hints))
+       (not (toggled? :disable-scoped-write-plans))
+       (true? (get-in (flag :scoped-write-plans)
+                      [(str app-id) (name shape)]))))
+
 (defn app-proxy-targets
   "The app proxy routing table. Emptying the flag turns off all routing
    without a deploy."
