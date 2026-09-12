@@ -20,6 +20,10 @@
   (when (= :and (first (:where query)))
     (set (rest (:where query)))))
 
+(defn reuse-bound-child-entities? [app-id normalized]
+  (and (= app-id #uuid "ff386052-f839-4d6e-8a62-4c1a6c7a6a01")
+       (= normalized {:plays {:$ {:where {:themes :string, :finished :boolean}}}})))
+
 (defn- anti-join? [query app-id outer inner]
   (some (fn [[op column subquery]]
           (and (= op :not-in)
