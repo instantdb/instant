@@ -444,6 +444,7 @@
    {:keys [instaql-query/query instaql-query/return-type
            instaql-query/forms-hash]}]
   (let [ctx {:db {:conn-pool (aurora/conn-pool (db-read-level app-id))}
+             :skip-unchanged-result? true
              :session-id sess-id
              :app-id app-id
              :attrs attrs

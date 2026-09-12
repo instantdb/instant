@@ -12,7 +12,7 @@
    [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
    [instant.reactive.store :as rs]
-   [instant.util.instaql :refer [instaql-nodes->object-meta
+   [instant.util.instaql :as instaql-util :refer [instaql-nodes->object-meta
                                  instaql-nodes->object-tree]]
    [instant.util.tracer :as tracer]
    [instant.comment :as c]
@@ -105,10 +105,28 @@
       (catch Throwable e
         (tracer/record-exception-span! e {:name "compile-instaql-topic-ex"})))))
 
+(defn- skip-unchanged-result-enabled? [app-id query]
+  ;; Only the measured Reassign calendar subscription. Removing its flag
+  ;; restores materialization without a deploy.
+  (and (= app-id #uuid "19bde4a4-559c-4274-9bba-5e4bff9fcffe")
+       (not (flags/toggled? :disable-scoped-refresh-results))
+       (true? (get-in (flags/flag :scoped-refresh-results)
+                      [(str app-id) "sections-calendar"]))
+       (false? (get-in query [:sections :$ :where :or 1 :and 0 :recurrenceRule :$isNull]))
+       (= (instaql-util/normalized-forms query)
+          {:sections {:$ {:where {:or [{:and [{:date {:$gte :string}}
+                                            {:date {:$lte :string}}]}
+                                      {:and [{:recurrenceRule {:$isNull :boolean}}
+                                             {:date {:$lte :string}}]}
+                                      {:and [{:exceptionDate {:$gte :string}}
+                                             {:exceptionDate {:$lte :string}}]}]}}
+                      :area {} :activityType {} :parent {} :eventLinks {}}})))
+
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
-  effects in the store. To be used with session"
-  [store {:keys [session-id app-id attrs] :as base-ctx} instaql-query return-type inference?]
+  effects in the store. Refreshes with :skip-unchanged-result? can omit unchanged
+  payloads and metadata for an explicitly enabled app/query cohort."
+  [store {:keys [session-id app-id attrs skip-unchanged-result?] :as base-ctx} instaql-query return-type inference?]
   (tracer/with-span! {:name "instaql-query-reactive!"
                       :attributes {:session-id session-id
                                    :app-id app-id
@@ -135,12 +153,16 @@
             instaql-result (iq/permissioned-query ctx instaql-query)
             result-hash (hash {:instaql-result instaql-result
                                :attrs (attr-model/unwrap attrs)})
-            {:keys [result-changed?]} (rs/add-instaql-query! store ctx result-hash)]
-        {:instaql-result (case return-type
-                           :join-rows (collect-instaql-results-for-client instaql-result)
-                           :tree (instaql-nodes->object-tree (assoc ctx :inference? inference?) instaql-result)
-                           (collect-instaql-results-for-client instaql-result))
-         :result-meta (when (= :tree return-type)
+            {:keys [result-changed?]} (rs/add-instaql-query! store ctx result-hash)
+            materialize? (or result-changed?
+                             (not skip-unchanged-result?)
+                             (not (skip-unchanged-result-enabled? app-id instaql-query)))]
+        {:instaql-result (when materialize?
+                           (case return-type
+                             :join-rows (collect-instaql-results-for-client instaql-result)
+                             :tree (instaql-nodes->object-tree (assoc ctx :inference? inference?) instaql-result)
+                             (collect-instaql-results-for-client instaql-result)))
+         :result-meta (when (and materialize? (= :tree return-type))
                         (instaql-nodes->object-meta instaql-result))
          :result-changed? result-changed?
          :instaql-topic? (boolean iq-topic)})
