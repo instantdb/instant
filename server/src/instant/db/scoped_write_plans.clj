@@ -60,11 +60,14 @@
        (seq triples)
        (every? (fn [triple]
                  (and (sequential? triple)
-                      (= 3 (count triple))
-                      (let [[entity-id attr-id value] triple
+                      (contains? #{3 4} (count triple))
+                      (let [[entity-id attr-id value step-opts] triple
                             [label] (get expected attr-id)]
                         (and (uuid? entity-id)
                              label
+                             ;; Transaction normalization includes an options
+                             ;; slot even when the caller omitted options.
+                             (contains? #{nil {} {:mode :upsert}} step-opts)
                              ;; The SQL builder treats this vector as a lookup,
                              ;; even for some blob attributes.
                              (not (and (vector? value) (= 2 (count value))

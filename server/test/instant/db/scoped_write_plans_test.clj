@@ -1,6 +1,8 @@
 (ns instant.db.scoped-write-plans-test
   (:require [clojure.test :refer [deftest is testing]]
+            [instant.db.model.attr :as attr-model]
             [instant.db.scoped-write-plans :as plans]
+            [instant.db.transaction :as tx]
             [instant.flags :as flags]))
 
 (def bitcoin-app #uuid "1c436238-c543-44d0-9a6b-51f7e5b840e3")
@@ -80,6 +82,32 @@
                         (concat attrs (if (= app-id bitcoin-app) citybikes-attrs bitcoin-attrs))
                         app-id triples {}))))))))
 
+(deftest normalized-transaction-steps-retain-ordinary-upsert-options
+  (doseq [{:keys [app-id shape attrs]} cases]
+    (binding [flags/*flag-overrides* {:scoped-write-plans {(str app-id) {(name shape) true}}}
+              flags/*toggle-overrides* {:disable-scoped-write-plans false
+                                        :disable-pg-hints false}]
+      (doseq [step-opts [::omitted nil {} {:mode :upsert}]]
+        (let [steps (map (fn [triple]
+                           (cond-> (into [:add-triple] triple)
+                             (not= ::omitted step-opts) (conj step-opts)))
+                         (fixture-triples attrs entity-id))
+              triples (map (comp next tx/vectorize-tx-step)
+                           (tx/mapify-tx-steps (attr-model/wrap-attrs attrs) steps))]
+          (is (every? #(= 4 (count %)) triples))
+          (is (every? #(= (when-not (= ::omitted step-opts) step-opts) (nth % 3)) triples))
+          (is (= shape (plans/null-padding-shape attrs app-id triples {})))
+          (testing "A normalized partial update can omit indexed fields"
+            (is (= shape (plans/null-padding-shape attrs app-id (take 1 triples) {}))))))
+      (doseq [step-opts [{:mode :create} {:mode :update} {:mode nil}
+                        {:mode :unexpected} {:unexpected true}
+                        {:mode :upsert :unexpected true}]]
+        (let [steps (map #(conj (into [:add-triple] %) step-opts)
+                         (fixture-triples attrs entity-id))
+              triples (map (comp next tx/vectorize-tx-step)
+                           (tx/mapify-tx-steps (attr-model/wrap-attrs attrs) steps))]
+          (is (nil? (plans/null-padding-shape attrs app-id triples {})) (str step-opts)))))))
+
 (deftest app-and-shape-opt-in-before-inspection
   (let [unreadable (lazy-seq (throw (ex-info "Must not inspect disabled writes" {})))]
     (with-redefs [flags/scoped-write-plan-enabled? (fn [& _] (throw (ex-info "Unknown app" {})))]
@@ -105,6 +133,11 @@
                              [(str entity-id) id-attr (str entity-id)]
                              [[entity-id id-attr]]
                              [[entity-id id-attr (str entity-id) :unexpected]]
+                             [[entity-id id-attr (str entity-id) nil :unexpected]]
+                             [[entity-id id-attr (str entity-id) {} nil]]
+                             [[entity-id id-attr (str entity-id) []]]
+                             [[entity-id id-attr (str entity-id) false]]
+                             [[entity-id id-attr (str entity-id) {:mode "upsert"}]]
                              (assoc-in triples [0 0] (str entity-id))
                              (assoc-in triples [0 0] [id-attr "lookup"])
                              (assoc-in triples [0 1] (random-uuid))
