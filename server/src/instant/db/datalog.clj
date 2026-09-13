@@ -3443,6 +3443,45 @@
                                  true))
            batch-data))))
 
+(def ^:private permission-entity-fetch-app-ids
+  #{#uuid "28970aa3-b5e3-4c1a-822d-192f5e9140cb"})
+
+(defn scoped-permission-entity-fetch-enabled? [app-id]
+  (and (contains? permission-entity-fetch-app-ids app-id)
+       (not (flags/toggled? :disable-scoped-permission-entity-fetch))
+       (true? (get (flags/flag :scoped-permission-entity-fetch) (str app-id)))))
+
+(defn- permission-entity-fetch-patterns? [nested-patterns]
+  (let [children (:children nested-patterns)
+        groups (:pattern-groups children)]
+    (and (= #{:children} (set (keys nested-patterns)))
+         (= #{:pattern-groups} (set (keys children)))
+         (seq groups)
+         (every? (fn [group]
+                   (let [patterns (:patterns group)
+                         [idx eid attr-ids :as pattern] (first patterns)]
+                     (and (= #{:patterns} (set (keys group)))
+                          (= 1 (count patterns))
+                          (= 3 (count pattern))
+                          (= :ea idx)
+                          (uuid? eid)
+                          (set? attr-ids)
+                          (seq attr-ids)
+                          (every? uuid? attr-ids))))
+                 groups))))
+
+(defn- annotate-permission-entity-fetch [ctx nested-named-patterns]
+  ;; A standalone entity lookup needs no join estimates. With a single UUID,
+  ;; the EA index wins without consulting the per-attribute sketches.
+  (let [groups (mapv (fn [group]
+                      (let [pattern (get-in group [:patterns 0 1])
+                            index (best-index (assoc ctx :sketches {}) pattern {})]
+                        (when (= :ea_index (:name index))
+                          (assoc-in group [:patterns 0 1 :best-index] index))))
+                    (get-in nested-named-patterns [:children :pattern-groups]))]
+    (when (every? some? groups)
+      (assoc-in nested-named-patterns [:children :pattern-groups] groups))))
+
 (defn query-nested [{:keys [app-id db query-hash] :as ctx} nested-patterns]
   (let [disable-hints? (or (flags/toggled? :disable-pg-hints false)
                            (contains? (flags/flag :disable-hint-query-hashes)
@@ -3455,9 +3494,18 @@
                                     :query-hash query-hash}})
     (binding [*enable-pg-hints* (and enable-hints?
                                      (not disable-hints?))]
-      (let [nested-named-patterns (cond->> nested-patterns
-                                    true nested->named-patterns
-                                    (enable-pg-hints?) (annotate-with-hints ctx))]
+      (let [named-patterns (nested->named-patterns nested-patterns)
+            nested-named-patterns
+            (if (enable-pg-hints?)
+              (or (when (and (not *debug*)
+                             (::permission-entity-fetch? ctx)
+                             (scoped-permission-entity-fetch-enabled? app-id)
+                             (permission-entity-fetch-patterns? nested-patterns))
+                    (when-let [annotated (annotate-permission-entity-fetch ctx named-patterns)]
+                      (tracer/add-data! {:attributes {:permission-entity-fetch-planning-skipped true}})
+                      annotated))
+                  (annotate-with-hints ctx named-patterns))
+              named-patterns)]
         (throw-invalid-nested-patterns nested-named-patterns)
         (send-query-nested ctx (:conn-pool db) app-id nested-named-patterns)))))
 
