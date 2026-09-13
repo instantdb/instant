@@ -95,6 +95,29 @@
                      {:aggregate aggregate}))
       :child-nodes []}]))
 
+(defn- collect-triples-into! [triples node]
+  (let [triples (reduce (fn [triples row]
+                         (reduce conj! triples row))
+                       triples
+                       (get-in node [:data :datalog-result :join-rows]))]
+    (reduce collect-triples-into! triples (:child-nodes node))))
+
+(defn- collect-instaql-results-with-transients [instaql-results]
+  (let [{:keys [triples page-info aggregate]}
+        (reduce (fn [acc node]
+                  (let [{:keys [k datalog-result]} (:data node)]
+                    (cond-> (update acc :triples collect-triples-into! node)
+                      (:page-info datalog-result)
+                      (assoc-in [:page-info k] (:page-info datalog-result))
+                      (:aggregate datalog-result)
+                      (assoc-in [:aggregate k] (:aggregate datalog-result)))))
+                {:triples (transient #{}) :page-info {} :aggregate {}}
+                instaql-results)]
+    [{:data (merge {:datalog-result {:join-rows [(persistent! triples)]}}
+                   (when (seq page-info) {:page-info page-info})
+                   (when (seq aggregate) {:aggregate aggregate}))
+      :child-nodes []}]))
+
 (defn- compile-instaql-topic [attrs instaql-query]
   (when (flags/toggled? :instaql-topic-compiler true)
     (try
@@ -112,6 +135,22 @@
        (not (flags/toggled? :disable-scoped-refresh-results))
        (true? (get-in (flags/flag :scoped-refresh-results)
                       [(str app-id) "sections-calendar"]))
+       (false? (get-in query [:sections :$ :where :or 1 :and 0 :recurrenceRule :$isNull]))
+       (= (instaql-util/normalized-forms query)
+          {:sections {:$ {:where {:or [{:and [{:date {:$gte :string}}
+                                            {:date {:$lte :string}}]}
+                                      {:and [{:recurrenceRule {:$isNull :boolean}}
+                                             {:date {:$lte :string}}]}
+                                      {:and [{:exceptionDate {:$gte :string}}
+                                             {:exceptionDate {:$lte :string}}]}]}}
+                      :area {} :activityType {} :parent {} :eventLinks {}}})))
+
+(defn- transient-triple-collection-enabled? [app-id query]
+  ;; Limit the allocation change to the measured calendar query.
+  (and (= app-id #uuid "19bde4a4-559c-4274-9bba-5e4bff9fcffe")
+       (not (flags/toggled? :disable-scoped-triple-collection))
+       (true? (get-in (flags/flag :scoped-triple-collection)
+                     [(str app-id) "sections-calendar"]))
        (false? (get-in query [:sections :$ :where :or 1 :and 0 :recurrenceRule :$isNull]))
        (= (instaql-util/normalized-forms query)
           {:sections {:$ {:where {:or [{:and [{:date {:$gte :string}}
@@ -159,7 +198,9 @@
                              (not (skip-unchanged-result-enabled? app-id instaql-query)))]
         {:instaql-result (when materialize?
                            (case return-type
-                             :join-rows (collect-instaql-results-for-client instaql-result)
+                             :join-rows (if (transient-triple-collection-enabled? app-id instaql-query)
+                                          (collect-instaql-results-with-transients instaql-result)
+                                          (collect-instaql-results-for-client instaql-result))
                              :tree (instaql-nodes->object-tree (assoc ctx :inference? inference?) instaql-result)
                              (collect-instaql-results-for-client instaql-result)))
          :result-meta (when (and materialize? (= :tree return-type))
