@@ -5,7 +5,8 @@
   (:import
    (clojure.lang IPersistentList IPersistentMap IPersistentSet IPersistentVector)
    (com.zaxxer.hikari HikariConfig HikariDataSource)
-   (java.sql Connection PreparedStatement SQLException)
+   (java.net SocketTimeoutException)
+   (java.sql Connection PreparedStatement SQLException SQLTimeoutException SQLTransientConnectionException)
    (java.time Instant LocalDate LocalDateTime)
    (java.util UUID)
    (java.util.concurrent ArrayBlockingQueue Executors ExecutorService ScheduledExecutorService ThreadFactory TimeUnit)
@@ -18,6 +19,7 @@
 (def ^Instant trial-deadline (Instant/parse "2026-09-13T23:06:21Z"))
 (def candidate-instance-id "instant-8-shadow-20260913")
 (def max-job-bytes (* 256 1024))
+(def max-result-bytes (* 512 1024 1024))
 (def job-ttl-ms 10000)
 (def histogram-ms [1 2 5 10 20 50 100 200 500 1000 2000 5000 10000])
 
@@ -144,7 +146,7 @@
         (update-in [kind :sum-ms] (fnil + 0) elapsed-ms)
         (update-in [kind :buckets bucket] (fnil inc 0)))))
 
-(defn- outcome! [{:keys [family primary-ms queue-ms]} outcome candidate-ms]
+(defn- outcome! [{:keys [family primary-ms queue-ms failure-kind]} outcome candidate-ms]
   (swap! stats
          (fn [s]
            (let [family (if (or (contains? (:families s) family)
@@ -152,7 +154,11 @@
              (-> s
                  (update-in [:counts outcome] (fnil inc 0))
                  (update-in [:families family :counts outcome] (fnil inc 0))
-                 (cond-> (= :attempted outcome)
+                 (cond-> failure-kind
+                   (update-in [:failures failure-kind] (fnil inc 0))
+                   failure-kind
+                   (update-in [:families family :failures failure-kind] (fnil inc 0))
+                   (= :attempted outcome)
                    (update :timing observe :primary primary-ms)
                    (= :attempted outcome)
                    (update-in [:families family] observe :primary primary-ms)
@@ -240,7 +246,7 @@
                (.setSslMode "require")
                (.setConnectTimeout 2)
                (.setSocketTimeout 3)
-               (.setMaxResultBuffer "2097152")
+               (.setMaxResultBuffer (str max-result-bytes))
                (.setLogServerErrorDetail false)
                (.setCancelSignalTimeout 1))
           hikari (doto (HikariConfig.)
@@ -273,36 +279,102 @@
       (when (live? s job) (f ps))
       (finally (swap! (:statements s) dissoc worker-id)))))
 
-(defn- execute-job! [{:keys [pool running?] :as s} job]
-  (with-open [^Connection conn (.getConnection ^HikariDataSource pool)]
+(defn- with-cleanup [phase cleanup-phase f cleanup]
+  (let [failed? (volatile! false)]
     (try
-      (with-open [ps (.prepareStatement conn "select pg_is_in_recovery(), aurora_db_instance_identifier()")]
-        (with-statement s job ps
-          (fn [^PreparedStatement ps]
-            (with-open [rs (.executeQuery ps)]
-              (when-not (and (.next rs) (.getBoolean rs 1)
-                             (= candidate-instance-id (.getString rs 2)))
-                (reset! running? false)
-                (throw (ex-info "Shadow candidate role changed" {})))))))
-      (with-open [ps (.prepareStatement conn "select set_config(?, ?, true)")]
-        (doseq [{:keys [setting value]}
-                (concat (:postgres-config job)
-                        [{:setting "statement_timeout" :value "2000"}
-                         {:setting "lock_timeout" :value "250"}])]
+      (f)
+      (catch Throwable e
+        (vreset! failed? true)
+        (throw e))
+      (finally
+        (if @failed?
+          ;; A broken connection can fail rollback/close after a result-limit error.
+          (try (cleanup) (catch Throwable _ nil))
+          (do (vreset! phase cleanup-phase) (cleanup)))))))
+
+(defmacro ^{:private true :clj-kondo/lint-as 'clojure.core/with-open}
+  with-resource [[resource init] phase & body]
+  `(let [~resource ~init]
+     (with-cleanup ~phase :close (fn [] ~@body)
+       #(.close ~(with-meta resource {:tag 'java.lang.AutoCloseable})))))
+
+(defn- failure-kind [phase ^Throwable error]
+  (let [causes (take 8 (take-while some? (iterate #(.getCause ^Throwable %) error)))
+        sql-error (some #(when (instance? SQLException %) %) causes)
+        state (when sql-error (.getSQLState ^SQLException sql-error))
+        result-limit? (some (fn [^Throwable e]
+                              (and (instance? SQLException e)
+                                   (= "08S01" (.getSQLState ^SQLException e))
+                                   (some (fn [^StackTraceElement frame]
+                                           (and (= "org.postgresql.core.PGStream" (.getClassName frame))
+                                                (= "increaseByteCounter" (.getMethodName frame))))
+                                         (take 32 (.getStackTrace e)))))
+                            causes)
+        socket-timeout? (some #(instance? SocketTimeoutException %) causes)
+        reason (cond
+                 result-limit? :result-too-large
+                 (= "57014" state) :statement-timeout-or-cancel
+                 (= "55P03" state) :lock-timeout
+                 (and (= :connection phase) (instance? SQLTransientConnectionException error)) :pool-timeout
+                 socket-timeout? :connection-timeout
+                 (instance? SQLTimeoutException error) :statement-timeout-or-cancel
+                 (and state (.startsWith ^String state "08")) :connection-failure
+                 sql-error :sql-error
+                 :else :other)
+        sql-class (when (and state (>= (count state) 2)) (subs state 0 2))
+        sql-class (if (contains? #{"08" "22" "23" "25" "28" "40" "42" "53" "54" "55" "57" "58" "XX"}
+                                sql-class) sql-class :other)
+        exception-class (cond
+                          (instance? SQLTransientConnectionException error) :sql-transient-connection
+                          (instance? SQLTimeoutException error) :sql-timeout
+                          (instance? SQLException error) :sql
+                          (instance? SocketTimeoutException error) :socket-timeout
+                          :else :other)]
+    [reason (if (contains? #{:connection :identity :settings :query :rollback :close} phase) phase :unknown)
+     sql-class exception-class]))
+
+(defn- failure! [{:keys [phase] :as job} error]
+  (let [kind (failure-kind @phase error)]
+    ;; Exactly one terminal total per attempt. Failure categories are a breakdown,
+    ;; not additional terminal outcomes: sum(failures) = failed + timed-out.
+    (outcome! (assoc job :failure-kind kind)
+              (if (= :statement-timeout-or-cancel (first kind)) :timed-out :failed)
+              nil)))
+
+(defn- execute-job! [{:keys [pool running?] :as s} {:keys [phase] :as job}]
+  (with-resource [^Connection conn (.getConnection ^HikariDataSource pool)] phase
+    (with-cleanup phase :rollback
+      (fn []
+        (vreset! phase :identity)
+        (with-resource [^PreparedStatement ps (.prepareStatement conn "select pg_is_in_recovery(), aurora_db_instance_identifier()")] phase
           (with-statement s job ps
             (fn [^PreparedStatement ps]
-              (.setString ps 1 setting)
-              (.setString ps 2 value)
-              (.execute ps)))))
-      (when (live? s job)
-        (with-open [^PreparedStatement ps (jdbc/prepare conn (:query job) {:timeout 2})]
-          (with-statement s job ps
-            (fn [^PreparedStatement ps]
-              (let [start (System/nanoTime)]
-                (with-open [rs (.executeQuery ps)]
-                  (while (.next rs)))
-                (/ (- (System/nanoTime) start) 1e6))))))
-      (finally (.rollback conn)))))
+              (with-resource [^java.sql.ResultSet rs (.executeQuery ps)] phase
+                (when-not (and (.next rs) (.getBoolean rs 1)
+                               (= candidate-instance-id (.getString rs 2)))
+                  (reset! running? false)
+                  (throw (ex-info "Shadow candidate role changed" {})))))))
+        (vreset! phase :settings)
+        (with-resource [^PreparedStatement ps (.prepareStatement conn "select set_config(?, ?, true)")] phase
+          (doseq [{:keys [setting value]}
+                  (concat (:postgres-config job)
+                          [{:setting "statement_timeout" :value "2000"}
+                           {:setting "lock_timeout" :value "250"}])]
+            (with-statement s job ps
+              (fn [^PreparedStatement ps]
+                (.setString ps 1 setting)
+                (.setString ps 2 value)
+                (.execute ps)))))
+        (when (live? s job)
+          (vreset! phase :query)
+          (with-resource [^PreparedStatement ps (jdbc/prepare conn (:query job) {:timeout 2})] phase
+            (with-statement s job ps
+              (fn [^PreparedStatement ps]
+                (let [start (System/nanoTime)]
+                  (with-resource [^java.sql.ResultSet rs (.executeQuery ps)] phase
+                    (while (.next rs)))
+                  (/ (- (System/nanoTime) start) 1e6)))))))
+      #(.rollback conn))))
 
 (defn- worker! [{:keys [queue running? config execution] :as s}]
   (while (and @running? (< (System/currentTimeMillis) (:expires-at-ms config)))
@@ -315,16 +387,15 @@
           (not (reserve! execution (:qps config) (System/nanoTime)))
           (count! :execution-rate-limited)
 
-          :else (let [job (assoc job :queue-ms (max 0 (- (System/currentTimeMillis)
-                                                        (:created-ms job))))]
+          :else (let [job (assoc job :phase (volatile! :connection)
+                                         :queue-ms (max 0 (- (System/currentTimeMillis)
+                                                            (:created-ms job))))]
                   (outcome! job :attempted nil)
                   (try
                     (if-let [elapsed-ms (execute-job! s job)]
                       (outcome! job :completed elapsed-ms)
                       (outcome! job :cancelled nil))
-                    (catch SQLException e
-                      (outcome! job (if (= "57014" (.getSQLState e)) :timed-out :failed) nil))
-                    (catch Exception _ (outcome! job :failed nil))))))
+                    (catch Exception e (failure! job e))))))
       (catch InterruptedException _ (reset! running? false)))))
 
 (defn- stop-session! [s]

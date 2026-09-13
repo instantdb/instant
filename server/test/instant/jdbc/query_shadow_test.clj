@@ -1,12 +1,16 @@
 (ns instant.jdbc.query-shadow-test
   (:require
    [clojure.test :refer [deftest is testing]]
-   [instant.jdbc.query-shadow :as query-shadow])
+   [instant.jdbc.query-shadow :as query-shadow]
+   [instant.aurora-config :as aurora-config]
+   [next.jdbc :as jdbc])
   (:import
    (com.zaxxer.hikari HikariDataSource)
-   (java.sql Connection PreparedStatement SQLException)
+   (java.net SocketTimeoutException)
+   (java.sql Connection PreparedStatement ResultSet SQLException SQLTimeoutException SQLTransientConnectionException)
    (java.time Instant)
    (java.util.concurrent ArrayBlockingQueue Executors)
+   (org.postgresql.ds PGSimpleDataSource)
    (org.postgresql.util PGobject)))
 
 (def trial-deadline-ms
@@ -391,3 +395,111 @@
           (is (false? @executed?))
           (is (empty? @(:statements s)))))
       (finally (.shutdownNow workers)))))
+
+(defn result-limit-error []
+  (doto (SQLException. "private driver details" "08S01")
+    (.setStackTrace (into-array StackTraceElement
+                                [(StackTraceElement. "org.postgresql.core.PGStream"
+                                                     "increaseByteCounter" "PGStream.java" 1)]))))
+
+(deftest bounded-failure-classification
+  (doseq [[phase error reason] [[:query (result-limit-error) :result-too-large]
+                               [:query (SQLException. "private" "08S01") :connection-failure]
+                               [:query (SQLException. "private" "57014") :statement-timeout-or-cancel]
+                               [:settings (SQLException. "private" "55P03") :lock-timeout]
+                               [:connection (SQLTransientConnectionException. "private") :pool-timeout]
+                               [:query (SQLException. "private" "08006" (SocketTimeoutException. "private")) :connection-timeout]
+                               [:query (SQLTimeoutException. "private") :statement-timeout-or-cancel]
+                               [:query (SQLException. "private" "42P01") :sql-error]
+                               [:query (Exception. "private") :other]]]
+    (is (= reason (first (#'query-shadow/failure-kind phase error)))))
+  (testing "classification does not retain arbitrary error or phase data"
+    (is (= [:sql-error :unknown :other :sql]
+           (#'query-shadow/failure-kind "private phase" (SQLException. "private message" "private state")))))
+  (testing "wrapped driver errors are recognized without inspecting messages"
+    (is (= :result-too-large
+           (first (#'query-shadow/failure-kind :query (Exception. "private" (result-limit-error)))))))
+  (testing "cause traversal terminates on cycles"
+    (let [a (Exception. "a") b (Exception. "b")]
+      (.initCause a b)
+      (.initCause b a)
+      (is (= :other (first (#'query-shadow/failure-kind :query a)))))))
+
+(deftest failure-breakdown-reconciles-with-terminal-counts
+  (with-shadow-state nil
+    (fn []
+      (let [family ["test-app" "test-query"]
+            job {:family family :primary-ms 4 :queue-ms 0 :phase (volatile! :query)
+                 :query ["private SQL" "private bind"]}]
+        (doseq [error [(result-limit-error) (SQLException. "private" "57014")
+                       (SQLException. "private" "55P03")]]
+          (#'query-shadow/outcome! job :attempted nil)
+          (#'query-shadow/failure! job error))
+        (let [snapshot (query-shadow/snapshot)]
+          (is (= {:attempted 3 :failed 2 :timed-out 1} (:counts snapshot)))
+          (is (= 3 (reduce + (vals (:failures snapshot)))))
+          (is (= (:failures snapshot) (get-in snapshot [:families family :failures])))
+          (is (not-any? #{"private SQL" "private bind" "private" "private driver details"}
+                        (tree-seq coll? seq snapshot))))))))
+
+(deftest cleanup-preserves-query-failure-and-phase
+  (let [primary-error (result-limit-error)
+        cleanup-error (SQLException. "connection closed" "08003")
+        cleaned (atom [])
+        identity-rs (proxy [ResultSet] []
+                      (next [] true)
+                      (getBoolean [_] true)
+                      (getString [_] query-shadow/candidate-instance-id)
+                      (close [] nil))
+        identity-ps (proxy [PreparedStatement] []
+                      (setQueryTimeout [_] nil)
+                      (executeQuery [] identity-rs)
+                      (close [] nil))
+        settings-ps (proxy [PreparedStatement] []
+                      (setQueryTimeout [_] nil)
+                      (setString [_ _] nil)
+                      (execute [] true)
+                      (close [] nil))
+        query-ps (proxy [PreparedStatement] []
+                   (setQueryTimeout [_] nil)
+                   (executeQuery [] (throw primary-error))
+                   (close [] (swap! cleaned conj :statement) (throw cleanup-error)))
+        conn (proxy [Connection] []
+               (prepareStatement [sql]
+                 (if (= sql "select set_config(?, ?, true)") settings-ps identity-ps))
+               (rollback [] (swap! cleaned conj :rollback) (throw cleanup-error))
+               (close [] (swap! cleaned conj :connection) (throw cleanup-error)))
+        pool (proxy [HikariDataSource] [] (getConnection [] conn))
+        phase (volatile! :connection)
+        s (assoc (test-session) :pool pool)
+        job {:created-ms (System/currentTimeMillis) :phase phase :query ["select 1"]}]
+    (with-redefs [jdbc/prepare (fn [& _] query-ps)]
+      (is (identical? primary-error
+                      (try (#'query-shadow/execute-job! s job)
+                           (catch SQLException e e)))))
+    (is (= [:statement :rollback :connection] @cleaned))
+    (is (= :query @phase))
+    (is (empty? @(:statements s))))
+  (testing "a cleanup error after a successful body remains visible"
+    (let [phase (volatile! :query)
+          error (SQLException. "private" "08003")]
+      (is (identical? error
+                      (try (#'query-shadow/with-cleanup phase :rollback (constantly 1) #(throw error))
+                           (catch SQLException e e))))
+      (is (= :rollback @phase)))))
+
+(deftest candidate-result-buffer-remains-bounded
+  (with-redefs [aurora-config/secret-arn->db-creds (constantly {:user "test" :password "test"})]
+    (with-open [^HikariDataSource pool
+                (#'query-shadow/open-pool
+                 {:candidate-instance-id query-shadow/candidate-instance-id :workers 4}
+                 {:cluster-id "instant-8" :instance-id "writer" :secret-arn "test"
+                  :replica {:cluster-id "instant-8" :instance-id query-shadow/candidate-instance-id
+                            :host "candidate.example.test" :port 5432 :dbname "test"}})]
+      (let [^PGSimpleDataSource ds (.getDataSource pool)]
+        (is (= "536870912" (.getMaxResultBuffer ds)))
+        (is (= 4 (.getMaximumPoolSize pool)))
+        (is (= 3 (.getSocketTimeout ds)))
+        (is (= "secondary" (.getTargetServerType ds)))
+        (is (.isReadOnly pool))
+        (is (false? (.isAutoCommit pool)))))))
