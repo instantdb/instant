@@ -33,6 +33,7 @@
             [instant.config :as config]
             [instant.db.model.triple :as triple-model]
             [instant.db.attr-sketch :as cms]
+            [instant.db.scoped-query-plans :as scoped-query-plans]
             [instant.flags :as flags]
             [instant.util.spec :as uspec]
             [instant.util.tracer :as tracer]
@@ -2680,13 +2681,42 @@
                                                               :cte-cols
                                                               last))})}))
 
+(defn- child-join-query [prefix app-id next-idx symbol-map join-sym reuse-bound-entities?]
+  (let [conds (join-conds prefix (dec next-idx) symbol-map {:e [:variable join-sym]})
+        single-field (when (and (= 1 (count conds))
+                               (= [:= :entity-id] (take 2 (first conds))))
+                      (last (first conds)))
+        entity-fields (when (and reuse-bound-entities?
+                                (< 1 (count conds))
+                                (seq (get symbol-map join-sym))
+                                (every? #(and (map? %) (= :e (:ctype %)))
+                                        (get symbol-map join-sym))
+                                (every? #(and (vector? %)
+                                              (= 3 (count %))
+                                              (= [:= :entity-id] (take 2 %)))
+                                        conds))
+                        (map last conds))]
+    (if-let [field (or single-field (first entity-fields))]
+      ;; Multiple entity bindings already come from triples in this app.
+      ;; Keep their equalities without scanning those triples again.
+      (cond-> {:select [[[:distinct field] (kw prefix next-idx :-entity-id)]]
+               :from (kw prefix (dec next-idx))}
+        entity-fields (assoc :where (list* :and (map #(vector := field %)
+                                                   (rest entity-fields)))))
+      {:select [[[:distinct :entity-id] (kw prefix next-idx :-entity-id)]]
+       :from [:triples (kw prefix (dec next-idx))]
+       :where (list* :and [:= :app-id app-id] conds)})))
+
 (defn accumulate-nested-match-query
   ([prefix app-id nested-named-patterns]
+   (accumulate-nested-match-query prefix app-id nested-named-patterns false))
+  ([prefix app-id nested-named-patterns reuse-bound-entities?]
    (let [acc {:next-idx 0
-              :ctes []
-              :pg-hints []
-              :result-tables []
-              :pattern-groups []}]
+             :ctes []
+             :pg-hints []
+             :result-tables []
+             :pattern-groups []
+             :reuse-bound-entities? reuse-bound-entities?}]
      (accumulate-nested-match-query acc {} prefix app-id nested-named-patterns)))
   ([acc additional-joins prefix app-id nested-named-patterns]
    (let [res (reduce
@@ -2739,23 +2769,8 @@
                                    :table (:from query)}))
                       (let [join-sym (get-in pattern-group [:children :join-sym])
                             join-cte [(kw prefix next-idx)
-                                      (let [conds (join-conds prefix
-                                                              (dec next-idx)
-                                                              symbol-map
-                                                              {:e [:variable join-sym]})]
-                                        (if-let [single-field (when (and (= 1 (count conds))
-                                                                         (= [:= :entity-id]
-                                                                            (take 2 (first conds))))
-                                                                (last (first conds)))]
-                                          ;; If we're only joining on a single col, we can just grab
-                                          ;; that col directly from the CTE
-                                          {:select [[[:distinct single-field] (kw prefix next-idx :-entity-id)]]
-                                           :from (kw prefix (dec next-idx))}
-                                          {:select [[[:distinct :entity-id] (kw prefix next-idx :-entity-id)]]
-                                           :from [:triples (kw prefix (dec next-idx))]
-                                           :where (list* :and
-                                                         [:= :app-id app-id]
-                                                         conds)}))
+                                      (child-join-query prefix app-id next-idx symbol-map join-sym
+                                                       (:reuse-bound-entities? acc))
                                       :materialized]
                             child-res (accumulate-nested-match-query (-> next-acc
                                                                          (update :ctes conj join-cte)
@@ -2830,7 +2845,11 @@
   queries."
   [ctx prefix app-id nested-named-patterns]
   (let [{:keys [ctes result-tables children pg-hints]}
-        (accumulate-nested-match-query prefix app-id nested-named-patterns)
+        (accumulate-nested-match-query
+         prefix app-id nested-named-patterns
+         (and (enable-pg-hints?)
+              (not (flags/toggled? :disable-pg-hints))
+              (scoped-query-plans/reuse-bound-child-entities? app-id (:query-normalized ctx))))
         tables (set (map :table result-tables))
         ctes (map #(cond
                      ;; Forces postgres to only evaluate the cte once
@@ -2846,6 +2865,11 @@
                      :else %)
                   ctes)
         pg-hints (scoped-query-hints ctx app-id ctes pg-hints)
+        {:keys [ctes pg-hints]} (if (and (enable-pg-hints?)
+                                        (not (flags/toggled? :disable-pg-hints)))
+                                 (scoped-query-plans/apply-plan
+                                  app-id (:query-normalized ctx) ctes pg-hints tables (:attrs ctx))
+                                 {:ctes ctes :pg-hints pg-hints})
         query (when (seq ctes)
                 {:with ctes
 
@@ -3419,6 +3443,45 @@
                                  true))
            batch-data))))
 
+(def ^:private permission-entity-fetch-app-ids
+  #{#uuid "28970aa3-b5e3-4c1a-822d-192f5e9140cb"})
+
+(defn scoped-permission-entity-fetch-enabled? [app-id]
+  (and (contains? permission-entity-fetch-app-ids app-id)
+       (not (flags/toggled? :disable-scoped-permission-entity-fetch))
+       (true? (get (flags/flag :scoped-permission-entity-fetch) (str app-id)))))
+
+(defn- permission-entity-fetch-patterns? [nested-patterns]
+  (let [children (:children nested-patterns)
+        groups (:pattern-groups children)]
+    (and (= #{:children} (set (keys nested-patterns)))
+         (= #{:pattern-groups} (set (keys children)))
+         (seq groups)
+         (every? (fn [group]
+                   (let [patterns (:patterns group)
+                         [idx eid attr-ids :as pattern] (first patterns)]
+                     (and (= #{:patterns} (set (keys group)))
+                          (= 1 (count patterns))
+                          (= 3 (count pattern))
+                          (= :ea idx)
+                          (uuid? eid)
+                          (set? attr-ids)
+                          (seq attr-ids)
+                          (every? uuid? attr-ids))))
+                 groups))))
+
+(defn- annotate-permission-entity-fetch [ctx nested-named-patterns]
+  ;; A standalone entity lookup needs no join estimates. With a single UUID,
+  ;; the EA index wins without consulting the per-attribute sketches.
+  (let [groups (mapv (fn [group]
+                      (let [pattern (get-in group [:patterns 0 1])
+                            index (best-index (assoc ctx :sketches {}) pattern {})]
+                        (when (= :ea_index (:name index))
+                          (assoc-in group [:patterns 0 1 :best-index] index))))
+                    (get-in nested-named-patterns [:children :pattern-groups]))]
+    (when (every? some? groups)
+      (assoc-in nested-named-patterns [:children :pattern-groups] groups))))
+
 (defn query-nested [{:keys [app-id db query-hash] :as ctx} nested-patterns]
   (let [disable-hints? (or (flags/toggled? :disable-pg-hints false)
                            (contains? (flags/flag :disable-hint-query-hashes)
@@ -3431,9 +3494,18 @@
                                     :query-hash query-hash}})
     (binding [*enable-pg-hints* (and enable-hints?
                                      (not disable-hints?))]
-      (let [nested-named-patterns (cond->> nested-patterns
-                                    true nested->named-patterns
-                                    (enable-pg-hints?) (annotate-with-hints ctx))]
+      (let [named-patterns (nested->named-patterns nested-patterns)
+            nested-named-patterns
+            (if (enable-pg-hints?)
+              (or (when (and (not *debug*)
+                             (::permission-entity-fetch? ctx)
+                             (scoped-permission-entity-fetch-enabled? app-id)
+                             (permission-entity-fetch-patterns? nested-patterns))
+                    (when-let [annotated (annotate-permission-entity-fetch ctx named-patterns)]
+                      (tracer/add-data! {:attributes {:permission-entity-fetch-planning-skipped true}})
+                      annotated))
+                  (annotate-with-hints ctx named-patterns))
+              named-patterns)]
         (throw-invalid-nested-patterns nested-named-patterns)
         (send-query-nested ctx (:conn-pool db) app-id nested-named-patterns)))))
 

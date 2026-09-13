@@ -68,3 +68,20 @@
   (testing "temporary apps can be disabled"
     (with-redefs [flags/flag (constantly false)]
       (is (false? (flags/ephemeral-apps-enabled?))))))
+
+(deftest scoped-write-plans-require-explicit-opt-in
+  (let [app-id #uuid "1c436238-c543-44d0-9a6b-51f7e5b840e3"
+        enabled {(str app-id) {"bitcoin-prices" true}}]
+    (with-redefs [flags/query-result (constantly {})]
+      (binding [flags/*flag-overrides* {:scoped-write-plans enabled}]
+        (is (true? (flags/scoped-write-plan-enabled? app-id :bitcoin-prices)))
+        (is (false? (flags/scoped-write-plan-enabled? (random-uuid) :bitcoin-prices)))
+        (is (false? (flags/scoped-write-plan-enabled? app-id :citybikes-free-bikes)))
+        (doseq [kill-switch [:disable-scoped-write-plans :disable-pg-hints]]
+          (binding [flags/*toggle-overrides* {kill-switch true}]
+            (is (false? (flags/scoped-write-plan-enabled? app-id :bitcoin-prices))))))
+      (doseq [value [nil {} {(str app-id) {"bitcoin-prices" false}}
+                    {(str app-id) {"bitcoin-prices" "true"}}
+                    {(str app-id) {"bitcoin-prices" 1}}]]
+        (binding [flags/*flag-overrides* {:scoped-write-plans value}]
+          (is (false? (flags/scoped-write-plan-enabled? app-id :bitcoin-prices))))))))

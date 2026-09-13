@@ -160,7 +160,11 @@
             ;; you might be tempted to simplify the query to [[:ea (set eids)]]
             ;; but the eid might be a lookup ref and you won't know how to get
             ;; the join rows for that lookup
-            datalog-result (datalog-query-fn ctx query)]
+            query-ctx (if (and (identical? datalog-query-fn d/query)
+                               (d/scoped-permission-entity-fetch-enabled? (:app-id ctx)))
+                        (assoc ctx ::d/permission-entity-fetch? true)
+                        ctx)
+            datalog-result (datalog-query-fn query-ctx query)]
         (zipmap
          eids+etypes
          (for [data (:data datalog-result)

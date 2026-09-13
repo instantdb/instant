@@ -5,6 +5,7 @@
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple-cols :as triple-cols-ns]
+   [instant.db.scoped-write-plans :as scoped-write-plans]
    [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
@@ -428,6 +429,31 @@
                [:is-distinct-from :triples.value-md5 :excluded.value-md5]
                (id-attr-conflict?)]})))
 
+(defn- existing-indexed-triple [app-id scoped-plan]
+  ;; Keep the normal query unchanged outside the measured app/write shapes.
+  (if scoped-plan
+    {:select :1
+     :from [[:triples :existing-triple]]
+     :where [:and
+             :existing-triple.ave
+             [:= :existing-triple.app-id app-id]
+             [:= :existing-triple.attr-id :needs-null-attr.id]
+             [:= :existing-triple.entity-id :new-entities.entity-id]]}
+    {:select :1
+     :from :triples
+     :where [:and
+             :triples.ave
+             [:= :triples.app-id app-id]
+             [:= :triples.attr-id :needs-null-attr.id]
+             [:= :triples.entity-id :new-entities.entity-id]]}))
+
+(defn- execute-insert! [conn query scoped-plan]
+  (if scoped-plan
+    ;; Named spans let us measure each opted-in write shape in existing logs.
+    (tracer/with-span! {:name (str "triple/scoped-write-plan/" (name scoped-plan))}
+      (sql/do-execute! ::insert-multi! conn (hsql/format query)))
+    (sql/do-execute! ::insert-multi! conn (hsql/format query))))
+
 (defn- insert-multi-old!
   "Pre-skip-noop-id-triple-updates implementation of insert-multi!, kept as a
    kill switch. insert-multi! delegates here when the
@@ -435,8 +461,9 @@
    path is proven out."
   ([conn attrs app-id triples]
    (insert-multi-old! conn attrs app-id triples {:overwrite-t false}))
-  ([conn attrs app-id triples {:keys [overwrite-t]}]
-   (let [lookup-refs
+  ([conn attrs app-id triples {:keys [overwrite-t] :as opts}]
+   (let [scoped-plan (scoped-write-plans/null-padding-shape attrs app-id triples opts)
+         lookup-refs
          (distinct
           (keep (fn [[e]]
                   (when (eid-lookup-ref? e)
@@ -657,13 +684,7 @@
                                        :from :idents
                                        :where [:= :idents.id :needs-null-attr.forward-ident]}]
                   ;; No existing triple for this attr
-                  [:not [:exists {:select :1
-                                  :from :triples
-                                  :where [:and
-                                          :triples.ave
-                                          [:= :triples.app-id app-id]
-                                          [:= :triples.attr-id :needs-null-attr.id]
-                                          [:= :triples.entity-id :new-entities.entity-id]]}]]]]
+                  [:not [:exists (existing-indexed-triple app-id scoped-plan)]]]]
           ;; Make sure we didn't insert a null value
           ;; for the attr if this transaction is
           ;; inserting a value for the attr
@@ -726,10 +747,12 @@
                        [['all-inserts all-inserts]])
 
                 :from 'all-inserts
-                :select ['entity-id 'attr-id]}]
+                :select ['entity-id 'attr-id]}
+         query (cond-> query
+                 scoped-plan (assoc :pg-hints [(hints/index-scan :existing-triple :triples_pkey)]))]
 
      (try
-       (sql/do-execute! ::insert-multi! conn (hsql/format query))
+       (execute-insert! conn query scoped-plan)
        (catch Exception e
          (let [pg-server-message (-> e
                                      ex-data
@@ -767,8 +790,9 @@
              (throw e))))))))
 
 (defn- insert-multi-new!
-  [conn attrs app-id triples {:keys [overwrite-t]}]
-  (let [lookup-refs
+  [conn attrs app-id triples {:keys [overwrite-t] :as opts}]
+  (let [scoped-plan (scoped-write-plans/null-padding-shape attrs app-id triples opts)
+        lookup-refs
         (distinct
          (keep (fn [[e]]
                  (when (eid-lookup-ref? e)
@@ -1043,13 +1067,7 @@
                                       :from :idents
                                       :where [:= :idents.id :needs-null-attr.forward-ident]}]
                   ;; No existing triple for this attr
-                 [:not [:exists {:select :1
-                                 :from :triples
-                                 :where [:and
-                                         :triples.ave
-                                         [:= :triples.app-id app-id]
-                                         [:= :triples.attr-id :needs-null-attr.id]
-                                         [:= :triples.entity-id :new-entities.entity-id]]}]]]]
+                 [:not [:exists (existing-indexed-triple app-id scoped-plan)]]]]
           ;; Make sure we didn't insert a null value
           ;; for the attr if this transaction is
           ;; inserting a value for the attr
@@ -1115,10 +1133,12 @@
                       [['all-inserts all-inserts]])
 
                :from 'all-inserts
-               :select ['entity-id 'attr-id]}]
+               :select ['entity-id 'attr-id]}
+        query (cond-> query
+                scoped-plan (assoc :pg-hints [(hints/index-scan :existing-triple :triples_pkey)]))]
 
     (try
-      (sql/do-execute! ::insert-multi! conn (hsql/format query))
+      (execute-insert! conn query scoped-plan)
       (catch Exception e
         (let [pg-server-message (-> e
                                     ex-data
