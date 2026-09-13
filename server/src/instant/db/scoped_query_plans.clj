@@ -193,6 +193,70 @@
       {:ctes (update-in (vec ctes) [0 1 :where] #(conj (vec %) upper-predicate))
        :pg-hints pg-hints})))
 
+(defn- numeric-upper-bound [app-id normalized ctes pg-hints result-tables attrs]
+  (let [[[_ bound-query] [_ order-query]] ctes
+        predicate (last (:where bound-query))
+        upper (get-in predicate [1 2])
+        attr-id (some (fn [[op column value]]
+                        (when (and (= op :=) (= column :attr-id)) value))
+                      (filter vector? (conjuncts bound-query)))
+        attr (some #(when (= attr-id (:id %)) %) attrs)
+        numeric-type [:= :checked_data_type [:cast [:inline "number"] :checked_data_type]]
+        base #{[:= :app-id app-id] [:= :ave :true] [:= :attr-id attr-id]}]
+    (when (and (= normalized
+                  {:Prices {:$ {:where {:timestamp {:$lt :number}}
+                                :order {:timestamp "asc"} :limit 200}}})
+               (scans? pg-hints [(pg-hint/index-scan :t0 :triples_pkey)
+                                 (pg-hint/index-scan :t1 :triples_number_type_idx)])
+               (= 1 (count (filter #{:t1} (tree-seq coll? seq pg-hints))))
+               (not-any? #{:upper-bound-match :t-upper-bound-match}
+                         (tree-seq coll? seq [ctes pg-hints]))
+               (= [:m-0 :m-1-with-next] (mapv first (take 2 ctes)))
+               (layout? ctes [[:m-0 [[:triples :t0]] :not-materialized]
+                              [:m-1-with-next [[:triples :t1] :m-0] :materialized]])
+               (not (contains? result-tables :m-0))
+               (= 2 (count (filter #{:m-0} (tree-seq coll? seq ctes))))
+               (= #{:select :from :where} (set (keys bound-query)))
+               (= #{:from :where :select-distinct-on :order-by :limit}
+                  (set (keys order-query)))
+               (= [[:entity-id :m-0-entity-id] [:attr-id :m-0-attr-id]
+                   [:value :m-0-value] [:eav :m-0-is-ref-val]
+                   [:created-at :m-0-created-at]]
+                  (:select bound-query))
+               (= [[:order-val :order-eid]
+                   [[:triples_extract_number_value :value] :order-val]
+                   [:entity-id :order-eid] :m-0.*
+                   [:entity-id :m-1-entity-id] [:attr-id :m-1-attr-id]
+                   [:value :m-1-value] [:eav :m-1-is-ref-val]
+                   [:created-at :m-1-created-at]]
+                  (:select-distinct-on order-query))
+               (uuid? attr-id)
+               (= :one (:cardinality attr))
+               (= :blob (:value-type attr))
+               (= :number (:checked-data-type attr))
+               (:index? attr)
+               (number? upper)
+               (= predicate [:and [:< [:triples_extract_number_value :value] upper]
+                             numeric-type])
+               (= (conj base predicate) (conjuncts bound-query))
+               (= (:where order-query)
+                  (list :and numeric-type
+                        (list :and [:= :app-id app-id] [:= :ave :true]
+                              [:= :attr-id attr-id] [:= :entity-id :m-0-entity-id])))
+               (= [[:order-val :asc-nulls-first :asc] [:order-eid :asc]]
+                  (:order-by order-query))
+               (= 201 (:limit order-query)))
+      ;; The join can only produce rows if its filter matches something.
+      ;; Check that range once so an empty query skips the full ordering scan.
+      {:ctes (into [[:upper-bound-match
+                     (assoc bound-query :select [[[:inline 1] :matched]]
+                            :from [[:triples :t-upper-bound-match]] :limit 1)
+                     :materialized]]
+                   (update-in (vec ctes) [1 1 :where]
+                              #(vector :and % [:exists {:select :* :from :upper-bound-match}])))
+       :pg-hints (conj (vec pg-hints)
+                       (pg-hint/index-scan :t-upper-bound-match :triples_number_type_idx))})))
+
 (defn apply-plan [app-id normalized ctes pg-hints result-tables attrs]
   (or (when (not-any? #(contains? #{:'Leading :'HashJoin :'NestLoop :'MergeJoin
                                    :'NoHashJoin :'NoNestLoop :'NoMergeJoin}
@@ -209,7 +273,8 @@
           (nullable-filter app-id normalized ctes pg-hints)
 
           #uuid "1c436238-c543-44d0-9a6b-51f7e5b840e3"
-          (numeric-range app-id normalized ctes pg-hints result-tables attrs)
+          (or (numeric-range app-id normalized ctes pg-hints result-tables attrs)
+              (numeric-upper-bound app-id normalized ctes pg-hints result-tables attrs))
 
           nil))
       {:ctes ctes :pg-hints pg-hints}))
