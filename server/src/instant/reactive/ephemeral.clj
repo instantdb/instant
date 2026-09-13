@@ -236,6 +236,9 @@
     (.setGlobalSerializerConfig serialization-config
                                 hazelcast/global-serializer-config)
 
+    ;; Joining members can receive map partitions before initialize runs.
+    (rate-limit/configure-hazelcast! config)
+
     (let [hz                 (Hazelcast/getOrCreateHazelcastInstance config)
           local-member       (.getLocalMember (.getCluster hz))
           hz-rooms-map       (.getMap hz "rooms-v2")
