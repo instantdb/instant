@@ -29,6 +29,7 @@
    [instant.honeycomb-api :as honeycomb-api]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
+   [instant.jvm-metrics :as jvm-metrics]
    [instant.lib.ring.undertow :as undertow-adapter]
    [instant.loadbalancer :as loadbalancer-listener]
    [instant.log-config :as log-config]
@@ -335,6 +336,7 @@
   (start))
 
 (defn shutdown-hook []
+  (jvm-metrics/stop)
   (tracer/record-info! {:name "shut-down.start"})
   (tracer/with-span! {:name "shut-down"}
     (tracer/with-span! {:name "stop-server"}
@@ -433,6 +435,8 @@
 
       (with-log-init :gauges
         (gauges/start))
+      (with-log-init :jvm-metrics
+        (jvm-metrics/start))
       (with-log-init :nrepl
         (nrepl/start))
       (with-log-init :oauth
