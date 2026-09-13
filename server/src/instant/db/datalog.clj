@@ -40,6 +40,7 @@
             [instant.util.coll :as coll]
             [clojure.string :as string]
             [honey.sql :as hsql]
+            [instant.jdbc.query-shadow :as query-shadow]
             [instant.jdbc.sql :as sql]
             [instant.util.json :refer [->json]]
             [instant.util.pg-hint-plan :as pg-hint]
@@ -3396,7 +3397,8 @@
                     (let [sql-res (sql/select-arrays ::send-query-nested
                                                      conn
                                                      sql-query
-                                                     {:postgres-config postgres-config})
+                                                     {:postgres-config postgres-config
+                                                      :shadow (query-shadow/metadata-for-query ctx app-id query-hash)})
                           grouped-res (->> sql-res
                                            ;; remove header row
                                            second

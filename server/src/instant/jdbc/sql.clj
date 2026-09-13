@@ -6,6 +6,7 @@
    [honey.sql :as hsql]
    [honey.sql.pg-ops]
    [instant.isn]
+   [instant.jdbc.query-shadow :as query-shadow]
    [instant.jdbc.socket-track :as socket-track]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
@@ -593,6 +594,7 @@
                     opts# (merge ~opts
                                  (dissoc ~'additional-opts
                                          :postgres-config
+                                         :shadow
                                          :skip-log-params)
                                  {:timeout *query-timeout-seconds*})
                     ^Connection c# (if create-connection?#
@@ -606,7 +608,11 @@
                   (apply-postgres-config postgres-config# create-connection?# c#)
                   (with-open [ps# (next-jdbc/prepare c# query# opts#)
                               _cleanup# (register-in-progress create-connection?# ~rw c# ps# complete#)]
-                    (let [res# (~query-fn ps# nil opts#)
+                    (let [shadow# (when (and (:shadow ~'additional-opts) (query-shadow/enabled?))
+                                    (:shadow ~'additional-opts))
+                          started# (when shadow# (System/nanoTime))
+                          res# (~query-fn ps# nil opts#)
+                          elapsed-ms# (when started# (/ (- (System/nanoTime) started#) 1e6))
                           bytes-after# (when bytes-before#
                                          (socket-track/bytes-transferred c#))
                           bytes-meta# (when bytes-after#
@@ -618,6 +624,11 @@
                         (tracer/add-data! {:attributes (merge bytes-meta#
                                                               (socket-track/connection-metadata c#))}))
                       (annotate-update-count ps#)
+                      (when shadow#
+                        (try
+                          (query-shadow/offer! shadow# ~'conn c# create-connection?#
+                                               ~'query postgres-config# elapsed-ms#)
+                          (catch Throwable _# nil)))
                       (when res#
                         (if (:attach-warnings? opts#)
                           (with-meta res# (merge {:warnings (.getWarnings ps#)}

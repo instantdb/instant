@@ -28,6 +28,7 @@
    [instant.health :as health]
    [instant.honeycomb-api :as honeycomb-api]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.query-shadow :as query-shadow]
    [instant.jdbc.wal :as wal]
    [instant.jvm-metrics :as jvm-metrics]
    [instant.lib.ring.undertow :as undertow-adapter]
@@ -336,6 +337,7 @@
   (start))
 
 (defn shutdown-hook []
+  (query-shadow/stop)
   (jvm-metrics/stop)
   (tracer/record-info! {:name "shut-down.start"})
   (tracer/with-span! {:name "shut-down"}
@@ -470,6 +472,12 @@
         (flags-impl/init config/instant-config-app-id
                          flags/queries
                          flags/query-results))
+
+      (with-log-init :query-shadow
+        (query-shadow/start {:flag-fn #(flags/flag :aurora-reader-shadow)
+                             :host-id @config/instance-id
+                             :db-config-fn config/get-aurora-config
+                             :source-pool-fn #(aurora/conn-pool :read)}))
 
       (with-log-init :sunset
         (sunset/start))
