@@ -31,8 +31,8 @@
       (is (nil? (query-shadow/config-for-host
                  (assoc trial-config :candidate-instance-id "writer") "i-a" now-ms))))
     (testing "invalid or excessive global bounds fail closed"
-      (doseq [[k invalid-values] [[:sample-rate [-1 0.1001 "0.01" Double/NaN]]
-                                 [:qps [-1 20.1 "2" Double/POSITIVE_INFINITY]]
+      (doseq [[k invalid-values] [[:sample-rate [-1 1.0001 "0.01" Double/NaN]]
+                                 [:qps [-1 200.1 "2" Double/POSITIVE_INFINITY]]
                                  [:workers [0 5 1.5 "2"]]
                                  [:host-ids [[] ["i-a" "i-a"] ["i-a" "i-b" "i-c"]
                                              ["i-a" "i-b" "i-c" "i-d" "i-e"]]]
@@ -70,13 +70,13 @@
               "i-a" now-ms))))
     (testing "host allocations share one global cap"
       (let [hosts ["i-a" "i-b" "i-c" "i-d"]
-            raw (assoc trial-config :host-ids hosts :sample-rate 0.1 :qps 20 :workers 4)
+            raw (assoc trial-config :host-ids hosts :sample-rate 1.0 :qps 200 :workers 4)
             configs (mapv #(query-shadow/config-for-host raw % now-ms) hosts)]
         (is (every? some? configs))
-        (is (every? #(== 5 (:qps %)) configs))
+        (is (every? #(== 50 (:qps %)) configs))
         (is (every? #(= 1 (:workers %)) configs))
         (is (= 32 (reduce + (map :queue-size configs))))
-        (is (every? #(= 0.1 (:sample-rate %)) configs))))))
+        (is (every? #(= 1.0 (:sample-rate %)) configs))))))
 
 (defn read-only-connection [read-only?]
   (proxy [Connection] []

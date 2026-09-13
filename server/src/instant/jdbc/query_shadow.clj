@@ -42,8 +42,8 @@
                  (every? #(and (string? %) (re-matches #"i-[a-zA-Z0-9]+" %)) host-ids)
                  (<= 0 host-index)
                  (integer? workers) (<= n workers 4)
-                 (number? qps) (< 0 qps) (<= qps 20)
-                 (number? sample-rate) (< 0 sample-rate) (<= sample-rate 0.1)
+                 (number? qps) (< 0 qps) (<= qps 200)
+                 (number? sample-rate) (< 0 sample-rate) (<= sample-rate 1.0)
                  (< now-ms expires-at-ms))
         {:candidate-instance-id candidate-instance-id
          :sample-rate sample-rate
