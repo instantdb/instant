@@ -444,3 +444,41 @@ test('IndexedDBStorage explicitly commits write transactions', async () => {
     commitSpy.mockRestore();
   }
 });
+
+test('IndexedDBStorage falls back to memory when indexedDB is missing', async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB');
+  delete (globalThis as any).indexedDB;
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => {
+    unhandled.push(reason);
+  };
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    expect(typeof indexedDB).toBe('undefined');
+
+    const idb = new IndexedDBStorage(randomUUID(), 'kv');
+    await idb.setItem('key1', 'value1');
+    expect(await idb.getItem('key1')).toBe('value1');
+
+    await idb.multiSet([
+      ['key2', 'value2'],
+      ['key3', 'value3'],
+    ]);
+    expect(await idb.getItem('key2')).toBe('value2');
+    expect(await idb.getItem('key3')).toBe('value3');
+
+    const keys = await idb.getAllKeys();
+    expect(keys.sort()).toStrictEqual(['key1', 'key2', 'key3']);
+
+    await idb.removeItem('key3');
+    expect(await idb.getItem('key3')).toBe(null);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(unhandled).toEqual([]);
+  } finally {
+    process.off('unhandledRejection', onUnhandled);
+    if (descriptor) {
+      Object.defineProperty(globalThis, 'indexedDB', descriptor);
+    }
+  }
+});
