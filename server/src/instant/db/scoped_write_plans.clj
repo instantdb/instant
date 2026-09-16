@@ -31,6 +31,18 @@
             #uuid "edf54f43-15ee-4e9f-a108-f34056ae5cea" ["syncedAt" true false :number true]
             #uuid "fb6aef17-e123-4c8e-af20-7808c9da823c" ["vehicleTypeId" true false :string false]}}})
 
+(def ^:private analytics-events-plan
+  {:shape :5ff-analytics-events
+   :etype "analytics_events"
+   :attrs {#uuid "90a45a9d-af9d-413e-ac7d-75f5914b7ed6" ["channelId" true false :string false]
+           #uuid "79553585-e5ae-4f88-b5f3-0b5a114b0217" ["channelSlug" true false :string false]
+           #uuid "a42e7ed1-34f3-4b4e-98e4-23336fea4bc7" ["createdAt" true false :date true]
+           #uuid "b75f7a10-7f8b-435c-ac38-128799dcd920" ["eventType" true false :string true]
+           #uuid "1397ed3e-7c74-4d08-b82d-a5f677857fed" ["id" false true nil true]
+           #uuid "e73bd0ae-128e-41b3-9b57-affd102469c4" ["locale" false false :string false]
+           #uuid "f4a3f3db-0761-447d-87ae-7f0c35caf879" ["path" false false :string false]
+           #uuid "47be2bf8-9bb7-4110-98eb-53bcf5856f0f" ["userAgent" false false :string false]}})
+
 ;; The measured message batch crosses namespaces and includes legacy ident IDs.
 ;; [forward identity reverse identity value-type cardinality indexed? unique?
 ;;  checked-data-type required?]
@@ -253,15 +265,50 @@
                                                 (uuid-util/parse-uuid value))))))))
                triples)))
 
+(defn- analytics-events-triples? [triples]
+  (and (sequential? triples)
+       (= 8 (bounded-count 9 triples))
+       (every? (fn [triple]
+                 (and (sequential? triple)
+                      (= 4 (bounded-count 5 triple))
+                      (let [[entity attr value step-opts] triple]
+                        (and (uuid? entity)
+                             (uuid? attr)
+                             (contains? (:attrs analytics-events-plan) attr)
+                             (nil? step-opts)
+                             (cond
+                               (= attr #uuid "1397ed3e-7c74-4d08-b82d-a5f677857fed")
+                               (= entity value)
+
+                               (= attr #uuid "90a45a9d-af9d-413e-ac7d-75f5914b7ed6")
+                               (uuid? value)
+
+                               :else
+                               (and (string? value)
+                                    (not (and (= 36 (count value)) (uuid-util/parse-uuid value)))))))))
+               triples)
+       (= 1 (count (set (map first triples))))
+       (= (set (keys (:attrs analytics-events-plan))) (set (map second triples)))))
+
 (defn null-padding-shape
   "Returns the explicitly enabled measured write shape, or nil for normal planning."
   [attrs app-id triples opts]
-  (if (= app-id #uuid "a749930e-6737-4dcf-b039-60c7f5e4e2e6")
+  (cond
+    (= app-id #uuid "5ff3d22e-183a-4657-bd8f-e86316f983cb")
+    (when (and (flags/scoped-write-plan-enabled? app-id (:shape analytics-events-plan))
+               (nil? opts)
+               (analytics-events-triples? triples)
+               (schema-matches? attrs analytics-events-plan))
+      (:shape analytics-events-plan))
+
+    (= app-id #uuid "a749930e-6737-4dcf-b039-60c7f5e4e2e6")
     (when (and (flags/scoped-write-plan-enabled? app-id :a749-message-batch)
                (nil? opts)
                (a749-message-triples? triples)
                (a749-message-schema-matches? attrs))
       :a749-message-batch)
+
+    :else
     (when-let [{:keys [shape] expected :attrs :as plan} (get null-padding-shapes app-id)]
       ;; Most apps exit before inspecting their attributes or transaction payload.
       (when (and (flags/scoped-write-plan-enabled? app-id shape)
