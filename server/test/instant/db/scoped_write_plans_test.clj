@@ -477,3 +477,146 @@
         (is (nil? (plans/null-padding-shape
                    (mapv #(assoc-in % [:forward-identity 0] (:id %)) a749-attrs)
                    a749-app triples nil)))))))
+
+
+(def analytics-events-app #uuid "5ff3d22e-183a-4657-bd8f-e86316f983cb")
+
+(def analytics-events-attrs
+  (fixture-attrs
+   "analytics_events"
+   [[#uuid "90a45a9d-af9d-413e-ac7d-75f5914b7ed6" "channelId" true false :string false]
+    [#uuid "79553585-e5ae-4f88-b5f3-0b5a114b0217" "channelSlug" true false :string false]
+    [#uuid "a42e7ed1-34f3-4b4e-98e4-23336fea4bc7" "createdAt" true false :date true]
+    [#uuid "b75f7a10-7f8b-435c-ac38-128799dcd920" "eventType" true false :string true]
+    [#uuid "1397ed3e-7c74-4d08-b82d-a5f677857fed" "id" false true nil true]
+    [#uuid "e73bd0ae-128e-41b3-9b57-affd102469c4" "locale" false false :string false]
+    [#uuid "f4a3f3db-0761-447d-87ae-7f0c35caf879" "path" false false :string false]
+    [#uuid "47be2bf8-9bb7-4110-98eb-53bcf5856f0f" "userAgent" false false :string false]]))
+
+(defn analytics-events-triples
+  ([] (analytics-events-triples #uuid "00000000-0000-4000-8000-000000000006"))
+  ([entity]
+   [[entity #uuid "90a45a9d-af9d-413e-ac7d-75f5914b7ed6" #uuid "00000000-0000-4000-8000-000000000007" nil]
+    [entity #uuid "79553585-e5ae-4f88-b5f3-0b5a114b0217" "fixture-channelSlug" nil]
+    [entity #uuid "a42e7ed1-34f3-4b4e-98e4-23336fea4bc7" "2026-01-01T00:00:00.000Z" nil]
+    [entity #uuid "b75f7a10-7f8b-435c-ac38-128799dcd920" "fixture-eventType" nil]
+    [entity #uuid "1397ed3e-7c74-4d08-b82d-a5f677857fed" entity nil]
+    [entity #uuid "e73bd0ae-128e-41b3-9b57-affd102469c4" "fixture-locale" nil]
+    [entity #uuid "f4a3f3db-0761-447d-87ae-7f0c35caf879" "fixture-path" nil]
+    [entity #uuid "47be2bf8-9bb7-4110-98eb-53bcf5856f0f" "fixture-userAgent" nil]]))
+
+(deftest analytics-events-exact-normalized-batch
+  (with-redefs [flags/scoped-write-plan-enabled? (constantly true)]
+    (let [attrs (attr-model/wrap-attrs analytics-events-attrs)
+          triples (analytics-events-triples)
+          steps (map #(into [:add-triple] %) triples)
+          normalized (map (comp next tx/vectorize-tx-step) (tx/mapify-tx-steps attrs steps))]
+      (is (= :5ff-analytics-events
+             (plans/null-padding-shape attrs analytics-events-app triples nil)))
+      (is (= triples (vec normalized)))
+      (is (= :5ff-analytics-events
+             (plans/null-padding-shape attrs analytics-events-app normalized nil)))
+      (is (= :5ff-analytics-events
+             (plans/null-padding-shape (reverse analytics-events-attrs) analytics-events-app
+                                      (reverse triples) nil)))
+      (is (= :5ff-analytics-events
+             (plans/null-padding-shape (concat analytics-events-attrs a749-attrs) analytics-events-app
+                                      (analytics-events-triples (random-uuid)) nil)))
+      (is (= :5ff-analytics-events
+             (plans/null-padding-shape
+              (mapv #(assoc % :inferred-types #{:string} :metadata {:note "fixture"}
+                             :indexing? false :checking-data-type? false :setting-unique? false)
+                    analytics-events-attrs)
+              analytics-events-app triples nil))))))
+
+(deftest analytics-events-gate-is-explicit-and-can-be-disabled
+  (let [unreadable (lazy-seq (throw (ex-info "Must not inspect disabled writes" {})))]
+    (with-redefs [flags/scoped-write-plan-enabled? (constantly false)]
+      (is (nil? (plans/null-padding-shape unreadable analytics-events-app unreadable nil))))
+    (with-redefs [flags/scoped-write-plan-enabled? (constantly true)]
+      (doseq [options [{} {:overwrite-t false} {:overwrite-t true}
+                       {:disable-scoped-write-plan? true} []]]
+        (is (nil? (plans/null-padding-shape unreadable analytics-events-app unreadable options))))))
+  (let [calls (atom [])]
+    (with-redefs [flags/scoped-write-plan-enabled? (fn [app shape] (swap! calls conj [app shape]) true)]
+      (is (= :5ff-analytics-events
+             (plans/null-padding-shape analytics-events-attrs analytics-events-app
+                                      (analytics-events-triples) nil)))
+      (is (= [[analytics-events-app :5ff-analytics-events]] @calls))))
+  (doseq [[plan toggles expected]
+          [[{} {:disable-scoped-write-plans false :disable-pg-hints false} nil]
+           [{"5ff-analytics-events" false} {:disable-scoped-write-plans false :disable-pg-hints false} nil]
+           [{"5ff-analytics-events" true} {:disable-scoped-write-plans false :disable-pg-hints false}
+            :5ff-analytics-events]
+           [{"5ff-analytics-events" true} {:disable-scoped-write-plans true :disable-pg-hints false} nil]
+           [{"5ff-analytics-events" true} {:disable-scoped-write-plans false :disable-pg-hints true} nil]]]
+    (binding [flags/*flag-overrides* {:scoped-write-plans {(str analytics-events-app) plan}}
+              flags/*toggle-overrides* toggles]
+      (is (= expected (plans/null-padding-shape analytics-events-attrs analytics-events-app
+                                              (analytics-events-triples) nil))))))
+
+(deftest analytics-events-unmeasured-batches-fall-back
+  (with-redefs [flags/scoped-write-plan-enabled? (constantly true)]
+    (let [triples (analytics-events-triples)]
+      (doseq [bad [nil [] {} (pop triples) (take 3 triples) (take 4 triples)
+                   (conj triples (first triples)) (repeat (first triples))
+                   (concat triples (analytics-events-triples (random-uuid)))
+                   (assoc triples 0 (repeat :invalid))
+                   (assoc triples 0 (pop (first triples)))
+                   (assoc triples 0 (conj (first triples) nil))
+                   (assoc triples 0 (second triples))
+                   (assoc-in triples [0 0] (random-uuid))
+                   (assoc-in triples [0 0] (str (ffirst triples)))
+                   (assoc-in triples [0 0] [entity-id "lookup"])
+                   (assoc-in triples [0 1] (random-uuid))
+                   (assoc-in triples [0 1] [])]]
+        (is (nil? (plans/null-padding-shape analytics-events-attrs analytics-events-app bad nil))))
+      (doseq [step-options [{} {:mode :upsert} {:mode :create} {:mode :update} false]]
+        (is (nil? (plans/null-padding-shape analytics-events-attrs analytics-events-app
+                                          (assoc-in triples [0 3] step-options) nil))))
+      (doseq [i (range 8)
+              bad-value [nil 42 [] {} [entity-id "lookup"]]]
+        (is (nil? (plans/null-padding-shape analytics-events-attrs analytics-events-app
+                                          (assoc-in triples [i 2] bad-value) nil))))
+      (doseq [i (range 8)]
+        (testing "UUID strings are distinct from both observed UUID objects and ordinary strings"
+          (is (nil? (plans/null-padding-shape analytics-events-attrs analytics-events-app
+                                            (assoc-in triples [i 2] (str (random-uuid))) nil)))))
+      (doseq [i [1 2 3 5 6 7]]
+        (is (nil? (plans/null-padding-shape analytics-events-attrs analytics-events-app
+                                          (assoc-in triples [i 2] (random-uuid)) nil))))
+      (is (nil? (plans/null-padding-shape analytics-events-attrs analytics-events-app
+                                        (assoc-in triples [4 2] (random-uuid)) nil)))
+      (doseq [app [bitcoin-app citybikes-app a749-app (random-uuid)]]
+        (is (nil? (plans/null-padding-shape analytics-events-attrs app triples nil))))
+      (is (nil? (plans/null-padding-shape a749-attrs analytics-events-app (a749-triples) nil))))))
+
+(deftest analytics-events-entire-namespace-schema-must-match
+  (with-redefs [flags/scoped-write-plan-enabled? (constantly true)]
+    (let [triples (analytics-events-triples)]
+      (doseq [i (range 8)
+              mutate [#(assoc % :id (random-uuid))
+                      #(assoc-in % [:forward-identity 0] (random-uuid))
+                      #(assoc-in % [:forward-identity 1] "other_events")
+                      #(assoc-in % [:forward-identity 2] "renamed")
+                      #(assoc % :reverse-identity [(random-uuid) "other" "events"])
+                      #(assoc % :value-type :ref) #(assoc % :cardinality :many)
+                      #(update % :index? not) #(update % :unique? not) #(update % :required? not)
+                      #(update % :checked-data-type (fn [t] (if (= t :date) :string :date)))
+                      #(assoc % :indexing? true) #(assoc % :checking-data-type? true)
+                      #(assoc % :setting-unique? true)
+                      #(assoc % :deletion-marked-at (java.time.Instant/now))
+                      #(assoc % :on-delete :cascade) #(assoc % :on-delete-reverse :cascade)]]
+        (is (nil? (plans/null-padding-shape (update analytics-events-attrs i mutate)
+                                          analytics-events-app triples nil))
+            (str "analytics attribute " i)))
+      (doseq [changed [(subvec analytics-events-attrs 1)
+                       (conj analytics-events-attrs (first analytics-events-attrs))
+                       (conj analytics-events-attrs
+                             {:id (random-uuid) :value-type :blob
+                              :forward-identity [(random-uuid) "analytics_events" "new-field"]})
+                       (conj analytics-events-attrs
+                             {:id (random-uuid) :value-type :ref
+                              :forward-identity [(random-uuid) "other" "outgoing"]
+                              :reverse-identity [(random-uuid) "analytics_events" "incoming"]})]]
+        (is (nil? (plans/null-padding-shape changed analytics-events-app triples nil)))))))
