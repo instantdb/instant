@@ -31,6 +31,181 @@
             #uuid "edf54f43-15ee-4e9f-a108-f34056ae5cea" ["syncedAt" true false :number true]
             #uuid "fb6aef17-e123-4c8e-af20-7808c9da823c" ["vehicleTypeId" true false :string false]}}})
 
+;; The measured message batch crosses namespaces and includes legacy ident IDs.
+;; [forward identity reverse identity value-type cardinality indexed? unique?
+;;  checked-data-type required?]
+(def ^:private a749-message-schema
+  {#uuid "8b4b8b0f-cb67-416a-a77a-b8ee7287c171"
+   [[#uuid "8b4b8b0f-cb67-416a-a77a-b8ee7287c171" "checkups" "excludeGroups"]
+    [#uuid "ae4e5ba7-17ff-4387-aa24-6dd0a5992cf2" "groups" "excludeCheckups"] :ref :many
+    false false nil false]
+   #uuid "61a4082b-91ae-4da1-b267-5cec14ea393a"
+   [[#uuid "61a4082b-91ae-4da1-b267-5cec14ea393a" "checkups" "group"]
+    [#uuid "06b25089-ffa1-43a0-9700-ca8403269eef" "groups" "checkups"] :ref :one
+    false false nil false]
+   #uuid "9dadedc4-f636-4068-a83a-6e39bb8a11f4"
+   [[#uuid "6804fde1-5c73-427a-b7ce-20626d4abea1" "conversations" "account"]
+    [#uuid "6c39c79e-a9c2-49b6-b73a-b9bc72f6fdae" "accounts" "conversations"] :ref :one
+    false false nil false]
+   #uuid "a15d4213-a976-493a-b88b-b88bd6f2f324"
+   [[#uuid "f6dae905-b367-43df-918d-fb395af54fe5" "conversations" "groups"]
+    [#uuid "92985523-36ec-4180-a64e-408719445beb" "groups" "conversations"] :ref :many
+    false false nil false]
+   #uuid "e2992693-6d30-4973-9712-4b4c700421ae"
+   [[#uuid "faa31f3c-afca-4c59-998a-2dd781e0b622" "conversations" "id"]
+    nil :blob :one
+    false true nil false]
+   #uuid "e040f6e3-3d52-4955-908a-24a9264398db"
+   [[#uuid "e040f6e3-3d52-4955-908a-24a9264398db" "conversations" "lastMessageTime"]
+    nil :blob :one
+    true false :number false]
+   #uuid "9dac5562-8a22-41e2-8997-57187662a325"
+   [[#uuid "5af9547b-5ed3-46f1-a709-acaef7617426" "conversations" "name"]
+    nil :blob :one
+    true false :string true]
+   #uuid "c4804a8e-db5b-43a9-a651-9ae13856e509"
+   [[#uuid "c4804a8e-db5b-43a9-a651-9ae13856e509" "conversations" "participants"]
+    nil :blob :one
+    false false nil false]
+   #uuid "aa0dc0e5-c0d6-42fc-acaa-806cd7afab7d"
+   [[#uuid "aa0dc0e5-c0d6-42fc-acaa-806cd7afab7d" "conversations" "participantsText"]
+    nil :blob :one
+    true false :string false]
+   #uuid "c9c41177-4701-4924-9282-846b588bb248"
+   [[#uuid "9928e933-7659-49fa-9027-5b5336a1cf92" "groups" "account"]
+    [#uuid "a03b33cc-1988-44e9-a1d8-d1c0bed9c921" "accounts" "groups"] :ref :one
+    false false nil false]
+   #uuid "02ed8782-f835-44d7-b556-057a9eaf461c"
+   [[#uuid "fd93350d-d48c-4d96-93c0-fd0c93343515" "groups" "id"]
+    nil :blob :one
+    false true nil false]
+   #uuid "d0d4d481-c271-4948-9e4c-cfec182b06aa"
+   [[#uuid "d0d4d481-c271-4948-9e4c-cfec182b06aa" "groups" "lastActivityAt"]
+    nil :blob :one
+    true false :number false]
+   #uuid "561e46a5-66c9-4c25-b3e4-f3430bfc0a5a"
+   [[#uuid "8282c58c-5701-4c6f-973e-512ee09a121c" "groups" "name"]
+    nil :blob :one
+    true false :string true]
+   #uuid "5ae7b79f-34f4-428c-a35e-bc30fdbc2c73"
+   [[#uuid "2d9f2b1b-cfe3-4460-a0db-b54d01948afc" "messages" "conversation"]
+    [#uuid "03b06b9f-888d-47f6-83f6-0bf0a5428667" "conversations" "messages"] :ref :one
+    false false nil false]
+   #uuid "f3b02095-907b-47d7-8eb7-259afe81e91e"
+   [[#uuid "f3b02095-907b-47d7-8eb7-259afe81e91e" "messages" "foreignId"]
+    nil :blob :one
+    true true :string false]
+   #uuid "08c5756a-103a-4631-b3b3-1d9b7310b4fa"
+   [[#uuid "b22ed4a4-0226-41b2-8865-67afbe3fb0cc" "messages" "from"]
+    nil :blob :one
+    true false :string true]
+   #uuid "f2749bd0-ead7-4daa-8a98-c0c7104452a2"
+   [[#uuid "a3c72196-5b40-49d3-96da-0ca128064110" "messages" "id"]
+    nil :blob :one
+    false true nil false]
+   #uuid "e09e4de3-b305-45b9-b4c3-ab0b918e4c3d"
+   [[#uuid "8588c5f4-f6a7-458c-b0f4-c7aa91d456b2" "messages" "text"]
+    nil :blob :one
+    false false :string true]
+   #uuid "e9523b1d-e0c7-4c81-80cf-ba17acc98157"
+   [[#uuid "6f449abb-2091-4708-a3ee-f13a066a927c" "messages" "textIndexed"]
+    nil :blob :one
+    true false :string false]
+   #uuid "162c4ef5-7ad6-4219-87f7-2279f9142cfb"
+   [[#uuid "79d1570c-3d94-409a-a8f2-7d3a4144820a" "messages" "time"]
+    nil :blob :one
+    true false :number true]
+   #uuid "5d6f52ea-abd0-4cce-b23c-233d394b94dd"
+   [[#uuid "5d6f52ea-abd0-4cce-b23c-233d394b94dd" "tokens" "groups"]
+    [#uuid "8685ff2f-e8b2-469b-8950-e9ef4a72020c" "groups" "tokens"] :ref :many
+    false false nil false]
+   #uuid "5605c00b-e7af-41bd-8525-362ae603851c"
+   [[#uuid "ad6bdf3e-ce2d-433b-9c2a-ad849e841187" "users" "groups"]
+    [#uuid "c1078894-e395-41c5-8de6-cceeefd62f16" "groups" "users"] :ref :many
+    false false nil false]})
+
+(def ^:private a749-message-value-kinds
+  {#uuid "02ed8782-f835-44d7-b556-057a9eaf461c" :uuid
+   #uuid "08c5756a-103a-4631-b3b3-1d9b7310b4fa" :string
+   #uuid "162c4ef5-7ad6-4219-87f7-2279f9142cfb" :number
+   #uuid "5ae7b79f-34f4-428c-a35e-bc30fdbc2c73" :uuid
+   #uuid "a15d4213-a976-493a-b88b-b88bd6f2f324" :uuid
+   #uuid "aa0dc0e5-c0d6-42fc-acaa-806cd7afab7d" :string
+   #uuid "c4804a8e-db5b-43a9-a651-9ae13856e509" :vector
+   #uuid "d0d4d481-c271-4948-9e4c-cfec182b06aa" :number
+   #uuid "e040f6e3-3d52-4955-908a-24a9264398db" :number
+   #uuid "e09e4de3-b305-45b9-b4c3-ab0b918e4c3d" :string
+   #uuid "e2992693-6d30-4973-9712-4b4c700421ae" :uuid
+   #uuid "e9523b1d-e0c7-4c81-80cf-ba17acc98157" :string
+   #uuid "f2749bd0-ead7-4daa-8a98-c0c7104452a2" :uuid
+   #uuid "f3b02095-907b-47d7-8eb7-259afe81e91e" :uuid})
+
+(def ^:private a749-message-entity-shapes
+  {{#uuid "02ed8782-f835-44d7-b556-057a9eaf461c" 1
+    #uuid "d0d4d481-c271-4948-9e4c-cfec182b06aa" 1} 2
+   {#uuid "08c5756a-103a-4631-b3b3-1d9b7310b4fa" 1
+    #uuid "162c4ef5-7ad6-4219-87f7-2279f9142cfb" 1
+    #uuid "5ae7b79f-34f4-428c-a35e-bc30fdbc2c73" 1
+    #uuid "e09e4de3-b305-45b9-b4c3-ab0b918e4c3d" 1
+    #uuid "e9523b1d-e0c7-4c81-80cf-ba17acc98157" 1
+    #uuid "f2749bd0-ead7-4daa-8a98-c0c7104452a2" 1
+    #uuid "f3b02095-907b-47d7-8eb7-259afe81e91e" 1} 1
+   {#uuid "a15d4213-a976-493a-b88b-b88bd6f2f324" 2
+    #uuid "aa0dc0e5-c0d6-42fc-acaa-806cd7afab7d" 1
+    #uuid "c4804a8e-db5b-43a9-a651-9ae13856e509" 1
+    #uuid "e040f6e3-3d52-4955-908a-24a9264398db" 1
+    #uuid "e2992693-6d30-4973-9712-4b4c700421ae" 1} 1})
+
+(defn- a749-message-schema-matches? [attrs]
+  (let [etypes #{"conversations" "groups" "messages"}
+        relevant (filter #(or (etypes (get-in % [:forward-identity 1]))
+                              (etypes (get-in % [:reverse-identity 1])))
+                         attrs)]
+    (and (= (count a749-message-schema) (count relevant))
+         (= (set (keys a749-message-schema)) (set (map :id relevant)))
+         (every? (fn [{:keys [id forward-identity reverse-identity value-type cardinality
+                             index? unique? checked-data-type required?
+                             indexing? checking-data-type? setting-unique?
+                             deletion-marked-at on-delete on-delete-reverse]}]
+                   (and (= (get a749-message-schema id)
+                           [forward-identity reverse-identity value-type cardinality
+                            index? unique? checked-data-type required?])
+                        (not indexing?) (not checking-data-type?) (not setting-unique?)
+                        (nil? deletion-marked-at) (nil? on-delete) (nil? on-delete-reverse)))
+                 relevant))))
+
+(defn- a749-message-value-matches? [attr-id value]
+  (case (get a749-message-value-kinds attr-id)
+    :uuid (uuid? value)
+    :number (number? value)
+    :string (and (string? value)
+                 (not (and (= 36 (count value)) (uuid-util/parse-uuid value))))
+    :vector (and (vector? value)
+                 (not (and (= 2 (count value)) (uuid? (first value)))))
+    false))
+
+(defn- a749-message-triples? [triples]
+  (and (sequential? triples)
+       (= 17 (bounded-count 18 triples))
+       (every? (fn [triple]
+                 (and (sequential? triple)
+                      (= 4 (bounded-count 5 triple))
+                      (let [[entity attr value step-opts] triple]
+                        (and (uuid? entity)
+                             (uuid? attr)
+                             (nil? step-opts)
+                             (a749-message-value-matches? attr value)
+                             ;; Only ordinary id triples are eligible.
+                             (or (not= "id" (get-in a749-message-schema [attr 0 2]))
+                                 (= entity value))))))
+               triples)
+       (= a749-message-entity-shapes
+          (->> triples
+               (group-by first)
+               vals
+               (map #(frequencies (map second %)))
+               frequencies))))
+
 (defn- schema-matches? [attrs {:keys [etype] expected :attrs}]
   (let [namespace-attrs (filter #(or (= etype (get-in % [:forward-identity 1]))
                                     (= etype (get-in % [:reverse-identity 1])))
@@ -81,12 +256,18 @@
 (defn null-padding-shape
   "Returns the explicitly enabled measured write shape, or nil for normal planning."
   [attrs app-id triples opts]
-  (when-let [{:keys [shape] expected :attrs :as plan} (get null-padding-shapes app-id)]
-    ;; Most apps exit before inspecting their attributes or transaction payload.
-    (when (and (flags/scoped-write-plan-enabled? app-id shape)
-               (or (nil? opts) (map? opts))
-               (every? #{:overwrite-t} (keys opts))
-               (contains? #{nil false} (:overwrite-t opts))
-               (ordinary-triples? triples expected)
-               (schema-matches? attrs plan))
-      shape)))
+  (if (= app-id #uuid "a749930e-6737-4dcf-b039-60c7f5e4e2e6")
+    (when (and (flags/scoped-write-plan-enabled? app-id :a749-message-batch)
+               (nil? opts)
+               (a749-message-triples? triples)
+               (a749-message-schema-matches? attrs))
+      :a749-message-batch)
+    (when-let [{:keys [shape] expected :attrs :as plan} (get null-padding-shapes app-id)]
+      ;; Most apps exit before inspecting their attributes or transaction payload.
+      (when (and (flags/scoped-write-plan-enabled? app-id shape)
+                 (or (nil? opts) (map? opts))
+                 (every? #{:overwrite-t} (keys opts))
+                 (contains? #{nil false} (:overwrite-t opts))
+                 (ordinary-triples? triples expected)
+                 (schema-matches? attrs plan))
+        shape))))
