@@ -1,5 +1,6 @@
 (ns instant.db.scoped-query-plans
   (:require [clojure.set :as set]
+            [instant.flags :as flags]
             [instant.util.pg-hint-plan :as pg-hint]))
 
 ;; These overrides are scoped to measured query shapes. A different layout or
@@ -257,12 +258,95 @@
        :pg-hints (conj (vec pg-hints)
                        (pg-hint/index-scan :t-upper-bound-match :triples_number_type_idx))})))
 
+(defn- reassign-calendar-child-ids [app-id normalized ctes pg-hints result-tables]
+  (when (and (not (flags/toggled? :disable-scoped-query-plans))
+             (true? (get-in (flags/flag :scoped-query-plans)
+                            [(str app-id) "reassign-calendar-child-ids"]))
+             (= normalized
+                {:sections
+                 {:$ {:where {:or [{:and [{:date {:$gte :string}} {:date {:$lte :string}}]}
+                                   {:and [{:recurrenceRule {:$isNull :boolean}} {:date {:$lte :string}}]}
+                                   {:and [{:exceptionDate {:$gte :string}} {:exceptionDate {:$lte :string}}]}]}}
+                  :area {} :activityType {} :parent {} :eventLinks {}}}))
+    (let [ctes (vec ctes)
+          [[_ q0] [_ q1] [_ q2] [_ q3] [_ q4] [_ q5]] ctes
+          where-vec (fn [query] (when (sequential? (:where query)) (vec (:where query))))
+          [w0 w1 w2 w3 w4 w5] (mapv where-vec [q0 q1 q2 q3 q4 q5])
+          date-id (get-in w0 [3 2])
+          id-attr (get-in w2 [3 2])
+          recurrence-id (get-in (where-vec (get-in w2 [4 2])) [3 2])
+          exception-id (get-in w4 [3 2])
+          bounds (mapv #(get-in % [4 2 1]) [w0 w1 w3 w4 w5])
+          [date-lower date-upper recurrence-upper exception-lower exception-upper] bounds
+          base (fn [index attr-id]
+                 [[:= :app-id app-id] [:= index :true] [:= :attr-id attr-id]])
+          scan (fn [idx previous where]
+                 (let [table (str "m-" idx)]
+                   {:select (concat (when previous [(keyword (str (name previous) ".*"))])
+                                    (mapv (fn [[column suffix]]
+                                            [column (keyword (str table suffix))])
+                                          [[:entity-id "-entity-id"] [:attr-id "-attr-id"]
+                                           [:value "-value"] [:eav "-is-ref-val"]
+                                           [:created-at "-created-at"]]))
+                    :from (cond-> [[:triples (keyword (str "t" idx))]] previous (conj previous))
+                    :where (into [:and] where)}))
+          range-scan (fn [idx previous attr-id op bound]
+                       (scan idx previous
+                             (cond-> (conj (base :ave attr-id) [op :value [:cast bound :jsonb]])
+                               previous (conj [:= :entity-id (keyword (str (name previous) "-entity-id"))]))))
+          expected
+          [(range-scan 0 nil date-id :>= date-lower)
+           (range-scan 1 :m-0 date-id :<= date-upper)
+           (scan 2 nil
+                 (conj (base :ea id-attr)
+                       [:in :entity-id
+                        {:select :t2-subquery.entity-id
+                         :from [[:triples :t2-subquery]]
+                         :where [:and [:= :t2-subquery.app-id app-id]
+                                 [:= :t2-subquery.entity-id :t2.entity-id]
+                                 [:= :t2-subquery.attr-id recurrence-id]
+                                 nil [:not= :t2-subquery.value [:cast "null" :jsonb]]]}]))
+           (range-scan 3 :m-2 date-id :<= recurrence-upper)
+           (range-scan 4 nil exception-id :>= exception-lower)
+           (range-scan 5 :m-4 exception-id :<= exception-upper)
+           {:select [:m-1.* :m-3.* :m-5.*
+                     [[:coalesce :m-1.m-1-entity-id :m-3.m-3-entity-id :m-5.m-5-entity-id]
+                      :m-6-entity-id]]
+            :from :m-1
+            :full-join [:m-3 [:= :0 :1] :m-5 [:= :0 :1]]}
+           {:select [[[:distinct :entity-id] :m-7-entity-id]]
+            :from [:triples :m-6]
+            :where [:and [:= :app-id app-id]
+                    [:or [:and [:= :entity-id :m-4-entity-id] [:= :entity-id :m-5-entity-id]]
+                     [:and [:or [:and [:= :entity-id :m-0-entity-id] [:= :entity-id :m-1-entity-id]]
+                            [:and [:= :entity-id :m-2-entity-id] [:= :entity-id :m-3-entity-id]]]]]]}]]
+      (when (and (every? uuid? [date-id id-attr recurrence-id exception-id])
+                 (every? string? bounds)
+                 (= (mapv #(keyword (str "m-" %)) (range 22)) (mapv first ctes))
+                 (= (mapv #(vector (keyword (str "m-" %1)) %2 :materialized)
+                          (range 8) expected)
+                    (subvec ctes 0 (min 8 (count ctes))))
+                 (= #{:m-6 :m-8 :m-10 :m-12 :m-13 :m-15 :m-16 :m-18 :m-19 :m-21}
+                    result-tables)
+                 (= [[:triples :t8] :m-7] (get-in ctes [8 1 :from]))
+                 (= 2 (count (filter #{:m-7} (tree-seq coll? seq ctes)))))
+        ;; Each false full join row contains one branch's same-app entity.
+        ;; Its two bindings are equal and already came from triples, so the
+        ;; collector's extra existence scan only multiplies rows before DISTINCT.
+        {:ctes (seq (assoc-in ctes [7 1]
+                              {:select [[[:distinct :m-6-entity-id] :m-7-entity-id]]
+                               :from :m-6}))
+         :pg-hints pg-hints}))))
+
 (defn apply-plan [app-id normalized ctes pg-hints result-tables attrs]
   (or (when (not-any? #(contains? #{:'Leading :'HashJoin :'NestLoop :'MergeJoin
                                    :'NoHashJoin :'NoNestLoop :'NoMergeJoin}
                                  (first %))
                      pg-hints)
         (case app-id
+          #uuid "19bde4a4-559c-4274-9bba-5e4bff9fcffe"
+          (reassign-calendar-child-ids app-id normalized ctes pg-hints result-tables)
+
           #uuid "299e756d-b3e6-41d3-a0ba-d097bfe7e04d"
           (status-filter app-id normalized ctes pg-hints)
 
