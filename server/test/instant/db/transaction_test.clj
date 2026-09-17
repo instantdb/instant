@@ -14,6 +14,7 @@
    [instant.model.app-file :as app-file-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.transaction :as tx]
+   [instant.flags :as flags]
    [instant.fixtures :refer [with-empty-app
                              with-zeneca-app
                              with-zeneca-app-no-indexing]]
@@ -1535,6 +1536,79 @@
                  [joe-eid fav-nickname-attr-id "Joski"]
                  [stopa-eid likes-attr-id joe-eid]}
                (fetch-triples app-id)))))))
+
+(deftest delete-entity-indexed-ref-lookup-matches-default
+  (let [run (fn [toggled?]
+              (with-empty-app
+                (fn [{app-id :id}]
+                  (let [likes-attr-id (random-uuid)
+                        owner-attr-id (random-uuid)
+                        name-attr-id (random-uuid)
+                        pet-name-attr-id (random-uuid)
+                        stopa-eid #uuid "df934243-0697-4de0-a8d8-c4ca054ec115"
+                        joe-eid #uuid "6ea7045a-0d1b-4d30-bd91-dacaf6655206"
+                        billy-eid #uuid "29d5eaa4-8eee-4a30-bb3a-1aa6ee4ce3f9"
+                        pet-eid #uuid "8d1b8a1e-5a4f-4d0c-9a62-0f4d6c3c1e11"
+                        transact! (fn [steps]
+                                    (tx/transact! (aurora/conn-pool :write)
+                                                  (attr-model/get-by-app-id app-id)
+                                                  app-id
+                                                  steps))]
+                    (transact! [[:add-attr {:id likes-attr-id
+                                            :forward-identity [(random-uuid) "users" "likes"]
+                                            :reverse-identity [(random-uuid) "users" "likedBy"]
+                                            :value-type :ref
+                                            :cardinality :many
+                                            :unique? false
+                                            :index? false}]
+                                [:add-attr {:id owner-attr-id
+                                            :forward-identity [(random-uuid) "pets" "owner"]
+                                            :reverse-identity [(random-uuid) "users" "pets"]
+                                            :value-type :ref
+                                            :cardinality :one
+                                            :unique? false
+                                            :index? false}]
+                                [:add-attr {:id name-attr-id
+                                            :forward-identity [(random-uuid) "users" "name"]
+                                            :value-type :blob
+                                            :cardinality :one
+                                            :unique? false
+                                            :index? false}]
+                                [:add-attr {:id pet-name-attr-id
+                                            :forward-identity [(random-uuid) "pets" "name"]
+                                            :value-type :blob
+                                            :cardinality :one
+                                            :unique? false
+                                            :index? false}]])
+                    (transact! [[:add-triple stopa-eid name-attr-id "Stopa"]
+                                [:add-triple joe-eid name-attr-id "Joe"]
+                                [:add-triple billy-eid name-attr-id "Billy"]
+                                [:add-triple pet-eid pet-name-attr-id "Rex"]
+                                [:add-triple stopa-eid likes-attr-id billy-eid]
+                                [:add-triple stopa-eid likes-attr-id joe-eid]
+                                [:add-triple joe-eid likes-attr-id billy-eid]
+                                [:add-triple pet-eid owner-attr-id billy-eid]])
+                    (binding [flags/*toggle-overrides* {:delete-entity-indexed-ref-lookup toggled?}]
+                      (let [after-wrong-etype (do (transact! [[:delete-entity billy-eid "pets"]])
+                                                  (fetch-triples app-id))
+                            after-delete (do (transact! [[:delete-entity billy-eid "users"]
+                                                         [:delete-entity pet-eid "pets"]])
+                                             (fetch-triples app-id))]
+                        {:after-wrong-etype (set (map (fn [[e a v]] [e ({likes-attr-id :likes owner-attr-id :owner name-attr-id :name pet-name-attr-id :pet-name} a) v])
+                                                      after-wrong-etype))
+                         :after-delete (set (map (fn [[e a v]] [e ({likes-attr-id :likes owner-attr-id :owner name-attr-id :name pet-name-attr-id :pet-name} a) v])
+                                                 after-delete))}))))))
+        default (run false)
+        indexed (run true)]
+    (is (= default indexed))
+    (testing "an etype that does not own the refs leaves them alone"
+      (is (contains? (:after-wrong-etype indexed)
+                     [#uuid "df934243-0697-4de0-a8d8-c4ca054ec115" :likes #uuid "29d5eaa4-8eee-4a30-bb3a-1aa6ee4ce3f9"])))
+    (testing "deleting removes the entity and every ref that points at it"
+      (is (= #{[#uuid "df934243-0697-4de0-a8d8-c4ca054ec115" :name "Stopa"]
+               [#uuid "6ea7045a-0d1b-4d30-bd91-dacaf6655206" :name "Joe"]
+               [#uuid "df934243-0697-4de0-a8d8-c4ca054ec115" :likes #uuid "6ea7045a-0d1b-4d30-bd91-dacaf6655206"]}
+             (:after-delete indexed))))))
 
 (deftest delete-entity-cleans-references
   (with-empty-app

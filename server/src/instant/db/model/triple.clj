@@ -1214,8 +1214,14 @@
    2. Deletes all reference triples where this entity is the value:
       [_ _ id]"
   [conn app-id id+etypes]
-  (let [query (sql/format
-               "WITH
+  (let [;; Implied by the join on id_etypes. Spelled out so the planner probes
+        ;; vae_uuid_index once per entity. Without it, apps with many refs get a
+        ;; hash join that reads every ref triple in the app.
+        ref-lookup (if (flags/toggled? :delete-entity-indexed-ref-lookup)
+                     "AND json_uuid_to_uuid(triples.value) = ANY(ARRAY(SELECT entity_id FROM id_etypes))"
+                     "")
+        query (sql/format
+               (str "WITH
 
                 id_etypes AS (
                   SELECT
@@ -1246,6 +1252,7 @@
                   WHERE
                     triples.vae
                     AND triples.app_id = ?app-id
+                    " ref-lookup "
                     AND attrs.reverse_etype = id_etypes.etype
                 ),
 
@@ -1270,7 +1277,7 @@
                   triples.entity_id,
                   triples.attr_id,
                   triples.value,
-                  triples.created_at"
+                  triples.created_at")
                {"?id+etypes" (->json id+etypes)
                 "?app-id" app-id})]
 
