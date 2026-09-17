@@ -1,6 +1,7 @@
 (ns instant.util.tracer-test
   (:require
-   [clojure.test :refer [deftest is]]
+   [clojure.test :refer [deftest is testing]]
+   [instant.flags :as flags]
    [instant.util.tracer :as tracer])
   (:import
    (io.opentelemetry.api.trace Span Tracer)
@@ -22,11 +23,14 @@
 (defn start-span ^Span [^Tracer otel-tracer ^String span-name]
   (.startSpan (.spanBuilder otel-tracer span-name)))
 
-(deftest error-only-exporter-only-exports-error-spans
+(defn exported-span-names
+  "Records an ok span, an error span and a span with a silenced exception,
+   and returns the names of the spans that reached the wrapped exporter."
+  []
   (let [exported (atom [])
         provider (-> (SdkTracerProvider/builder)
                      (.addSpanProcessor (SimpleSpanProcessor/create
-                                         (tracer/make-error-only-exporter
+                                         (tracer/make-honeycomb-exporter
                                           (capturing-exporter exported))))
                      (.build))
         otel-tracer (.get provider "test")]
@@ -43,6 +47,15 @@
           (tracer/add-exception! span (Exception. "oops") {:escaping? false}))
         (.end span))
 
-      (is (= ["error"] @exported))
+      @exported
       (finally
         (.close provider)))))
+
+(deftest honeycomb-exporter-respects-error-spans-only-toggle
+  (testing "exports every span by default"
+    (binding [flags/*toggle-overrides* {:honeycomb-error-spans-only? false}]
+      (is (= ["ok" "error" "silenced"] (exported-span-names)))))
+
+  (testing "only exports error spans when the toggle is on"
+    (binding [flags/*toggle-overrides* {:honeycomb-error-spans-only? true}]
+      (is (= ["error"] (exported-span-names))))))

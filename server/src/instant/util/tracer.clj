@@ -63,22 +63,25 @@
 (defn error-span? [^SpanData span]
   (= StatusCode/ERROR (.getStatusCode (.getStatus span))))
 
-(defn make-error-only-exporter
-  "Wraps `exporter` so that it only receives spans with an error status.
-  We send to Honeycomb directly, so this keeps us from shipping every span."
+(defn make-honeycomb-exporter
+  "Wraps `exporter` so that it only receives spans with an error status
+  when the `honeycomb-error-spans-only?` toggle is on. With the toggle
+  off, every span is exported."
   ^SpanExporter
   [^SpanExporter exporter]
   (reify SpanExporter
     (export [_this spans]
-      (let [error-spans (filterv error-span? spans)]
-        (if (seq error-spans)
-          (.export exporter error-spans)
+      (let [spans (if (flags/honeycomb-error-spans-only?)
+                    (filterv error-span? spans)
+                    spans)]
+        (if (seq spans)
+          (.export exporter spans)
           (CompletableResultCode/ofSuccess))))
     (flush [_this]
       (.flush exporter))
     (shutdown [_this]
       (.shutdown exporter))
-    (toString [_this] "ErrorOnlyExporter")))
+    (toString [_this] "HoneycombExporter")))
 
 (defn make-honeycomb-sdk
   ^OpenTelemetrySdk
@@ -105,7 +108,7 @@
 
     (.addSpanProcessor trace-provider-builder
                        (.build (BatchSpanProcessor/builder
-                                (make-error-only-exporter (.build otlp-builder)))))
+                                (make-honeycomb-exporter (.build otlp-builder)))))
 
     (.addSpanProcessor trace-provider-builder log-processor)
 
