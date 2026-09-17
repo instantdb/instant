@@ -1246,6 +1246,30 @@
           o
           modifiers))
 
+(defn- prioritize-where [where ks]
+  (let [by-name (into {} (map (fn [[k v]] [(name k) [k v]])) where)
+        front (keep by-name ks)
+        front-keys (set (map first front))]
+    (if (empty? front)
+      where
+      (apply array-map
+             (mapcat identity
+                     (concat front
+                             (remove (fn [[k _]] (contains? front-keys k)) where)))))))
+
+(defn add-where-order
+  "Moves the where keys listed in the where-order flag to the front.
+   Where conditions are ANDed, so any key order is the same query, but
+   the generated SQL starts from the first condition."
+  [o where-order]
+  (reduce (fn [o [etype ks]]
+            (if-let [k (some #(when (map? (get-in o [% :$ :where])) %)
+                             [(keyword etype) etype])]
+              (update-in o [k :$ :where] prioritize-where ks)
+              o))
+          o
+          where-order))
+
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
   [ctx o]
@@ -1260,9 +1284,10 @@
                                      :query-modifiers query-modifiers}}
       (let [datalog-query-fn (or (:datalog-query-fn ctx)
                                  #'d/query)
-            effective-query (if (seq query-modifiers)
-                              (add-query-modifiers o query-modifiers)
-                              o)
+            effective-query (-> (if (seq query-modifiers)
+                                  (add-query-modifiers o query-modifiers)
+                                  o)
+                                (add-where-order (flags/where-order (:app-id ctx))))
             effective-query-normalized (if (seq query-modifiers)
                                          (instaql-util/normalized-forms effective-query)
                                          query-normalized)
@@ -1282,7 +1307,9 @@
         query-hash (hash query-normalized)
         explain-fn (or (:datalog-explain-fn ctx)
                        d/explain)
-        {:keys [patterns]} (instaql-query->patterns ctx o)]
+        {:keys [patterns]} (instaql-query->patterns
+                            ctx
+                            (add-where-order o (flags/where-order (:app-id ctx))))]
     (explain-fn (assoc ctx
                        :query-hash query-hash
                        :query-normalized query-normalized)
