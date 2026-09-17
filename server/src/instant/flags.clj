@@ -131,6 +131,21 @@
      {}
      targets)))
 
+(defn parse-query-circuit-breaker-flag
+  "JSON flag: {\"enabled\" true, \"failure-threshold\" 3, \"window-ms\" 600000,
+               \"open-ms\" 300000, \"apps\" [\"app-uuid\"]}.
+   An empty or missing apps list applies the breaker to every app."
+  [v]
+  (when (map? v)
+    (let [num (fn [k default]
+                (let [x (get v k)]
+                  (if (number? x) (long x) default)))]
+      {:enabled? (true? (get v "enabled"))
+       :failure-threshold (num "failure-threshold" 3)
+       :window-ms (num "window-ms" (* 10 60 1000))
+       :open-ms (num "open-ms" (* 5 60 1000))
+       :apps (parse-uuids-flag (get v "apps"))})))
+
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
    query-result atom, to make look ups faster."
@@ -220,7 +235,9 @@
                   (update :smokescreen-whitelist-ips parse-ips-flag)
                   (update :refresh-throttled-apps parse-uuids-flag)
                   (update :use-reactive-cache-for-verify-token-apps parse-uuids-flag)
-                  (update :backup-skip-app-ids parse-uuids-flag))
+                  (update :backup-skip-app-ids parse-uuids-flag)
+                  (update :pkey-null-padding-apps parse-uuids-flag)
+                  (update :query-circuit-breaker parse-query-circuit-breaker-flag))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
@@ -440,6 +457,24 @@
        (not (toggled? :disable-scoped-write-plans))
        (true? (get-in (flag :scoped-write-plans)
                       [(str app-id) (name shape)]))))
+
+(defn pkey-null-padding-app?
+  "JSON flag: [\"app-uuid\"]. Every write for a listed app probes for
+   existing indexed triples through the primary key instead of the attribute
+   index. Shares the scoped write plan kill switches."
+  [app-id]
+  (and (not (toggled? :disable-pg-hints))
+       (not (toggled? :disable-scoped-write-plans))
+       (contains? (flag :pkey-null-padding-apps) app-id)))
+
+(defn query-circuit-breaker-config
+  "Returns the parsed query-circuit-breaker flag when it applies to the app."
+  [app-id]
+  (let [{:keys [enabled? apps] :as config} (flag :query-circuit-breaker)]
+    (when (and enabled?
+               (or (empty? apps)
+                   (contains? apps app-id)))
+      config)))
 
 (defn app-proxy-targets
   "The app proxy routing table. Emptying the flag turns off all routing
