@@ -469,6 +469,13 @@
        (or (toggled? :pkey-null-padding-all-apps false)
            (contains? (flag :pkey-null-padding-apps) app-id))))
 
+(defn scoped-query-plan-enabled? [app-id plan]
+  ;; JSON flag: {"app-uuid" {"numeric-range-page" true}}. Removing an app or
+  ;; setting its plan to false restores normal planning without a deploy.
+  (and (not (toggled? :disable-scoped-query-plans))
+       (true? (get-in (flag :scoped-query-plans)
+                      [(str app-id) (name plan)]))))
+
 (defn query-circuit-breaker-config
   "Returns the parsed query-circuit-breaker flag when it applies to the app."
   [app-id]

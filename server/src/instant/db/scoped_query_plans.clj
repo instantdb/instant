@@ -1,5 +1,6 @@
 (ns instant.db.scoped-query-plans
   (:require [clojure.set :as set]
+            [instant.flags :as flags]
             [instant.util.pg-hint-plan :as pg-hint]))
 
 ;; These overrides are scoped to measured query shapes. A different layout or
@@ -20,9 +21,37 @@
   (when (= :and (first (:where query)))
     (set (rest (:where query)))))
 
+(defn- numeric-range-page-query?
+  "{etype {:$ {:where {:and [{attr {:$gt :number}} {attr {:$lte :number}}]}
+               :order {attr \"asc\"} :first n :after :cursor}}}
+   The first page has no :after. Either bound can be inclusive."
+  [normalized]
+  (when (and (map? normalized) (= 1 (count normalized)))
+    (let [form (val (first normalized))
+          {:keys [where order after] limit :first :as opts} (:$ form)
+          [lower upper] (:and where)]
+      (and (= #{:$} (set (keys form)))
+           (contains? #{#{:where :order :first} #{:where :order :first :after}}
+                      (set (keys opts)))
+           (contains? #{nil :cursor} after)
+           (pos-int? limit)
+           (= #{:and} (set (keys where)))
+           (= 2 (count (:and where)))
+           (map? lower) (= 1 (count lower))
+           (map? upper) (= 1 (count upper))
+           (= (ffirst lower) (ffirst upper))
+           (contains? #{{:$gt :number} {:$gte :number}} (val (first lower)))
+           (contains? #{{:$lt :number} {:$lte :number}} (val (first upper)))
+           (= order {(ffirst lower) "asc"})))))
+
+(defn- numeric-range-page? [app-id normalized]
+  (and (flags/scoped-query-plan-enabled? app-id :numeric-range-page)
+       (numeric-range-page-query? normalized)))
+
 (defn reuse-bound-child-entities? [app-id normalized]
-  (and (= app-id #uuid "ff386052-f839-4d6e-8a62-4c1a6c7a6a01")
-       (= normalized {:plays {:$ {:where {:themes :string, :finished :boolean}}}})))
+  (or (and (= app-id #uuid "ff386052-f839-4d6e-8a62-4c1a6c7a6a01")
+           (= normalized {:plays {:$ {:where {:themes :string, :finished :boolean}}}}))
+      (boolean (numeric-range-page? app-id normalized))))
 
 (defn- anti-join? [query app-id outer inner]
   (some (fn [[op column subquery]]
@@ -257,6 +286,83 @@
        :pg-hints (conj (vec pg-hints)
                        (pg-hint/index-scan :t-upper-bound-match :triples_number_type_idx))})))
 
+(defn- order-by-first-scan
+  "Both page queries order by the value and entity of t2. For a single-valued
+   attribute that is the same triple as t0, and ordering by t0's columns lets
+   the limit stop the index scan early instead of sorting every match."
+  [query]
+  (let [number-value [:triples_extract_number_value :value]
+        selects (:select-distinct-on query)]
+    (when (and (some #{[number-value :order-val]} selects)
+               (some #{[:entity-id :order-eid]} selects))
+      (assoc query :select-distinct-on
+             (map (fn [select]
+                    (condp = select
+                      [number-value :order-val] [[:triples_extract_number_value :m-0-value] :order-val]
+                      [:entity-id :order-eid] [:m-0-entity-id :order-eid]
+                      select))
+                  selects)))))
+
+(defn- numeric-range-page [app-id normalized ctes pg-hints result-tables attrs]
+  (when (numeric-range-page? app-id normalized)
+    (let [ctes (vec ctes)
+          [[_ lower-query] [_ upper-query] [_ page-query]] ctes
+          number-value [:triples_extract_number_value :value]
+          numeric-type [:= :checked_data_type [:cast [:inline "number"] :checked_data_type]]
+          bound? (fn [ops predicate]
+                   (and (vector? predicate)
+                        (= 3 (count predicate))
+                        (= :and (first predicate))
+                        (= numeric-type (nth predicate 2))
+                        (let [[op column n] (second predicate)]
+                          (and (contains? ops op) (= number-value column) (number? n)))))
+          lower-predicate (last (:where lower-query))
+          upper-predicate (nth (:where upper-query) 4 nil)
+          attr-id (some (fn [[op column value]]
+                          (when (and (= op :=) (= column :attr-id)) value))
+                        (filter vector? (conjuncts lower-query)))
+          attr (some #(when (= attr-id (:id %)) %) attrs)
+          base #{[:= :app-id app-id] [:= :ave :true] [:= :attr-id attr-id]}
+          has-prev-idx (first (keep-indexed (fn [i [table]] (when (= :m-2-has-prev table) i)) ctes))
+          has-prev-query (get-in ctes [has-prev-idx 1 :select 0 0 1])
+          page-query' (order-by-first-scan page-query)
+          has-prev-query' (if (:select-distinct-on has-prev-query)
+                            (order-by-first-scan has-prev-query)
+                            has-prev-query)
+          ;; [:and where [:and [:>= value cursor] [:or ...]]] for a required attribute
+          [_ _ [_ cursor-bound]] (:where page-query)
+          cursor-bound (when (and (vector? cursor-bound)
+                                  (= [:>= number-value] (take 2 cursor-bound)))
+                         (assoc cursor-bound 1 [:triples_extract_number_value :m-0-value]))]
+      (when (and (scans? pg-hints [(pg-hint/index-scan :t0 :triples_number_type_idx)
+                                   (pg-hint/index-scan :t1 :triples_pkey)
+                                   (pg-hint/bitmap-scan :t2 :triples_pkey)])
+                 (layout? ctes [[:m-0 [[:triples :t0]] :not-materialized]
+                                [:m-1 [[:triples :t1] :m-0] :not-materialized]
+                                [:m-2-with-next [[:triples :t2] :m-1] :materialized]])
+                 (not (contains? result-tables :m-0))
+                 (uuid? attr-id)
+                 (= :one (:cardinality attr))
+                 (= :blob (:value-type attr))
+                 (= :number (:checked-data-type attr))
+                 (bound? #{:> :>=} lower-predicate)
+                 (bound? #{:< :<=} upper-predicate)
+                 (= (conj base lower-predicate) (conjuncts lower-query))
+                 (= (conj base upper-predicate [:= :entity-id :m-0-entity-id])
+                    (conjuncts upper-query))
+                 has-prev-idx
+                 page-query'
+                 has-prev-query')
+        ;; Every filter, the order, and the cursor read the same single-valued
+        ;; attribute, so t0, t1 and t2 are the same triple. Bound the first
+        ;; scan with the upper bound and the cursor, and order by it.
+        {:ctes (-> ctes
+                   (update-in [0 1 :where] #(conj (vec %) upper-predicate))
+                   (assoc-in [2 1] (cond-> page-query'
+                                     cursor-bound (update :where (fn [where] [:and cursor-bound where]))))
+                   (assoc-in [has-prev-idx 1 :select 0 0 1] has-prev-query'))
+         :pg-hints pg-hints}))))
+
 (defn apply-plan [app-id normalized ctes pg-hints result-tables attrs]
   (or (when (not-any? #(contains? #{:'Leading :'HashJoin :'NestLoop :'MergeJoin
                                    :'NoHashJoin :'NoNestLoop :'NoMergeJoin}
@@ -276,5 +382,5 @@
           (or (numeric-range app-id normalized ctes pg-hints result-tables attrs)
               (numeric-upper-bound app-id normalized ctes pg-hints result-tables attrs))
 
-          nil))
+          (numeric-range-page app-id normalized ctes pg-hints result-tables attrs)))
       {:ctes ctes :pg-hints pg-hints}))
