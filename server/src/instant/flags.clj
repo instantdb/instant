@@ -461,11 +461,13 @@
 (defn pkey-null-padding-app?
   "JSON flag: [\"app-uuid\"]. Every write for a listed app probes for
    existing indexed triples through the primary key instead of the attribute
-   index. Shares the scoped write plan kill switches."
+   index. The :pkey-null-padding-all-apps toggle applies it to every app.
+   Shares the scoped write plan kill switches."
   [app-id]
   (and (not (toggled? :disable-pg-hints))
        (not (toggled? :disable-scoped-write-plans))
-       (contains? (flag :pkey-null-padding-apps) app-id)))
+       (or (toggled? :pkey-null-padding-all-apps false)
+           (contains? (flag :pkey-null-padding-apps) app-id))))
 
 (defn query-circuit-breaker-config
   "Returns the parsed query-circuit-breaker flag when it applies to the app."
