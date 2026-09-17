@@ -237,6 +237,7 @@
                   (update :use-reactive-cache-for-verify-token-apps parse-uuids-flag)
                   (update :backup-skip-app-ids parse-uuids-flag)
                   (update :pkey-null-padding-apps parse-uuids-flag)
+                  (update :disable-row-hints-apps parse-uuids-flag)
                   (update :query-circuit-breaker parse-query-circuit-breaker-flag))
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
