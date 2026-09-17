@@ -1963,10 +1963,11 @@
        (contains? (flags/flag :always-materialize-attr-ids)
                   (first (uspec/tagged-unwrap (:a named-p))))))
 
-(defn enable-row-hints? [query-hash]
+(defn enable-row-hints? [app-id query-hash]
   (and (or (flags/toggled? :enable-row-hints-globally true)
            (coll/exists? (fn [h] (= query-hash h))
                          (flags/flag :enable-row-hints-query-hashes)))
+       (not (contains? (flags/flag :disable-row-hints-apps) app-id))
        (not (coll/exists? (fn [h] (= query-hash h))
                           (flags/flag :disable-row-hints-query-hashes)))))
 
@@ -2875,7 +2876,7 @@
 
                  :pg-hints (if (flags/toggled? :disable-pg-hints)
                              []
-                             (if (enable-row-hints? (:query-hash ctx))
+                             (if (enable-row-hints? app-id (:query-hash ctx))
                                pg-hints
                                (filterv (fn [hint]
                                           (not= :'Rows (first hint)))
