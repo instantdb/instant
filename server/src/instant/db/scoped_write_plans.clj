@@ -79,14 +79,22 @@
                triples)))
 
 (defn null-padding-shape
-  "Returns the explicitly enabled measured write shape, or nil for normal planning."
+  "Returns the explicitly enabled write shape, or nil for normal planning."
   [attrs app-id triples opts]
-  (when-let [{:keys [shape] expected :attrs :as plan} (get null-padding-shapes app-id)]
-    ;; Most apps exit before inspecting their attributes or transaction payload.
-    (when (and (flags/scoped-write-plan-enabled? app-id shape)
-               (or (nil? opts) (map? opts))
-               (every? #{:overwrite-t} (keys opts))
-               (contains? #{nil false} (:overwrite-t opts))
-               (ordinary-triples? triples expected)
-               (schema-matches? attrs plan))
-      shape)))
+  (cond
+    ;; Every write shape for an opted-in app uses the primary key for the
+    ;; null-padding existence probe. The probe is the same SQL for every
+    ;; write, so nothing about the payload or schema needs to match.
+    (flags/pkey-null-padding-app? app-id)
+    :pkey-null-padding
+
+    :else
+    (when-let [{:keys [shape] expected :attrs :as plan} (get null-padding-shapes app-id)]
+      ;; Most apps exit before inspecting their attributes or transaction payload.
+      (when (and (flags/scoped-write-plan-enabled? app-id shape)
+                 (or (nil? opts) (map? opts))
+                 (every? #{:overwrite-t} (keys opts))
+                 (contains? #{nil false} (:overwrite-t opts))
+                 (ordinary-triples? triples expected)
+                 (schema-matches? attrs plan))
+        shape))))

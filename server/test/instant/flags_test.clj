@@ -85,3 +85,54 @@
                     {(str app-id) {"bitcoin-prices" 1}}]]
         (binding [flags/*flag-overrides* {:scoped-write-plans value}]
           (is (false? (flags/scoped-write-plan-enabled? app-id :bitcoin-prices))))))))
+
+(deftest pkey-null-padding-apps-are-listed-explicitly
+  (let [app-id (random-uuid)]
+    (with-redefs [flags/query-result (constantly {})]
+      (binding [flags/*flag-overrides* {:pkey-null-padding-apps #{app-id}}]
+        (is (true? (flags/pkey-null-padding-app? app-id)))
+        (is (false? (flags/pkey-null-padding-app? (random-uuid))))
+        (doseq [kill-switch [:disable-scoped-write-plans :disable-pg-hints]]
+          (binding [flags/*toggle-overrides* {kill-switch true}]
+            (is (false? (flags/pkey-null-padding-app? app-id))))))
+      (is (false? (flags/pkey-null-padding-app? app-id)))
+      (is (= #{app-id}
+             (-> (flags/transform-query-result
+                  {"flags" [{"setting" "pkey-null-padding-apps"
+                             "value" [(str app-id) "not-a-uuid"]}]})
+                 :flags
+                 :pkey-null-padding-apps))))))
+
+(deftest query-circuit-breaker-flag-parsing
+  (let [app-id (random-uuid)]
+    (is (nil? (flags/parse-query-circuit-breaker-flag nil)))
+    (is (nil? (flags/parse-query-circuit-breaker-flag "true")))
+    (is (= {:enabled? false
+            :failure-threshold 3
+            :window-ms 600000
+            :open-ms 300000
+            :apps #{}}
+           (flags/parse-query-circuit-breaker-flag {})))
+    (is (= {:enabled? true
+            :failure-threshold 2
+            :window-ms 60000
+            :open-ms 1000
+            :apps #{app-id}}
+           (flags/parse-query-circuit-breaker-flag
+            {"enabled" true "failure-threshold" 2 "window-ms" 60000
+             "open-ms" 1000.0 "apps" [(str app-id)]})))
+    (testing "junk values fall back to defaults"
+      (is (= 3 (:failure-threshold
+                (flags/parse-query-circuit-breaker-flag {"failure-threshold" "2"})))))
+    (with-redefs [flags/query-result (constantly {})]
+      (let [global (flags/parse-query-circuit-breaker-flag {"enabled" true})
+            scoped (flags/parse-query-circuit-breaker-flag {"enabled" true "apps" [(str app-id)]})
+            disabled (flags/parse-query-circuit-breaker-flag {"apps" [(str app-id)]})]
+        (binding [flags/*flag-overrides* {:query-circuit-breaker global}]
+          (is (= global (flags/query-circuit-breaker-config (random-uuid)))))
+        (binding [flags/*flag-overrides* {:query-circuit-breaker scoped}]
+          (is (= scoped (flags/query-circuit-breaker-config app-id)))
+          (is (nil? (flags/query-circuit-breaker-config (random-uuid)))))
+        (binding [flags/*flag-overrides* {:query-circuit-breaker disabled}]
+          (is (nil? (flags/query-circuit-breaker-config app-id))))
+        (is (nil? (flags/query-circuit-breaker-config app-id)))))))

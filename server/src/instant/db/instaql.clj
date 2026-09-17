@@ -13,6 +13,7 @@
    [instant.db.model.entity :as entity-model]
    [instant.db.model.triple :as triple-model]
    [instant.db.hint-testing :as hint-testing]
+   [instant.db.query-circuit-breaker :as circuit-breaker]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
@@ -1266,10 +1267,12 @@
                                          (instaql-util/normalized-forms effective-query)
                                          query-normalized)
             {:keys [patterns forms]} (instaql-query->patterns ctx effective-query)
-            datalog-result (datalog-query-fn (assoc ctx
-                                                   :query-hash query-hash
-                                                   :query-normalized effective-query-normalized)
-                                             patterns)]
+            datalog-result (circuit-breaker/with-query-breaker
+                             ctx query-hash
+                             #(datalog-query-fn (assoc ctx
+                                                       :query-hash query-hash
+                                                       :query-normalized effective-query-normalized)
+                                                patterns))]
         (collect-query-results ctx (:data datalog-result) forms)))))
 
 (defn explain
