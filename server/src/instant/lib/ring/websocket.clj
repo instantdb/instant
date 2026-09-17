@@ -78,32 +78,59 @@
 
 (defonce ping-pool (delay/make-pool!))
 
-(defn try-send-ping-blocking
-  "Tries to send a ping-message. Ignores closed channel exceptions."
+(def ^:private ping-callback
+  ;; A failed ping on a dead socket is handled by the channel's close task.
+  ;; The ping job only needs to never block the shared pool.
+  (proxy [WebSocketCallback] []
+    (complete [_channel _context])
+    (onError [_channel _context _throwable])))
+
+(defn try-send-ping
+  "Queues a ping-message without blocking the calling thread. Ignores
+   closed channel exceptions."
   [^WebSocketChannel channel]
   (try
-    (WebSockets/sendPingBlocking
-     (ByteBuffer/allocate 0)
-     channel)
+    (WebSockets/sendPing
+     ^ByteBuffer (ByteBuffer/allocate 0)
+     channel
+     ^WebSocketCallback ping-callback)
     (catch ClosedChannelException _)
     (catch IOException e
       (when-not (= (.getMessage e) "UT002002: Channel is closed")
         (throw e)))))
 
+(defn inactive?
+  "True when the ping sent at `unanswered-since` has gone unanswered for
+   longer than `idle-timeout-ms`.
+
+   A client only counts as idle once we actually gave it a ping to answer.
+   Judging by the last received message alone lets a late ping pool (many
+   sockets, slow clients, a GC pause) look like client silence and close
+   every socket at once, and the reconnect storm that follows is what took
+   a lone box down."
+  [now last-received-at unanswered-since idle-timeout-ms]
+  (and (pos? unanswered-since)
+       (< last-received-at unanswered-since)
+       (> (- now unanswered-since) idle-timeout-ms)))
+
 (defn straight-jacket-run-ping-job [^WebSocketChannel channel
                                     ^AtomicLong atomic-last-received-at
                                     ^AtomicLong atomic-last-ping-at
+                                    ^AtomicLong atomic-unanswered-since
                                     idle-timeout-ms]
   (try
     (let [now (System/currentTimeMillis)
           last-received-at (.get atomic-last-received-at)
-          ms-since-last-message (- now last-received-at)]
-      (if (> ms-since-last-message idle-timeout-ms)
+          unanswered-since (.get atomic-unanswered-since)]
+      (if (inactive? now last-received-at unanswered-since idle-timeout-ms)
         (tracer/with-span! {:name "socket/close-inactive"}
           (IoUtils/safeClose channel))
         (do
+          (when (<= unanswered-since last-received-at)
+            ;; The previous ping was answered, so this one opens a new window.
+            (.set atomic-unanswered-since now))
           (.set atomic-last-ping-at (System/nanoTime))
-          (try-send-ping-blocking channel))))
+          (try-send-ping channel))))
     (catch Exception e
       (tracer/record-exception-span! e {:name "socket/ping-err"
                                         :escaping? false}))))
@@ -138,7 +165,7 @@
      :error - The error Throwable
 
    We also kick off a ping worker. It sends a `ping` message every
-   `ping-interval-ms`. If the client doesn't send any message for
+   `ping-interval-ms`. If a ping goes unanswered by any message for
    `idle-timeout-ms`, we close the connection.
    "
   [{:keys [on-open on-close listener ping-interval-ms idle-timeout-ms]
@@ -150,6 +177,7 @@
   (let [send-lock (ReentrantLock.)
         atomic-last-received-at (AtomicLong. (System/currentTimeMillis))
         atomic-last-ping-at (AtomicLong. (System/nanoTime))
+        atomic-unanswered-since (AtomicLong. 0)
         channel-wrapper (fn [ch]
                           {:undertow-websocket ch
                            :send-lock send-lock})
@@ -169,6 +197,7 @@
                                           (straight-jacket-run-ping-job channel
                                                                         atomic-last-received-at
                                                                         atomic-last-ping-at
+                                                                        atomic-unanswered-since
                                                                         idle-timeout-ms)))
 
              close-task (reify ChannelListener
