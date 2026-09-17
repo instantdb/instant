@@ -95,7 +95,7 @@ Resources:
               if initial["DesiredCapacity"] <= initial["MinSize"]:
                   return {"action": "none", "reason": "at minimum capacity"}
               if not ready():
-                  raise ValueError("environment is not ready and green")
+                  raise ValueError("environment is not ready or is red")
               ids = members(initial)
               minute = int(now // 60) * 60
               end = minute - 60  # Allow a minute for CloudWatch publication.
@@ -116,7 +116,7 @@ Resources:
                   dims = dict(dimension, InstanceId=instance_id)
                   for suffix, metric, stat in [
                           ("heap", "HeapPressurePercent", "Maximum"),
-                          ("gc", "GcPausePercent", "Maximum"),
+                          ("gc", "GcPausePercent", "Average"),
                           ("uptime", "UptimeSeconds", "Minimum")]:
                       query(f"n{n}_{suffix}", "Instant/JVM", metric, stat, dims)
               response = cw.get_metric_data(
@@ -151,20 +151,33 @@ Resources:
                   data[key] = points
               if data.keys() != expected:
                   raise ValueError("missing current instance telemetry")
-              if any(value >= 30 for value in data["cpu"].values()):
-                  raise ValueError("CPU is not below 30 percent")
+              def mean(values):
+                  values = list(values)
+                  return sum(values) / len(values)
+
+              def median(values):
+                  ordered = sorted(values)
+                  middle = len(ordered) // 2
+                  if len(ordered) % 2:
+                      return ordered[middle]
+                  return (ordered[middle - 1] + ordered[middle]) / 2
+
+              # Judge the window by its averages. Single minutes spike under routine
+              # load, and the scale-out alarms only react to sustained pressure.
+              if mean(data["cpu"].values()) >= 30:
+                  raise ValueError("average CPU is not below 30 percent")
               for n in range(len(ids)):
                   uptime = [value for _, value in sorted(data[f"n{n}_uptime"].items())]
-                  if uptime[-1] < 900 or any(b <= a for a, b in zip(uptime, uptime[1:])):
-                      raise ValueError("JVM restarted or is still warming up")
-                  if any(value >= 5 for value in data[f"n{n}_gc"].values()):
-                      raise ValueError("GC pause pressure is not below 5 percent")
-              # All instances currently use the same 90 GiB heap limit. Summing their
-              # percentages conservatively budgets the combined work for one JVM.
+                  if uptime[-1] < 3600 or any(b <= a for a, b in zip(uptime, uptime[1:])):
+                      raise ValueError("JVM restarted or has run for under an hour")
+                  if mean(data[f"n{n}_gc"].values()) >= 6:
+                      raise ValueError("average GC pause time is not below 6 percent")
+              # All instances use the same 90 GiB heap limit. One JVM serving the whole
+              # workload has held well under the sum of both heaps (each JVM caches the
+              # same data), so summing the medians is already a conservative budget.
               heaps = [data[f"n{n}_heap"] for n in range(len(ids))]
-              if (any(sum(h[t] for h in heaps) >= 70 for t in window)
-                      or sum(max(v for t, v in h.items() if t >= end) for h in heaps) >= 70):
-                  raise ValueError("combined heap is not below 70 percent")
+              if sum(median(h.values()) for h in heaps) >= 80:
+                  raise ValueError("combined median heap is not below 80 percent")
               current = group()
               if (members(current) != ids or current["DesiredCapacity"] != initial["DesiredCapacity"]
                       or current["DesiredCapacity"] <= current["MinSize"]):
@@ -185,9 +198,13 @@ Resources:
               eb = boto3.client("elasticbeanstalk", config=config)
 
               def ready():
+                  # Yellow reports one impacted instance for much of the day without a
+                  # request-level cause. The group's ELB health check already removes
+                  # instances that fail, so only a red environment withholds scale-in.
                   envs = eb.describe_environments(
                       EnvironmentNames=[os.environ["ENVIRONMENT_NAME"]])["Environments"]
-                  return len(envs) == 1 and envs[0]["Status"] == "Ready" and envs[0]["Health"] == "Green"
+                  return (len(envs) == 1 and envs[0]["Status"] == "Ready"
+                          and envs[0]["Health"] in ("Green", "Yellow"))
 
               result = evaluate(boto3.client("autoscaling", config=config),
                                 boto3.client("cloudwatch", config=config),
