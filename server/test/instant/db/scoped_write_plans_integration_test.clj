@@ -243,3 +243,32 @@
                                 #{[eid id] [eid price]}))
                     (is (= {id (str eid) price 42 volume nil}
                            (into {} (map (juxt :attr_id :value) (stored-triples app-id eid)))))))))))))))
+
+(deftest listed-apps-get-the-hint-for-any-schema
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{id-attr :items/id price-attr :items/price} (make-attrs app-id)
+            attrs (attr-model/get-by-app-id app-id)
+            eid (random-uuid)
+            triples [[eid id-attr eid] [eid price-attr 42]]]
+        (doseq [[name builder] builders]
+          (testing (str name)
+            (let [baseline (capture-sql builder attrs app-id triples {})]
+              (binding [flags/*flag-overrides* {:pkey-null-padding-apps #{app-id}}
+                        flags/*toggle-overrides* {:disable-scoped-write-plans false
+                                                  :disable-pg-hints false}]
+                (let [hinted (capture-sql builder attrs app-id triples {})
+                      normalized (update hinted 0
+                                         #(-> %
+                                              (string/replace #"(?s)/\*\+.*?\*/\s*" "")
+                                              (string/replace "triples AS existing_triple" "triples")
+                                              (string/replace "existing_triple." "triples.")))]
+                  (is (= baseline normalized))
+                  (is (= 1 (count (re-seq #"(?i)IndexScan\(existing_triple triples_pkey\)" (first hinted)))))
+                  (testing "a partial update with options is hinted too"
+                    (is (re-find #"triples AS existing_triple"
+                                 (first (capture-sql builder attrs app-id
+                                                     [[eid price-attr 43]] {:overwrite-t true}))))))
+                (testing "other apps keep the original SQL"
+                  (is (= (first baseline)
+                         (first (capture-sql builder attrs (random-uuid) triples {})))))))))))))

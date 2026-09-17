@@ -620,3 +620,28 @@
                               :forward-identity [(random-uuid) "other" "outgoing"]
                               :reverse-identity [(random-uuid) "analytics_events" "incoming"]})]]
         (is (nil? (plans/null-padding-shape changed analytics-events-app triples nil)))))))
+
+(deftest listed-apps-use-the-primary-key-for-every-write
+  (let [app-id (random-uuid)
+        other-attrs (fixture-attrs "Anything" [[(random-uuid) "id" false true nil true]
+                                                [(random-uuid) "name" true false :string false]])
+        triples [[entity-id (:id (first other-attrs)) (str entity-id)]
+                 [entity-id (:id (second other-attrs)) "x" {:mode :update}]]]
+    (with-redefs [flags/query-result (constantly {})]
+      (binding [flags/*flag-overrides* {:pkey-null-padding-apps #{app-id}}]
+        (testing "any payload, options, and schema are eligible"
+          (doseq [opts [nil {} {:overwrite-t true} {:mode :update}]]
+            (is (= :pkey-null-padding (plans/null-padding-shape other-attrs app-id triples opts))))
+          (is (= :pkey-null-padding (plans/null-padding-shape bitcoin-attrs app-id [] {}))))
+        (testing "the list wins over the measured shapes"
+          (binding [flags/*flag-overrides* {:pkey-null-padding-apps #{bitcoin-app}
+                                            :scoped-write-plans {(str bitcoin-app) {"bitcoin-prices" true}}}]
+            (is (= :pkey-null-padding
+                   (plans/null-padding-shape bitcoin-attrs bitcoin-app
+                                             (fixture-triples bitcoin-attrs entity-id) {})))))
+        (testing "unlisted apps keep normal planning"
+          (is (nil? (plans/null-padding-shape other-attrs (random-uuid) triples {}))))
+        (testing "the kill switches disable it"
+          (doseq [kill-switch [:disable-scoped-write-plans :disable-pg-hints]]
+            (binding [flags/*toggle-overrides* {kill-switch true}]
+              (is (nil? (plans/null-padding-shape other-attrs app-id triples {}))))))))))

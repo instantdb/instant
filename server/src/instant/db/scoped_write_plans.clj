@@ -291,9 +291,15 @@
        (= (set (keys (:attrs analytics-events-plan))) (set (map second triples)))))
 
 (defn null-padding-shape
-  "Returns the explicitly enabled measured write shape, or nil for normal planning."
+  "Returns the explicitly enabled write shape, or nil for normal planning."
   [attrs app-id triples opts]
   (cond
+    ;; Every write shape for an opted-in app uses the primary key for the
+    ;; null-padding existence probe. The probe is the same SQL for every
+    ;; write, so nothing about the payload or schema needs to match.
+    (flags/pkey-null-padding-app? app-id)
+    :pkey-null-padding
+
     (= app-id #uuid "5ff3d22e-183a-4657-bd8f-e86316f983cb")
     (when (and (flags/scoped-write-plan-enabled? app-id (:shape analytics-events-plan))
                (nil? opts)
