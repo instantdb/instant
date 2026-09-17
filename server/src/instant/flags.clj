@@ -572,6 +572,11 @@
 (defn query-modifiers [app-id query-hash]
   (get-in (query-result) [:query-modifiers app-id query-hash]))
 
+(defn where-order
+  "Where keys to put first, by etype: {\"<app-id>\" {\"<etype>\" [\"<key>\"]}}"
+  [app-id]
+  (get (flag :where-order) (str app-id)))
+
 (defn failing-over? []
   (toggled? :failing-over))
 
