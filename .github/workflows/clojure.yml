@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       clj_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).clj_did_change }}
-      refinery_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).refinery_did_change }}
       vector_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).vector_did_change }}
     steps:
     - name: Detect changes
@@ -39,14 +38,12 @@ jobs:
 
           const output = {
             clj_did_change: false,
-            refinery_did_change: false,
             vector_did_change: false,
           };
 
           for (const file of files) {
             const changes = {
               server: file.startsWith('server/'),
-              refinery: file.startsWith('server/refinery/'),
               vector: file === 'server/vector.yaml',
               workflowFile: file === '.github/workflows/clojure.yml'
             };
@@ -55,13 +52,6 @@ jobs:
             if (changes.server || changes.workflowFile) {
               console.log('clj_did_change', true);
               output.clj_did_change = true;
-            }
-
-            if (changes.refinery) {
-              console.log('clj_did_change', true);
-              output.clj_did_change = true;
-              console.log('refinery_did_change', true);
-              output.refinery_did_change = true;
             }
 
             if (changes.vector || changes.workflowFile) {
@@ -405,30 +395,3 @@ jobs:
         aws-region: "us-east-1"
         bucket: "elasticbeanstalk-us-east-1-597134865416"
         application-name: "instant-docker-prod"
-
-  publish-refinery-eb:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.refinery_did_change == 'true'
-    needs:
-      - detect_changes
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: arn:aws:iam::597134865416:role/aws-credentials-for-github-actions-Role-x0lUbtwJNb7G
-        aws-region: us-east-1
-
-    - name: Create eb application version
-      uses: "./.github/actions/elastic-beanstalk"
-      with:
-        working-directory: "server/refinery/"
-        files: '["docker-compose.yml", "config.yaml", "config-redis.yaml", "rules.yaml", "refinery.env", ".ebextensions/resources.config"]'
-        aws-region: "us-east-1"
-        bucket: "elasticbeanstalk-us-east-1-597134865416"
-        application-name: "refinery"

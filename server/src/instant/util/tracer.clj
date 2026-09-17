@@ -15,9 +15,11 @@
    (io.opentelemetry.context Context)
    (io.opentelemetry.exporter.otlp.trace OtlpGrpcSpanExporter)
    (io.opentelemetry.sdk OpenTelemetrySdk)
+   (io.opentelemetry.sdk.common CompletableResultCode)
    (io.opentelemetry.sdk.resources Resource)
    (io.opentelemetry.sdk.trace SdkTracer SdkTracerProvider SpanLimits)
-   (io.opentelemetry.sdk.trace.export BatchSpanProcessor SimpleSpanProcessor)
+   (io.opentelemetry.sdk.trace.data SpanData)
+   (io.opentelemetry.sdk.trace.export BatchSpanProcessor SimpleSpanProcessor SpanExporter)
    (java.time Instant OffsetDateTime ZoneOffset)
    (java.util.concurrent TimeUnit)))
 
@@ -58,6 +60,26 @@
         (.setTracerProvider (.build trace-provider-builder))
         (.build))))
 
+(defn error-span? [^SpanData span]
+  (= StatusCode/ERROR (.getStatusCode (.getStatus span))))
+
+(defn make-error-only-exporter
+  "Wraps `exporter` so that it only receives spans with an error status.
+  We send to Honeycomb directly, so this keeps us from shipping every span."
+  ^SpanExporter
+  [^SpanExporter exporter]
+  (reify SpanExporter
+    (export [_this spans]
+      (let [error-spans (filterv error-span? spans)]
+        (if (seq error-spans)
+          (.export exporter error-spans)
+          (CompletableResultCode/ofSuccess))))
+    (flush [_this]
+      (.flush exporter))
+    (shutdown [_this]
+      (.shutdown exporter))
+    (toString [_this] "ErrorOnlyExporter")))
+
 (defn make-honeycomb-sdk
   ^OpenTelemetrySdk
   [honeycomb-api-key]
@@ -82,7 +104,8 @@
     (.addHeader otlp-builder "x-honeycomb-team" honeycomb-api-key)
 
     (.addSpanProcessor trace-provider-builder
-                       (.build (BatchSpanProcessor/builder (.build otlp-builder))))
+                       (.build (BatchSpanProcessor/builder
+                                (make-error-only-exporter (.build otlp-builder)))))
 
     (.addSpanProcessor trace-provider-builder log-processor)
 
