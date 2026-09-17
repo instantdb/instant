@@ -549,6 +549,9 @@
 (defn log-to-wal-log-table? []
   (toggled? :log-to-wal-log-table false))
 
+(defn honeycomb-error-spans-only? []
+  (toggled? :honeycomb-error-spans-only? false))
+
 (defn skip-noop-id-triple-updates?
   "When true (the default), insert-multi! only re-writes an entity's id triple
    when the entity actually changed in the tx. Flip the
