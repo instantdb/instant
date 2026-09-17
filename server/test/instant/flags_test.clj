@@ -96,6 +96,13 @@
           (binding [flags/*toggle-overrides* {kill-switch true}]
             (is (false? (flags/pkey-null-padding-app? app-id))))))
       (is (false? (flags/pkey-null-padding-app? app-id)))
+      (testing "the all-apps toggle covers unlisted apps and respects the kill switches"
+        (binding [flags/*toggle-overrides* {:pkey-null-padding-all-apps true}]
+          (is (true? (flags/pkey-null-padding-app? (random-uuid)))))
+        (doseq [kill-switch [:disable-scoped-write-plans :disable-pg-hints]]
+          (binding [flags/*toggle-overrides* {:pkey-null-padding-all-apps true
+                                              kill-switch true}]
+            (is (false? (flags/pkey-null-padding-app? app-id))))))
       (is (= #{app-id}
              (-> (flags/transform-query-result
                   {"flags" [{"setting" "pkey-null-padding-apps"
