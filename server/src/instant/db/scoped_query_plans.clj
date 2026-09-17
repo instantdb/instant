@@ -368,19 +368,20 @@
                                    :'NoHashJoin :'NoNestLoop :'NoMergeJoin}
                                  (first %))
                      pg-hints)
-        (case app-id
-          #uuid "299e756d-b3e6-41d3-a0ba-d097bfe7e04d"
-          (status-filter app-id normalized ctes pg-hints)
+        (or (case app-id
+              #uuid "299e756d-b3e6-41d3-a0ba-d097bfe7e04d"
+              (status-filter app-id normalized ctes pg-hints)
 
-          #uuid "ff386052-f839-4d6e-8a62-4c1a6c7a6a01"
-          (filtered-child app-id normalized ctes pg-hints result-tables)
+              #uuid "ff386052-f839-4d6e-8a62-4c1a6c7a6a01"
+              (filtered-child app-id normalized ctes pg-hints result-tables)
 
-          #uuid "52d525f5-afb4-4a7a-9efd-e6791c0bdd6a"
-          (nullable-filter app-id normalized ctes pg-hints)
+              #uuid "52d525f5-afb4-4a7a-9efd-e6791c0bdd6a"
+              (nullable-filter app-id normalized ctes pg-hints)
 
-          #uuid "1c436238-c543-44d0-9a6b-51f7e5b840e3"
-          (or (numeric-range app-id normalized ctes pg-hints result-tables attrs)
-              (numeric-upper-bound app-id normalized ctes pg-hints result-tables attrs))
+              #uuid "1c436238-c543-44d0-9a6b-51f7e5b840e3"
+              (or (numeric-range app-id normalized ctes pg-hints result-tables attrs)
+                  (numeric-upper-bound app-id normalized ctes pg-hints result-tables attrs))
 
-          (numeric-range-page app-id normalized ctes pg-hints result-tables attrs)))
+              nil)
+            (numeric-range-page app-id normalized ctes pg-hints result-tables attrs)))
       {:ctes ctes :pg-hints pg-hints}))
