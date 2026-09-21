@@ -363,6 +363,55 @@
                    (assoc-in [has-prev-idx 1 :select 0 0 1] has-prev-query'))
          :pg-hints pg-hints}))))
 
+(defn- seeks-id-batch [app-id normalized ctes pg-hints]
+  (let [ids (get-in normalized [:seeks :$ :where :id :$in])
+        [[_ _] [_ entities] [_ fetch-query]] ctes
+        attr-ids (some (fn [[op column value]]
+                         (when (and (= op :=) (= column :attr-id)
+                                    (= :any (first value)))
+                           (second value)))
+                       (filter #(and (vector? %) (vector? (nth % 2 nil)))
+                               (conjuncts fetch-query)))]
+    (when (and (flags/scoped-query-plan-enabled? app-id :seeks-id-batch)
+               (vector? ids) (<= 1000 (count ids) 3000) (every? #{:string} ids)
+               (= normalized {:seeks {:$ {:where {:id {:$in ids}}}}})
+               (= [:m-0 :m-1 :m-2] (mapv first ctes))
+               (layout? ctes [[:m-0 [[:triples :t0]] :materialized]
+                              [:m-1 :m-0 :materialized]
+                              [:m-2 [[:triples :t2] :m-1] :materialized]])
+               (scans? pg-hints [(pg-hint/index-scan :t0 :av_index)
+                                 (pg-hint/index-scan :t2 :ea_index)])
+               (not-any? #(contains? #{:'Memoize :'NoMemoize} (first %)) pg-hints)
+               (= entities {:select [[[:distinct :m-0-entity-id] :m-1-entity-id]]
+                            :from :m-0})
+               (= #{:select :from :where} (set (keys fetch-query)))
+               (= [[:entity-id :m-2-entity-id] [:attr-id :m-2-attr-id]
+                   [:value :m-2-value] [:eav :m-2-is-ref-val]
+                   [:created-at :m-2-created-at]]
+                  (:select fetch-query))
+               (set? attr-ids) (seq attr-ids) (every? uuid? attr-ids)
+               (= #{[:= :app-id app-id] [:= :ea :true]
+                    [:= :attr-id [:any attr-ids]] [:= :entity-id :m-1-entity-id]}
+                  (conjuncts fetch-query)))
+      ;; Collect the filtered entity ids once so a bitmap scan can fetch their
+      ;; triples in heap order instead of probing the index for every entity.
+      {:ctes (-> (vec ctes)
+                 (assoc-in [2 1 :from] [[:triples :t2]])
+                 (update-in [2 1 :where]
+                            #(mapv (fn [predicate]
+                                     (if (= predicate [:= :entity-id :m-1-entity-id])
+                                       [:= :entity-id [:any [:array {:select [:m-1-entity-id]
+                                                                    :from :m-1}]]]
+                                       predicate))
+                                   %)))
+       :pg-hints (into []
+                       (comp (remove #(and (= 4 (count %))
+                                           (= [:'Rows :m-1 :t2] (take 3 %))))
+                             (map #(if (= % (pg-hint/index-scan :t2 :ea_index))
+                                     (pg-hint/bitmap-scan :t2 :ea_index)
+                                     %)))
+                       pg-hints)})))
+
 (defn apply-plan [app-id normalized ctes pg-hints result-tables attrs]
   (or (when (not-any? #(contains? #{:'Leading :'HashJoin :'NestLoop :'MergeJoin
                                    :'NoHashJoin :'NoNestLoop :'NoMergeJoin}
@@ -381,6 +430,9 @@
               #uuid "1c436238-c543-44d0-9a6b-51f7e5b840e3"
               (or (numeric-range app-id normalized ctes pg-hints result-tables attrs)
                   (numeric-upper-bound app-id normalized ctes pg-hints result-tables attrs))
+
+              #uuid "8ad982d7-09bc-45bd-83c4-8d56ebf32286"
+              (seeks-id-batch app-id normalized ctes pg-hints)
 
               nil)
             (numeric-range-page app-id normalized ctes pg-hints result-tables attrs)))
