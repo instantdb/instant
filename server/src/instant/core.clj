@@ -30,6 +30,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
    [instant.jvm-metrics :as jvm-metrics]
+   [instant.lib.ring.compression :as compression]
    [instant.lib.ring.undertow :as undertow-adapter]
    [instant.loadbalancer :as loadbalancer-listener]
    [instant.log-config :as log-config]
@@ -287,7 +288,10 @@
                  ;; 8 per io-thread
                  :worker-threads (* 16 (delay/cpu-count))
                  :graceful-shutdown? true
-                 :handler-proxy app-proxy/handler-proxy
+                 :handler-proxy (fn [handler]
+                                  (compression/wrap-handler
+                                   (app-proxy/handler-proxy handler)
+                                   #(flags/toggled? :admin-query-compression? false)))
                  :configurator (fn [^Undertow$Builder builder]
                                  (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
                 (when (.exists (io/file "dev-resources/certs/dev.jks"))
