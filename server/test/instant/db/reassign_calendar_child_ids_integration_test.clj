@@ -128,6 +128,47 @@
 (defn- projected? [result]
   (boolean (re-find #"SELECT DISTINCT m_6_entity_id AS m_7_entity_id FROM m_6" (first (:sql result)))))
 
+(defn plan-nodes [plan]
+  (tree-seq #(seq (get % "Plans")) #(get % "Plans") (get plan "Plan")))
+
+(defn m8-plan [plan]
+  (some #(when (= "CTE m_8" (get % "Subplan Name")) %) (plan-nodes plan)))
+
+(defn bound-m8-lookup? [plan]
+  (let [join (m8-plan plan)
+        [outer inner] (get join "Plans")
+        index-cond (get inner "Index Cond" "")]
+    (and (= "Nested Loop" (get join "Node Type"))
+         (= "CTE Scan" (get outer "Node Type"))
+         (= "m_7" (get outer "CTE Name"))
+         (= "Outer" (get outer "Parent Relationship"))
+         (= "Index Scan" (get inner "Node Type"))
+         (= "ea_index" (get inner "Index Name"))
+         (= "t8" (get inner "Alias"))
+         (= "Inner" (get inner "Parent Relationship"))
+         (boolean (re-find #"app_id = '[0-9a-f-]+'::uuid" index-cond))
+         (boolean (re-find #"entity_id = m_7.m_7_entity_id" index-cond))
+         (boolean (re-find #"attr_id = ANY \('[{][0-9a-f,-]+[}]'::uuid\[\]\)" index-cond)))))
+
+(deftest calendar-projection-keeps-child-lookups-bound-to-matched-ids
+  (jdbc/with-transaction [conn (aurora/conn-pool :write) {:rollback-only true}]
+    (create-triples! conn)
+    (seed! conn)
+    (doseq [[label lower upper]
+            [[:sparse "2026-09-30" "2026-09-30"]
+             [:empty "2025-01-01" "2025-01-02"]
+             [:broad "2020-01-01" "2030-01-01"]]]
+      (testing (name label)
+        (let [query (range-query lower upper)
+              baseline (query-result conn query false nil)
+              candidate (query-result conn query true nil)
+              explain (update (:sql candidate) 0 #(str "EXPLAIN (FORMAT JSON) " %))
+              plan (-> (jdbc/execute! conn explain {:builder-fn sql/as-string-maps})
+                       first (get "QUERY PLAN") first)]
+          (is (projected? candidate))
+          (is (= (dissoc baseline :sql) (dissoc candidate :sql)))
+          (is (bound-m8-lookup? plan) (pr-str (m8-plan plan))))))))
+
 (deftest calendar-projection-preserves-full-results-and-topics
   (jdbc/with-transaction [conn (aurora/conn-pool :write) {:rollback-only true}]
     (create-triples! conn)

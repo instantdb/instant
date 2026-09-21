@@ -14,6 +14,17 @@
                    (.append (hsql/format-entity (first more))))
                (next more))))))
 
+(defn- add-leading-pair! [^StringBuilder s pair]
+  (if (vector? pair)
+    (do
+      (assert (= 2 (count pair)) "Leading join pairs must have two members")
+      (.append s \()
+      (add-leading-pair! s (first pair))
+      (.append s " ")
+      (add-leading-pair! s (second pair))
+      (.append s \)))
+    (.append s (hsql/format-entity pair))))
+
 ;; pg-hints expects a list of hints, e.g.
 ;; {:select :*
 ;;  :pg-hints [(index-scan :t2 :ea_index)]
@@ -31,6 +42,11 @@
          (.append s (hsql/sql-kw op))
          (.append s \()
          (case op
+           :'Leading (if (some vector? args)
+                       (do (assert (= 1 (count args)) "Leading requires one outer join pair")
+                           (add-leading-pair! s (first args)))
+                       (add-args! s args))
+
            :'Rows (do (add-args! s (butlast args))
                       (.append s " #")
                       (assert (number? (last args)))

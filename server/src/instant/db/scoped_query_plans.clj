@@ -276,6 +276,7 @@
           id-attr (get-in w2 [3 2])
           recurrence-id (get-in (where-vec (get-in w2 [4 2])) [3 2])
           exception-id (get-in w4 [3 2])
+          child-attrs (get-in (where-vec (get-in ctes [8 1])) [3 2 1])
           bounds (mapv #(get-in % [4 2 1]) [w0 w1 w3 w4 w5])
           [date-lower date-upper recurrence-upper exception-lower exception-upper] bounds
           base (fn [index attr-id]
@@ -319,16 +320,20 @@
             :where [:and [:= :app-id app-id]
                     [:or [:and [:= :entity-id :m-4-entity-id] [:= :entity-id :m-5-entity-id]]
                      [:and [:or [:and [:= :entity-id :m-0-entity-id] [:= :entity-id :m-1-entity-id]]
-                            [:and [:= :entity-id :m-2-entity-id] [:= :entity-id :m-3-entity-id]]]]]]}]]
+                            [:and [:= :entity-id :m-2-entity-id] [:= :entity-id :m-3-entity-id]]]]]]}
+           (assoc (scan 8 nil
+                        (conj (base :ea [:any child-attrs]) [:= :entity-id :m-7-entity-id]))
+                  :from [[:triples :t8] :m-7])]]
       (when (and (every? uuid? [date-id id-attr recurrence-id exception-id])
+                 (set? child-attrs) (seq child-attrs) (every? uuid? child-attrs)
                  (every? string? bounds)
+                 (scans? pg-hints [(pg-hint/index-scan :t8 :ea_index)])
                  (= (mapv #(keyword (str "m-" %)) (range 22)) (mapv first ctes))
                  (= (mapv #(vector (keyword (str "m-" %1)) %2 :materialized)
-                          (range 8) expected)
-                    (subvec ctes 0 (min 8 (count ctes))))
+                          (range 9) expected)
+                    (subvec ctes 0 (min 9 (count ctes))))
                  (= #{:m-6 :m-8 :m-10 :m-12 :m-13 :m-15 :m-16 :m-18 :m-19 :m-21}
                     result-tables)
-                 (= [[:triples :t8] :m-7] (get-in ctes [8 1 :from]))
                  (= 2 (count (filter #{:m-7} (tree-seq coll? seq ctes)))))
         ;; Each false full join row contains one branch's same-app entity.
         ;; Its two bindings are equal and already came from triples, so the
@@ -336,7 +341,9 @@
         {:ctes (seq (assoc-in ctes [7 1]
                               {:select [[[:distinct :m-6-entity-id] :m-7-entity-id]]
                                :from :m-6}))
-         :pg-hints pg-hints}))))
+         ;; Keep the selected entities outside the parameterized ea_index lookup.
+         :pg-hints (into (vec pg-hints) [(pg-hint/leading [:m-7 :t8])
+                                       (pg-hint/nest-loop :m-7 :t8)])}))))
 
 (defn apply-plan [app-id normalized ctes pg-hints result-tables attrs]
   (or (when (not-any? #(contains? #{:'Leading :'HashJoin :'NestLoop :'MergeJoin

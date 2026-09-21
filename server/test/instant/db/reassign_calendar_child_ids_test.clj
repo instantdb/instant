@@ -8,6 +8,7 @@
             [instant.db.scoped-query-plans :as plans]
             [instant.flags :as flags]
             [instant.util.instaql :as instaql-util]
+            [instant.util.pg-hint-plan :as pg-hint]
             [instant.util.tracer :as tracer]))
 
 (def measured-app #uuid "19bde4a4-559c-4274-9bba-5e4bff9fcffe")
@@ -70,6 +71,7 @@
 (def result-tables #{:m-6 :m-8 :m-10 :m-12 :m-13 :m-15 :m-16 :m-18 :m-19 :m-21})
 (def projected-collector
   {:select [[[:distinct :m-6-entity-id] :m-7-entity-id]] :from :m-6})
+(def child-lookup-hints [(pg-hint/leading [:m-7 :t8]) (pg-hint/nest-loop :m-7 :t8)])
 
 (defn with-plan [f]
   (with-redefs [flags/flag (fn [flag & [default]]
@@ -87,14 +89,22 @@
             after (compile-query measured-app measured-query)
             qid [:qid {:select [[[:inline measured-app]] [[:inline -843103532]]]}]]
         (is (= projected-collector (get-in (vec (:with after)) [7 1])))
-        (is (= (assoc-in before [:with 7 1] projected-collector) after))
+        (is (= (-> before
+                   (assoc-in [:with 7 1] projected-collector)
+                   (update :pg-hints into child-lookup-hints))
+               after))
         (is (= :materialized (get-in (vec (:with after)) [7 2])))
-        (is (= (:pg-hints before) (:pg-hints after)))
+        (is (= (into (:pg-hints before) child-lookup-hints) (:pg-hints after)))
+        (is (= [[:'Leading [:m-7 :t8]] [:'NestLoop :m-7 :t8]] child-lookup-hints))
+        (is (re-find #"Leading\(\(m_7 t8\)\)\nNestLoop\(m_7 t8\)"
+                     (first (hsql/format after))))
+        (is (some #{(pg-hint/index-scan :t8 :ea_index)} (:pg-hints after)))
         ;; send-query-nested adds qid with conj. Keep its position unchanged.
         (is (= :qid (ffirst (:with (update after :with conj qid)))))
         (is (= (hsql/format (update original :with conj qid))
                (hsql/format (-> after
                                 (update :with #(vec (conj % qid)))
+                                (assoc :pg-hints (:pg-hints before))
                                 (assoc-in [:with 8 1] (get-in before [:with 7 1]))))))))))
 
 (deftest calendar-projection-requires-exact-opt-in
@@ -181,6 +191,19 @@
                   [:collector-limit (assoc-in ctes [7 1 :limit] 10)]
                   [:collector-distinct (assoc-in ctes [7 1 :select] [[:entity-id :m-7-entity-id]])]
                   [:different-consumer (assoc-in ctes [8 1 :from] [[:triples :t8] :m-6])]
+                  [:child-select (assoc-in ctes [8 1 :select] [[:entity-id :m-8-entity-id]])]
+                  [:child-app (where-change ctes 8 #(assoc-in % [1 2] (random-uuid)))]
+                  [:child-index (where-change ctes 8 #(assoc-in % [2 1] :eav))]
+                  [:child-attribute-op (where-change ctes 8 #(assoc-in % [3 2 0] :all))]
+                  [:child-attribute-vector (where-change ctes 8 #(update-in % [3 2 1] vec))]
+                  [:child-attribute-empty (where-change ctes 8 #(assoc-in % [3 2 1] #{}))]
+                  [:child-attribute-non-uuid (where-change ctes 8 #(update-in % [3 2 1] conj "invalid"))]
+                  [:child-attribute-missing (where-change ctes 8 #(assoc-in % [3 2 1] nil))]
+                  [:child-entity-binding (where-change ctes 8 #(assoc-in % [4 2] :m-6-entity-id))]
+                  [:child-extra-filter (where-change ctes 8 #(conj % [:= :value [:cast "null" :jsonb]]))]
+                  [:child-limit (assoc-in ctes [8 1 :limit] 10)]
+                  [:child-order (assoc-in ctes [8 1 :order-by] [:entity-id])]
+                  [:child-materialization (assoc-in ctes [8 2] :not-materialized)]
                   [:extra-consumer (assoc-in ctes [9 1 :from] :m-7)]]
                  (for [idx (range 6)]
                    [(keyword (str "branch-select-" idx))
@@ -194,7 +217,26 @@
         (doseq [tables [(conj result-tables :m-7) (disj result-tables :m-6)]]
           (is (= {:ctes ctes :pg-hints pg-hints} (apply-plan ctes pg-hints tables))))
         (let [hints (conj (vec pg-hints) [:'HashJoin :t0 :t1])]
+          (is (= {:ctes ctes :pg-hints hints} (apply-plan ctes hints result-tables))))
+        (doseq [hints [(vec (remove #{(pg-hint/index-scan :t8 :ea_index)} pg-hints))
+                       (conj (vec pg-hints) (pg-hint/index-scan :t8 :ea_index))
+                       (mapv #(if (= % (pg-hint/index-scan :t8 :ea_index))
+                                (pg-hint/index-scan :t8 :triples_pkey) %) pg-hints)]]
           (is (= {:ctes ctes :pg-hints hints} (apply-plan ctes hints result-tables))))))))
+
+(deftest calendar-projection-preserves-current-child-attributes
+  (with-plan
+    (fn []
+      (let [{:keys [with pg-hints]} (baseline measured-app measured-query)
+            attrs (with-meta (set [(random-uuid) (random-uuid)]) {:pgtype "uuid[]"})
+            ctes (update-in (vec with) [8 1 :where]
+                            #(assoc-in (vec %) [3 2 1] attrs))
+            after (plans/apply-plan measured-app measured-normalized ctes pg-hints result-tables measured-attrs)
+            after-ctes (vec (:ctes after))]
+        (is (= projected-collector (get-in after-ctes [7 1])))
+        (is (= (ctes 8) (after-ctes 8)))
+        (is (identical? attrs (get-in (vec (get-in after-ctes [8 1 :where])) [3 2 1])))
+        (is (= (into pg-hints child-lookup-hints) (:pg-hints after)))))))
 
 (deftest calendar-projection-preserves-schema-dependent-compilation
   (with-plan
@@ -223,4 +265,7 @@
               before (update (compile attrs false) :with vec)
               after (compile attrs true)]
           (is (= projected-collector (get-in (vec (:with after)) [7 1])))
-          (is (= (assoc-in before [:with 7 1] projected-collector) after)))))))
+          (is (= (-> before
+                     (assoc-in [:with 7 1] projected-collector)
+                     (update :pg-hints into child-lookup-hints))
+                 after)))))))
