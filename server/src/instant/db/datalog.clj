@@ -3101,6 +3101,34 @@
       (update :join-rows set)
       (dissoc :symbol-values-for-topics)))
 
+(defn- seeks-leaf-result [rows group pattern-metas]
+  (let [{:keys [cte-cols pattern symbol-fields] :as pattern-meta} (first pattern-metas)
+        {:keys [idx e a v created-at]} pattern]
+    (when (and (= 1 (count pattern-metas))
+               (not (:children group))
+               (not (:page-info group))
+               (not (:aggregate group))
+               (not (:or pattern-meta))
+               (not (:page-info pattern-meta))
+               (= {} symbol-fields)
+               (= [:keyword :ea] idx)
+               (= :constant (first e))
+               (set? (second e))
+               (= 1 (count (second e)))
+               (every? uuid? (second e))
+               (= :constant (first a))
+               (set? (second a))
+               (seq (second a))
+               (every? uuid? (second a))
+               (= [:any '_] v created-at))
+      {:join-rows (into #{}
+                        (map (fn [row]
+                               (let [triple (sql-row->triple row cte-cols true)]
+                                 (if (nil? (first triple)) [] [triple]))))
+                        rows)
+       :symbol-values {}
+       :topics (named-pattern->topics pattern {})})))
+
 (defn- replace-var [component join-sym join-val]
   (if (and (named-variable? component)
            (= join-sym (second component)))
@@ -3198,6 +3226,8 @@
   ([sql-res grouped-rows children coarse-topics?]
    (nested-sql-result->result nil grouped-rows sql-res children coarse-topics?))
   ([parent-info grouped-rows sql-res children coarse-topics?]
+   (nested-sql-result->result parent-info grouped-rows sql-res children coarse-topics? {}))
+  ([parent-info grouped-rows sql-res children coarse-topics? {:keys [seeks-leaf-result?] :as opts}]
    (reduce (fn [acc group]
              (cond
                (:missing-attr? group)
@@ -3223,7 +3253,9 @@
                      transformed-pattern-metas (if join-sym
                                                  (update-symbol-value pattern-metas join-sym join-val)
                                                  pattern-metas)
-                     result (cond-> (sql-result->result rows transformed-pattern-metas true)
+                     result (cond-> (or (when (and (true? seeks-leaf-result?) join-sym)
+                                          (seeks-leaf-result rows group transformed-pattern-metas))
+                                        (sql-result->result rows transformed-pattern-metas true))
                               (:page-info group) (assoc-in [:page-info :has-next-page?]
                                                            (-> sql-res
                                                                (get (name (has-next-tbl table)))
@@ -3257,7 +3289,8 @@
                                                                            grouped-rows
                                                                            sql-res
                                                                            (:children group)
-                                                                           coarse-topics?))
+                                                                           coarse-topics?
+                                                                           opts))
                                               (or (get-in result [:symbol-values join-sym])
                                                   ;; This is a hack to get things to nest properly
                                                   (when (= join-sym (:join-sym parent-info))
@@ -3415,10 +3448,12 @@
                                                  :bytes-read)]
                           {:sql-byte-len sql-bytes}))))
           grouped-rows (group-rows-by-join-sym sql-res children)
-          result (nested-sql-result->result sql-res
+          result (nested-sql-result->result nil
                                             grouped-rows
+                                            sql-res
                                             children
-                                            (flags/use-coarse-topics? app-id))
+                                            (flags/use-coarse-topics? app-id)
+                                            (select-keys ctx [:seeks-leaf-result?]))
           topics (collect-all-topics result)]
       (with-meta {:data result
                   :topics topics}

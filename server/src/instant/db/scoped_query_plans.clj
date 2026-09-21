@@ -1,5 +1,6 @@
 (ns instant.db.scoped-query-plans
   (:require [clojure.set :as set]
+            [instant.db.model.attr :as attr-model]
             [instant.flags :as flags]
             [instant.util.pg-hint-plan :as pg-hint]))
 
@@ -412,6 +413,112 @@
                                      %)))
                        pg-hints)})))
 
+(defn- seeks-subscription [app-id normalized ctes pg-hints result-tables attrs]
+  (let [all? (= normalized {:seeks {}})
+        plan (cond
+               all? :seeks-all
+               (= normalized {:seeks {:$ {:where {:resultsCount {:$gt :number}
+                                                 :indexable {:$ne :boolean}}}}})
+               :seeks-filtered)]
+    (when (and plan attrs (flags/scoped-query-plan-enabled? app-id plan))
+      (let [[[_ first-query] [_ second-query] [_ entities] [_ fetch-query]] ctes
+            fetch-query (if all? entities fetch-query)
+            entities (if all? second-query entities)
+            id-attr (attr-model/seek-by-fwd-ident-name ["seeks" "id"] attrs)
+            count-attr (attr-model/seek-by-fwd-ident-name ["seeks" "resultsCount"] attrs)
+            indexable-attr (attr-model/seek-by-fwd-ident-name ["seeks" "indexable"] attrs)
+            attr-ids (attr-model/ea-ids-for-etype "seeks" attrs)
+            parent (if all? :m-1 :m-2)
+            alias (if all? :t2 :t3)
+            entity-column (if all? :m-1-entity-id :m-2-entity-id)
+            columns (fn [n]
+                      (mapv (fn [[column suffix]]
+                              [column (keyword (str "m-" n "-" suffix))])
+                            [[:entity-id "entity-id"] [:attr-id "attr-id"]
+                             [:value "value"] [:eav "is-ref-val"]
+                             [:created-at "created-at"]]))]
+        (when (and (= (if all? [:m-0 :m-1 :m-2] [:m-0 :m-1 :m-2 :m-3])
+                      (mapv first ctes))
+                   (= (if all? #{:m-0 :m-2} #{:m-1 :m-3}) result-tables)
+                   (layout? ctes (if all?
+                                   [[:m-0 [[:triples :t0]] :materialized]
+                                    [:m-1 :m-0 :materialized]
+                                    [:m-2 [[:triples :t2] :m-1] :materialized]]
+                                   [[:m-0 [[:triples :t0]] :materialized]
+                                    [:m-1 [[:triples :t1] :m-0] :materialized]
+                                    [:m-2 [:triples :m-1] :materialized]
+                                    [:m-3 [[:triples :t3] :m-2] :materialized]]))
+                   (scans? pg-hints (if all?
+                                     [(pg-hint/index-scan :t0 :triples_created_at_idx)
+                                      (pg-hint/index-scan :t2 :ea_index)]
+                                     [(pg-hint/index-scan :t0 :triples_number_type_idx)
+                                      (pg-hint/index-scan :t1 :triples_pkey)
+                                      (pg-hint/index-scan :t3 :ea_index)]))
+                   (not-any? #(contains? #{:'Memoize :'NoMemoize} (first %)) pg-hints)
+                   (seq attr-ids) (every? uuid? attr-ids)
+                   (= #{:select :from :where} (set (keys fetch-query)))
+                   (= (columns (if all? 2 3)) (:select fetch-query))
+                   (= #{[:= :app-id app-id] [:= :ea :true]
+                        [:= :attr-id [:any attr-ids]] [:= :entity-id entity-column]}
+                      (conjuncts fetch-query))
+                   (= #{:select :from :where} (set (keys first-query)))
+                   (= (columns 0) (:select first-query))
+                   (if all?
+                     (and (= :one (:cardinality id-attr))
+                          (= :blob (:value-type id-attr))
+                          (true? (:unique? id-attr))
+                          (= #{[:= :app-id app-id] [:= :ea :true]
+                               [:= :attr-id (:id id-attr)]}
+                             (conjuncts first-query))
+                          (= entities {:select [[[:distinct :m-0-entity-id] :m-1-entity-id]]
+                                       :from :m-0}))
+                     (and (every? (fn [[attr data-type]]
+                                    (and (= :one (:cardinality attr))
+                                         (= :blob (:value-type attr))
+                                         (true? (:index? attr))
+                                         (= data-type (:checked-data-type attr))
+                                         (not (:indexing? attr))
+                                         (not (:checking-data-type? attr))
+                                         (not (:deletion-marked-at attr))))
+                                  [[count-attr :number] [indexable-attr :boolean]])
+                          (= #{[:= :app-id app-id] [:= :ave :true]
+                               [:= :attr-id (:id count-attr)]
+                               [:and [:> [:triples_extract_number_value :value] 0]
+                                [:= :checked_data_type [:cast [:inline "number"] :checked_data_type]]]}
+                             (conjuncts first-query))
+                          (= #{:select :from :where} (set (keys second-query)))
+                          (= (into [:m-0.*] (columns 1)) (:select second-query))
+                          (= #{[:= :app-id app-id] [:= :ave :true]
+                               [:= :attr-id (:id indexable-attr)]
+                               [:and [:is-distinct-from [:triples_extract_boolean_value :value] false]
+                                [:= :checked_data_type [:cast [:inline "boolean"] :checked_data_type]]]
+                               [:= :entity-id :m-0-entity-id]}
+                             (conjuncts second-query))
+                          (= #{:select :from :where} (set (keys entities)))
+                          (= [[[:distinct :entity-id] :m-2-entity-id]] (:select entities))
+                          (= #{[:= :app-id app-id] [:= :entity-id :m-0-entity-id]
+                               [:= :entity-id :m-1-entity-id]}
+                             (conjuncts entities)))))
+          ;; Scan the measured attribute partitions in heap order. Keep the
+          ;; filter triples and entity membership used by results and topics.
+          {:ctes (cond-> (vec ctes)
+                   (not all?) (assoc-in [2 1]
+                                       {:select [[[:distinct :m-0-entity-id] :m-2-entity-id]]
+                                        :from :m-1
+                                        :where [:= :m-0-entity-id :m-1-entity-id]}))
+           :pg-hints (cond-> (conj (mapv (fn [hint]
+                                          (cond
+                                            (= hint (pg-hint/index-scan alias :ea_index))
+                                            (pg-hint/bitmap-scan alias :triples_created_at_idx)
+
+                                            (and (not all?) (= hint (pg-hint/index-scan :t1 :triples_pkey)))
+                                            (pg-hint/bitmap-scan :t1 :triples_boolean_type_idx)
+
+                                            :else hint))
+                                        pg-hints)
+                                  (pg-hint/hash-join parent alias))
+                       (not all?) (conj (pg-hint/hash-join :m-0 :t1)))})))))
+
 (defn apply-plan [app-id normalized ctes pg-hints result-tables attrs]
   (or (when (not-any? #(contains? #{:'Leading :'HashJoin :'NestLoop :'MergeJoin
                                    :'NoHashJoin :'NoNestLoop :'NoMergeJoin}
@@ -432,7 +539,8 @@
                   (numeric-upper-bound app-id normalized ctes pg-hints result-tables attrs))
 
               #uuid "8ad982d7-09bc-45bd-83c4-8d56ebf32286"
-              (seeks-id-batch app-id normalized ctes pg-hints)
+              (or (seeks-id-batch app-id normalized ctes pg-hints)
+                  (seeks-subscription app-id normalized ctes pg-hints result-tables attrs))
 
               nil)
             (numeric-range-page app-id normalized ctes pg-hints result-tables attrs)))

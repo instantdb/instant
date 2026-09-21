@@ -129,37 +129,40 @@
         (tracer/record-exception-span! e {:name "compile-instaql-topic-ex"})))))
 
 (defn- skip-unchanged-result-enabled? [app-id query]
-  ;; Only the measured Reassign calendar subscription. Removing its flag
-  ;; restores materialization without a deploy.
-  (and (= app-id #uuid "19bde4a4-559c-4274-9bba-5e4bff9fcffe")
-       (not (flags/toggled? :disable-scoped-refresh-results))
-       (true? (get-in (flags/flag :scoped-refresh-results)
-                      [(str app-id) "sections-calendar"]))
-       (false? (get-in query [:sections :$ :where :or 1 :and 0 :recurrenceRule :$isNull]))
-       (= (instaql-util/normalized-forms query)
-          {:sections {:$ {:where {:or [{:and [{:date {:$gte :string}}
-                                            {:date {:$lte :string}}]}
-                                      {:and [{:recurrenceRule {:$isNull :boolean}}
-                                             {:date {:$lte :string}}]}
-                                      {:and [{:exceptionDate {:$gte :string}}
-                                             {:exceptionDate {:$lte :string}}]}]}}
-                      :area {} :activityType {} :parent {} :eventLinks {}}})))
+  ;; Each measured cohort can restore materialization without a deploy.
+  (or (and (not (flags/toggled? :disable-scoped-refresh-results))
+           (iq/seeks-query-cpu-enabled? app-id query :skip-unchanged))
+      (and (= app-id #uuid "19bde4a4-559c-4274-9bba-5e4bff9fcffe")
+           (not (flags/toggled? :disable-scoped-refresh-results))
+           (true? (get-in (flags/flag :scoped-refresh-results)
+                          [(str app-id) "sections-calendar"]))
+           (false? (get-in query [:sections :$ :where :or 1 :and 0 :recurrenceRule :$isNull]))
+           (= (instaql-util/normalized-forms query)
+              {:sections {:$ {:where {:or [{:and [{:date {:$gte :string}}
+                                                {:date {:$lte :string}}]}
+                                          {:and [{:recurrenceRule {:$isNull :boolean}}
+                                                 {:date {:$lte :string}}]}
+                                          {:and [{:exceptionDate {:$gte :string}}
+                                                 {:exceptionDate {:$lte :string}}]}]}}
+                          :area {} :activityType {} :parent {} :eventLinks {}}}))))
 
 (defn- transient-triple-collection-enabled? [app-id query]
-  ;; Limit the allocation change to the measured calendar query.
-  (and (= app-id #uuid "19bde4a4-559c-4274-9bba-5e4bff9fcffe")
-       (not (flags/toggled? :disable-scoped-triple-collection))
-       (true? (get-in (flags/flag :scoped-triple-collection)
-                     [(str app-id) "sections-calendar"]))
-       (false? (get-in query [:sections :$ :where :or 1 :and 0 :recurrenceRule :$isNull]))
-       (= (instaql-util/normalized-forms query)
-          {:sections {:$ {:where {:or [{:and [{:date {:$gte :string}}
-                                            {:date {:$lte :string}}]}
-                                      {:and [{:recurrenceRule {:$isNull :boolean}}
-                                             {:date {:$lte :string}}]}
-                                      {:and [{:exceptionDate {:$gte :string}}
-                                             {:exceptionDate {:$lte :string}}]}]}}
-                      :area {} :activityType {} :parent {} :eventLinks {}}})))
+  ;; Reuse the collector only for the measured query cohorts.
+  (or (and (not (flags/toggled? :disable-scoped-triple-collection))
+           (iq/seeks-query-cpu-enabled? app-id query :triple-collection))
+      (and (= app-id #uuid "19bde4a4-559c-4274-9bba-5e4bff9fcffe")
+           (not (flags/toggled? :disable-scoped-triple-collection))
+           (true? (get-in (flags/flag :scoped-triple-collection)
+                         [(str app-id) "sections-calendar"]))
+           (false? (get-in query [:sections :$ :where :or 1 :and 0 :recurrenceRule :$isNull]))
+           (= (instaql-util/normalized-forms query)
+              {:sections {:$ {:where {:or [{:and [{:date {:$gte :string}}
+                                                {:date {:$lte :string}}]}
+                                          {:and [{:recurrenceRule {:$isNull :boolean}}
+                                                 {:date {:$lte :string}}]}
+                                          {:and [{:exceptionDate {:$gte :string}}
+                                                 {:exceptionDate {:$lte :string}}]}]}}
+                          :area {} :activityType {} :parent {} :eventLinks {}}}))))
 
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
