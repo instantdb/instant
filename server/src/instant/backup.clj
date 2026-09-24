@@ -37,6 +37,7 @@
    (com.fasterxml.jackson.core.util MinimalPrettyPrinter)
    (com.github.luben.zstd Zstd ZstdOutputStream)
    (com.google.common.util.concurrent RateLimiter)
+   (java.io FilterInputStream InputStream)
    (java.lang.reflect InvocationHandler InvocationTargetException Proxy)
    (java.sql Connection Timestamp)
    (java.time Duration Instant Period ZonedDateTime)
@@ -493,12 +494,25 @@
     (.writeEndObject gen)
     (.writeRaw gen "\n")))
 
+(defn filling-input-stream
+  "Fills each upload buffer unless the input reaches EOF. Okio reads one
+   8 KiB segment at a time, but the S3 SDK allocates 16 KiB for each read."
+  ^InputStream [^InputStream input]
+  (let [read-buffer (fn [^bytes buffer offset length]
+                      (let [n (.readNBytes input buffer (int offset) (int length))]
+                        (if (and (pos? length) (zero? n)) -1 n)))]
+    (proxy [FilterInputStream] [input]
+      (read
+        ([] (.read input))
+        ([buffer] (read-buffer buffer 0 (alength ^bytes buffer)))
+        ([buffer offset length] (read-buffer buffer offset length))))))
+
 (defn start-stream [backup-id app-id etype expire-s3?]
-  (let [pipe (Pipe. (long (* 256 1024))) ;; max in-flight bytes
+  (let [pipe (Pipe. (long (* 256 1024))) ;; pipe capacity
         sink (Okio/buffer (.sink pipe))
         source (Okio/buffer (.source pipe))
         pipe-out (.outputStream sink)
-        pipe-in (.inputStream source)
+        pipe-in (filling-input-stream (.inputStream source))
         ;; Creates a long-lived upload process to s3. Once we start the first
         ;; entity for an etype, we have to keep it open until we finish the
         ;; app because we don't know where the last entity will be in the stream.
