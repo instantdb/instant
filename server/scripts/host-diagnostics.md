@@ -15,6 +15,8 @@ Each log stream is named after the instance ID. The JSON `timestamp`, boot ID an
 
 The application and configuration postdeploy hooks invoke `scripts/install_host_diagnostics.sh`. It installs the service and appends only its own CloudWatch configuration, preserving Beanstalk's log sources. It restarts the sampler when its code/unit changes and reloads CloudWatch only when its source changes. It does not restart Java or Vector. The CI bundle allowlist includes both scripts and hooks.
 
+If installation fails, the hooks log an error and allow the application deployment to continue. Check off-host delivery after deployment and rerun the installer to repair collection. Running the installer directly still returns a failure status.
+
 The same installer can run on an existing host, with an explicit environment name, without an application deployment:
 
 ```sh
@@ -28,6 +30,8 @@ Verify actual off-host delivery, not just an active service:
 ```sh
 aws logs tail /aws/elasticbeanstalk/Instant-docker-prod-env-2/host-diagnostics --region us-east-1 --since 5m --format short
 ```
+
+Kernel collection uses Beanstalk's rsyslog service and `/var/log/messages`, verified on the Docker AL2023 platform. On replacement hosts or platform upgrades, also verify `rsyslog.service` is active and kernel records reach `host-kernel`. Historical kernel records carry their original time inside the message; CloudWatch timestamps reflect collection time.
 
 A separately managed SSM bootstrap may bridge replacement hosts until a release containing the hooks is deployed. It must use an existing `/opt/instant/install_host_diagnostics.sh` when present, so an older bootstrap never overwrites newer deployed code. Its interval is at least 30 minutes; bootstrap coverage is not instantaneous. Remove that association once all deployed release bundles contain these hooks.
 

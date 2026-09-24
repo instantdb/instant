@@ -2,6 +2,7 @@ import errno
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -201,6 +202,28 @@ class SamplerTest(unittest.TestCase):
         self.assertEqual(sample["errors"]["pressure_io"], {"FileNotFoundError:2": 1})
         self.assertEqual(sample["errors"]["vmstat"], {"ValueError": 1})
         self.assertEqual(sample["process_scan"]["sampled"], 1)
+
+
+class HookTest(unittest.TestCase):
+    def test_installation_failure_does_not_fail_deployment(self):
+        server = Path(__file__).parents[2]
+        for kind in ("hooks", "confighooks"):
+            for exit_code in (0, 23):
+                with self.subTest(kind=kind, exit_code=exit_code), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    hook = root / ".platform" / kind / "postdeploy/host-diagnostics.sh"
+                    hook.parent.mkdir(parents=True)
+                    hook.write_text((server / hook.relative_to(root)).read_text())
+                    installer = root / "scripts/install_host_diagnostics.sh"
+                    installer.parent.mkdir()
+                    installer.write_text("echo installer-ran\nexit " + str(exit_code) + "\n")
+                    result = subprocess.run(["bash", str(hook)], capture_output=True, text=True, timeout=5)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout, "installer-ran\n")
+                    if exit_code:
+                        self.assertIn("Host diagnostics installation failed; continuing deployment.", result.stderr)
+                    else:
+                        self.assertEqual(result.stderr, "")
 
 
 class OutputTest(unittest.TestCase):
