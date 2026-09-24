@@ -265,6 +265,14 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Test host diagnostics
+      working-directory: server
+      run: |
+        python3 -m unittest discover -s scripts/tests -p 'test_host_diagnostics.py'
+        for script in scripts/install_host_diagnostics.sh .platform/hooks/postdeploy/host-diagnostics.sh .platform/confighooks/postdeploy/host-diagnostics.sh; do
+          bash -n "$script"
+        done
+
     - name: Prepare java
       uses: actions/setup-java@v4
       with:
@@ -365,6 +373,7 @@ jobs:
     # Publish to elastic beanstalk only if we pass the tests
     needs:
       - clj-check
+      - lint
       - publish-image
     permissions:
       id-token: write
@@ -391,7 +400,7 @@ jobs:
       uses: "./.github/actions/elastic-beanstalk"
       with:
         working-directory: "server"
-        files: '["docker-compose.yml", "vector.yaml", ".ebextensions/resources.config", ".ebextensions/sysctl.config", ".platform/hooks/prebuild/prebuild.sh", ".platform/hooks/postdeploy/cloudwatch.sh", ".platform/confighooks/prebuild/prebuild.sh", ".platform/confighooks/postdeploy/cloudwatch.sh"]'
+        files: '["docker-compose.yml", "vector.yaml", ".ebextensions/resources.config", ".ebextensions/sysctl.config", ".platform/hooks/prebuild/prebuild.sh", ".platform/hooks/postdeploy/cloudwatch.sh", ".platform/confighooks/prebuild/prebuild.sh", ".platform/confighooks/postdeploy/cloudwatch.sh", ".platform/hooks/postdeploy/host-diagnostics.sh", ".platform/confighooks/postdeploy/host-diagnostics.sh", "scripts/host_diagnostics.py", "scripts/install_host_diagnostics.sh"]'
         aws-region: "us-east-1"
         bucket: "elasticbeanstalk-us-east-1-597134865416"
         application-name: "instant-docker-prod"
