@@ -8,11 +8,19 @@ agent_dir=/opt/aws/amazon-cloudwatch-agent
 test -x "$agent_dir/bin/amazon-cloudwatch-agent-ctl"
 /usr/bin/python3 -c 'import ast, pathlib, sys; ast.parse(pathlib.Path(sys.argv[1]).read_text())' "$script_dir/host_diagnostics.py"
 
+same_file() {
+  /usr/bin/python3 - "$1" "$2" <<'PY'
+import pathlib, sys
+source, destination = map(pathlib.Path, sys.argv[1:])
+sys.exit(0 if destination.is_file() and source.read_bytes() == destination.read_bytes() else 1)
+PY
+}
+
 tmp_dir=$(mktemp -d)
 trap 'rm -rf "$tmp_dir"' EXIT
 install -d -m 0755 /opt/instant /etc/instant
 install -d -m 0750 /var/log/instant
-if ! cmp -s "$script_dir/install_host_diagnostics.sh" /opt/instant/install_host_diagnostics.sh; then
+if ! same_file "$script_dir/install_host_diagnostics.sh" /opt/instant/install_host_diagnostics.sh; then
   install -m 0644 "$script_dir/install_host_diagnostics.sh" /opt/instant/install_host_diagnostics.sh
 fi
 
@@ -42,11 +50,11 @@ WantedBy=multi-user.target
 UNIT
 
 changed=false
-if ! cmp -s "$script_dir/host_diagnostics.py" /opt/instant/host_diagnostics.py; then
+if ! same_file "$script_dir/host_diagnostics.py" /opt/instant/host_diagnostics.py; then
   install -m 0644 "$script_dir/host_diagnostics.py" /opt/instant/host_diagnostics.py
   changed=true
 fi
-if ! cmp -s "$tmp_dir/instant-host-diagnostics.service" /etc/systemd/system/instant-host-diagnostics.service; then
+if ! same_file "$tmp_dir/instant-host-diagnostics.service" /etc/systemd/system/instant-host-diagnostics.service; then
   install -m 0644 "$tmp_dir/instant-host-diagnostics.service" /etc/systemd/system/instant-host-diagnostics.service
   systemctl daemon-reload
   changed=true
@@ -82,7 +90,7 @@ JSON
 install -m 0644 "$tmp_dir/instant-host-diagnostics.json" /etc/instant/instant-host-diagnostics.json
 # Append preserves Beanstalk's other log sources. Reusing this file name updates
 # only our source, and an unchanged install avoids restarting the agent.
-if ! cmp -s /etc/instant/instant-host-diagnostics.json "$agent_dir/etc/amazon-cloudwatch-agent.d/file_instant-host-diagnostics.json"; then
+if ! same_file /etc/instant/instant-host-diagnostics.json "$agent_dir/etc/amazon-cloudwatch-agent.d/file_instant-host-diagnostics.json"; then
   "$agent_dir/bin/amazon-cloudwatch-agent-ctl" -a append-config -m ec2 -s -c file:/etc/instant/instant-host-diagnostics.json
 elif ! systemctl is-active --quiet amazon-cloudwatch-agent.service; then
   systemctl start amazon-cloudwatch-agent.service
