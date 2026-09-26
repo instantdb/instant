@@ -26,6 +26,7 @@ import {
   OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { decrypt, encrypt, hash, KeyConfig } from './crypto.ts';
+import { escapeHtml } from './escape-html.ts';
 import { exchangeCodeForToken } from '@instantdb/platform';
 import { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import { PlatformApiAuth } from '../../platform/dist/esm/api.js';
@@ -485,11 +486,13 @@ async function cleanupRedirect(
   await db.transact(db.tx.redirects[redirect.id].delete());
 }
 
-function oauthStartHtml(
+export function oauthStartHtml(
   redirect: NonNullable<ReqWithRedirect['oauthRedirect']>,
 ) {
-  const clientName = redirect.client?.client_name || 'Unknown client';
-  const redirectUri = encodeURI(redirect.authParams.redirectUri);
+  const clientName = escapeHtml(
+    redirect.client?.client_name || 'Unknown client',
+  );
+  const redirectUri = escapeHtml(encodeURI(redirect.authParams.redirectUri));
 
   return /* HTML */ `<!DOCTYPE html>
     <html lang="en">
@@ -644,7 +647,7 @@ function oauthStartHtml(
               <input
                 type="hidden"
                 name="clientToken"
-                value="${redirect.clientToken}"
+                value="${escapeHtml(redirect.clientToken)}"
               />
               <button type="submit" class="btn btn-primary">Authorize</button>
             </form>
@@ -673,7 +676,11 @@ async function oauthStart(
 
   res
     .status(200)
-    .set('Content-Type', 'text/html; charset=UTF-8')
+    .set({
+      'Content-Type': 'text/html; charset=UTF-8',
+      'X-Frame-Options': 'DENY',
+      'X-Content-Type-Options': 'nosniff',
+    })
     .send(oauthStartHtml(redirect));
 }
 
