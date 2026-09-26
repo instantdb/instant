@@ -489,7 +489,9 @@ async function cleanupRedirect(
 export function oauthStartHtml(
   redirect: NonNullable<ReqWithRedirect['oauthRedirect']>,
 ) {
-  const clientName = escapeHtml(redirect.client?.client_name || 'Unknown client');
+  const clientName = escapeHtml(
+    redirect.client?.client_name || 'Unknown client',
+  );
   const redirectUri = escapeHtml(encodeURI(redirect.authParams.redirectUri));
 
   return /* HTML */ `<!DOCTYPE html>
