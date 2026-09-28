@@ -43,30 +43,48 @@ instances that fail.
 
 ## Native memory
 
-The API container enables `-XX:TrimNativeHeapInterval=60000` on Corretto 26
-with glibc. A dedicated JVM thread periodically returns free native allocator
-pages to the OS. This does not collect the Java heap or reclaim live native
-allocations. `-Xlog:trimnative=info` records the reclaimed memory and trim
-duration. Heap sizing still comes from `JAVA_OPTS`.
+The API sets `-Djdk.nio.maxCachedBufferSize=131072`. When NIO writes a heap
+buffer to a socket, it copies the data into a temporary native buffer. Corretto
+26 caches these buffers on long-lived platform/carrier threads without a size
+limit by default. Undertow's gathering writes can leave many large buffers in
+each IO thread's cache after the WebSocket messages finish. These buffers are
+outside the Java heap and are excluded from the direct-buffer MXBean and
+`MaxDirectMemorySize` accounting.
 
-On September 28, two successive hosts reached about 120.7 GiB RSS on a
-123.1 GiB machine before becoming unresponsive. Available memory fell to roughly
-100 MiB, while the last heap-pressure readings were below 50%. Both stalls
-coincided with sustained root-disk reads at 125 MiB/s. Heap and GC alarms do not
-cover this host-memory failure. A later native trim on the surviving process
-returned about 4.6 GiB without restarting Java, confirming that freed allocator
-pages can consume substantial headroom.
+The 128 KiB cap applies to each cached buffer. It preserves reuse of ordinary
+Java socket buffers while freeing larger temporary buffers after I/O. It does
+not limit message sizes or the memory needed by writes in progress. The cache
+can hold up to 1,024 entries per thread; this is not a process-wide native
+memory limit. The property is read at NIO initialization, so changes require a
+JVM restart.
 
-After a rollout, check trim reclamation and duration alongside host
-`MemAvailable`, memory pressure, request latency, and completion of the scheduled
-backup. Trimming can contend with native allocations, and it cannot bound live
-native memory growth. The allocation owner must be measured if the process
-continues growing after freed pages have been returned.
+Two September 28 hosts reached about 120.7 GiB RSS on 123.1 GiB machines while
+heap pressure remained below 50%. Subsequent profiling identified repeated
+34.6 MiB native allocations in `Util.getTemporaryDirectBuffer` during Undertow
+WebSocket writes. A read-only cache census found 4.97 GiB retained on the
+surviving host, including 4.96 GiB on its 32 IO threads. The newer host already
+held 1.67 GiB. The failed processes were unavailable for a cache census, so
+these measurements do not retrospectively assign every byte of their RSS.
 
-To disable periodic trimming, append `-XX:TrimNativeHeapInterval=0` to the
-existing `JAVA_OPTS` and roll the configuration. The environment options follow
-the container defaults, so they take precedence. Preserve the heap settings
-when rolling back only trimming.
+The container also sets `-XX:TrimNativeHeapInterval=60000` with
+`-Xlog:trimnative=info`. A dedicated JVM thread returns freed glibc pages to the
+OS every minute and logs reclamation and duration. A previous trim reclaimed
+4.6 GiB on the surviving process. This complements the cache cap: trimming
+cannot reclaim buffers that the NIO cache still owns. Heap sizing remains in
+`JAVA_OPTS`.
+
+After rollout, observe host RSS and `MemAvailable`, trim duration, request and
+reactivity latency, GC pressure, and large-message traffic through a full backup
+cycle. Backpressured large writes can allocate/free temporary buffers repeatedly;
+the cache cap therefore trades some allocation work for bounded retention.
+Local socket tests establish payload correctness and memory reclamation, not
+production latency bounds.
+
+`JAVA_OPTS` follows these defaults, allowing an explicit override. To restore
+the original NIO cache behavior, append
+`-Djdk.nio.maxCachedBufferSize=9223372036854775807`. To disable trimming, append
+`-XX:TrimNativeHeapInterval=0`. Roll the configuration and preserve the other JVM
+options, including heap settings.
 
 ## Deployment
 
