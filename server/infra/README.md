@@ -59,7 +59,7 @@ memory limit. The property is read at NIO initialization, so changes require a
 JVM restart.
 
 Two September 28 hosts reached about 120.7 GiB RSS on 123.1 GiB machines while
-heap pressure remained below 50%. Subsequent profiling identified repeated
+their last reported heap pressure was below 50%. Profiling identified repeated
 34.6 MiB native allocations in `Util.getTemporaryDirectBuffer` during Undertow
 WebSocket writes. A read-only cache census found 4.97 GiB retained on the
 surviving host, including 4.96 GiB on its 32 IO threads. The newer host already
