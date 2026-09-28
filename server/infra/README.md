@@ -25,15 +25,11 @@ stall rather than one busy sample. With complete telemetry, the 3-of-5 rule
 counts three breaching minutes, which need not be consecutive. With missing
 samples, CloudWatch can evaluate older data and alarm after a breach followed
 by gaps ([AWS behavior](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-missing-data.html)).
-The alarms share the existing scale-up policy. The bundle keeps a minimum of two
-instances so a host failure does not leave all traffic waiting for a replacement
-to boot. The default maximum is also two; scale-out requires a higher maximum.
-Adding a spare does not reclaim memory from the other JVM; application health
+The alarms share the existing scale-up policy. Normal capacity is one to two
+instances. Adding a spare does not free a leaking JVM's heap; application health
 checks still handle sustained unresponsiveness.
 
-`jvm_autoscaling.yaml` checks scale-in once per minute and respects the group's
-minimum capacity. With the default minimum and maximum of two, it leaves both
-instances running. When capacity exceeds the minimum, over the last fifteen
+`jvm_autoscaling.yaml` checks scale-in once per minute. Over the last fifteen
 complete minutes it requires average CPU below 30%, each JVM's average GC
 pressure below 6%, each JVM up for at least an hour, and the sum of the JVMs'
 median heap pressure below 80%, assuming equal 90 GiB heap limits. One JVM
@@ -64,13 +60,13 @@ pages can consume substantial headroom.
 After a rollout, check trim reclamation and duration alongside host
 `MemAvailable`, memory pressure, request latency, and completion of the scheduled
 backup. Trimming can contend with native allocations, and it cannot bound live
-native memory growth. The two-instance minimum provides spare serving capacity;
-it does not protect against simultaneous failures or replace these checks.
+native memory growth. The allocation owner must be measured if the process
+continues growing after freed pages have been returned.
 
 To disable periodic trimming, append `-XX:TrimNativeHeapInterval=0` to the
 existing `JAVA_OPTS` and roll the configuration. The environment options follow
-the container defaults, so they take precedence. Preserve the heap settings and
-two-instance minimum when rolling back only trimming.
+the container defaults, so they take precedence. Preserve the heap settings
+when rolling back only trimming.
 
 ## Deployment
 
