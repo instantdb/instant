@@ -25,11 +25,15 @@ stall rather than one busy sample. With complete telemetry, the 3-of-5 rule
 counts three breaching minutes, which need not be consecutive. With missing
 samples, CloudWatch can evaluate older data and alarm after a breach followed
 by gaps ([AWS behavior](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-missing-data.html)).
-The alarms share the existing scale-up policy. Normal capacity is one to two
-instances. Adding a spare does not free a leaking JVM's heap; application health
+The alarms share the existing scale-up policy. The bundle keeps a minimum of two
+instances so a host failure does not leave all traffic waiting for a replacement
+to boot. The default maximum is also two; scale-out requires a higher maximum.
+Adding a spare does not reclaim memory from the other JVM; application health
 checks still handle sustained unresponsiveness.
 
-`jvm_autoscaling.yaml` checks scale-in once per minute. Over the last fifteen
+`jvm_autoscaling.yaml` checks scale-in once per minute and respects the group's
+minimum capacity. With the default minimum and maximum of two, it leaves both
+instances running. When capacity exceeds the minimum, over the last fifteen
 complete minutes it requires average CPU below 30%, each JVM's average GC
 pressure below 6%, each JVM up for at least an hour, and the sum of the JVMs'
 median heap pressure below 80%, assuming equal 90 GiB heap limits. One JVM
@@ -40,6 +44,35 @@ environment, and changing membership prevent scale-in. A yellow environment
 does not: it reports one impacted instance for much of the day without a
 request-level cause, and the group's ELB health check already replaces
 instances that fail.
+
+## Native memory
+
+The API container enables `-XX:TrimNativeHeapInterval=60000` on Corretto 26
+with glibc. A dedicated JVM thread periodically returns free native allocator
+pages to the OS. This does not collect the Java heap or reclaim live native
+allocations. `-Xlog:trimnative=info` records the reclaimed memory and trim
+duration. Heap sizing still comes from `JAVA_OPTS`.
+
+On September 28, two successive hosts reached about 120.7 GiB RSS on a
+123.1 GiB machine before becoming unresponsive. Available memory fell to roughly
+100 MiB, while the last heap-pressure readings were below 50%. Both stalls
+coincided with sustained root-disk reads at 125 MiB/s. Heap and GC alarms do not
+cover this host-memory failure. A later native trim on the surviving process
+returned about 4.6 GiB without restarting Java, confirming that freed allocator
+pages can consume substantial headroom.
+
+After a rollout, check trim reclamation and duration alongside host
+`MemAvailable`, memory pressure, request latency, and completion of the scheduled
+backup. Trimming can contend with native allocations, and it cannot bound live
+native memory growth. The two-instance minimum provides spare serving capacity;
+it does not protect against simultaneous failures or replace these checks.
+
+To disable periodic trimming, append `-XX:TrimNativeHeapInterval=0` to the
+existing `JAVA_OPTS` and roll the configuration. The environment options follow
+the container defaults, so they take precedence. Preserve the heap settings and
+two-instance minimum when rolling back only trimming.
+
+## Deployment
 
 The controller invokes the full down-policy ARN with cooldown; IAM restricts
 execution to the exact group ARN. The old low-CPU alarms have no direct scaling
