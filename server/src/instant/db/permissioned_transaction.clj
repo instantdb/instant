@@ -144,13 +144,14 @@
 
      {{:eid :etype} -> <entity map>}"
   [{:keys [datalog-query-fn attrs] :as ctx} tx-steps]
-  (let [eids+etypes (for [{:keys [eid etype value rev-etype]} tx-steps
-                          :when eid
-                          [eid etype] (if rev-etype
-                                        [[eid etype]
-                                         [value rev-etype]]
-                                        [[eid etype]])]
-                      {:eid eid :etype etype})]
+  (let [eids+etypes (distinct
+                     (for [{:keys [eid etype value rev-etype]} tx-steps
+                           :when eid
+                           [eid etype] (if rev-etype
+                                         [[eid etype]
+                                          [value rev-etype]]
+                                         [[eid etype]])]
+                       {:eid eid :etype etype}))]
     (when (seq eids+etypes)
       (let [query {:children
                    {:pattern-groups
