@@ -368,7 +368,13 @@
   [{:keys [wal-chan sketch-flush-ms sketch-flush-max-items close-signal-chan
            start-lsn flush-lsn-chan on-error slot-name process-id
            check-disabled stop-lsn]}]
-  (let [sketch-cache (cache/make {:max-size 4096})
+  ;; A read-through cache over sketches persisted in Postgres: a miss reloads
+  ;; via find-or-create-sketches! and every pass saves with save-sketches!, so
+  ;; evicting loses nothing. 4096 was too large for a 4 GB heap: each sketch is
+  ;; about 1.6 MB, so the cap was ~6.5 GB, and with a few thousand attributes it
+  ;; is reached by memory exhaustion long before the entry count. Read at
+  ;; start-up, so a change takes a server restart.
+  (let [sketch-cache (cache/make {:max-size (flags/flag :aggregator-sketch-cache-max-size 256)})
         process-chan (ua/chunked-chan {:flush-ms sketch-flush-ms
                                        :max-size sketch-flush-max-items
                                        :combine combine-sketch-changes
