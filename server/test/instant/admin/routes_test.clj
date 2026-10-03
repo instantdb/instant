@@ -1088,6 +1088,17 @@
               (is (= 200 (:status ret)))
               (is (some? (-> ret :body :data :id)))))
 
+          (testing "admin can upload a file with a non-ASCII filename via query params"
+            (let [ret (upload-put
+                       {:body (make-file-content)
+                        :params {:path "café à noite.txt"}
+                        :headers {"app-id" app-id
+                                  "authorization" (str "Bearer " admin-token)
+                                  "content-type" "text/plain"}
+                        :content-length 5})]
+              (is (= 200 (:status ret)))
+              (is (some? (-> ret :body :data :id)))))
+
           (testing "user with email can upload"
             (let [ret (upload-put
                        {:body (make-file-content)
