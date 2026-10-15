@@ -121,7 +121,7 @@ const reverseOrder = <
       serverCreatedAt: 'asc',
     } satisfies Order<Schema, Entity>;
   }
-  const key = Object.keys(order).at(0);
+  const key = Object.keys(order)[0];
   if (!key) {
     return {
       serverCreatedAt: 'asc',
@@ -414,7 +414,8 @@ export const subscribeInfiniteQuery = <
   // A reverse chunk captures all the new items coming in before us.
   // If we hit 4 then we freeze the current chunk and create a new reverse chunk
   const maybeAdvanceReverse = () => {
-    const tailEntry = Array.from(reverseChunks.entries()).at(-1);
+    const reverseEntries = Array.from(reverseChunks.entries());
+    const tailEntry = reverseEntries[reverseEntries.length - 1];
     if (!tailEntry) return;
 
     const [chunkKey, chunk] = tailEntry;
@@ -435,7 +436,8 @@ export const subscribeInfiniteQuery = <
   };
 
   const loadNextPage = () => {
-    const tailEntry = Array.from(forwardChunks.entries()).at(-1);
+    const forwardEntries = Array.from(forwardChunks.entries());
+    const tailEntry = forwardEntries[forwardEntries.length - 1];
     if (!tailEntry) return;
 
     const [chunkKey, chunk] = tailEntry;

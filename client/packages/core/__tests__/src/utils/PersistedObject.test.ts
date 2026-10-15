@@ -444,3 +444,68 @@ test('IndexedDBStorage explicitly commits write transactions', async () => {
     commitSpy.mockRestore();
   }
 });
+
+test('IndexedDBStorage rejects cleanly when indexedDB is undefined or open result is missing', async () => {
+  const originalIndexedDB = globalThis.indexedDB;
+  try {
+    // @ts-expect-error: simulate restricted WebView without indexedDB global
+    delete globalThis.indexedDB;
+    const idbMissing = new IndexedDBStorage(randomUUID(), 'kv');
+    await expect(idbMissing.getItem('key1')).rejects.toThrow(
+      /IndexedDB is not available/,
+    );
+  } finally {
+    globalThis.indexedDB = originalIndexedDB;
+  }
+
+  const openSpy = vi.spyOn(globalThis.indexedDB, 'open').mockImplementation(
+    () => {
+      const fakeReq: any = {};
+      queueMicrotask(() => {
+        fakeReq.onupgradeneeded?.({ target: { result: undefined } });
+        fakeReq.onsuccess?.({ target: { result: undefined } });
+      });
+      return fakeReq;
+    },
+  );
+  try {
+    const idbNullResult = new IndexedDBStorage(randomUUID(), 'kv');
+    await expect(idbNullResult.getItem('key1')).rejects.toThrow(
+      /IndexedDB open succeeded without a database instance/,
+    );
+  } finally {
+    openSpy.mockRestore();
+  }
+});
+
+test('PersistedObject handles failing storage without unhandled rejections or infinite retry loops', async () => {
+  const failingPersister = {
+    getItem: () => Promise.reject(new Error('IDB blocked')),
+    removeItem: () => Promise.reject(new Error('IDB blocked')),
+    multiSet: () => Promise.reject(new Error('IDB blocked')),
+    getAllKeys: () => Promise.reject(new Error('IDB blocked')),
+  };
+
+  const PO = new PersistedObject<string, string, string>({
+    persister: failingPersister,
+    merge: (_k, storage, memory) => storage || memory || 'none',
+    serialize: (_k, x) => x,
+    parse: (_k, x) => x,
+    objectSize: () => 0,
+    logger: devNullLogger,
+    saveThrottleMs: 0,
+    preloadEntryCount: 5,
+    gc: null,
+  });
+
+  expect(await PO.waitForMetaToLoad()).toBeNull();
+
+  PO.updateInPlace((prev) => {
+    prev.a = 'b';
+  });
+  expect(PO.currentValue.a).toBe('b');
+
+  // With meta load failed and isLoading=false, flush resolves to 0 immediately
+  // instead of looping in _writeToStorage retry timeouts.
+  expect(await PO.flush()).toBe(0);
+});

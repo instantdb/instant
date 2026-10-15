@@ -32,6 +32,9 @@ function logErrorCb(source: string) {
 }
 
 async function existingDb(name: string): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === 'undefined') {
+    return null;
+  }
   return new Promise((resolve) => {
     const request = indexedDB.open(name);
 
@@ -200,16 +203,29 @@ export default class IndexedDBStorage extends StoreInterface {
 
   _init(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
+      if (typeof indexedDB === 'undefined') {
+        reject(new Error('IndexedDB is not available in this environment'));
+        return;
+      }
       let requiresUpgrade = false;
       const request = indexedDB.open(this.dbName, 1);
 
       request.onerror = (event) => {
-        reject(event);
+        reject(request.error ?? event);
       };
 
       request.onsuccess = (event) => {
         const target = event.target as IDBOpenDBRequest;
-        const db = target.result;
+        const db = target?.result;
+        if (!db) {
+          reject(
+            target?.error ??
+              new Error(
+                'IndexedDB open succeeded without a database instance',
+              ),
+          );
+          return;
+        }
         // Browsers can close IndexedDB connections unexpectedly
         // (e.g. backgrounded tabs, memory pressure, version changes from
         // other tabs). Re-init so the next operation gets a fresh connection.
@@ -244,7 +260,10 @@ export default class IndexedDBStorage extends StoreInterface {
 
   _upgradeStore(event: IDBVersionChangeEvent) {
     const target = event.target as IDBOpenDBRequest;
-    const db = target.result;
+    const db = target?.result;
+    if (!db?.objectStoreNames) {
+      return;
+    }
     for (const storeName of storeNames) {
       if (!db.objectStoreNames.contains(storeName)) {
         db.createObjectStore(storeName);

@@ -134,28 +134,34 @@ export class PersistedObject<K extends string, T, SerializedT> {
   private async _initMeta() {
     if (this._meta.loadingPromise) {
       await this._meta.loadingPromise;
+      return;
     }
-    try {
-      const p = this._persister.getItem(META_KEY);
-      this._meta.loadingPromise = p;
-      const v = await p;
-      this._meta.isLoading = false;
-      this._meta.error = null;
-      this._meta.loadingPromise = null;
-      this._meta.attempts = 0;
-      const existingObjects = this._meta.value?.objects ?? {};
-      const value = v ?? {};
-      const objects = value.objects ?? {};
-      // Merge the values from storage with in-memory values
-      this._meta.value = {
-        ...value,
-        objects: { ...existingObjects, ...objects },
-      } as Meta<K>;
-    } catch (e) {
-      this._meta.error = e;
-      this._meta.attempts++;
-      this._meta.loadingPromise = null;
-    }
+    const load = async (): Promise<Meta<K>> => {
+      try {
+        const v = await this._persister.getItem(META_KEY);
+        this._meta.isLoading = false;
+        this._meta.error = null;
+        this._meta.loadingPromise = null;
+        this._meta.attempts = 0;
+        const existingObjects = this._meta.value?.objects ?? {};
+        const value = v ?? {};
+        const objects = value.objects ?? {};
+        // Merge the values from storage with in-memory values
+        this._meta.value = {
+          ...value,
+          objects: { ...existingObjects, ...objects },
+        } as Meta<K>;
+        return this._meta.value;
+      } catch (e) {
+        this._meta.isLoading = false;
+        this._meta.error = e;
+        this._meta.attempts++;
+        this._meta.loadingPromise = null;
+        return null as unknown as Meta<K>;
+      }
+    };
+    this._meta.loadingPromise = load();
+    await this._meta.loadingPromise;
   }
 
   private async _getMeta(): Promise<Meta<K> | null> {
@@ -537,7 +543,9 @@ export class PersistedObject<K extends string, T, SerializedT> {
     }
 
     this.currentValue = state;
-    this._enqueuePersist();
+    this._enqueuePersist().catch((e) =>
+      this._log.error('Persisted Object persist failed:', e),
+    );
     for (const cb of this._subs) {
       cb(this.currentValue);
     }
