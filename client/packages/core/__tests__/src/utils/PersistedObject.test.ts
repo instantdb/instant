@@ -458,16 +458,16 @@ test('IndexedDBStorage rejects cleanly when indexedDB is undefined or open resul
     globalThis.indexedDB = originalIndexedDB;
   }
 
-  const openSpy = vi.spyOn(globalThis.indexedDB, 'open').mockImplementation(
-    () => {
+  const openSpy = vi
+    .spyOn(globalThis.indexedDB, 'open')
+    .mockImplementation(() => {
       const fakeReq: any = {};
       queueMicrotask(() => {
         fakeReq.onupgradeneeded?.({ target: { result: undefined } });
         fakeReq.onsuccess?.({ target: { result: undefined } });
       });
       return fakeReq;
-    },
-  );
+    });
   try {
     const idbNullResult = new IndexedDBStorage(randomUUID(), 'kv');
     await expect(idbNullResult.getItem('key1')).rejects.toThrow(
@@ -508,4 +508,22 @@ test('PersistedObject handles failing storage without unhandled rejections or in
   // With meta load failed and isLoading=false, flush resolves to 0 immediately
   // instead of looping in _writeToStorage retry timeouts.
   expect(await PO.flush()).toBe(0);
+
+  // If storage recovers before max retry attempts, subsequent writes retry
+  // loading meta and persist pending keys.
+  const saved: Record<string, any> = {};
+  failingPersister.getItem = (k: string) => Promise.resolve(saved[k] ?? null);
+  failingPersister.multiSet = (pairs: Array<[string, any]>) => {
+    for (const [k, v] of pairs) {
+      saved[k] = v;
+    }
+    return Promise.resolve();
+  };
+
+  PO.updateInPlace((prev) => {
+    prev.c = 'd';
+  });
+  expect(await PO.flush()).toBeGreaterThan(0);
+  expect(saved.a).toBe('b');
+  expect(saved.c).toBe('d');
 });

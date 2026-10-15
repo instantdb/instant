@@ -136,6 +136,7 @@ export class PersistedObject<K extends string, T, SerializedT> {
       await this._meta.loadingPromise;
       return;
     }
+    this._meta.isLoading = true;
     const load = async (): Promise<Meta<K>> => {
       try {
         const v = await this._persister.getItem(META_KEY);
@@ -279,6 +280,14 @@ export class PersistedObject<K extends string, T, SerializedT> {
     }
     const metaValue = this._meta.value;
     if (!metaValue) {
+      if (this._meta.attempts < 3) {
+        return this._initMeta().then(() => {
+          if (!this._meta.value) {
+            return 0;
+          }
+          return this._writeToStorage(opts);
+        });
+      }
       // If it's not loading and we don't have the data, then there
       // must be an error and we're not going to be able to save until
       // the error is resolved elsewhere.

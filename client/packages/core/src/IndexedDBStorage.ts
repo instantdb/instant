@@ -199,6 +199,7 @@ export default class IndexedDBStorage extends StoreInterface {
     this._storeName = storeName;
     this._appId = appId;
     this._dbPromise = this._init();
+    void this._dbPromise.catch(() => {});
   }
 
   _init(): Promise<IDBDatabase> {
@@ -208,6 +209,7 @@ export default class IndexedDBStorage extends StoreInterface {
         return;
       }
       let requiresUpgrade = false;
+      let upgradeFailed = false;
       const request = indexedDB.open(this.dbName, 1);
 
       request.onerror = (event) => {
@@ -215,14 +217,15 @@ export default class IndexedDBStorage extends StoreInterface {
       };
 
       request.onsuccess = (event) => {
+        if (upgradeFailed) {
+          return;
+        }
         const target = event.target as IDBOpenDBRequest;
         const db = target?.result;
         if (!db) {
           reject(
             target?.error ??
-              new Error(
-                'IndexedDB open succeeded without a database instance',
-              ),
+              new Error('IndexedDB open succeeded without a database instance'),
           );
           return;
         }
@@ -231,6 +234,7 @@ export default class IndexedDBStorage extends StoreInterface {
         // other tabs). Re-init so the next operation gets a fresh connection.
         db.onclose = () => {
           this._dbPromise = this._init();
+          void this._dbPromise.catch(() => {});
         };
         db.onversionchange = () => {
           db.close();
@@ -253,22 +257,31 @@ export default class IndexedDBStorage extends StoreInterface {
 
       request.onupgradeneeded = (event) => {
         requiresUpgrade = true;
-        this._upgradeStore(event);
+        if (!this._upgradeStore(event)) {
+          upgradeFailed = true;
+          const target = event.target as IDBOpenDBRequest | null;
+          target?.transaction?.abort();
+          reject(
+            target?.error ??
+              new Error('IndexedDB open succeeded without a database instance'),
+          );
+        }
       };
     });
   }
 
-  _upgradeStore(event: IDBVersionChangeEvent) {
+  _upgradeStore(event: IDBVersionChangeEvent): boolean {
     const target = event.target as IDBOpenDBRequest;
     const db = target?.result;
     if (!db?.objectStoreNames) {
-      return;
+      return false;
     }
     for (const storeName of storeNames) {
       if (!db.objectStoreNames.contains(storeName)) {
         db.createObjectStore(storeName);
       }
     }
+    return true;
   }
 
   // Browsers can close IndexedDB connections unexpectedly (backgrounded tabs,
