@@ -242,8 +242,23 @@ class Harness {
     }
   }
 
+  /**
+   * Waits until the reactor is quiet. A notify is delivered through
+   * `querySubs.waitForKeyToLoad(hash).then(...)`, which can resolve after
+   * a single tick when storage is slow, so wait for the persisted objects to
+   * flush and for the notify count to hold still across several ticks.
+   */
   async flush() {
-    await sleep(0);
+    let last = -1;
+    let quietTicks = 0;
+    for (let i = 0; i < 100 && quietTicks < 3; i++) {
+      await this.reactor.querySubs.flush();
+      await this.reactor.kv.flush();
+      await sleep(0);
+      const n = this.notifyOne.mock.calls.length;
+      quietTicks = n === last ? quietTicks + 1 : 0;
+      last = n;
+    }
   }
 
   resetCounts() {
