@@ -282,6 +282,9 @@ export default class Reactor {
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
   _beforeUnloadCbs = [];
   _dataForQueryCache = {};
+  // Memoises dataForQuery between notifies. Separate from _dataForQueryCache,
+  // which notifyOne uses as its last-notified value for deduping.
+  _dataForQueryMemo = {};
   /** @type {Logger} */
   _log;
   _pendingTxCleanupTimeout;
@@ -1249,6 +1252,8 @@ export default class Reactor {
     delete this.queryCbs[hash];
     delete this.queryOnceDfds[hash];
     delete this._dataForQueryCache[hash];
+    delete this._dataForQueryMemo[hash];
+    delete this._dataForQueryMemo['!' + hash];
     this.querySubs.unloadKey(hash);
 
     this._trySendAuthed(uuid(), { op: 'remove-query', q });
@@ -1416,7 +1421,21 @@ export default class Reactor {
     const { q, result } = querySubs[hash] || {};
     if (!result) return;
 
-    const cached = this._dataForQueryCache[hash];
+    // getPreviousResult (called on every useQuery render) reaches here between
+    // notifies, so memoise rather than re-apply every pending mutation.
+    const memoKey = applyOptimistic ? hash : '!' + hash;
+    const memo = this._dataForQueryMemo[memoKey];
+    if (
+      memo &&
+      memo.result === result &&
+      memo.resp.querySubVersion === querySubVersion &&
+      memo.resp.pendingMutationsVersion === pendingMutationsVersion
+    ) {
+      return memo.resp;
+    }
+
+    // notifyOne only ever stores optimistic results here.
+    const cached = applyOptimistic && this._dataForQueryCache[hash];
     if (
       cached &&
       querySubVersion === cached.querySubVersion &&
@@ -1448,7 +1467,9 @@ export default class Reactor {
       q,
     );
 
-    return { data: resp, querySubVersion, pendingMutationsVersion };
+    const out = { data: resp, querySubVersion, pendingMutationsVersion };
+    this._dataForQueryMemo[memoKey] = { result, resp: out };
+    return out;
   }
 
   _applyOptimisticUpdates(store, attrsStore, mutations, processedTxId) {
@@ -2313,6 +2334,7 @@ export default class Reactor {
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
     this._dataForQueryCache = {};
+    this._dataForQueryMemo = {};
     this.querySubs.updateInPlace((prev) => {
       Object.keys(prev).forEach((k) => {
         delete prev[k].result;
