@@ -31,11 +31,11 @@
    (io.grpc Status Status$Code)
    (io.grpc.stub ServerCallStreamObserver StreamObserver)
    (java.lang Thread$UncaughtExceptionHandler)
-   (java.sql Timestamp)
+   (java.sql SQLException Timestamp)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
    (java.util ArrayList Map Queue DoubleSummaryStatistics)
-   (java.util.concurrent ConcurrentHashMap Executors LinkedBlockingQueue TimeUnit)
+   (java.util.concurrent CancellationException ConcurrentHashMap Executors LinkedBlockingQueue TimeUnit)
    (org.postgresql.replication LogSequenceNumber)))
 
 (declare wal-opts)
@@ -583,11 +583,25 @@
        :flush-lsn-chan (a/chan (a/sliding-buffer 1))
        :byop-chan byop-chan})))
 
+(defn- record-db-retry! [e span-name]
+  (let [causes (take-while some? (iterate ex-cause e))]
+    (if (and (some #(instance? SQLException %) causes)
+             (not (.isInterrupted (Thread/currentThread)))
+             (not-any? #(or (instance? InterruptedException %)
+                            (instance? CancellationException %)) causes))
+      (tracer/record-exception-span! e {:name span-name
+                                       :escaping? false})
+      (throw e))))
+
 (defn stop [wal-opts]
   (let [shutdown-future (future (wal/shutdown! wal-opts))]
     (loop []
       (when-not (realized? shutdown-future)
-        (wal/kick-wal (aurora/conn-pool :write))
+        (try
+          (wal/kick-wal (aurora/conn-pool :write))
+          (catch Exception e
+            ;; Kicking only speeds up shutdown; a DB outage must not stop cleanup.
+            (record-db-retry! e "invalidator/kick-wal-error")))
         (Thread/sleep 100)
         (recur))))
   (a/close! (:to wal-opts))
@@ -602,9 +616,14 @@
            slot-suffix]}]
   (when (:same-as-read-conn (meta get-conn-config))
     (let [slot-name (wal/full-slot-name slot-type slot-suffix)]
-      (:active (sql/select-one ::fast-active-slot-check
-                               (aurora/conn-pool :read)
-                               ["select active from pg_replication_slots where slot_name = ?" slot-name])))))
+      (try
+        (:active (sql/select-one ::fast-active-slot-check
+                                 (aurora/conn-pool :read)
+                                 ["select active from pg_replication_slots where slot_name = ?" slot-name]))
+        (catch Exception e
+          (record-db-retry! e "invalidator/active-slot-check-error")
+          ;; Wait for the next check when the slot's state is unavailable.
+          true)))))
 
 (defn start-singleton-listener [{:keys [acquire-slot-interval-ms
                                         process-id
