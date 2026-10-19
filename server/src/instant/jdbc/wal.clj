@@ -28,6 +28,7 @@
    [instant.config :as config]
    [instant.db.model.transaction :as tx-model]
    [instant.discord :as discord]
+   [instant.flags :as flags]
    [instant.gauges :as gauges]
    [instant.health :as health]
    [instant.isn :refer [->ISN set-max-seen-isn]]
@@ -66,11 +67,21 @@
   (or (:password db-spec)
       (:password (uri/query-map (jdbc-url db-spec)))))
 
+(defn- replication-startup-options
+  "Each replication stream decodes transactions into its own memory, up to
+   logical_decoding_work_mem, before spilling to disk. We run several streams
+   per machine, so we keep this at the postgres default instead of inheriting
+   the much larger value from the db parameter group. Can be raised with a flag
+   in an emergency; new streams pick it up."
+  []
+  (str "-c logical_decoding_work_mem="
+       (flags/flag :logical-decoding-work-mem-kb (* 64 1024))))
+
 (defn- get-pg-replication-conn
   "Given a db-spec, return a PGConnection you can use for replication.
 
    This PG connection has a few special settings to support replication
-   (e.g REPLICATION, ASSUME_MIN_SERVER_VERSION, PREFER_QUERY_MODE)"
+   (e.g REPLICATION, ASSUME_MIN_SERVER_VERSION, PREFER_QUERY_MODE, OPTIONS)"
   ^PgConnection [db-spec]
   (let [db-spec (if-let [secret-arn (:secret-arn db-spec)]
                   (-> db-spec
@@ -82,7 +93,8 @@
               (.set PGProperty/PASSWORD props (jdbc-password db-spec))
               (.set PGProperty/REPLICATION props "database")
               (.set PGProperty/ASSUME_MIN_SERVER_VERSION props "9.4")
-              (.set PGProperty/PREFER_QUERY_MODE props "simple"))
+              (.set PGProperty/PREFER_QUERY_MODE props "simple")
+              (.set PGProperty/OPTIONS props (replication-startup-options)))
         conn (DriverManager/getConnection (jdbc-url (-> db-spec
                                                         (dissoc :user :password)))
                                           props)]
