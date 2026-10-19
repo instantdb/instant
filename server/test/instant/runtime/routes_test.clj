@@ -1,5 +1,6 @@
 (ns instant.runtime.routes-test
   (:require
+   [clojure.string :as string]
    [clojure.test :refer [deftest is testing]]
    [instant.config :as config]
    [instant.core :as core]
@@ -17,6 +18,7 @@
    [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
    [instant.model.app-email-template :as app-email-template-model]
    [instant.model.app-email-verification :as app-email-verification]
+   [instant.model.app-oauth-client :as app-oauth-client-model]
    [instant.model.app-oauth-service-provider :as provider-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-refresh-token :as refresh-token-model]
@@ -1051,3 +1053,30 @@
           (is (thrown-with-msg?
                ExceptionInfo #"Unauthorized origin"
                (route/assert-authorized-request-origin! shared-client "https://attacker.com"))))))))
+
+(deftest oauth-start-cookie-is-sent-on-cross-site-callback
+  (with-empty-app
+    (fn [app]
+      (app-authorized-redirect-origin-model/add!
+       {:app-id (:id app)
+        :service "generic"
+        :params ["example.com"]})
+      (let [provider (provider-model/create! {:app-id (:id app)
+                                              :provider-name "github"})
+            _ (app-oauth-client-model/create! {:app-id (:id app)
+                                               :provider-id (:id provider)
+                                               :client-name "github"
+                                               :client-id "client-id"
+                                               :client-secret "client-secret"})
+            resp ((core/handler)
+                  {:request-method :get
+                   :uri "/runtime/oauth/start"
+                   :query-string (str "app_id=" (:id app)
+                                      "&client_name=github"
+                                      "&redirect_uri=https%3A%2F%2Fexample.com%2Fcb")
+                   :headers {}})
+            cookie (first (get-in resp [:headers "Set-Cookie"]))]
+        (is (= 302 (:status resp)))
+        (is (string/starts-with? cookie "__session=instantdb_"))
+        (is (string/includes? cookie "; Secure"))
+        (is (string/includes? cookie "; SameSite=None"))))))
