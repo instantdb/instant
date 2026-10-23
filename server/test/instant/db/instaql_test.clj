@@ -2994,6 +2994,31 @@
              ("eid-stepan-parunashvili" :users/handle "stopa")
              ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))))))
 
+(deftest or-at-the-start-of-a-group
+  (with-zeneca-app
+    (fn [app _r]
+      (let [ctx (make-ctx app)
+            run (fn [q] (instaql-nodes->object-tree ctx (iq/query ctx q)))]
+        (testing "an or that starts an or branch, after an earlier pattern"
+          ;; a AND (b OR ((c OR d) AND e)) used to fail with an ambiguous column
+          (is (= ["stopa"]
+                 (->> (run {:users {:$ {:where {:and [{:handle "stopa"}
+                                                      {:or [{:handle "nobody"}
+                                                            {:and [{:or [{:fullName "Stepan Parunashvili"}
+                                                                         {:email "nobody@instantdb.com"}]}
+                                                                   {:email "stopa@instantdb.com"}]}]}]}}}})
+                      (#(get % "users"))
+                      (map #(get % "handle"))))))
+        (testing "an or that starts a query, after a query with no results"
+          ;; the second query used to return nothing
+          (is (= #{"stopa" "joe"}
+                 (->> (run {:books {:$ {:where {:title "No Such Book"}}}
+                            :users {:$ {:where {:or [{:handle "stopa"}
+                                                     {:email "joe@instantdb.com"}]}}}})
+                      (#(get % "users"))
+                      (map #(get % "handle"))
+                      set))))))))
+
 (deftest comparators
   (binding [d/*enable-pg-hints* true]
     (with-zeneca-checked-data-app

@@ -2274,8 +2274,12 @@
               gather-cte (or-gather-cte prefix
                                         ;; Don't link to the previous index if it's part of a
                                         ;; parent OR clause or else the cte will get included
-                                        ;; twice and pg will complain about ambiguous columns
-                                        (if (contains? (:or-idxes acc) prev-idx)
+                                        ;; twice and pg will complain about ambiguous columns.
+                                        ;; Likewise at the start of a group (an OR branch or
+                                        ;; a pattern group), where the previous cte belongs
+                                        ;; to something else, as in `cte-for-pattern`.
+                                        (if (or (zero? (:group-idx acc))
+                                                (contains? (:or-idxes acc) prev-idx))
                                           -1
                                           prev-idx)
                                         (:next-idx group-acc)
