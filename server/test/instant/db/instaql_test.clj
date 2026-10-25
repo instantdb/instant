@@ -4791,6 +4791,32 @@
             ;; 1 to preload entity maps
             (is (= 3 @query-count))))))))
 
+(deftest rules-without-fields-reuse-the-query-result
+  (with-zeneca-app
+    (fn [app _r]
+      (let [attrs         (attr-model/get-by-app-id (:id app))
+            ctx           {:db {:conn-pool (aurora/conn-pool :read)}
+                           :app-id (:id app)
+                           :attrs attrs}
+            query-count   (atom 0)
+            query-tracker {:add (fn [_ _]
+                                  (swap! query-count inc))
+                           :remove (fn [_ _]
+                                     nil)
+                           :stmts (atom #{})}
+            _             (rule-model/put! (aurora/conn-pool :write)
+                                           {:app-id (:id app)
+                                            :code {:users {:allow {:view "data.handle == 'alex'"}}}})]
+        (is (= ["Alex"]
+               (->> (binding [sql/*in-progress-stmts* query-tracker]
+                      (pretty-perm-q ctx {:users {}}))
+                    :users
+                    (map :fullName))))
+        ;; 1 to fetch the query result
+        ;; 1 to fetch rules
+        ;; no preload, because the query fetched whole entities
+        (is (= 2 @query-count))))))
+
 (defn query-object-tree [ctx q]
   (instaql-nodes->object-tree ctx (iq/query ctx q)))
 

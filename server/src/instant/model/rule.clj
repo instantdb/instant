@@ -261,6 +261,7 @@
                 :cel-ast ast
                 :cel-program (cel/->program ast)
                 :ref-uses (cel/collect-ref-uses ast)
+                :data-field-uses (cel/collect-data-field-uses ast)
                 :where-clauses-program (when (and (= op-type "allow") (= action "view"))
                                          (cel/where-clauses-program code))})
              (catch CelValidationException e

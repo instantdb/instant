@@ -268,7 +268,7 @@
         before (iq/extract-permission-helpers* empty-acc ctx tree)
         after (iq/extract-permission-helpers-cached empty-acc ctx tree)]
     (with-redefs [iq/preload-entity-maps (fn [& _] {})
-                  iq/entity-map (fn [_ _ _ id] {"id" (str id)})]
+                  iq/entity-map (fn [_ _ _ id & _] {"id" (str id)})]
       (let [before-checks (iq/get-etype+eid-check-result! ctx before nil)
             after-checks (iq/get-etype+eid-check-result! ctx after nil)
             before-result (mapv #(iq/permissioned-node ctx before-checks %) tree)
