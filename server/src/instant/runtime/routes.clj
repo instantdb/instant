@@ -266,12 +266,18 @@
     (-> (response/found redirect-url)
         (response/set-cookie oauth-cookie-name
                              (format-cookie cookie-uuid)
-                             {:http-only true
-                              ;; Don't require https in dev
-                              :secure (not= :dev (config/get-env))
-                              :expires cookie-expires
-                              ;; matches everything under the subdirectory
-                              :path "/runtime/oauth"}))))
+                             (let [secure? (not= :dev (config/get-env))]
+                               {:http-only true
+                                ;; Don't require https in dev
+                                :secure secure?
+                                ;; The provider POSTs back to the callback
+                                ;; (response_mode=form_post), so the cookie
+                                ;; has to be sent on a cross-site request.
+                                ;; Browsers reject SameSite=None without Secure.
+                                :same-site (if secure? :none :lax)
+                                :expires cookie-expires
+                                ;; matches everything under the subdirectory
+                                :path "/runtime/oauth"})))))
 
 (defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id extra-fields
                                   use-shared-credentials?]}]
