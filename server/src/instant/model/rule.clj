@@ -275,6 +275,12 @@
          (fallback-program etype action))
        (recur (next paths))))))
 
+(defn- internal-etype?
+  "Instant manages these namespaces, so they always use their built-in rules."
+  [etype]
+  (and (contains? system-catalog/all-etypes etype)
+       (not (contains? system-catalog/editable-etypes etype))))
+
 (defn get-program!
   ([rules paths]
    (cache/get program-cache [rules paths] get-program!*))
@@ -283,11 +289,13 @@
     rules
     {:etype etype
      :action action
-     :paths [[etype      "allow"    action]
-             [etype      "allow"    "$default"]
-             ["$default" "allow"    action]
-             ["$default" "allow"    "$default"]
-             [etype      "fallback" action]]})))
+     :paths (if (internal-etype? etype)
+              [[etype "fallback" action]]
+              [[etype      "allow"    action]
+               [etype      "allow"    "$default"]
+               ["$default" "allow"    action]
+               ["$default" "allow"    "$default"]
+               [etype      "fallback" action]])})))
 
 (defn get-field-program!
   [{:keys [code] :as rules} etype field]

@@ -1,6 +1,7 @@
 (ns instant.model.rule-test
   (:require [clojure.test :as test :refer [deftest is]]
             [instant.model.rule :as rule]
+            [instant.system-catalog :as system-catalog]
             [instant.util.test :as test-util]
             [instant.util.exception :as ex]))
 
@@ -147,6 +148,13 @@
            "The $codes namespace is a reserved internal namespace that does not yet support rules.",
            :in ["$codes" "allow" "delete"]}]
          (rule/validation-errors {"$codes" {"allow" {"update" "true"}}}))))
+
+(deftest only-editable-system-etypes-inherit-default-rules
+  (let [code {"$default" {"allow" {"view" "auth.id != null"}}}]
+    (doseq [etype system-catalog/all-etypes]
+      (is (= (if (contains? system-catalog/editable-etypes etype) "auth.id != null" "false")
+             (:code (rule/get-program! {:code code} etype "view")))
+          etype))))
 
 (deftest invalid-syntax-fails
   (is (= [{:message
