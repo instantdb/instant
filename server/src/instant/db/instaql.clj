@@ -32,7 +32,7 @@
    [instant.comment :as c])
   (:import
    (instant.db.cel RateLimitBucket)
-   (java.util UUID)))
+   (java.util HashMap UUID)))
 
 ;; ----
 ;; Form
@@ -1270,6 +1270,17 @@
           o
           where-order))
 
+(defn seeks-query-cpu-enabled? [app-id query feature]
+  (and (= app-id #uuid "8ad982d7-09bc-45bd-83c4-8d56ebf32286")
+       (contains? #{:permission-helpers :triple-collection :skip-unchanged :leaf-results} feature)
+       (contains? #{{:seeks {}}
+                    {:seeks {:$ {:where {:resultsCount {:$gt 0}
+                                        :indexable {:$ne false}}}}}}
+                  query)
+       (not (flags/toggled? :disable-seeks-query-cpu))
+       (true? (get-in (flags/flag :seeks-query-cpu)
+                      [(str app-id) (name feature)]))))
+
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
   [ctx o]
@@ -1296,7 +1307,12 @@
                              ctx query-hash
                              #(datalog-query-fn (assoc ctx
                                                        :query-hash query-hash
-                                                       :query-normalized effective-query-normalized)
+                                                       :query-normalized effective-query-normalized
+                                                       :seeks-leaf-result?
+                                                       (and (= o effective-query)
+                                                            (seeks-query-cpu-enabled? (:app-id ctx)
+                                                                                     effective-query
+                                                                                     :leaf-results)))
                                                 patterns))]
         (collect-query-results ctx (:data datalog-result) forms)))))
 
@@ -1910,6 +1926,59 @@
            acc
            instaql-res)))
 
+(defn extract-permission-helpers-cached
+  [acc {:keys [attrs rules rule-wheres]} instaql-res]
+  (let [attr-cache (HashMap.)
+        view-program (memoize #(rule-model/get-program! rules % "view"))
+        ;; Cache absent field rules too, without adding nil programs to the result.
+        attr-info (fn [a]
+                    (or (.get attr-cache a)
+                        (let [[etype label] (-> (attr-model/seek-by-id a attrs)
+                                               attr-model/fwd-ident-name)
+                              info [etype label
+                                    (delay (rule-model/get-field-program! rules etype label))]]
+                          (.put attr-cache a info)
+                          info)))]
+    (letfn [(collect [acc nodes]
+              (reduce
+               (fn [acc {:keys [data child-nodes]}]
+                 (let [rule-where (get rule-wheres (:etype data))
+                       checked? (and rule-where (not (:short-circuit? rule-where)))
+                       etype->eids+program
+                       (reduce
+                        (fn [etypes join-row]
+                          (reduce
+                           (fn [etypes [e a]]
+                             (let [[etype label field-program] (attr-info a)
+                                   {:keys [program field-programs] :as entry} (get etypes etype)
+                                   entry (cond-> (assoc entry
+                                                       :eids (conj (or (:eids entry) #{}) e)
+                                                       :program (or program (view-program etype))
+                                                       :field-programs
+                                                       (if (contains? field-programs label)
+                                                         field-programs
+                                                         (if-some [program @field-program]
+                                                           (assoc field-programs label program)
+                                                           field-programs)))
+                                           (and checked? (= etype (:etype data)))
+                                           (update :checked-eids (fnil conj #{}) e))]
+                               (assoc etypes etype entry)))
+                           etypes
+                           join-row))
+                        (:etype->eids+program acc)
+                        (get-in data [:datalog-result :join-rows]))
+                       acc (-> (cond-> acc
+                                 (not (identical? (:etype->eids+program acc) etype->eids+program))
+                                 (assoc :etype->eids+program etype->eids+program))
+                               (assoc-in [:query-cache (:datalog-query data)]
+                                         (:datalog-result data)))]
+                   (if (seq child-nodes)
+                     (collect acc child-nodes)
+                     acc)))
+               acc
+               nodes))]
+      (collect acc instaql-res))))
+
 (defn check-rate-limits-for-rule-wheres
   "Applies rate limits for entities that used rule-wheres. We don't execute
    the rule for each entity, so we gather them up when we generate the wheres
@@ -1937,7 +2006,9 @@
 
   ([acc ctx instaql-res]
    (tracer/with-span! {:name "extract-permission-helpers"}
-     (let [helpers (extract-permission-helpers* acc ctx instaql-res)]
+     (let [helpers (if (::seeks-permission-helpers? ctx)
+                     (extract-permission-helpers-cached acc ctx instaql-res)
+                     (extract-permission-helpers* acc ctx instaql-res))]
        (check-rate-limits-for-rule-wheres ctx helpers)
        helpers))))
 
@@ -2282,7 +2353,9 @@
       (hint-testing/queue-for-testing ctx permissioned-query o))
     (if admin?
       (query ctx (dissoc o :$$ruleParams))
-      (let [ctx (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
+      (let [seeks-permission-helpers? (seeks-query-cpu-enabled? app-id o :permission-helpers)
+            original-query o
+            ctx (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
             rule-params (:$$ruleParams o)
             o (dissoc o :$$ruleParams)
             rules (rule-model/get-by-app-id (:conn-pool (:db ctx)) {:app-id app-id})
@@ -2294,12 +2367,18 @@
             o (if (seq rule-wheres)
                 (add-rule-wheres-to-query ctx rule-wheres o)
                 o)
+            seeks-permission-helpers? (and seeks-permission-helpers?
+                                          (not (:table-info ctx))
+                                          (= original-query o)
+                                          (empty? (flags/query-modifiers app-id
+                                                                         (instaql-util/forms-hash o))))
             res (query ctx o)
 
             perm-helpers
             (extract-permission-helpers {:attrs (:attrs ctx)
                                          :rules rules
-                                         :rule-wheres rule-wheres}
+                                         :rule-wheres rule-wheres
+                                         ::seeks-permission-helpers? seeks-permission-helpers?}
                                         res)
             etype+eid->check (get-etype+eid-check-result! ctx perm-helpers rule-params)
             res' (tracer/with-span! {:name "instaql/map-permissioned-node"}

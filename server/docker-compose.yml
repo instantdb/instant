@@ -2,6 +2,7 @@ services:
   web:
     image: IMAGE_REPLACE_ME
     environment:
+      - JAVA_OPTS=-Xms90g -Xmx90g -Djdk.tracePinnedThreads=full
       - BEANSTALK_PORT=80
       - PRODUCTION=true
     env_file:
