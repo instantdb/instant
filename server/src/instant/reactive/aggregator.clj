@@ -372,9 +372,11 @@
   ;; via find-or-create-sketches! and every pass saves with save-sketches!, so
   ;; evicting loses nothing. 4096 was too large for a 4 GB heap: each sketch is
   ;; about 1.6 MB, so the cap was ~6.5 GB, and with a few thousand attributes it
-  ;; is reached by memory exhaustion long before the entry count. Read at
+  ;; is reached by memory exhaustion long before the entry count. Prod keeps
+  ;; 4096: it has the heap for it, and every miss costs a reload. Read at
   ;; start-up, so a change takes a server restart.
-  (let [sketch-cache (cache/make {:max-size (flags/flag :aggregator-sketch-cache-max-size 256)})
+  (let [sketch-cache (cache/make {:max-size (flags/flag :aggregator-sketch-cache-max-size
+                                                        (if (config/prod?) 4096 256))})
         process-chan (ua/chunked-chan {:flush-ms sketch-flush-ms
                                        :max-size sketch-flush-max-items
                                        :combine combine-sketch-changes
