@@ -239,7 +239,15 @@
                                                   :tx-created-at tx-created-at
                                                   :name "send-refreshes"
                                                   :attributes {:num-sockets (count sockets)}})
-          (when (or (config/dev?) (seq sync-subs))
+          ;; Buffer only for apps with sync-table subscriptions, the only
+          ;; readers of sync-table-txes. The (config/dev?) clause buffered every
+          ;; transaction for every app in dev -- and the self-hosted image sets
+          ;; neither PRODUCTION nor STAGING, so get-env falls through to :dev on
+          ;; every self-hosted server. The buffer is capped at 10,000 by count,
+          ;; not bytes, and only evicts when a newer transaction arrives, so after
+          ;; a burst of large transactions it holds gigabytes of WAL records
+          ;; indefinitely, including while idle.
+          (when (seq sync-subs)
             (rs/add-transaction-to-sync-table-txes wal-record))
           (tracer/with-span! {:name "invalidator/send-refreshes"}
             (doseq [{:keys [id]} sockets]
