@@ -5,11 +5,17 @@
    [instant.grouped-queue :as grouped-queue]
    [instant.grpc :as grpc]
    [instant.isn :as isn]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.jdbc.wal :as wal]
    [instant.model.history :as history-model]
    [instant.reactive.invalidator :as inv]
-   [instant.util.test :refer [wait-for]])
+   [instant.util.test :refer [wait-for]]
+   [instant.util.tracer :as tracer])
   (:import
-   (io.grpc.stub ServerCallStreamObserver StreamObserver)))
+   (io.grpc.stub ServerCallStreamObserver StreamObserver)
+   (java.sql SQLException SQLTransientConnectionException)
+   (java.util.concurrent CancellationException)))
 
 ;; ------
 ;; helpers
@@ -96,6 +102,91 @@
   `(with-redefs [inv/grpc-registry (atom {:local-processes {}
                                           :remote-observers {}})]
      ~@body))
+
+;; ------
+;; singleton listener
+
+(deftest singleton-listener-recovers-after-db-outage
+  (let [attempts (atom [])
+        checks (atom 0)
+        kicks (atom 0)
+        errors (atom [])
+        release-shutdown (promise)
+        reacquired (promise)
+        make-wal-opts wal/make-wal-opts
+        get-conn-config (with-meta (constantly nil) {:same-as-read-conn true})]
+    (with-redefs [aurora/conn-pool (constantly nil)
+                  sql/select-one (fn [& _]
+                                   (when (= 2 (swap! checks inc))
+                                     (throw (ex-info "Postgres connection failed"
+                                                     {}
+                                                     (SQLException. "connection failed"))))
+                                   {:active false})
+                  wal/make-wal-opts (fn [opts]
+                                     (assoc (make-wal-opts opts)
+                                            :stopped (promise)))
+                  wal/start-singleton-worker (fn [opts]
+                                               (swap! attempts conj opts)
+                                               (deliver (:started-promise opts) true)
+                                               @(:stopped opts))
+                  wal/shutdown! (fn [opts]
+                                  (when (= opts (first @attempts))
+                                    @release-shutdown)
+                                  (deliver (:stopped opts) true))
+                  wal/kick-wal (fn [_]
+                                 (when (= 1 (swap! kicks inc))
+                                   (deliver release-shutdown true)
+                                   (throw (SQLTransientConnectionException. "pool unavailable"))))
+                  inv/start-singleton-worker (fn [{:keys [close-signal-chan]}]
+                                               (if (= 1 (count @attempts))
+                                                 (a/close! close-signal-chan)
+                                                 (deliver reacquired true))
+                                               {:completed-chan (a/chan)})
+                  inv/broadcast-slot-disconnect (constantly nil)
+                  tracer/record-exception-span! (fn [_ {:keys [name]}]
+                                                  (swap! errors conj name))]
+      (let [{:keys [shutdown completed-chan]}
+            (inv/start-singleton-listener
+             {:acquire-slot-interval-ms 10
+              :process-id 1
+              :check-disabled (constantly false)
+              :acquire-slot-interrupt-chan (a/chan)
+              :get-conn-config get-conn-config
+              :slot-num 0
+              :get-remote-observers (constantly [])
+              :previous-isn-atom (atom nil)})]
+        (try
+          (is (= true (deref reacquired 2000 ::timeout))
+              "the listener acquires a new slot after cleanup and slot-check failures")
+          (is (= 2 (count @attempts)))
+          (is (= ["invalidator/kick-wal-error" "invalidator/active-slot-check-error"]
+                 @errors))
+          (is (realized? (:stopped (first @attempts)))
+              "the previous WAL worker has stopped before reacquisition")
+          (doseq [key [:to :close-signal-chan :worker-chan]]
+            (is (false? (first (a/alts!! [[(get (first @attempts) key) :closed]
+                                          (a/timeout 100)])))))
+          (finally
+            (deliver release-shutdown true)
+            (let [finished (future (shutdown))]
+              (is (not= ::timeout (deref finished 2000 ::timeout))
+                  "explicit shutdown still finishes"))))
+        (is (= [nil completed-chan] (a/alts!! [completed-chan (a/timeout 1000)])))
+        (is (every? #(realized? (:stopped %)) @attempts))))))
+
+(deftest active-slot-check-preserves-cancellation-and-unexpected-errors
+  (doseq [error [(InterruptedException. "interrupted")
+                 (CancellationException. "cancelled")
+                 (SQLException. "interrupted connection" (InterruptedException.))
+                 (IllegalStateException. "unexpected")]]
+    (with-redefs [aurora/conn-pool (constantly nil)
+                  sql/select-one (fn [& _] (throw error))]
+      (is (identical? error
+                      (try
+                        (inv/fast-active-slot-check
+                         {:get-conn-config (with-meta (constantly nil) {:same-as-read-conn true})
+                          :slot-type :invalidator})
+                        (catch Exception e e)))))))
 
 ;; ------
 ;; handle-singleton-wal-record
