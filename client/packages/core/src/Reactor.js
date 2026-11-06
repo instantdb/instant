@@ -27,6 +27,11 @@ import { create } from 'mutative';
 import createLogger from './utils/log.ts';
 import { validateQuery } from './queryValidation.ts';
 import { validateTransactions } from './transactionValidation.ts';
+import {
+  mutationFootprint,
+  queryFootprint,
+  footprintsIntersect,
+} from './notifyScope.ts';
 import { InstantError } from './InstantError.ts';
 import { InstantAPIError } from './utils/fetch.ts';
 import { validate as validateUUID } from 'uuid';
@@ -289,6 +294,13 @@ export default class Reactor {
   _inFlightMutationEventIds = new Set();
   /** @type FrameworkClient | null */
   _frameworkClient = null;
+  /**
+   * When false, a local write notifies every query rather than only the ones
+   * its footprint can affect. Used by tests to compare the two.
+   */
+  _scopedNotify = true;
+  /** @type {Map<string, {q: any, attrs: any, fp: import('./notifyScope.ts').QueryFootprint | null}>} */
+  _queryFootprints = new Map();
 
   constructor(
     config,
@@ -964,6 +976,8 @@ export default class Reactor {
     const mut = this._pendingMutations().get(eventId);
 
     if (mut && (status !== 'timeout' || !mut['tx-id'])) {
+      // Read before the delete below.
+      const affected = this._mutationsFrom(eventId);
       this._updatePendingMutations((prev) => {
         prev.delete(eventId);
         return prev;
@@ -974,7 +988,7 @@ export default class Reactor {
         hint: errorMsg.hint,
         traceId: errorMsg.traceId,
       };
-      this.notifyAll();
+      this._notifyForMutations(affected);
       this.notifyAttrsSubs();
       this.notifyMutationErrorSubs(errDetails);
       this._finishTransaction(status, eventId, errorMsg);
@@ -1249,6 +1263,7 @@ export default class Reactor {
     delete this.queryCbs[hash];
     delete this.queryOnceDfds[hash];
     delete this._dataForQueryCache[hash];
+    this._queryFootprints.delete(hash);
     this.querySubs.unloadKey(hash);
 
     this._trySendAuthed(uuid(), { op: 'remove-query', q });
@@ -1503,6 +1518,59 @@ export default class Reactor {
     });
   }
 
+  /**
+   * The pending mutation `eventId` and every pending mutation applied after
+   * it. Removing one can change how a later one applies (a lookup it
+   * resolved, an update of an entity it created), so rolling one back
+   * re-runs the queries any of them could affect.
+   */
+  _mutationsFrom(eventId) {
+    const sorted = sortedMutationEntries(this._pendingMutations().entries());
+    const i = sorted.findIndex(([k]) => k === eventId);
+    return i < 0 ? null : sorted.slice(i).map(([_k, mut]) => mut);
+  }
+
+  /**
+   * Like `notifyAll`, but only for the queries `muts` can affect. Anything
+   * it can't classify notifies every query.
+   */
+  _notifyForMutations(muts) {
+    let writeFp = null;
+    if (this._scopedNotify && muts) {
+      writeFp = new Map();
+      for (const mut of muts) {
+        writeFp = mutationFootprint(mut['tx-steps'], this.attrs, writeFp);
+        if (!writeFp) break;
+      }
+    }
+    if (!writeFp) {
+      this.notifyAll();
+      return;
+    }
+    Object.keys(this.queryCbs).forEach((hash) => {
+      if (!this._mutationMayAffect(hash, writeFp)) return;
+      this.querySubs
+        .waitForKeyToLoad(hash)
+        .then(() => this.notifyOne(hash))
+        .catch(() => this.notifyOne(hash));
+    });
+  }
+
+  _mutationMayAffect(hash, writeFp) {
+    // Never delivered, or cleared by notifyQueryError: always deliver.
+    if (!this._dataForQueryCache[hash]) return true;
+    const q = this.querySubs.currentValue?.[hash]?.q;
+    if (!q) return true;
+    // Cached while the query form and the attrs it was resolved against are
+    // the same objects.
+    let entry = this._queryFootprints.get(hash);
+    if (!entry || entry.q !== q || entry.attrs !== this.attrs) {
+      entry = { q, attrs: this.attrs, fp: queryFootprint(q, this.attrs) };
+      this._queryFootprints.set(hash, entry);
+    }
+    return !entry.fp || footprintsIntersect(writeFp, entry.fp);
+  }
+
   loadedNotifyAll() {
     this.kv
       .waitForKeyToLoad('pendingMutations')
@@ -1571,7 +1639,7 @@ export default class Reactor {
     this.mutationDeferredStore.set(eventId, dfd);
     this._sendMutation(eventId, mutation);
 
-    this.notifyAll();
+    this._notifyForMutations([mutation]);
 
     return dfd.promise;
   };
