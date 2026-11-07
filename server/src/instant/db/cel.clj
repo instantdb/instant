@@ -1749,6 +1749,49 @@
   [^CelAbstractSyntaxTree ast]
   (expr->ref-uses (.getExpr ast)))
 
+(defn- data-ident? [^CelExpr expr]
+  (and (= CelExpr$ExprKind$Kind/IDENT (.getKind expr))
+       (= "data" (.name (.ident expr)))))
+
+(defn collect-data-field-uses
+  "Returns the set of fields the cel ast reads from `data`, e.g. #{\"title\"}
+   for `data.title == 'x'`, or :all if it uses `data` in a way that we can't
+   narrow to named fields, e.g. `data[key]`. `data.ref` calls only need
+   `data.id`, which we always fetch."
+  [^CelAbstractSyntaxTree ast]
+  (let [exprs (->> (CelNavigableAst/fromAst ast)
+                   (.getRoot)
+                   (.allNodes)
+                   (stream-seq!)
+                   (map get-expr))
+        {:keys [fields known-uses]}
+        (reduce (fn [acc ^CelExpr expr]
+                  (condp = (.getKind expr)
+                    CelExpr$ExprKind$Kind/SELECT
+                    (let [select (.select expr)]
+                      (if (data-ident? (.operand select))
+                        (-> acc
+                            (update :fields conj (.field select))
+                            (update :known-uses inc))
+                        acc))
+
+                    CelExpr$ExprKind$Kind/CALL
+                    (let [call (.call expr)
+                          target (get-optional-value (.target call))]
+                      (if (and target
+                               (data-ident? target)
+                               (= "ref" (.function call)))
+                        (update acc :known-uses inc)
+                        acc))
+
+                    acc))
+                {:fields #{}
+                 :known-uses 0}
+                exprs)]
+    (if (= known-uses (count (filter data-ident? exprs)))
+      fields
+      :all)))
+
 (defn prefetch-data-refs
   "refs should be a list of:
      {eids: #{uuid}

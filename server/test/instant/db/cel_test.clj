@@ -6,7 +6,8 @@
             [instant.model.app-user :as app-user-model]
             [instant.db.cel :as cel]
             [instant.db.datalog :as d]
-            [instant.db.transaction :as tx])
+            [instant.db.transaction :as tx]
+            [instant.model.rule :as rule-model])
   (:import (dev.cel.parser CelStandardMacro)
            (dev.cel.common CelValidationException)
            (java.time Instant)
@@ -581,3 +582,36 @@
 
 (comment
   (test/run-tests *ns*))
+
+(deftest collect-data-field-uses
+  (let [uses (fn [code]
+               (cel/collect-data-field-uses (cel/->ast (cel/action->compiler "view") code)))]
+    (testing "fields read with a select"
+      (is (= #{"handle"} (uses "data.handle == 'alex'")))
+      (is (= #{"a" "b"} (uses "data.a == 1 || (data.b != null && auth.id == data.b)")))
+      (is (= #{"doc"} (uses "data.doc.title == 'x'")))
+      (is (= #{"deletedAt"} (uses "!has(data.deletedAt)")))
+      (is (= #{"tags"} (uses "data.tags.exists(t, t == 'x')"))))
+    (testing "rules that don't read data"
+      (is (= #{} (uses "true")))
+      (is (= #{} (uses "auth.id != null"))))
+    (testing "data.ref only needs the id, which is always fetched"
+      (is (= #{} (uses "auth.id in data.ref('owner.id')")))
+      (is (= #{"public"} (uses "data.public || auth.id in data.ref('owner.id')"))))
+    (testing "other uses of data fall back to every field"
+      (is (= :all (uses "data['handle'] == 'alex'")))
+      (is (= :all (uses "size(data) > 0")))
+      (is (= :all (uses "'handle' in data")))
+      (is (= :all (uses "[data].exists(d, d.handle == 'alex')")))
+      (is (= :all (uses "data.handle == 'alex' && data[auth.id] == true"))))))
+
+(deftest data-field-uses-include-binds
+  (let [rules {:app_id (random-uuid)
+               :code {"items" {"bind" ["isOwner" "auth.id == data.ownerId"
+                                       "isPublic" "data.visibility == 'public'"]
+                               "allow" {"view" "isOwner || isPublic"}
+                               "fields" {"secret" "isOwner"}}}}]
+    (is (= #{"ownerId" "visibility"}
+           (:data-field-uses (rule-model/get-program! rules "items" "view"))))
+    (is (= #{"ownerId"}
+           (:data-field-uses (rule-model/get-field-program! rules "items" "secret"))))))

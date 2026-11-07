@@ -2,6 +2,7 @@
   (:require
    [clojure.core.async :as a]
    [clojure.java.io :as io]
+   [clojure.set :as set]
    [clojure.test :as test :refer [deftest is testing]]
    [datascript.core :as ds]
    [instant.config :as config]
@@ -16,6 +17,7 @@
    [instant.grouped-queue :as grouped-queue]
    instant.isn
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
    [instant.model.app-stream :as app-stream-model]
    [instant.model.rule :as rule-model]
@@ -29,6 +31,7 @@
    [instant.util.cache :as cache]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
+   [instant.util.json :as json]
    [instant.util.test :as test-util])
   (:import
    (com.hazelcast.core HazelcastInstance)
@@ -1720,3 +1723,141 @@
                   (is (contains? book-ids (str book-a)))
                   (is (contains? book-ids (str book-b)))
                   (is (contains? book-ids (str book-c))))))))))))
+
+;; ----------------------------------------------
+;; Which writes refresh a permissioned query
+
+(defn- triple-topics
+  "The topics that the invalidator produces for the stored triples of `e` `a`."
+  [app-id e a]
+  (->> (sql/select ::triple-topics
+                   (aurora/conn-pool :read)
+                   ["select cast(value as text) as value, ea, eav, av, ave, vae
+                       from triples
+                      where app_id = ?::uuid and entity_id = ?::uuid and attr_id = ?::uuid"
+                    app-id e a])
+       (map (fn [{:keys [value] :as row}]
+              (let [v (json/<-json value)]
+                [(set (filter row [:ea :eav :av :ave :vae]))
+                 #{e}
+                 #{a}
+                 #{(if (:eav row) (parse-uuid v) v)}])))
+       set))
+
+(defn- transact-topics!
+  "Transacts `tx-steps`, which must only change triples of `e` `a`, and returns
+   the topics that the invalidator would produce for the change."
+  [app-id e a tx-steps]
+  (let [before (triple-topics app-id e a)
+        _ (tx/transact! (aurora/conn-pool :write)
+                        (attr-model/get-by-app-id app-id)
+                        app-id
+                        tx-steps)
+        after (triple-topics app-id e a)]
+    (set/difference (set/union before after)
+                    (set/intersection before after))))
+
+(defn- refreshed-by?
+  "Subscribes to `q`, makes the write, and returns whether the write marked `q`
+   stale. Unsubscribes afterwards so that the next check starts fresh."
+  [store {:keys [socket app-id tx-counter]} q [e a tx-steps]]
+  (let [sess-id (:id socket)
+        _ (blocking-send-msg :add-query-ok socket {:op :add-query :q q})
+        _ (is (empty? (rs/get-stale-instaql-queries store app-id sess-id)))
+        topics (transact-topics! app-id e a tx-steps)
+        _ (is (seq topics) "the write must change a triple")
+        tx-id (swap! tx-counter inc)
+        _ (rs/mark-stale-topics! store app-id tx-id (instant.isn/test-isn tx-id) topics {})
+        stale? (contains? (set (map :instaql-query/query
+                                    (rs/get-stale-instaql-queries store app-id sess-id)))
+                          q)]
+    (blocking-send-msg :remove-query-ok socket {:op :remove-query :q q})
+    stale?))
+
+(defn- with-permissioned-session [rules f]
+  (with-session
+    (fn [store {:keys [socket zeneca-app-id zeneca-resolver]}]
+      (rule-model/put! {:app-id zeneca-app-id :code rules})
+      (blocking-send-msg :init-ok socket {:op :init :app-id zeneca-app-id})
+      (rs/transact! "store/reset-tx-id"
+                    (rs/app-conn store zeneca-app-id)
+                    [[:db.fn/call (fn [db]
+                                    [[:db/add (ds/entid db [:tx-meta/app-id zeneca-app-id]) :tx-meta/processed-tx-id 0]
+                                     [:db/add (ds/entid db [:tx-meta/app-id zeneca-app-id]) :tx-meta/processed-isn (instant.isn/test-isn 0)]])]])
+      (f store
+         {:socket socket
+          :app-id zeneca-app-id
+          :tx-counter (atom 0)}
+         zeneca-resolver))))
+
+(defn- set-value [r eid attr v]
+  (let [e (resolvers/->uuid r eid)
+        a (resolvers/->uuid r attr)]
+    [e a [[:add-triple e a v]]]))
+
+(deftest view-rule-fields-refresh-queries-with-fields
+  (with-permissioned-session
+    {:users {:allow {:view "data.handle != 'joe'"}}}
+    (fn [store sess r]
+      (let [q {:users {:$ {:fields ["fullName"]}}}
+            refreshed? (partial refreshed-by? store sess q)]
+        (testing "a field that the query doesn't fetch and the rule doesn't read"
+          (is (not (refreshed? (set-value r "eid-alex" :users/email "alex@example.com")))))
+        (testing "a field that the rule reads"
+          (is (refreshed? (set-value r "eid-alex" :users/handle "alex2"))))
+        (testing "a field that the query fetches"
+          (is (refreshed? (set-value r "eid-alex" :users/fullName "Alex 2"))))
+        (testing "an unread field of a row that the rule hides"
+          (is (not (refreshed? (set-value r "eid-joe-averbukh" :users/email "joe@example.com")))))
+        (testing "a rule field of a hidden row, so the row can appear"
+          (is (refreshed? (set-value r "eid-joe-averbukh" :users/handle "joe2"))))))))
+
+(deftest view-rule-fields-without-query-fields
+  (with-permissioned-session
+    {:users {:allow {:view "data.handle != 'joe'"}}}
+    (fn [store sess r]
+      (testing "a query without :fields still refreshes on any field"
+        (is (refreshed-by? store sess {:users {}}
+                           (set-value r "eid-alex" :users/email "alex@example.com")))))))
+
+(deftest field-rule-fields-refresh-queries-with-fields
+  (with-permissioned-session
+    {:users {:allow {:view "true"}
+             :fields {:email "data.fullName != 'Hidden'"}}}
+    (fn [store sess r]
+      (let [q {:users {:$ {:fields ["email"]}}}
+            refreshed? (partial refreshed-by? store sess q)]
+        (testing "a field that only the field rule reads"
+          (is (refreshed? (set-value r "eid-alex" :users/fullName "Hidden"))))
+        (testing "a field that no rule reads"
+          (is (not (refreshed? (set-value r "eid-alex" :users/createdAt "2020-01-01 00:00:00.000000")))))))))
+
+(deftest ref-rule-paths-refresh-queries-with-fields
+  (with-permissioned-session
+    {:bookshelves {:allow {:view "'alex' in data.ref('users.handle')"}}}
+    (fn [store sess r]
+      (let [q {:bookshelves {:$ {:fields ["order"]}}}
+            refreshed? (partial refreshed-by? store sess q)
+            alex (resolvers/->uuid r "eid-alex")
+            stopa (resolvers/->uuid r "eid-stepan-parunashvili")
+            user-shelves (resolvers/->uuid r :users/bookshelves)
+            shelf (resolvers/->uuid r "eid-nonfiction")]
+        (testing "a field of the row that the rule doesn't read"
+          (is (not (refreshed? (set-value r "eid-nonfiction" :bookshelves/desc "changed")))))
+        (testing "the field at the end of the ref path"
+          (is (refreshed? (set-value r "eid-alex" :users/handle "alex2")))
+          (is (refreshed? (set-value r "eid-alex" :users/handle "alex"))))
+        (testing "another field of a linked entity"
+          (is (not (refreshed? (set-value r "eid-alex" :users/email "alex@example.com")))))
+        (testing "linking an entity on the ref path"
+          (is (refreshed? [stopa user-shelves [[:add-triple stopa user-shelves shelf]]])))
+        (testing "unlinking an entity on the ref path"
+          (is (refreshed? [alex user-shelves [[:retract-triple alex user-shelves shelf]]])))))))
+
+(deftest unnarrowable-rules-refresh-on-any-field
+  (with-permissioned-session
+    {:books {:allow {:view "data['isbn13'] != ''"}}}
+    (fn [store sess r]
+      (testing "a rule that indexes data falls back to every field"
+        (is (refreshed-by? store sess {:books {:$ {:fields ["title"]}}}
+                           (set-value r "eid-catch-and-kill" :books/pageCount 1)))))))

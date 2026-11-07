@@ -2063,29 +2063,53 @@
                             (seq (-> node :data :datalog-result :join-rows))))
                          vec)))))))
 
-(defn entity-map [{:keys [datalog-query-fn attrs] :as ctx}
-                  query-cache
-                  etype
-                  eid]
-  (let [datalog-query [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]
-        datalog-result
-        (or (get query-cache datalog-query)
-            (datalog-query-fn ctx datalog-query))]
-    (entity-model/datalog-result->map ctx datalog-result)))
+(defn rule-attr-ids
+  "Returns the attr ids to fetch for an entity so that we can check its rules:
+   the fields that the view rule and the field rules read, plus `id`. Fetching
+   is what subscribes a reactive query, so we fetch only these. Otherwise the
+   query would refresh on any change to the entity, even with `:fields`.
+   Returns all of the etype's attrs if a rule uses `data` in a way that we
+   can't narrow."
+  [attrs etype {:keys [program field-programs]}]
+  (let [all-attr-ids (attr-model/ea-ids-for-etype etype attrs)
+        field-uses (map :data-field-uses
+                        (keep identity (cons program (vals field-programs))))]
+    (if (some #(or (nil? %) (= :all %)) field-uses)
+      all-attr-ids
+      (into #{}
+            (keep (fn [label]
+                    (when-let [attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+                      (when (contains? all-attr-ids (:id attr))
+                        (:id attr)))))
+            (conj (reduce into #{} field-uses) "id")))))
+
+(defn entity-map
+  ([{:keys [attrs] :as ctx} query-cache etype eid]
+   (entity-map ctx query-cache etype eid (attr-model/ea-ids-for-etype etype attrs)))
+  ([{:keys [datalog-query-fn attrs] :as ctx} query-cache etype eid attr-ids]
+   (let [datalog-query [[:ea eid attr-ids]]
+         datalog-result
+         (or (get query-cache datalog-query)
+             ;; The query already fetched the whole entity
+             (get query-cache [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]])
+             (datalog-query-fn ctx datalog-query))]
+     (entity-model/datalog-result->map ctx datalog-result))))
 
 (defn preload-entity-maps
   "Returns a query cache for entities that are missing from the existing
   query cache, but that we'll need to fetch for a rule.
   If the user uses `:fields` in their query to limit what they fetch, we'll
-  still need to fetch the full object to perform permission checks. We do it
-  in a batch to reduce latency."
-  [{:keys [datalog-query-fn attrs] :as ctx} query-cache etype->eids+program]
+  still need to fetch the fields that the rules read to perform permission
+  checks. We do it in a batch to reduce latency."
+  [{:keys [datalog-query-fn attrs] :as ctx} query-cache etype->eids+program etype->attr-ids]
   (let [patterns (keep (fn [[etype {:keys [eids program field-programs]}]]
                          (when (or program
                                    (seq field-programs))
-                           (let [attr-ids (attr-model/ea-ids-for-etype etype attrs)
+                           (let [attr-ids (etype->attr-ids etype)
+                                 all-attr-ids (attr-model/ea-ids-for-etype etype attrs)
                                  missing-eids (reduce (fn [acc eid]
-                                                        (if (contains? query-cache [[:ea eid attr-ids]])
+                                                        (if (or (contains? query-cache [[:ea eid attr-ids]])
+                                                                (contains? query-cache [[:ea eid all-attr-ids]]))
                                                           acc
                                                           (conj acc eid)))
                                                       #{}
@@ -2120,10 +2144,15 @@
                                    {:keys [etype->eids+program query-cache]}
                                    rule-params]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}
-    (let [preloaded-entity-maps (tracer/with-span! {:name "instaql/preload-entity-maps"}
+    (let [etype->attr-ids (reduce-kv (fn [acc etype programs]
+                                       (assoc acc etype (rule-attr-ids (:attrs ctx) etype programs)))
+                                     {}
+                                     etype->eids+program)
+          preloaded-entity-maps (tracer/with-span! {:name "instaql/preload-entity-maps"}
                                   (let [res (preload-entity-maps ctx
                                                                  query-cache
-                                                                 etype->eids+program)]
+                                                                 etype->eids+program
+                                                                 etype->attr-ids)]
                                     (tracer/add-data! {:attributes {:entity-count (count res)}})
                                     res))
           query-cache (merge query-cache preloaded-entity-maps)
@@ -2142,7 +2171,8 @@
                                                   (entity-map ctx
                                                               query-cache
                                                               etype
-                                                              eid))
+                                                              eid
+                                                              (etype->attr-ids etype)))
                                            bindings {:rule-params rule-params
                                                      :data data}]
                                        (update acc :programs conj
@@ -2163,7 +2193,8 @@
                                                (entity-map ctx
                                                            query-cache
                                                            etype
-                                                           eid))
+                                                           eid
+                                                           (etype->attr-ids etype)))
                                         bindings {:rule-params rule-params
                                                   :data data}]
                                     (update acc :programs conj
