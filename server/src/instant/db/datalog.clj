@@ -2767,6 +2767,7 @@
                                    :page-info (:page-info pattern-group)
                                    :aggregate (:aggregate pattern-group)
                                    :datalog-query (:datalog-query pattern-group)
+                                   :topic-symbol-values (:topic-symbol-values pattern-group)
                                    :table (:from query)}))
                       (let [join-sym (get-in pattern-group [:children :join-sym])
                             join-cte [(kw prefix next-idx)
@@ -2790,6 +2791,7 @@
                                                      :table (:from query)
                                                      :page-info (:page-info pattern-group)
                                                      :datalog-query (:datalog-query pattern-group)
+                                                     :topic-symbol-values (:topic-symbol-values pattern-group)
                                                      :children {:pattern-groups (:pattern-groups child-res)
                                                                 :join-sym join-sym}}))))))))
               acc
@@ -3085,6 +3087,24 @@
    acc
    pattern-metas))
 
+;; A pattern group's topics normally come from the rows the whole join
+;; returned. An entity that matches the first patterns but not the rest
+;; produces no row, so a later write that would complete its match isn't
+;; subscribed to. A group can set `:topic-symbol-values` to the values its
+;; symbols may take, and its topics are built from those instead: each
+;; listed symbol is limited to its values and every other symbol is a
+;; wildcard.
+(defn- seeded-topics [pattern-metas symbol-values]
+  (reduce (fn [acc pattern-meta]
+            (if-let [ors (:or pattern-meta)]
+              (reduce (fn [acc pattern-metas]
+                        (into acc (seeded-topics pattern-metas symbol-values)))
+                      acc
+                      ors)
+              (into acc (named-pattern->topics (:pattern pattern-meta) symbol-values))))
+          []
+          pattern-metas))
+
 (defn- sql-result->result
   "Takes the sql result and the metadata from `match-query` to
    return join-rows, symbol-values, and topics.
@@ -3273,6 +3293,11 @@
                                                                  (and (empty? rows)
                                                                       (or (and offset (pos? offset))
                                                                           (some? after-cursor))))))
+                              (and (:topic-symbol-values group)
+                                   (not coarse-topics?))
+                              (assoc :topics (seeded-topics transformed-pattern-metas
+                                                            (:topic-symbol-values group)))
+
                               coarse-topics? (assoc :topics (pats->coarse-topics (:datalog-query group))))
                      datalog-query (if join-sym
                                      (replace-join-sym-in-datalog-query join-sym

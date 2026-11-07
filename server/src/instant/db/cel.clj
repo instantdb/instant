@@ -114,6 +114,11 @@
         ;; make sure to update `group-by-path` in `get-ref-many`
         attr-pats (concat [id-attr-pat] ref-attr-pats [value-attr-pat])]
     {:pats (attr-pat/attr-pats->patterns ctx attr-pats)
+     ;; Subscribe to the first link from every entity we check, and to every
+     ;; change of the later links and the value. Topics built from the
+     ;; result would only cover entities that already have the whole path,
+     ;; so a write that completes the path for another entity would be missed.
+     :topic-symbol-values {(attr-pat/default-level-sym etype level) (set eids)}
      :referenced-etypes (conj referenced-etypes etype)}))
 
 (defn- find-val-path [query]
@@ -126,7 +131,7 @@
 
 (defn- get-ref-many
   [{:keys [datalog-query-fn] :as ctx} {:keys [etype eids path-str]}]
-  (let [{:keys [pats]}
+  (let [{:keys [pats topic-symbol-values]}
         (build-query ctx {:etype etype :eids (set eids) :path-str path-str})
 
         ;; We know that the `eid` is always going to be
@@ -134,7 +139,11 @@
         group-by-path [0 0]
         val-path (find-val-path pats)
         {:keys [join-rows]}
-        (datalog-query-fn ctx pats)
+        (-> (datalog-query-fn ctx {:children {:pattern-groups [{:patterns pats
+                                                                :topic-symbol-values topic-symbol-values}]}})
+            :data
+            first
+            :result)
         grouped-join-rows (group-by #(get-in % group-by-path) join-rows)
         results (map
                  (fn [eid]
@@ -1757,20 +1766,24 @@
    Returns a map of:
      {{eid: uuid, etype: string, path: string}: get-ref-result}"
   [{:keys [datalog-query-fn] :as ctx} refs]
-  (let [{:keys [patterns]}
+  (let [{:keys [patterns topic-symbol-values]}
         (reduce (fn [acc ref-info]
-                  (let [{:keys [pats referenced-etypes]}
+                  (let [{:keys [pats topic-symbol-values referenced-etypes]}
                         (build-query ctx ref-info)]
                     (-> acc
                         (update :patterns conj pats)
+                        (update :topic-symbol-values conj topic-symbol-values)
                         (update :referenced-etypes into referenced-etypes))))
                 {:patterns []
+                 :topic-symbol-values []
                  :referenced-etypes #{}}
                 refs)
 
-        query {:children {:pattern-groups (map (fn [patterns]
-                                                 {:patterns patterns})
-                                               patterns)}}
+        query {:children {:pattern-groups (map (fn [patterns topic-symbol-values]
+                                                 {:patterns patterns
+                                                  :topic-symbol-values topic-symbol-values})
+                                               patterns
+                                               topic-symbol-values)}}
         results (:data (datalog-query-fn (assoc ctx :skip-cache? (flags/toggled? :skip-ref-cache))
                                          query))]
     (reduce (fn [acc [ref pattern result]]
