@@ -53,9 +53,17 @@ export function useQueryInternal<
   // to compare the previous and next state.
   // If we don't use a ref, the state will always be considered different, so
   // the component will always re-render.
+  //
+  // Initialised lazily: useRef's argument is evaluated on every render, and
+  // getPreviousResult runs the query against the local store.
   const resultCacheRef = useRef<InstaQLLifecycleState<Schema, Q, UseDates>>(
-    stateForResult(_core._reactor.getPreviousResult(query)),
+    null!,
   );
+  if (resultCacheRef.current === null) {
+    resultCacheRef.current = stateForResult(
+      _core._reactor.getPreviousResult(query),
+    );
+  }
 
   // Cache the server snapshot to satisfy useSyncExternalStore's requirement
   // that getServerSnapshot returns the same reference across calls.
