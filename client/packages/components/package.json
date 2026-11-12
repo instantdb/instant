@@ -18,7 +18,8 @@
     "build": "vite build",
     "dev": "vite build --watch --mode development",
     "publish-package": "pnpm pack && npm publish *.tgz --access public",
-    "dev:demo": "vite"
+    "dev:demo": "vite",
+    "test:ci": "vitest run"
   },
   "exports": {
     "./package.json": "./package.json",

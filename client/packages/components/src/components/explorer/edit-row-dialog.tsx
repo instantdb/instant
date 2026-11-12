@@ -179,14 +179,19 @@ function getAppropriateFieldType(attr: SchemaAttr, value: any): FieldType {
   return fieldTypeOptions[0].value;
 }
 
-function parseFieldValue(value: any, type: FieldType) {
+export function parseFieldValue(value: any, type: FieldType) {
   // Preserve null regardless of type
   if (value === null) {
     return null;
   }
 
   if (type === 'number') {
-    const cleaned = String(value).replace(/[^\d.-]/g, '');
+    const text = String(value);
+    const number = Number(text);
+    if (text.trim() !== '' && Number.isFinite(number)) {
+      return number;
+    }
+    const cleaned = text.replace(/[^\d.-]/g, '');
     if (
       cleaned === '' ||
       cleaned === '-' ||
