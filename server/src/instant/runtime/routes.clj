@@ -267,17 +267,20 @@
         (response/set-cookie oauth-cookie-name
                              (format-cookie cookie-uuid)
                              (let [secure? (not= :dev (config/get-env))]
-                               {:http-only true
-                                ;; Don't require https in dev
-                                :secure secure?
-                                ;; The provider POSTs back to the callback
-                                ;; (response_mode=form_post), so the cookie
-                                ;; has to be sent on a cross-site request.
-                                ;; Browsers reject SameSite=None without Secure.
-                                :same-site (if secure? :none :lax)
-                                :expires cookie-expires
-                                ;; matches everything under the subdirectory
-                                :path "/runtime/oauth"})))))
+                               (cond-> {:http-only true
+                                        ;; Don't require https in dev
+                                        :secure secure?
+                                        :expires cookie-expires
+                                        ;; matches everything under the subdirectory
+                                        :path "/runtime/oauth"}
+                                 ;; The provider POSTs back to the callback
+                                 ;; (response_mode=form_post), so the cookie
+                                 ;; has to be sent on a cross-site request.
+                                 ;; Browsers reject SameSite=None without
+                                 ;; Secure, so in dev the attribute stays
+                                 ;; unset, which keeps Chrome's "Lax + POST"
+                                 ;; allowance for new cookies.
+                                 secure? (assoc :same-site :none)))))))
 
 (defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id extra-fields
                                   use-shared-credentials?]}]
