@@ -1260,6 +1260,114 @@
                                                 "value"
                                                 0]}}})))))))
 
+(deftest pagination-with-both-cursors-and-a-where-clause
+  ;; A page bounded by BOTH `after` and `before` alongside a `where` is the
+  ;; shape useInfiniteQuery issues on every loadNextPage, to re-subscribe to
+  ;; the page it just scrolled past. It is also the only shape whose join ctes
+  ;; are materialized rather than inlined, so it is worth pinning that the
+  ;; where clause still constrains the range.
+  (with-zeneca-checked-data-app
+    (fn [app _r]
+      (let [id-attr-id (random-uuid)
+            group-attr-id (random-uuid)
+            value-attr-id (random-uuid)
+            ;; "x" and "y" interleave, so a range that ignored the where clause
+            ;; would return the "y" rows too.
+            rows [["a" "x" "1"]
+                  ["b" "y" "2"]
+                  ["c" "x" "3"]
+                  ["d" "y" "4"]
+                  ["e" "x" "5"]
+                  ["f" "y" "6"]]
+            make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool (aurora/conn-pool :write)}
+                          :app-id (:id app)
+                          :attrs attrs}))
+            run-query (fn [q]
+                        (let [ctx (make-ctx)]
+                          (->> (iq/permissioned-query ctx q)
+                               (instaql-nodes->object-tree ctx)
+                               (#(get % "etype"))
+                               (map #(parse-uuid (get % "id"))))))
+            cursor (fn [label value]
+                     [(stuid label) value-attr-id value 0])]
+        (tx/transact! (aurora/conn-pool :write)
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      (concat
+                       [[:add-attr {:id id-attr-id
+                                    :forward-identity [(random-uuid) "etype" "id"]
+                                    :unique? true
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]
+                        [:add-attr {:id group-attr-id
+                                    :forward-identity [(random-uuid) "etype" "group"]
+                                    :unique? false
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]
+                        [:add-attr {:id value-attr-id
+                                    :forward-identity [(random-uuid) "etype" "value"]
+                                    :unique? true
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]]
+                       (mapcat
+                        (fn [[label group value]]
+                          (let [id (stuid label)]
+                            [[:add-triple id id-attr-id (str id)]
+                             [:add-triple id group-attr-id group]
+                             [:add-triple id value-attr-id value]]))
+                        rows)))
+
+        (testing "the same range without a where clause spans both groups"
+          (is (= [(stuid "a") (stuid "b") (stuid "c") (stuid "d") (stuid "e")]
+                 (run-query {:etype {:$ {:order {:value :asc}
+                                         :afterInclusive true
+                                         :beforeInclusive true
+                                         :after (cursor "a" "1")
+                                         :before (cursor "e" "5")}}}))))
+
+        (testing "both cursors + where"
+          (is (= [(stuid "a") (stuid "c") (stuid "e")]
+                 (run-query {:etype {:$ {:where {:group "x"}
+                                         :order {:value :asc}
+                                         :afterInclusive true
+                                         :beforeInclusive true
+                                         :after (cursor "a" "1")
+                                         :before (cursor "e" "5")}}}))))
+
+        (testing "both cursors + where, exclusive bounds"
+          (is (= [(stuid "c")]
+                 (run-query {:etype {:$ {:where {:group "x"}
+                                         :order {:value :asc}
+                                         :after (cursor "a" "1")
+                                         :before (cursor "e" "5")}}}))))
+
+        (testing "both cursors + where, descending"
+          (is (= [(stuid "e") (stuid "c") (stuid "a")]
+                 (run-query {:etype {:$ {:where {:group "x"}
+                                         :order {:value :desc}
+                                         :afterInclusive true
+                                         :beforeInclusive true
+                                         :after (cursor "e" "5")
+                                         :before (cursor "a" "1")}}}))))
+
+        (testing "both cursors + where, with a limit"
+          (is (= [(stuid "a") (stuid "c")]
+                 (run-query {:etype {:$ {:where {:group "x"}
+                                         :order {:value :asc}
+                                         :limit 2
+                                         :afterInclusive true
+                                         :beforeInclusive true
+                                         :after (cursor "a" "1")
+                                         :before (cursor "e" "5")}}}))))))))
+
 (deftest pagination-with-null-values
   (with-zeneca-checked-data-app
     (fn [app r]
