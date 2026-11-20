@@ -27,7 +27,8 @@
      :content-disposition (ex/get-optional-param! params [:content-disposition] string-util/coerce-non-blank-str)}))
 
 (defn upload-put [req]
-  (let [params (w/keywordize-keys (:headers req))
+  (let [params (merge (w/keywordize-keys (:headers req))
+                      (:params req))
         ctx (req->app-file! req params)
         file (ex/get-param! req [:body] identity)
         data (storage-coordinator/upload-file! ctx file)]
