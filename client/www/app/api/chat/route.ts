@@ -315,8 +315,11 @@ export async function POST(req: Request) {
       });
       const result = streamText({
         model: anthropic(
-          process.env.ANTHROPIC_DOCS_CHAT_MODEL || 'claude-sonnet-4-5',
+          process.env.ANTHROPIC_DOCS_CHAT_MODEL || 'claude-sonnet-5-5',
         ),
+        // @ai-sdk/anthropic caps models it doesn't know at 4096 tokens, which
+        // thinking and the answer would have to share.
+        maxOutputTokens: 64_000,
         messages: (await convertToModelMessages(messages)).map(
           (message, i) => ({
             ...message,
